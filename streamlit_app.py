@@ -916,12 +916,15 @@ def obter_itens(tipo_item, codigo_item_catalogo, pagina, tamanho_pagina):
             paginas_restantes = json_response.get('paginasRestantes', 0)
             total_paginas = json_response.get('totalPaginas', 0)
             return itens, paginas_restantes, total_paginas
+        elif response.status_code == 400:
+            st.error("❌ Erro 400 - Requisição Inválida: O código do item pode estar inválido ou em formato incorreto. Verifique o código no catálogo de compras do governo federal.")
+            return [], 0, 0
         else:
             st.error(f"Erro na consulta: {response.status_code}")
-            return [], 0
+            return [], 0, 0
     except Exception as e:
         st.error(f"Erro ao realizar a requisição: {str(e)}")
-        return [], 0
+        return [], 0, 0
 
 # Streamlit UI
 # Header customizado
@@ -970,11 +973,21 @@ tamanho_pagina = 500
 
 if consultar:
     if codigo_item_catalogo:  # Verifica se o código do item de catálogo não está vazio
-        itens, paginas_restantes, total_paginas = obter_itens(tipo_item, codigo_item_catalogo, pagina, tamanho_pagina)
-        if itens:  # Ensure 'itens' is not empty before proceeding
-            st.session_state['itens'] = itens      
+        # Validação do código do item
+        codigo_item_catalogo = codigo_item_catalogo.strip()
+        
+        # Verificar comprimento máximo (limite de segurança/API)
+        if len(codigo_item_catalogo) > 20:
+            st.error("❌ Erro de Validação: O código do item não deve exceder 20 caracteres. Verifique o código e tente novamente.")
+        # Verificar se contém apenas números e caracteres válidos
+        elif not codigo_item_catalogo.isdigit():
+            st.error("❌ Erro de Validação: O código do item deve conter apenas números. Verifique o formato e tente novamente.")
         else:
-            st.error("Nenhum item encontrado. Por favor, tente com um código diferente ou verifique a conexão com a API.")
+            itens, paginas_restantes, total_paginas = obter_itens(tipo_item, codigo_item_catalogo, pagina, tamanho_pagina)
+            if itens:  # Ensure 'itens' is not empty before proceeding
+                st.session_state['itens'] = itens      
+            else:
+                st.error("Nenhum item encontrado. Por favor, tente com um código diferente ou verifique a conexão com a API.")
     else:
         st.warning("Por favor, informe o código do item de catálogo para realizar a consulta.")
 
@@ -1278,6 +1291,20 @@ if st.session_state.get('itens'):
                     st.write(df_debug.head())
             except:
                 pass
+
+# Botão Nova Pesquisa
+if st.session_state.get('itens'):
+    st.markdown("""
+        <div style="margin-top: 2rem; padding: 1.5rem; background: linear-gradient(135deg, #0a2540 0%, #164863 100%); border-radius: 8px; border-left: 5px solid #d4af37; text-align: center;">
+            <p style="color: #d4af37; font-weight: bold; margin-bottom: 1rem; font-size: 14px;">Deseja realizar uma nova pesquisa?</p>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    col_nova_pesquisa = st.columns([1, 2, 1])[1]
+    with col_nova_pesquisa:
+        if st.button("🔄 Nova Pesquisa", use_container_width=True, key='nova_pesquisa'):
+            st.session_state['itens'] = None
+            st.rerun()
 
 # Rodapé
 st.markdown("""
