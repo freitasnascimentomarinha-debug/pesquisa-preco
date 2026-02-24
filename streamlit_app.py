@@ -627,6 +627,276 @@ def gerar_relatorio_pdf_simples(dataframe, estatisticas, outliers_info, col_prec
         return bytes(pdf_output)
     return pdf_output
 
+# Funções para consulta de fornecedores via API OpenCNPJ
+def buscar_dados_fornecedor(cnpj):
+    """Busca dados do fornecedor na API OpenCNPJ"""
+    if not cnpj or pd.isna(cnpj):
+        return None
+    
+    try:
+        # Remover caracteres especiais do CNPJ
+        cnpj_limpo = str(cnpj).replace('.', '').replace('/', '').replace('-', '').strip()
+        if len(cnpj_limpo) != 14:
+            return None
+        
+        api_url = f'https://api.opencnpj.org/{cnpj_limpo}'
+        response = requests.get(api_url, timeout=5)
+        
+        if response.status_code == 200:
+            dados = response.json()
+            # Log para debug (comentado para produção)
+            # print(f"DEBUG - Resposta API para {cnpj_limpo}: {dados}")
+            return dados
+        return None
+    except Exception as e:
+        # Silenciar exceções para não interromper o fluxo
+        return None
+
+def formatar_telefone(telefone):
+    """Formata telefone para um padrão legível (21) 98130-7593"""
+    if isinstance(telefone, dict):
+        # Se é um dicionário com ddd e numero
+        ddd = telefone.get('ddd', '').strip() if telefone.get('ddd') else ''
+        numero = telefone.get('numero', '').strip() if telefone.get('numero') else ''
+        
+        if ddd and numero:
+            # Formatar como (21) 98130-7593 ou (21) 3130-7593
+            if len(numero) >= 8:
+                numero_formatado = f"{numero[:4]}-{numero[4:]}"
+            else:
+                numero_formatado = numero
+            return f"({ddd}) {numero_formatado}"
+        elif numero:
+            return numero
+        elif ddd:
+            return ddd
+        else:
+            return str(telefone)
+    else:
+        # Se é uma string, tentar extrair padrão (21) 98130-7593 se precisar
+        telefone_str = str(telefone).strip()
+        return telefone_str
+
+def extrair_contatos_fornecedor(dados_fornecedor):
+    """Extrai email, telefones, estado e cidade do retorno da API"""
+    if not dados_fornecedor:
+        return None
+    
+    try:
+        # Variações possíveis para campos de email
+        email = ''
+        for campo_email in ['email', 'correio_eletronico', 'mail', 'e_mail', 'emailComercial']:
+            email = dados_fornecedor.get(campo_email, '')
+            if email:
+                break
+        
+        # Variações possíveis para campos de estado/UF
+        estado = ''
+        for campo_estado in ['state', 'estado', 'uf', 'UF', 'state_code', 'sigla_estado']:
+            valor = dados_fornecedor.get(campo_estado, '')
+            if valor:
+                estado = str(valor).upper().strip()
+                break
+        
+        # Variações possíveis para campos de cidade
+        cidade = ''
+        for campo_cidade in ['city', 'cidade', 'municipio', 'municipality', 'city_name']:
+            valor = dados_fornecedor.get(campo_cidade, '')
+            if valor:
+                cidade = str(valor).strip()
+                break
+        
+        # Variações possíveis para campos de telefone
+        telefones = []
+        
+        # Buscar em campos individuais
+        for campo_tel in ['phone', 'telefone', 'phonePrimary', 'phoneSecondary', 
+                         'telefone_comercial', 'telefone_principal', 'ddd_telefone',
+                         'ddd_fax', 'fone', 'telephone']:
+            valor = dados_fornecedor.get(campo_tel, '')
+            if valor:
+                # Formatar o telefone se for dicionário
+                telefone_formatado = formatar_telefone(valor)
+                if telefone_formatado and telefone_formatado not in telefones:
+                    telefones.append(telefone_formatado)
+        
+        # Buscar em arrays
+        for campo_array in ['phones', 'telefones', 'phone_numbers']:
+            valores = dados_fornecedor.get(campo_array, [])
+            if isinstance(valores, list):
+                for v in valores:
+                    if v:
+                        # Formatar o telefone
+                        telefone_formatado = formatar_telefone(v)
+                        if telefone_formatado and telefone_formatado not in telefones:
+                            telefones.append(telefone_formatado)
+        
+        # Remover duplicatas mantendo ordem
+        telefones_unicos = []
+        for t in telefones:
+            if t not in telefones_unicos:
+                telefones_unicos.append(t)
+        
+        # Formatar localização
+        localizacao = ''
+        if cidade and estado:
+            localizacao = f"{cidade}, {estado}"
+        elif cidade:
+            localizacao = cidade
+        elif estado:
+            localizacao = estado
+        
+        return {
+            'email': email if email else 'Não informado',
+            'telefones': ', '.join(telefones_unicos) if telefones_unicos else 'Não informado',
+            'cidade': cidade if cidade else 'Não informado',
+            'estado': estado if estado else 'Não informado',
+            'localizacao': localizacao if localizacao else 'Não informado',
+            'debug_campos': list(dados_fornecedor.keys())  # Para debug
+        }
+    except Exception as e:
+        return None
+
+
+
+def gerar_html_fornecedores(dataframe, descricao_item=None):
+    """Gera HTML com tabela de fornecedores e seus contatos"""
+    
+    # Encontrar as colunas corretas
+    col_niFornecedor = encontrar_coluna(dataframe, ['niFornecedor', 'nifornecedor', 'ni_fornecedor'])
+    col_cnpj = encontrar_coluna(dataframe, ['cnpj', 'CNPJ'])
+    col_nomeFornecedor = encontrar_coluna(dataframe, ['nomeFornecedor', 'nomefornecedor', 'nome_fornecedor', 'fornecedor'])
+    col_descricao = encontrar_coluna(dataframe, ['descricaoItem', 'descricao', 'description', 'item_descricao'])
+    
+    if not col_niFornecedor:
+        return "<h3 style='color: red;'>Erro: Coluna 'niFornecedor' não encontrada no dataframe</h3>"
+    
+    # Se não foi passada descrição, tenta extrair do dataframe
+    if not descricao_item and col_descricao and len(dataframe) > 0:
+        descricao_item = str(dataframe.iloc[0][col_descricao])
+    
+    # Obter fornecedores únicos
+    fornecedores_unicos = dataframe.drop_duplicates(subset=[col_niFornecedor])
+    
+    # CSS inline compacto
+    css_style = """
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: linear-gradient(135deg, #001a4d 0%, #0033cc 100%); font-family: 'Arial', sans-serif; padding: 2rem; min-height: 100vh; }
+    .container { max-width: 1200px; margin: 0 auto; background: #ffffff; border-radius: 10px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3); overflow: hidden; }
+    .header { background: linear-gradient(135deg, #001a4d 0%, #0033cc 100%); color: #ffffff; padding: 2rem; text-align: center; }
+    .header h1 { color: #d4af37; font-size: 36px; margin-bottom: 0.5rem; letter-spacing: 2px; }
+    .header p { font-size: 14px; color: #ffffff; }
+    .header .descricao-item { font-size: 10px; color: #d4af37; letter-spacing: 0.5px; margin-top: 0.5rem; font-style: italic; opacity: 0.8; }
+    .content { padding: 2rem; }
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+    .stat-box { background: linear-gradient(135deg, #0a2540 0%, #164863 100%); padding: 1.5rem; border-radius: 8px; border-left: 5px solid #d4af37; text-align: center; }
+    .stat-box label { color: #d4af37; font-weight: bold; font-size: 12px; letter-spacing: 1px; }
+    .stat-box .value { color: #ffffff; font-size: 28px; font-weight: bold; margin-top: 0.5rem; }
+    table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+    thead { background: #001a4d; color: #ffffff; }
+    th { padding: 1rem; text-align: left; font-weight: bold; border-bottom: 2px solid #d4af37; }
+    td { padding: 0.75rem 1rem; border-bottom: 1px solid #e0e0e0; }
+    tbody tr:hover { background: #f5f5f5; }
+    tbody tr:nth-child(even) { background: #f9f9f9; }
+    .contato-info { font-size: 13px; color: #333; }
+    .email { color: #0033cc; text-decoration: none; }
+    .email:hover { text-decoration: underline; }
+    .phone { color: #006600; }
+    .footer { background: #f0f0f0; padding: 1rem 2rem; text-align: center; color: #666; font-size: 12px; border-top: 1px solid #ddd; }
+    """
+    
+    # Coletar dados de cada fornecedor
+    linhas = []
+    com_email_count = 0
+    com_telefone_count = 0
+    
+    for idx, row in fornecedores_unicos.iterrows():
+        ni_fornecedor = row.get(col_niFornecedor, '')
+        cnpj = row.get(col_cnpj, '') if col_cnpj else ''
+        nome_fornecedor = row.get(col_nomeFornecedor, 'Não informado') if col_nomeFornecedor else 'Não informado'
+        
+        # Buscar dados na API usando niFornecedor
+        dados_fornecedor = buscar_dados_fornecedor(ni_fornecedor)
+        contatos = extrair_contatos_fornecedor(dados_fornecedor) if dados_fornecedor else None
+        
+        if contatos:
+            email = contatos['email']
+            telefones = contatos['telefones']
+            localizacao = contatos['localizacao']
+            
+            if email and email != 'Não informado':
+                com_email_count += 1
+            if telefones and telefones != 'Não informado':
+                com_telefone_count += 1
+        else:
+            email = 'Não informado'
+            telefones = 'Não informado'
+            localizacao = 'Não informado'
+        
+        # Formatar email como link
+        email_html = f'<a href="mailto:{email}" class="email">{email}</a>' if email and email != 'Não informado' else 'Não informado'
+        
+        linha = f"<tr><td>{ni_fornecedor}</td><td>{cnpj}</td><td>{nome_fornecedor}</td><td>{localizacao}</td><td><span class='contato-info'>{email_html}</span></td><td><span class='contato-info phone'>{telefones}</span></td></tr>"
+        linhas.append(linha)
+    
+    linhas_tabela = ''.join(linhas)
+    data_hora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+    
+    html_completo = f"""<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contatos de Fornecedores - AtaCotada</title>
+    <style>{css_style}</style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>AtaCotada</h1>
+            <p>Contatos de Fornecedores - Marinha do Brasil</p>
+            {f'<div class="descricao-item">Fornecedores de: {descricao_item[:100]}</div>' if descricao_item else ''}
+        </div>
+        <div class="content">
+            <div class="stats">
+                <div class="stat-box">
+                    <label>TOTAL DE FORNECEDORES</label>
+                    <div class="value">{len(fornecedores_unicos)}</div>
+                </div>
+                <div class="stat-box">
+                    <label>COM EMAIL</label>
+                    <div class="value">{com_email_count}</div>
+                </div>
+                <div class="stat-box">
+                    <label>COM TELEFONE</label>
+                    <div class="value">{com_telefone_count}</div>
+                </div>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>NI Fornecedor</th>
+                        <th>CNPJ</th>
+                        <th>Fornecedor</th>
+                        <th>Localização</th>
+                        <th>Email</th>
+                        <th>Telefones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {linhas_tabela}
+                </tbody>
+            </table>
+        </div>
+        <div class="footer">
+            <p>Relatório gerado por AtaCotada em {data_hora}</p>
+        </div>
+    </div>
+</body>
+</html>"""
+    
+    return html_completo
+
 # URLs atualizadas
 consultarItemMaterial_base_url = 'https://dadosabertos.compras.gov.br/modulo-pesquisa-preco/1_consultarMaterial'
 consultarItemServico_base_url = 'https://dadosabertos.compras.gov.br/modulo-pesquisa-preco/3_consultarServico'
@@ -922,6 +1192,31 @@ if st.session_state.get('itens'):
                             mime="application/pdf",
                             use_container_width=True
                         )
+                    
+                    # Botão centralizado para consultar fornecedores
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    col_fornecedores = st.columns([1, 1, 1])
+                    with col_fornecedores[1]:
+                        if st.button("📞 Consultar Fornecedores", use_container_width=True, key="btn_fornecedores"):
+                            with st.spinner("Consultando dados de fornecedores..."):
+                                # Extrair descrição do item se disponível
+                                col_descricao = encontrar_coluna(dataframe, ['descricaoItem', 'descricao', 'description', 'item_descricao'])
+                                descricao_item = None
+                                if col_descricao and len(dataframe) > 0:
+                                    descricao_item = str(dataframe.iloc[0][col_descricao])
+                                
+                                html_fornecedores = gerar_html_fornecedores(dataframe, descricao_item)
+                                html_bytes = html_fornecedores.encode('utf-8')
+                                html_filename = f"fornecedores_AtaCotada_{data_hora}.html"
+                                
+                                st.download_button(
+                                    label="📋 Abrir Relatório de Fornecedores",
+                                    data=html_bytes,
+                                    file_name=html_filename,
+                                    mime="text/html",
+                                    use_container_width=True,
+                                    key="btn_download_fornecedores"
+                                )
                 
                 # Mostrar informações sobre outliers removidos quando não houver
                 if not outliers_info:
