@@ -1195,8 +1195,8 @@ if st.session_state.get('itens'):
                     
                     # Botão centralizado para consultar fornecedores
                     st.markdown("<br>", unsafe_allow_html=True)
-                    col_fornecedores = st.columns([1, 1, 1])
-                    with col_fornecedores[1]:
+                    col_fornecedores = st.columns([0.6, 1, 1])
+                    with col_fornecedores[0]:
                         if st.button("📞 Consultar Fornecedores", use_container_width=True, key="btn_fornecedores"):
                             with st.spinner("Consultando dados de fornecedores..."):
                                 # Extrair descrição do item se disponível
