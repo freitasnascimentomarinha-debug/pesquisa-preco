@@ -2,6 +2,12 @@ import streamlit as st
 import requests
 import pandas as pd
 import streamlit.components.v1 as components
+from datetime import datetime
+from io import BytesIO
+from fpdf import FPDF
+from openpyxl import Workbook
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+from openpyxl.utils.dataframe import dataframe_to_rows
 
 # Configuração da página
 st.set_page_config(
@@ -287,6 +293,261 @@ def remover_outliers_iqr(dataframe, coluna):
 
     return df_sem_outliers, outliers_removidos, limite_inferior, limite_superior
 
+# Função para gerar relatório em Excel formatado
+def gerar_relatorio_excel(dataframe, estatisticas, outliers_info, col_precounitario):
+    """
+    Gera um relatório em Excel com os dados formatados e editável.
+    """
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Relatório"
+    
+    # Estilos
+    header_fill = PatternFill(start_color="001A4D", end_color="001A4D", fill_type="solid")
+    header_font = Font(bold=True, color="FFFFFF", size=11)
+    title_font = Font(bold=True, color="D4AF37", size=14)
+    stats_fill = PatternFill(start_color="0033CC", end_color="0033CC", fill_type="solid")
+    stats_font = Font(bold=True, color="FFFFFF", size=10)
+    border = Border(
+        left=Side(style='thin'),
+        right=Side(style='thin'),
+        top=Side(style='thin'),
+        bottom=Side(style='thin')
+    )
+    
+    # TÍTULO
+    ws['A1'] = "AtaCotada"
+    ws['A1'].font = title_font
+    ws['A1'].alignment = Alignment(horizontal='center', vertical='center')
+    ws.merge_cells('A1:J1')
+    ws.row_dimensions[1].height = 25
+    
+    # Subtítulo
+    ws['A2'] = "MARINHA DO BRASIL - Pesquisa de Preços"
+    ws['A2'].font = Font(size=10, bold=True)
+    ws['A2'].alignment = Alignment(horizontal='center')
+    ws.merge_cells('A2:J2')
+    
+    # Data
+    data_hora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+    ws['A3'] = f"Relatório gerado em: {data_hora}"
+    ws['A3'].font = Font(size=9)
+    ws['A3'].alignment = Alignment(horizontal='center')
+    ws.merge_cells('A3:J3')
+    ws.row_dimensions[3].height = 18
+    
+    # ESTATÍSTICAS
+    ws['A5'] = "ESTATÍSTICAS"
+    ws['A5'].font = Font(bold=True, size=11, color="D4AF37")
+    ws.row_dimensions[5].height = 18
+    
+    # Cabeçalho estatísticas
+    stats_labels = ['Preço Mín', 'Preço Médio', 'Preço Mediano', 'Preço Máx', 'Desvio Padrão', 'Coef. Variação']
+    for col, label in enumerate(stats_labels, 1):
+        cell = ws.cell(row=6, column=col)
+        cell.value = label
+        cell.font = stats_font
+        cell.fill = stats_fill
+        cell.alignment = Alignment(horizontal='center', vertical='center')
+        cell.border = border
+    
+    # Valores estatísticas
+    preco_min = dataframe[col_precounitario].min()
+    preco_med = dataframe[col_precounitario].mean()
+    preco_mediano = dataframe[col_precounitario].median()
+    preco_max = dataframe[col_precounitario].max()
+    desvio = dataframe[col_precounitario].std()
+    coef_var = (desvio / preco_med * 100) if preco_med != 0 else 0
+    
+    stats_values = [preco_min, preco_med, preco_mediano, preco_max, desvio, coef_var]
+    for col, valor in enumerate(stats_values, 1):
+        cell = ws.cell(row=7, column=col)
+        if col == 6:  # Coeficiente de variação
+            cell.value = valor
+            cell.number_format = '0.00"%"'
+        else:
+            cell.value = valor
+            cell.number_format = 'R$ #,##0.00'
+        cell.font = Font(size=10, bold=True)
+        cell.alignment = Alignment(horizontal='center', vertical='center')
+        cell.border = border
+    
+    ws.row_dimensions[7].height = 20
+    
+    # INFORMAÇÕES ADICIONAIS
+    ws['A9'] = "INFORMAÇÕES"
+    ws['A9'].font = Font(bold=True, size=11, color="D4AF37")
+    
+    total_registros = len(dataframe)
+    outliers_removidos = outliers_info['removidos'] if outliers_info else 0
+    
+    ws['A10'] = f"Total de Registros: {total_registros}"
+    ws['A11'] = f"Outliers Removidos: {outliers_removidos}"
+    ws['A10'].font = Font(size=10, bold=True)
+    ws['A11'].font = Font(size=10, bold=True)
+    
+    # DADOS DA TABELA
+    ws['A13'] = "DADOS"
+    ws['A13'].font = Font(bold=True, size=11, color="D4AF37")
+    
+    # Preparar colunas a serem exibidas
+    colunas_mapa = {
+        'codigoItemCatalogo': 'Código Item',
+        'descricaoItem': 'Descrição',
+        'dataCompra': 'Data Compra',
+        'unidadeFornecimento': 'Unidade',
+        'quantidade': 'Quantidade',
+        'precoUnitario': 'Preço Unitário',
+        'cnpj': 'CNPJ',
+        'nomeFornecedor': 'Fornecedor',
+        'codigoUasg': 'Cod. UASG',
+        'nomeUasg': 'Nome UASG'
+    }
+    
+    colunas_encontradas = {}
+    for col_esperada, label in colunas_mapa.items():
+        col_real = encontrar_coluna(dataframe, [col_esperada, col_esperada.lower()])
+        if col_real:
+            colunas_encontradas[col_real] = label
+    
+    # Selecionar apenas as colunas encontradas
+    df_export = dataframe[[col for col in colunas_encontradas.keys()]].copy()
+    
+    # Renomear colunas
+    df_export.columns = [colunas_encontradas[col] for col in df_export.columns]
+    
+    # Formatar preços
+    if 'Preço Unitário' in df_export.columns:
+        df_export['Preço Unitário'] = df_export['Preço Unitário'].apply(lambda x: x if pd.isna(x) else float(x))
+    
+    # Escrever dados na planilha
+    start_row = 14
+    for r_idx, row in enumerate(dataframe_to_rows(df_export, index=False, header=True), start_row):
+        for c_idx, value in enumerate(row, 1):
+            cell = ws.cell(row=r_idx, column=c_idx)
+            cell.value = value
+            
+            # Formatar cabeçalho
+            if r_idx == start_row:
+                cell.font = header_font
+                cell.fill = header_fill
+                cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+            else:
+                cell.alignment = Alignment(horizontal='left', vertical='top', wrap_text=True)
+                # Formatar preços
+                if c_idx == 6 and isinstance(value, (int, float)):  # Coluna Preço Unitário
+                    cell.value = value
+                    cell.number_format = 'R$ #,##0.00'
+            
+            cell.border = border
+    
+    # Ajustar largura das colunas
+    column_widths = {
+        'A': 12,  # Código Item
+        'B': 30,  # Descrição
+        'C': 12,  # Data Compra
+        'D': 12,  # Unidade
+        'E': 10,  # Quantidade
+        'F': 15,  # Preço Unitário
+        'G': 16,  # CNPJ
+        'H': 30,  # Fornecedor
+        'I': 12,  # Cod. UASG
+        'J': 30   # Nome UASG
+    }
+    
+    for col, width in column_widths.items():
+        ws.column_dimensions[col].width = width
+    
+    # Congelar painel (linhas/colunas do cabeçalho)
+    ws.freeze_panes = 'A15'
+    
+    # Salvar em BytesIO
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+    return output.getvalue()
+
+# Função para gerar PDF simples a partir dos dados
+def gerar_relatorio_pdf_simples(dataframe, estatisticas, outliers_info, col_precounitario):
+    """
+    Gera um relatório PDF simples e limpo.
+    """
+    pdf = FPDF(orientation='L', unit='mm', format='A4')
+    pdf.add_page()
+    pdf.set_margins(10, 10, 10)
+    
+    # CABEÇALHO
+    pdf.set_font("Arial", "B", 16)
+    pdf.set_text_color(212, 175, 55)
+    pdf.cell(0, 10, "AtaCotada", ln=True, align="C")
+    
+    pdf.set_font("Arial", "", 10)
+    pdf.set_text_color(0, 0, 0)
+    pdf.cell(0, 5, "MARINHA DO BRASIL - Pesquisa de Preços", ln=True, align="C")
+    
+    data_hora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+    pdf.cell(0, 5, f"Relatório gerado em: {data_hora}", ln=True, align="C")
+    pdf.ln(5)
+    
+    # TABELA DE ESTATÍSTICAS
+    pdf.set_font("Arial", "B", 10)
+    pdf.set_fill_color(0, 26, 77)
+    pdf.set_text_color(255, 255, 255)
+    
+    col_width = 30
+    pdf.cell(col_width, 8, "Preço Mín", 1, 0, "C", True)
+    pdf.cell(col_width, 8, "Preço Médio", 1, 0, "C", True)
+    pdf.cell(col_width, 8, "Preço Mediano", 1, 0, "C", True)
+    pdf.cell(col_width, 8, "Preço Máx", 1, 0, "C", True)
+    pdf.cell(col_width, 8, "Desvio Padrão", 1, 0, "C", True)
+    pdf.cell(col_width, 8, "Coef. Variação", 1, 1, "C", True)
+    
+    pdf.set_font("Arial", "", 9)
+    pdf.set_text_color(0, 0, 0)
+    
+    preco_min = dataframe[col_precounitario].min()
+    preco_med = dataframe[col_precounitario].mean()
+    preco_mediano = dataframe[col_precounitario].median()
+    preco_max = dataframe[col_precounitario].max()
+    desvio = dataframe[col_precounitario].std()
+    coef_var = (desvio / preco_med * 100) if preco_med != 0 else 0
+    
+    pdf.cell(col_width, 8, f"R$ {formatar_valor_br(preco_min)}", 1, 0, "C")
+    pdf.cell(col_width, 8, f"R$ {formatar_valor_br(preco_med)}", 1, 0, "C")
+    pdf.cell(col_width, 8, f"R$ {formatar_valor_br(preco_mediano)}", 1, 0, "C")
+    pdf.cell(col_width, 8, f"R$ {formatar_valor_br(preco_max)}", 1, 0, "C")
+    pdf.cell(col_width, 8, f"{desvio:.2f}".replace('.', ','), 1, 0, "C")
+    pdf.cell(col_width, 8, f"{coef_var:.2f}%".replace('.', ','), 1, 1, "C")
+    
+    pdf.ln(5)
+    
+    # INFORMAÇÕES
+    pdf.set_font("Arial", "B", 10)
+    total_registros = len(dataframe)
+    outliers_removidos = outliers_info['removidos'] if outliers_info else 0
+    
+    pdf.cell(0, 6, f"Total de Preços Encontrados: {total_registros}", ln=True)
+    pdf.cell(0, 6, f"Outliers Removidos: {outliers_removidos}", ln=True)
+    pdf.ln(3)
+    
+    pdf.set_font("Arial", "", 8)
+    pdf.cell(0, 5, "* Dados completos estão disponíveis no arquivo Excel", ln=True, italic=True)
+    
+    # RODAPÉ
+    pdf.ln(5)
+    pdf.set_font("Arial", "", 8)
+    pdf.set_text_color(212, 175, 55)
+    pdf.cell(0, 6, "Idealizado e Desenvolvido por COpAb - Sobressalentes - V1.2026", ln=True, align="C")
+    
+    pdf.set_font("Arial", "", 7)
+    pdf.set_text_color(100, 100, 100)
+    pdf.cell(0, 6, f"Página {pdf.page_no()}", align="C")
+    
+    pdf_output = pdf.output(dest='S')
+    if isinstance(pdf_output, bytearray):
+        return bytes(pdf_output)
+    return pdf_output
+
 # URLs atualizadas
 consultarItemMaterial_base_url = 'https://dadosabertos.compras.gov.br/modulo-pesquisa-preco/1_consultarMaterial'
 consultarItemServico_base_url = 'https://dadosabertos.compras.gov.br/modulo-pesquisa-preco/3_consultarServico'
@@ -519,7 +780,7 @@ if st.session_state.get('itens'):
                 """, unsafe_allow_html=True)
                 
                 # Mostrar contagem com destaque
-                col_info_a, col_info_b = st.columns([1, 1])
+                col_info_a, col_info_b, col_btn_excel, col_btn_pdf = st.columns([1, 1, 0.6, 0.6])
                 with col_info_a:
                     st.markdown(f"""
                         <div style="background: linear-gradient(135deg, #0a2540 0%, #164863 100%); padding: 1.5rem; border-radius: 8px; border-left: 5px solid #d4af37; text-align: center;">
@@ -535,6 +796,61 @@ if st.session_state.get('itens'):
                             <div style="background: linear-gradient(135deg, #0a2540 0%, #164863 100%); padding: 1.5rem; border-radius: 8px; border-left: 5px solid #d4af37; text-align: center;">
                                 <div style="color: #d4af37; font-size: 14px; font-weight: bold; letter-spacing: 1px;">OUTLIERS REMOVIDOS</div>
                                 <div style="color: #ffffff; font-size: 32px; font-weight: bold; margin-top: 0.5rem;">{outliers_info['removidos']}</div>
+                            </div>
+                        """, unsafe_allow_html=True)
+                
+                # Botões de download
+                if col_precounitario and col_precounitario in dataframe.columns:
+                    mean = dataframe[col_precounitario].mean()
+                    median = dataframe[col_precounitario].median()
+                    preco_min = dataframe[col_precounitario].min()
+                    preco_max = dataframe[col_precounitario].max()
+                    std = dataframe[col_precounitario].std()
+                    cv = ((std / mean) * 100) if mean != 0 else 0
+                    
+                    estatisticas = {
+                        'min': preco_min,
+                        'mean': mean,
+                        'median': median,
+                        'max': preco_max,
+                        'std': std,
+                        'cv': cv
+                    }
+                    
+                    # Gerar Excel
+                    excel_bytes = gerar_relatorio_excel(dataframe, estatisticas, outliers_info, col_precounitario)
+                    data_hora = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    filename_excel = f"relatorio_AtaCotada_{data_hora}.xlsx"
+                    
+                    with col_btn_excel:
+                        st.download_button(
+                            label="📊 Excel",
+                            data=excel_bytes,
+                            file_name=filename_excel,
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                            use_container_width=True
+                        )
+                    
+                    # Gerar PDF
+                    pdf_bytes = gerar_relatorio_pdf_simples(dataframe, estatisticas, outliers_info, col_precounitario)
+                    filename_pdf = f"relatorio_AtaCotada_{data_hora}.pdf"
+                    
+                    with col_btn_pdf:
+                        st.download_button(
+                            label="📄 PDF",
+                            data=pdf_bytes,
+                            file_name=filename_pdf,
+                            mime="application/pdf",
+                            use_container_width=True
+                        )
+                
+                # Mostrar informações sobre outliers removidos quando não houver
+                if not outliers_info:
+                    with col_info_b:
+                        st.markdown(f"""
+                            <div style="background: linear-gradient(135deg, #0a2540 0%, #164863 100%); padding: 1.5rem; border-radius: 8px; border-left: 5px solid #d4af37; text-align: center;">
+                                <div style="color: #d4af37; font-size: 14px; font-weight: bold; letter-spacing: 1px;">OUTLIERS REMOVIDOS</div>
+                                <div style="color: #ffffff; font-size: 32px; font-weight: bold; margin-top: 0.5rem;">0</div>
                             </div>
                         """, unsafe_allow_html=True)
                 
@@ -588,3 +904,12 @@ if st.session_state.get('itens'):
                     st.write(df_debug.head())
             except:
                 pass
+
+# Rodapé
+st.markdown("""
+    <div style="margin-top: 3rem; padding-top: 2rem; border-top: 1px solid #0033cc; text-align: center;">
+        <p style="color: #d4af37; font-size: 12px; margin: 0; letter-spacing: 0.5px;">
+            Idealizado e Desenvolvido por COpAb - Sobressalentes - V1.2026
+        </p>
+    </div>
+""", unsafe_allow_html=True)
