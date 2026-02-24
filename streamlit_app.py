@@ -248,6 +248,12 @@ def formatar_numero_br(valor):
     """Formata número para padrão brasileiro (vírgula como separador decimal)"""
     return f'{valor:.2f}'.replace('.', ',')
 
+def formatar_moeda_br(valor):
+    """Formata valor monetário para padrão brasileiro com separador de milhares (1.234.567,89)"""
+    if valor is None or (isinstance(valor, float) and valor != valor):  # NaN check
+        return ""
+    return f'{valor:,.2f}'.replace(',', 'X').replace('.', ',').replace('X', '.')
+
 # Função para encontrar coluna com variações de nome
 def encontrar_coluna(df, nomes_possiveis):
     """Procura por uma coluna entre várias variações de nome (case-insensitive)"""
@@ -319,21 +325,21 @@ def gerar_relatorio_excel(dataframe, estatisticas, outliers_info, col_precounita
     ws['A1'] = "AtaCotada"
     ws['A1'].font = title_font
     ws['A1'].alignment = Alignment(horizontal='center', vertical='center')
-    ws.merge_cells('A1:J1')
+    ws.merge_cells('A1:L1')
     ws.row_dimensions[1].height = 25
     
     # Subtítulo
     ws['A2'] = "MARINHA DO BRASIL - Pesquisa de Preços"
     ws['A2'].font = Font(size=10, bold=True)
     ws['A2'].alignment = Alignment(horizontal='center')
-    ws.merge_cells('A2:J2')
+    ws.merge_cells('A2:L2')
     
     # Data
     data_hora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
     ws['A3'] = f"Relatório gerado em: {data_hora}"
     ws['A3'].font = Font(size=9)
     ws['A3'].alignment = Alignment(horizontal='center')
-    ws.merge_cells('A3:J3')
+    ws.merge_cells('A3:L3')
     ws.row_dimensions[3].height = 18
     
     # ESTATÍSTICAS
@@ -392,6 +398,8 @@ def gerar_relatorio_excel(dataframe, estatisticas, outliers_info, col_precounita
     
     # Preparar colunas a serem exibidas
     colunas_mapa = {
+        'idCompra': 'ID Compra',
+        'niFornecedor': 'NI Fornecedor',
         'codigoItemCatalogo': 'Código Item',
         'descricaoItem': 'Descrição',
         'dataCompra': 'Data Compra',
@@ -443,16 +451,18 @@ def gerar_relatorio_excel(dataframe, estatisticas, outliers_info, col_precounita
     
     # Ajustar largura das colunas
     column_widths = {
-        'A': 12,  # Código Item
-        'B': 30,  # Descrição
-        'C': 12,  # Data Compra
-        'D': 12,  # Unidade
-        'E': 10,  # Quantidade
-        'F': 15,  # Preço Unitário
-        'G': 16,  # CNPJ
-        'H': 30,  # Fornecedor
-        'I': 12,  # Cod. UASG
-        'J': 30   # Nome UASG
+        'A': 12,  # ID Compra
+        'B': 12,  # NI Fornecedor
+        'C': 12,  # Código Item
+        'D': 30,  # Descrição
+        'E': 12,  # Data Compra
+        'F': 12,  # Unidade
+        'G': 10,  # Quantidade
+        'H': 15,  # Preço Unitário
+        'I': 16,  # CNPJ
+        'J': 30,  # Fornecedor
+        'K': 12,  # Cod. UASG
+        'L': 30   # Nome UASG
     }
     
     for col, width in column_widths.items():
@@ -470,39 +480,39 @@ def gerar_relatorio_excel(dataframe, estatisticas, outliers_info, col_precounita
 # Função para gerar PDF simples a partir dos dados
 def gerar_relatorio_pdf_simples(dataframe, estatisticas, outliers_info, col_precounitario):
     """
-    Gera um relatório PDF simples e limpo.
+    Gera um relatório PDF simples e limpo com tabela completa de dados.
     """
     pdf = FPDF(orientation='L', unit='mm', format='A4')
     pdf.add_page()
-    pdf.set_margins(10, 10, 10)
+    pdf.set_margins(8, 8, 8)
     
     # CABEÇALHO
-    pdf.set_font("Arial", "B", 16)
+    pdf.set_font("Arial", "B", 14)
     pdf.set_text_color(212, 175, 55)
-    pdf.cell(0, 10, "AtaCotada", ln=True, align="C")
+    pdf.cell(0, 8, "AtaCotada", ln=True, align="C")
     
-    pdf.set_font("Arial", "", 10)
+    pdf.set_font("Arial", "", 9)
     pdf.set_text_color(0, 0, 0)
-    pdf.cell(0, 5, "MARINHA DO BRASIL - Pesquisa de Preços", ln=True, align="C")
+    pdf.cell(0, 4, "MARINHA DO BRASIL - Pesquisa de Preços", ln=True, align="C")
     
     data_hora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-    pdf.cell(0, 5, f"Relatório gerado em: {data_hora}", ln=True, align="C")
-    pdf.ln(5)
+    pdf.cell(0, 4, f"Relatório gerado em: {data_hora}", ln=True, align="C")
+    pdf.ln(2)
     
     # TABELA DE ESTATÍSTICAS
-    pdf.set_font("Arial", "B", 10)
+    pdf.set_font("Arial", "B", 9)
     pdf.set_fill_color(0, 26, 77)
     pdf.set_text_color(255, 255, 255)
     
-    col_width = 30
-    pdf.cell(col_width, 8, "Preço Mín", 1, 0, "C", True)
-    pdf.cell(col_width, 8, "Preço Médio", 1, 0, "C", True)
-    pdf.cell(col_width, 8, "Preço Mediano", 1, 0, "C", True)
-    pdf.cell(col_width, 8, "Preço Máx", 1, 0, "C", True)
-    pdf.cell(col_width, 8, "Desvio Padrão", 1, 0, "C", True)
-    pdf.cell(col_width, 8, "Coef. Variação", 1, 1, "C", True)
+    col_width_stats = 28
+    pdf.cell(col_width_stats, 6, "Preço Mín", 1, 0, "C", True)
+    pdf.cell(col_width_stats, 6, "Preço Médio", 1, 0, "C", True)
+    pdf.cell(col_width_stats, 6, "Preço Mediano", 1, 0, "C", True)
+    pdf.cell(col_width_stats, 6, "Preço Máx", 1, 0, "C", True)
+    pdf.cell(col_width_stats, 6, "Desvio Padrão", 1, 0, "C", True)
+    pdf.cell(col_width_stats, 6, "Coef. Variação", 1, 1, "C", True)
     
-    pdf.set_font("Arial", "", 9)
+    pdf.set_font("Arial", "", 8)
     pdf.set_text_color(0, 0, 0)
     
     preco_min = dataframe[col_precounitario].min()
@@ -512,36 +522,105 @@ def gerar_relatorio_pdf_simples(dataframe, estatisticas, outliers_info, col_prec
     desvio = dataframe[col_precounitario].std()
     coef_var = (desvio / preco_med * 100) if preco_med != 0 else 0
     
-    pdf.cell(col_width, 8, f"R$ {formatar_valor_br(preco_min)}", 1, 0, "C")
-    pdf.cell(col_width, 8, f"R$ {formatar_valor_br(preco_med)}", 1, 0, "C")
-    pdf.cell(col_width, 8, f"R$ {formatar_valor_br(preco_mediano)}", 1, 0, "C")
-    pdf.cell(col_width, 8, f"R$ {formatar_valor_br(preco_max)}", 1, 0, "C")
-    pdf.cell(col_width, 8, f"{desvio:.2f}".replace('.', ','), 1, 0, "C")
-    pdf.cell(col_width, 8, f"{coef_var:.2f}%".replace('.', ','), 1, 1, "C")
+    pdf.cell(col_width_stats, 6, f"R$ {formatar_moeda_br(preco_min)}", 1, 0, "C")
+    pdf.cell(col_width_stats, 6, f"R$ {formatar_moeda_br(preco_med)}", 1, 0, "C")
+    pdf.cell(col_width_stats, 6, f"R$ {formatar_moeda_br(preco_mediano)}", 1, 0, "C")
+    pdf.cell(col_width_stats, 6, f"R$ {formatar_moeda_br(preco_max)}", 1, 0, "C")
+    pdf.cell(col_width_stats, 6, f"{desvio:.2f}".replace('.', ','), 1, 0, "C")
+    pdf.cell(col_width_stats, 6, f"{coef_var:.2f}%".replace('.', ','), 1, 1, "C")
     
-    pdf.ln(5)
+    pdf.ln(2)
     
     # INFORMAÇÕES
-    pdf.set_font("Arial", "B", 10)
+    pdf.set_font("Arial", "B", 8)
     total_registros = len(dataframe)
     outliers_removidos = outliers_info['removidos'] if outliers_info else 0
     
-    pdf.cell(0, 6, f"Total de Preços Encontrados: {total_registros}", ln=True)
-    pdf.cell(0, 6, f"Outliers Removidos: {outliers_removidos}", ln=True)
-    pdf.ln(3)
+    pdf.cell(0, 4, f"Total de Preços Encontrados: {total_registros} | Outliers Removidos: {outliers_removidos}", ln=True)
+    pdf.ln(2)
     
-    pdf.set_font("Arial", "", 8)
-    pdf.cell(0, 5, "* Dados completos estão disponíveis no arquivo Excel", ln=True, italic=True)
+    # TABELA DE DADOS
+    pdf.set_font("Arial", "B", 8)
+    pdf.cell(0, 4, "TABELA DE DADOS", ln=True)
+    pdf.ln(1)
+    
+    # Preparar colunas a serem exibidas (mesmas do Excel)
+    colunas_mapa = {
+        'idCompra': 'ID Compra',
+        'niFornecedor': 'NI Fornecedor',
+        'codigoItemCatalogo': 'Código Item',
+        'descricaoItem': 'Descrição',
+        'dataCompra': 'Data Compra',
+        'unidadeFornecimento': 'Unidade',
+        'quantidade': 'Quantidade',
+        'precoUnitario': 'Preço Unit.',
+        'cnpj': 'CNPJ',
+        'nomeFornecedor': 'Fornecedor',
+        'codigoUasg': 'Cod. UASG',
+        'nomeUasg': 'Nome UASG'
+    }
+    
+    colunas_encontradas = {}
+    for col_esperada, label in colunas_mapa.items():
+        col_real = encontrar_coluna(dataframe, [col_esperada, col_esperada.lower()])
+        if col_real:
+            colunas_encontradas[col_real] = label
+    
+    if colunas_encontradas:
+        # Calcular largura das colunas dinamicamente
+        # Largura disponível: A4 landscape = 297mm, menos margens (8+8=16) = 281mm
+        largura_disponivel = 297 - 16
+        num_colunas = len(colunas_encontradas)
+        col_width_dados = largura_disponivel / num_colunas
+        
+        # Cabeçalho da tabela de dados
+        pdf.set_font("Arial", "B", 7)
+        pdf.set_fill_color(0, 26, 77)
+        pdf.set_text_color(255, 255, 255)
+        
+        y_before_header = pdf.get_y()
+        for label in colunas_encontradas.values():
+            pdf.cell(col_width_dados, 5, label[:15], 1, 0, "C", True)
+        pdf.ln()
+        
+        # Dados da tabela - TODOS os registros
+        pdf.set_font("Arial", "", 6)
+        pdf.set_text_color(0, 0, 0)
+        
+        for idx in range(len(dataframe)):
+            # Verificar se precisa adicionar nova página
+            if pdf.get_y() > 180:  # Deixar espaço para rodapé
+                pdf.add_page()
+                # Repetir cabeçalho em nova página
+                pdf.set_font("Arial", "B", 7)
+                pdf.set_fill_color(0, 26, 77)
+                pdf.set_text_color(255, 255, 255)
+                
+                for label in colunas_encontradas.values():
+                    pdf.cell(col_width_dados, 5, label[:15], 1, 0, "C", True)
+                pdf.ln()
+                
+                pdf.set_font("Arial", "", 6)
+                pdf.set_text_color(0, 0, 0)
+            
+            for col_real, label in colunas_encontradas.items():
+                valor = dataframe.iloc[idx][col_real]
+                if isinstance(valor, float) and col_real == encontrar_coluna(dataframe, ['precoUnitario', 'precunitario']):
+                    cell_text = f"R$ {formatar_moeda_br(valor)}"
+                else:
+                    cell_text = str(valor)[:18] if valor else ""
+                pdf.cell(col_width_dados, 5, cell_text, 1, 0, "C")
+            pdf.ln()
     
     # RODAPÉ
-    pdf.ln(5)
-    pdf.set_font("Arial", "", 8)
-    pdf.set_text_color(212, 175, 55)
-    pdf.cell(0, 6, "Idealizado e Desenvolvido por COpAb - Sobressalentes - V1.2026", ln=True, align="C")
-    
+    pdf.ln(1)
     pdf.set_font("Arial", "", 7)
+    pdf.set_text_color(212, 175, 55)
+    pdf.cell(0, 4, "Idealizado e Desenvolvido por COpAb - Sobressalentes - V1.2026", ln=True, align="C")
+    
+    pdf.set_font("Arial", "", 6)
     pdf.set_text_color(100, 100, 100)
-    pdf.cell(0, 6, f"Página {pdf.page_no()}", align="C")
+    pdf.cell(0, 4, f"Página {pdf.page_no()}", align="C")
     
     pdf_output = pdf.output(dest='S')
     if isinstance(pdf_output, bytearray):
