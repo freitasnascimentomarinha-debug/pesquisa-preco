@@ -5,6 +5,7 @@ import os
 import re
 import io
 import tempfile
+from datetime import datetime
 
 # Configuração da página
 st.set_page_config(
@@ -422,6 +423,215 @@ def pesquisar_notas(file_path, filtro_produto="", filtro_nome_dest="", filtro_uf
     return pd.DataFrame(), total_linhas
 
 
+# --- Funções de consulta de fornecedores via API OpenCNPJ ---
+def buscar_dados_fornecedor(cnpj):
+    """Busca dados do fornecedor na API OpenCNPJ"""
+    if not cnpj or pd.isna(cnpj):
+        return None
+    try:
+        cnpj_limpo = str(cnpj).replace('.', '').replace('/', '').replace('-', '').strip()
+        if len(cnpj_limpo) != 14:
+            return None
+        api_url = f'https://api.opencnpj.org/{cnpj_limpo}'
+        response = requests.get(api_url, timeout=5)
+        if response.status_code == 200:
+            return response.json()
+        return None
+    except Exception:
+        return None
+
+
+def formatar_telefone(telefone):
+    """Formata telefone para um padrão legível"""
+    if isinstance(telefone, dict):
+        ddd = telefone.get('ddd', '').strip() if telefone.get('ddd') else ''
+        numero = telefone.get('numero', '').strip() if telefone.get('numero') else ''
+        if ddd and numero:
+            numero_fmt = f"{numero[:4]}-{numero[4:]}" if len(numero) >= 8 else numero
+            return f"({ddd}) {numero_fmt}"
+        return numero or ddd or str(telefone)
+    return str(telefone).strip()
+
+
+def extrair_contatos_fornecedor(dados):
+    """Extrai email, telefones, estado e cidade do retorno da API"""
+    if not dados:
+        return None
+    try:
+        email = ''
+        for c in ['email', 'correio_eletronico', 'mail', 'e_mail', 'emailComercial']:
+            email = dados.get(c, '')
+            if email:
+                break
+
+        estado = ''
+        for c in ['state', 'estado', 'uf', 'UF', 'state_code', 'sigla_estado']:
+            v = dados.get(c, '')
+            if v:
+                estado = str(v).upper().strip()
+                break
+
+        cidade = ''
+        for c in ['city', 'cidade', 'municipio', 'municipality', 'city_name']:
+            v = dados.get(c, '')
+            if v:
+                cidade = str(v).strip()
+                break
+
+        telefones = []
+        for c in ['phone', 'telefone', 'phonePrimary', 'phoneSecondary',
+                   'telefone_comercial', 'telefone_principal', 'ddd_telefone',
+                   'ddd_fax', 'fone', 'telephone']:
+            v = dados.get(c, '')
+            if v:
+                t = formatar_telefone(v)
+                if t and t not in telefones:
+                    telefones.append(t)
+        for c in ['phones', 'telefones', 'phone_numbers']:
+            vals = dados.get(c, [])
+            if isinstance(vals, list):
+                for v in vals:
+                    if v:
+                        t = formatar_telefone(v)
+                        if t and t not in telefones:
+                            telefones.append(t)
+
+        loc = f"{cidade}, {estado}" if cidade and estado else cidade or estado or ''
+
+        return {
+            'email': email or 'Não informado',
+            'telefones': ', '.join(telefones) if telefones else 'Não informado',
+            'localizacao': loc or 'Não informado',
+        }
+    except Exception:
+        return None
+
+
+def gerar_html_fornecedores_nf(df_resultado):
+    """Gera relatório HTML com dados dos fornecedores (CNPJs) encontrados nas notas fiscais."""
+    col_cnpj = "CPF/CNPJ Emitente"
+    col_razao = "RAZÃO SOCIAL EMITENTE"
+    col_uf = "UF EMITENTE"
+    col_mun = "MUNICÍPIO EMITENTE"
+
+    # Obter CNPJs únicos
+    if col_cnpj not in df_resultado.columns:
+        return "<h3 style='color:red;'>Coluna CNPJ Emitente não encontrada.</h3>"
+
+    fornecedores_unicos = df_resultado.drop_duplicates(subset=[col_cnpj])
+
+    css = """
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: linear-gradient(135deg, #001a4d 0%, #0033cc 100%); font-family: Arial, sans-serif; padding: 2rem; min-height: 100vh; }
+    .container { max-width: 1200px; margin: 0 auto; background: #fff; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.3); overflow: hidden; }
+    .header { background: linear-gradient(135deg, #001a4d 0%, #0033cc 100%); color: #fff; padding: 2rem; text-align: center; }
+    .header h1 { color: #d4af37; font-size: 36px; margin-bottom: 0.5rem; letter-spacing: 2px; }
+    .header p { font-size: 14px; color: #fff; }
+    .content { padding: 2rem; }
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+    .stat-box { background: linear-gradient(135deg, #0a2540 0%, #164863 100%); padding: 1.5rem; border-radius: 8px; border-left: 5px solid #d4af37; text-align: center; }
+    .stat-box label { color: #d4af37; font-weight: bold; font-size: 12px; letter-spacing: 1px; }
+    .stat-box .value { color: #fff; font-size: 28px; font-weight: bold; margin-top: 0.5rem; }
+    table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+    thead { background: #001a4d; color: #fff; }
+    th { padding: 1rem; text-align: left; font-weight: bold; border-bottom: 2px solid #d4af37; color: #fff; }
+    td { padding: 0.75rem 1rem; border-bottom: 1px solid #e0e0e0; color: #333; }
+    tbody tr:hover { background: #f5f5f5; }
+    tbody tr:nth-child(even) { background: #f9f9f9; }
+    .email { color: #0033cc; text-decoration: none; }
+    .email:hover { text-decoration: underline; }
+    .phone { color: #006600; }
+    .footer { background: #f0f0f0; padding: 1rem 2rem; text-align: center; color: #666; font-size: 12px; border-top: 1px solid #ddd; }
+    """
+
+    linhas = []
+    com_email = 0
+    com_telefone = 0
+
+    for _, row in fornecedores_unicos.iterrows():
+        cnpj = row.get(col_cnpj, '')
+        razao = row.get(col_razao, '') if col_razao in fornecedores_unicos.columns else ''
+        uf_csv = row.get(col_uf, '') if col_uf in fornecedores_unicos.columns else ''
+        mun_csv = row.get(col_mun, '') if col_mun in fornecedores_unicos.columns else ''
+
+        dados_api = buscar_dados_fornecedor(cnpj)
+        contatos = extrair_contatos_fornecedor(dados_api)
+
+        if contatos:
+            email = contatos['email']
+            telefones = contatos['telefones']
+            localizacao = contatos['localizacao']
+            if email != 'Não informado':
+                com_email += 1
+            if telefones != 'Não informado':
+                com_telefone += 1
+        else:
+            email = 'Não informado'
+            telefones = 'Não informado'
+            loc_parts = [p for p in [mun_csv, uf_csv] if p]
+            localizacao = ', '.join(loc_parts) if loc_parts else 'Não informado'
+
+        email_html = f'<a href="mailto:{email}" class="email">{email}</a>' if email != 'Não informado' else 'Não informado'
+
+        linhas.append(
+            f"<tr><td>{cnpj}</td><td>{razao}</td><td>{localizacao}</td>"
+            f"<td>{email_html}</td><td><span class='phone'>{telefones}</span></td></tr>"
+        )
+
+    data_hora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+
+    return f"""<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Contatos de Fornecedores - Notas Fiscais - AtaCotada</title>
+    <style>{css}</style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>AtaCotada</h1>
+            <p>Contatos de Fornecedores — Notas Fiscais</p>
+        </div>
+        <div class="content">
+            <div class="stats">
+                <div class="stat-box">
+                    <label>TOTAL DE FORNECEDORES</label>
+                    <div class="value">{len(fornecedores_unicos)}</div>
+                </div>
+                <div class="stat-box">
+                    <label>COM EMAIL</label>
+                    <div class="value">{com_email}</div>
+                </div>
+                <div class="stat-box">
+                    <label>COM TELEFONE</label>
+                    <div class="value">{com_telefone}</div>
+                </div>
+            </div>
+            <table>
+                <thead>
+                    <tr>
+                        <th>CNPJ</th>
+                        <th>Razão Social</th>
+                        <th>Localização</th>
+                        <th>Email</th>
+                        <th>Telefones</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {''.join(linhas)}
+                </tbody>
+            </table>
+        </div>
+        <div class="footer">
+            <p>Relatório gerado por AtaCotada em {data_hora}</p>
+        </div>
+    </div>
+</body>
+</html>"""
+
+
 # --- Carregar lista de arquivos ---
 with st.spinner("Carregando lista de arquivos do Portal da Transparência..."):
     arquivos_portal = listar_arquivos_disponiveis(PASTA_ID)
@@ -538,146 +748,186 @@ if buscar:
         if df_resultado.empty:
             st.info("📭 Nenhuma nota fiscal encontrada para os filtros informados.")
         else:
-            # Colunas e ordem definidas pelo usuário
-            colunas_exibicao = {
-                "DATA EMISSÃO": "Data",
-                "DESCRIÇÃO DO PRODUTO/SERVIÇO": "Produto",
-                "UNIDADE": "Unidade",
-                "QUANTIDADE": "Quantidade",
-                "VALOR UNITÁRIO": "Valor Unitário",
-                "VALOR TOTAL": "Valor Total",
-                "UF DESTINATÁRIO": "UF Destinatário",
-                "NOME DESTINATÁRIO": "Nome Destinatário",
-                "RAZÃO SOCIAL EMITENTE": "Razão Social Emitente",
-                "CPF/CNPJ Emitente": "CNPJ Emitente",
-                "UF EMITENTE": "UF Emitente",
-                "MUNICÍPIO EMITENTE": "Município",
-                "NCM/SH (TIPO DE PRODUTO)": "NCM/SH (Tipo de Produto)",
-                "CHAVE DE ACESSO": "Chave de Acesso",
-                "NATUREZA DA OPERAÇÃO": "Natureza da Operação",
-            }
-            colunas_disponiveis = [c for c in colunas_exibicao if c in df_resultado.columns]
-            df_exib = df_resultado[colunas_disponiveis].rename(columns=colunas_exibicao).copy()
+            # Salvar resultados no session_state para persistir entre interações
+            st.session_state["nf_resultado"] = df_resultado
+            st.session_state["nf_total_linhas"] = total_linhas
+            st.session_state["nf_file_name"] = file_name
+            st.session_state["nf_max_resultados"] = max_resultados
 
-            # --- Cards de estatísticas ---
-            st.markdown("---")
-            col_s1, col_s2, col_s3, col_s4 = st.columns(4)
+# --- Exibir resultados (persistidos no session_state) ---
+if "nf_resultado" in st.session_state and not st.session_state["nf_resultado"].empty:
+    df_resultado = st.session_state["nf_resultado"]
+    total_linhas = st.session_state["nf_total_linhas"]
+    file_name = st.session_state["nf_file_name"]
+    max_resultados = st.session_state["nf_max_resultados"]
 
-            with col_s1:
-                st.markdown(f"""
-                <div class="stats-card">
-                    <div style="color: #d4af37; font-size: 14px; font-weight: 600;">REGISTROS ENCONTRADOS</div>
-                    <div style="color: #ffffff; font-size: 32px; font-weight: bold;">{len(df_resultado):,}</div>
-                    <div style="color: #aaaaaa; font-size: 12px;">{total_linhas:,} linhas analisadas</div>
-                </div>
-                """, unsafe_allow_html=True)
+    # Colunas e ordem definidas pelo usuário
+    colunas_exibicao = {
+        "DATA EMISSÃO": "Data",
+        "DESCRIÇÃO DO PRODUTO/SERVIÇO": "Produto",
+        "UNIDADE": "Unidade",
+        "QUANTIDADE": "Quantidade",
+        "VALOR UNITÁRIO": "Valor Unitário",
+        "VALOR TOTAL": "Valor Total",
+        "UF DESTINATÁRIO": "UF Destinatário",
+        "NOME DESTINATÁRIO": "Nome Destinatário",
+        "RAZÃO SOCIAL EMITENTE": "Razão Social Emitente",
+        "CPF/CNPJ Emitente": "CNPJ Emitente",
+        "UF EMITENTE": "UF Emitente",
+        "MUNICÍPIO EMITENTE": "Município",
+        "NCM/SH (TIPO DE PRODUTO)": "NCM/SH (Tipo de Produto)",
+        "CHAVE DE ACESSO": "Chave de Acesso",
+        "NATUREZA DA OPERAÇÃO": "Natureza da Operação",
+    }
+    colunas_disponiveis = [c for c in colunas_exibicao if c in df_resultado.columns]
+    df_exib = df_resultado[colunas_disponiveis].rename(columns=colunas_exibicao).copy()
 
-            with col_s2:
-                fornecedores = (
-                    df_resultado["RAZÃO SOCIAL EMITENTE"].nunique()
-                    if "RAZÃO SOCIAL EMITENTE" in df_resultado.columns
-                    else 0
-                )
-                st.markdown(f"""
-                <div class="stats-card">
-                    <div style="color: #d4af37; font-size: 14px; font-weight: 600;">FORNECEDORES</div>
-                    <div style="color: #ffffff; font-size: 32px; font-weight: bold;">{fornecedores}</div>
-                    <div style="color: #aaaaaa; font-size: 12px;">Distintos</div>
-                </div>
-                """, unsafe_allow_html=True)
+    # --- Cards de estatísticas ---
+    st.markdown("---")
+    col_s1, col_s2, col_s3, col_s4 = st.columns(4)
 
-            with col_s3:
-                orgaos = (
-                    df_resultado["ÓRGÃO DESTINATÁRIO"].nunique()
-                    if "ÓRGÃO DESTINATÁRIO" in df_resultado.columns
-                    else 0
-                )
-                st.markdown(f"""
-                <div class="stats-card">
-                    <div style="color: #d4af37; font-size: 14px; font-weight: 600;">ÓRGÃOS DESTINO</div>
-                    <div style="color: #ffffff; font-size: 32px; font-weight: bold;">{orgaos}</div>
-                    <div style="color: #aaaaaa; font-size: 12px;">Distintos</div>
-                </div>
-                """, unsafe_allow_html=True)
+    with col_s1:
+        st.markdown(f"""
+        <div class="stats-card">
+            <div style="color: #d4af37; font-size: 14px; font-weight: 600;">REGISTROS ENCONTRADOS</div>
+            <div style="color: #ffffff; font-size: 32px; font-weight: bold;">{len(df_resultado):,}</div>
+            <div style="color: #aaaaaa; font-size: 12px;">{total_linhas:,} linhas analisadas</div>
+        </div>
+        """, unsafe_allow_html=True)
 
-            with col_s4:
-                try:
-                    total_valor = pd.to_numeric(
-                        df_resultado["VALOR TOTAL"]
-                        .str.replace(".", "", regex=False)
-                        .str.replace(",", ".", regex=False),
-                        errors="coerce",
-                    ).sum()
-                    valor_fmt = (
-                        f"R$ {total_valor:,.2f}"
-                        .replace(",", "X")
-                        .replace(".", ",")
-                        .replace("X", ".")
-                    )
-                except Exception:
-                    valor_fmt = "—"
-                st.markdown(f"""
-                <div class="stats-card">
-                    <div style="color: #d4af37; font-size: 14px; font-weight: 600;">VALOR TOTAL</div>
-                    <div style="color: #ffffff; font-size: 20px; font-weight: bold;">{valor_fmt}</div>
-                    <div style="color: #aaaaaa; font-size: 12px;">Soma dos registros</div>
-                </div>
-                """, unsafe_allow_html=True)
+    with col_s2:
+        fornecedores = (
+            df_resultado["RAZÃO SOCIAL EMITENTE"].nunique()
+            if "RAZÃO SOCIAL EMITENTE" in df_resultado.columns
+            else 0
+        )
+        st.markdown(f"""
+        <div class="stats-card">
+            <div style="color: #d4af37; font-size: 14px; font-weight: 600;">FORNECEDORES</div>
+            <div style="color: #ffffff; font-size: 32px; font-weight: bold;">{fornecedores}</div>
+            <div style="color: #aaaaaa; font-size: 12px;">Distintos</div>
+        </div>
+        """, unsafe_allow_html=True)
 
-            # --- Tabela de resultados ---
-            st.markdown("---")
-            st.subheader("📋 Resultados")
-            st.markdown(f"**Arquivo:** {file_name}")
-            st.dataframe(
-                df_exib,
+    with col_s3:
+        orgaos = (
+            df_resultado["ÓRGÃO DESTINATÁRIO"].nunique()
+            if "ÓRGÃO DESTINATÁRIO" in df_resultado.columns
+            else 0
+        )
+        st.markdown(f"""
+        <div class="stats-card">
+            <div style="color: #d4af37; font-size: 14px; font-weight: 600;">ÓRGÃOS DESTINO</div>
+            <div style="color: #ffffff; font-size: 32px; font-weight: bold;">{orgaos}</div>
+            <div style="color: #aaaaaa; font-size: 12px;">Distintos</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col_s4:
+        try:
+            total_valor = pd.to_numeric(
+                df_resultado["VALOR TOTAL"]
+                .str.replace(".", "", regex=False)
+                .str.replace(",", ".", regex=False),
+                errors="coerce",
+            ).sum()
+            valor_fmt = (
+                f"R$ {total_valor:,.2f}"
+                .replace(",", "X")
+                .replace(".", ",")
+                .replace("X", ".")
+            )
+        except Exception:
+            valor_fmt = "—"
+        st.markdown(f"""
+        <div class="stats-card">
+            <div style="color: #d4af37; font-size: 14px; font-weight: 600;">VALOR TOTAL</div>
+            <div style="color: #ffffff; font-size: 20px; font-weight: bold;">{valor_fmt}</div>
+            <div style="color: #aaaaaa; font-size: 12px;">Soma dos registros</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # --- Tabela de resultados ---
+    st.markdown("---")
+    st.subheader("📋 Resultados")
+    st.markdown(f"**Arquivo:** {file_name}")
+    st.dataframe(
+        df_exib,
+        use_container_width=True,
+        hide_index=True,
+        height=min(len(df_exib) * 38 + 40, 700),
+    )
+
+    # --- Botões de download ---
+    st.markdown("---")
+    col_d1, col_d2 = st.columns(2)
+
+    with col_d1:
+        csv_data = df_exib.to_csv(index=False, sep=";", encoding="utf-8-sig")
+        st.download_button(
+            "📥 Baixar resultados (CSV)",
+            data=csv_data,
+            file_name="notas_fiscais_resultado.csv",
+            mime="text/csv",
+            use_container_width=True,
+        )
+
+    with col_d2:
+        try:
+            excel_buffer = io.BytesIO()
+            df_exib.to_excel(excel_buffer, index=False, engine="openpyxl")
+            st.download_button(
+                "📥 Baixar resultados (Excel)",
+                data=excel_buffer.getvalue(),
+                file_name="notas_fiscais_resultado.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 use_container_width=True,
-                hide_index=True,
-                height=min(len(df_exib) * 38 + 40, 700),
+            )
+        except Exception:
+            pass
+
+    # --- Botão Consultar Fornecedores ---
+    st.markdown("<br>", unsafe_allow_html=True)
+    col_forn_btn, _ = st.columns([1, 2])
+    with col_forn_btn:
+        if st.button("📞 Consultar Fornecedores", use_container_width=True, key="btn_fornecedores_nf"):
+            cnpjs_unicos = df_resultado["CPF/CNPJ Emitente"].dropna().unique() if "CPF/CNPJ Emitente" in df_resultado.columns else []
+            if len(cnpjs_unicos) == 0:
+                st.warning("⚠️ Nenhum CNPJ encontrado nos resultados filtrados.")
+            else:
+                with st.spinner(f"Consultando dados de {len(cnpjs_unicos)} fornecedor(es) na API..."):
+                    html_fornecedores = gerar_html_fornecedores_nf(df_resultado)
+                    st.session_state["nf_html_fornecedores"] = html_fornecedores
+
+    # Mostrar botão de download do relatório se já foi gerado
+    if "nf_html_fornecedores" in st.session_state:
+        col_dl_forn, _ = st.columns([1, 2])
+        with col_dl_forn:
+            data_hora_arq = datetime.now().strftime("%Y%m%d_%H%M%S")
+            st.download_button(
+                label="📋 Baixar Relatório de Fornecedores (HTML)",
+                data=st.session_state["nf_html_fornecedores"].encode('utf-8'),
+                file_name=f"fornecedores_NF_{data_hora_arq}.html",
+                mime="text/html",
+                use_container_width=True,
+                key="btn_download_fornecedores_nf",
             )
 
-            # --- Botões de download ---
-            st.markdown("---")
-            col_d1, col_d2 = st.columns(2)
-
-            with col_d1:
-                csv_data = df_exib.to_csv(index=False, sep=";", encoding="utf-8-sig")
-                st.download_button(
-                    "📥 Baixar resultados (CSV)",
-                    data=csv_data,
-                    file_name="notas_fiscais_resultado.csv",
-                    mime="text/csv",
-                    use_container_width=True,
-                )
-
-            with col_d2:
-                try:
-                    excel_buffer = io.BytesIO()
-                    df_exib.to_excel(excel_buffer, index=False, engine="openpyxl")
-                    st.download_button(
-                        "📥 Baixar resultados (Excel)",
-                        data=excel_buffer.getvalue(),
-                        file_name="notas_fiscais_resultado.xlsx",
-                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        use_container_width=True,
-                    )
-                except Exception:
-                    pass
-
-            # --- Informações ---
-            st.markdown("---")
-            st.markdown(f"""
-            <div style="background: #0a2540; border: 1px solid #333; border-radius: 8px; padding: 1rem; margin-top: 0.5rem;">
-                <p style="color: #d4af37; font-weight: bold; margin-bottom: 0.5rem;">ℹ️ Informações:</p>
-                <ul style="color: #cccccc; font-size: 13px; line-height: 1.8;">
-                    <li>Dados extraídos do <b>Portal da Transparência</b> — Notas Fiscais Eletrônicas.</li>
-                    <li>Na primeira consulta, os dados são carregados e armazenados em <b>cache local</b> (pode levar alguns minutos para arquivos grandes).</li>
-                    <li>Consultas subsequentes no mesmo arquivo são <b>muito mais rápidas</b>.</li>
-                    <li>Limite de <b>{max_resultados}</b> resultados para otimizar a performance.</li>
-                    <li>Os resultados podem ser exportados em <b>CSV</b> ou <b>Excel</b>.</li>
-                </ul>
-                <p style="color: #d4af37; text-align: center; margin-top: 1rem; font-size: 14px; font-weight: 600;">
-                    Notas Fiscais podem ser usadas na pesquisa de preço, acesse para baixar com a chave de acesso:
-                    <a href="https://www.nfe.fazenda.gov.br/portal/principal.aspx" target="_blank" style="color: #ffd700; text-decoration: underline;">https://www.nfe.fazenda.gov.br/portal/principal.aspx</a>
-                </p>
-            </div>
-            """, unsafe_allow_html=True)
+    # --- Informações ---
+    st.markdown("---")
+    st.markdown(f"""
+    <div style="background: #0a2540; border: 1px solid #333; border-radius: 8px; padding: 1rem; margin-top: 0.5rem;">
+        <p style="color: #d4af37; font-weight: bold; margin-bottom: 0.5rem;">ℹ️ Informações:</p>
+        <ul style="color: #cccccc; font-size: 13px; line-height: 1.8;">
+            <li>Dados extraídos do <b>Portal da Transparência</b> — Notas Fiscais Eletrônicas.</li>
+            <li>Na primeira consulta, os dados são carregados e armazenados em <b>cache local</b> (pode levar alguns minutos para arquivos grandes).</li>
+            <li>Consultas subsequentes no mesmo arquivo são <b>muito mais rápidas</b>.</li>
+            <li>Limite de <b>{max_resultados}</b> resultados para otimizar a performance.</li>
+            <li>Os resultados podem ser exportados em <b>CSV</b> ou <b>Excel</b>.</li>
+        </ul>
+        <p style="color: #d4af37; text-align: center; margin-top: 1rem; font-size: 14px; font-weight: 600;">
+            Notas Fiscais podem ser usadas na pesquisa de preço, acesse para baixar com a chave de acesso:
+            <a href="https://www.nfe.fazenda.gov.br/portal/principal.aspx" target="_blank" style="color: #ffd700; text-decoration: underline;">https://www.nfe.fazenda.gov.br/portal/principal.aspx</a>
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
