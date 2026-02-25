@@ -700,6 +700,11 @@ st.subheader("🔍 Filtros de Pesquisa")
 nomes_arquivos = list(arquivos_portal.values())
 ids_arquivos = list(arquivos_portal.keys())
 
+# Ordenar por nome decrescente para o arquivo mais recente ficar primeiro
+ordem = sorted(range(len(nomes_arquivos)), key=lambda i: nomes_arquivos[i], reverse=True)
+nomes_arquivos = [nomes_arquivos[i] for i in ordem]
+ids_arquivos = [ids_arquivos[i] for i in ordem]
+
 arquivo_idx = st.selectbox(
     "📂 Arquivo / Período",
     options=range(len(nomes_arquivos)),
