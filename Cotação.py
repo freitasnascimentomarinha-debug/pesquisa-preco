@@ -11,7 +11,7 @@ from openpyxl.utils.dataframe import dataframe_to_rows
 
 # Configuração da página
 st.set_page_config(
-    page_title="AtaCotada - Marinha do Brasil",
+    page_title="AtaCotada - Cotação",
     page_icon="⚓",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -33,21 +33,13 @@ st.markdown("""
             padding: 0;
         }
         
-        /* Anti-flash: forçar fundo escuro desde o início */
-        html, body, [data-testid="stAppViewContainer"],
-        .main, [data-testid="stApp"], .stApp {
-            background-color: #001a4d !important;
-            color: #ffffff !important;
+        body, .main {
+            background-color: #001a4d;
+            color: #ffffff;
         }
         
-        /* Transição suave ao carregar */
         .stApp {
-            animation: fadeIn 0.3s ease-in;
-        }
-        
-        @keyframes fadeIn {
-            from { opacity: 0.7; }
-            to { opacity: 1; }
+            background-color: #001a4d;
         }
         
         .main .block-container {
@@ -241,114 +233,89 @@ st.markdown("""
         .markdown-text-container {
             color: #ffffff;
         }
-
-        /* ===== SIDEBAR MODERNA - PRETA COM BORDA DOURADA ===== */
+        
+        /* SIDEBAR - NAVEGAÇÃO DE PÁGINAS MODERNO */
         [data-testid="stSidebar"] {
-            background: linear-gradient(180deg, #0a0a0a 0%, #111111 50%, #0a0a0a 100%) !important;
-            border-right: 3px solid #d4af37 !important;
-            box-shadow: 4px 0 15px rgba(0, 0, 0, 0.5);
+            background: linear-gradient(180deg, #0a0a0a 0%, #1a1a1a 100%);
+            border-right: 2px solid #d4af37;
         }
-
+        
         [data-testid="stSidebar"] [data-testid="stVerticalBlock"] {
-            background: transparent !important;
+            background: transparent;
         }
-
-        /* Esconder navegação padrão do Streamlit */
-        [data-testid="stSidebarNav"] {
-            display: none !important;
+        
+        /* Botões de navegação das páginas */
+        [data-testid="stSidebar"] button {
+            background: linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%);
+            color: #ffffff !important;
+            border: 2px solid #333333 !important;
+            border-radius: 8px;
+            margin: 0.5rem 0;
+            font-weight: 600;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            padding: 0.75rem 1rem !important;
         }
-
-        /* Título da sidebar */
-        [data-testid="stSidebar"] .stMarkdown h2 {
+        
+        [data-testid="stSidebar"] button:hover {
+            background: linear-gradient(135deg, #2d2d2d 0%, #3d3d3d 100%);
+            border: 2px solid #d4af37 !important;
             color: #d4af37 !important;
-            font-family: 'Arial Black', sans-serif;
-            font-size: 22px;
-            text-align: center;
-            letter-spacing: 2px;
-            text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.8);
-            border-bottom: 2px solid #d4af37;
-            padding-bottom: 0.75rem;
-            margin-bottom: 1.5rem;
-        }
-
-        /* Links de navegação na sidebar */
-        [data-testid="stSidebar"] a[data-testid="stPageLink-NavLink"] {
-            background: linear-gradient(135deg, #1a1a1a 0%, #252525 100%) !important;
-            color: #ffffff !important;
-            border: 1px solid #333333 !important;
-            border-radius: 10px !important;
-            margin: 0.4rem 0 !important;
-            padding: 0.85rem 1.2rem !important;
-            font-weight: 600 !important;
-            font-size: 15px !important;
-            transition: all 0.3s ease !important;
-            text-decoration: none !important;
-            display: flex !important;
-            align-items: center !important;
-        }
-
-        [data-testid="stSidebar"] a[data-testid="stPageLink-NavLink"] span {
-            color: #ffffff !important;
-        }
-
-        [data-testid="stSidebar"] a[data-testid="stPageLink-NavLink"]:hover {
-            background: linear-gradient(135deg, #252525 0%, #353535 100%) !important;
-            border: 1px solid #d4af37 !important;
             transform: translateX(5px);
-            box-shadow: 0 4px 15px rgba(212, 175, 55, 0.25) !important;
+            box-shadow: 0 4px 12px rgba(212, 175, 55, 0.2);
         }
-
-        [data-testid="stSidebar"] a[data-testid="stPageLink-NavLink"]:hover span {
+        
+        /* Botão ativo */
+        [data-testid="stSidebar"] button[kind="primary"] {
+            background: linear-gradient(135deg, #d4af37 0%, #ffd700 100%);
+            color: #001a4d !important;
+            border: 2px solid #d4af37 !important;
+            font-weight: bold;
+            box-shadow: 0 4px 12px rgba(212, 175, 55, 0.4);
+        }
+        
+        /* Links na sidebar */
+        [data-testid="stSidebar"] a {
+            color: #ffffff !important;
+            text-decoration: none;
+            transition: all 0.3s ease;
+        }
+        
+        [data-testid="stSidebarNav"] span {
+            color: #ffffff !important;
+        }
+        
+        [data-testid="stSidebar"] a:hover,
+        [data-testid="stSidebarNav"] a:hover span {
             color: #d4af37 !important;
+            text-shadow: 0 0 10px rgba(212, 175, 55, 0.5);
         }
-
-        /* Link ativo / página atual */
-        [data-testid="stSidebar"] a[data-testid="stPageLink-NavLink"][aria-current="page"] {
-            background: linear-gradient(135deg, #d4af37 0%, #c5a028 100%) !important;
-            color: #0a0a0a !important;
-            border: 1px solid #d4af37 !important;
-            font-weight: bold !important;
-            box-shadow: 0 4px 15px rgba(212, 175, 55, 0.4) !important;
-        }
-
-        [data-testid="stSidebar"] a[data-testid="stPageLink-NavLink"][aria-current="page"] span {
-            color: #0a0a0a !important;
-        }
-
+        
         /* Texto e labels na sidebar */
         [data-testid="stSidebar"] label,
         [data-testid="stSidebar"] .stText,
-        [data-testid="stSidebar"] p {
+        [data-testid="stSidebar"] div {
             color: #ffffff !important;
         }
-
+        
         /* Separadores na sidebar */
         [data-testid="stSidebar"] hr {
-            border-color: #333333 !important;
-            margin: 1rem 0 !important;
+            border-color: #333333;
+            margin: 1rem 0;
         }
-
-        /* Rodapé da sidebar */
-        .sidebar-footer {
-            color: #666666;
-            font-size: 11px;
-            text-align: center;
-            padding: 1rem 0;
-            border-top: 1px solid #333333;
-            margin-top: 2rem;
+        
+        /* Cabeçalho da sidebar */
+        [data-testid="stSidebar"] .stMarkdown h1,
+        [data-testid="stSidebar"] .stMarkdown h2,
+        [data-testid="stSidebar"] .stMarkdown h3 {
+            color: #d4af37;
+            text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.8);
+            border-bottom: 2px solid #d4af37;
+            padding-bottom: 0.5rem;
+            margin-bottom: 1rem;
         }
     </style>
 """, unsafe_allow_html=True)
-
-# ===== SIDEBAR - Navegação customizada =====
-with st.sidebar:
-    st.markdown("## MENU")
-    st.markdown("---")
-    st.page_link("streamlit_app.py", label="⚓ Cotação", icon="📊")
-    st.page_link("pages/Adesões.py", label="🤝 Adesões", icon="📋")
-    st.page_link("pages/Notas_Fiscais.py", label="📄 Notas Fiscais", icon="🧾")
-    st.markdown("---")
-    st.markdown('<div class="sidebar-footer">Marinha do Brasil<br>AtaCotada v1.0</div>', unsafe_allow_html=True)
 
 # Função para formatar preço em reais
 def formatar_preco_reais(valor):
