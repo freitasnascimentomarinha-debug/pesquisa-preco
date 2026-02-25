@@ -1,4 +1,10 @@
 import streamlit as st
+import requests
+import pandas as pd
+import os
+import re
+import io
+import tempfile
 
 # Configuração da página
 st.set_page_config(
@@ -61,6 +67,98 @@ st.markdown("""
             font-size: 14px;
             margin-top: 0.5rem;
             letter-spacing: 1px;
+        }
+
+        /* Filtros container */
+        .filtros-container {
+            background: linear-gradient(135deg, #0a2540 0%, #164863 100%);
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+            border-left: 5px solid #d4af37;
+        }
+
+        /* Cards de estatísticas */
+        .stats-card {
+            background: linear-gradient(135deg, #0a2540 0%, #0f4c75 100%);
+            padding: 1.5rem;
+            border-radius: 8px;
+            border-left: 5px solid #d4af37;
+            margin-bottom: 1rem;
+        }
+
+        /* Botões */
+        .stButton > button {
+            background-color: #d4af37;
+            color: #ffffff;
+            border: none;
+            border-radius: 6px;
+            padding: 0.75rem 1.5rem;
+            font-weight: bold;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .stButton > button:hover {
+            background-color: #ffd700;
+            color: #ffffff;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(212, 175, 55, 0.3);
+        }
+
+        /* Botões de download */
+        .stDownloadButton > button {
+            background-color: #d4af37 !important;
+            color: #ffffff !important;
+            border: none !important;
+        }
+
+        .stDownloadButton > button:hover {
+            background-color: #ffd700 !important;
+            color: #ffffff !important;
+        }
+
+        /* Inputs */
+        .stTextInput > div > div > input,
+        .stNumberInput > div > div > input {
+            background-color: #0a2540 !important;
+            color: #ffffff !important;
+            border: 2px solid #0033cc !important;
+            border-radius: 6px !important;
+        }
+
+        label {
+            color: #ffffff !important;
+        }
+
+        /* Títulos */
+        h1, h2, h3 {
+            color: #d4af37;
+            text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Tabelas */
+        [data-testid="stDataFrame"] {
+            background-color: #ffffff !important;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        th {
+            background-color: #ffffff !important;
+            color: #333333 !important;
+            font-weight: bold;
+            border-bottom: 2px solid #d4af37 !important;
+        }
+
+        td {
+            background-color: #ffffff !important;
+            color: #333333 !important;
+        }
+
+        tr:hover {
+            background-color: #f5f5f5 !important;
         }
         
         /* ===== SIDEBAR MODERNA - PRETA COM BORDA DOURADA ===== */
@@ -176,11 +274,410 @@ st.markdown("""
     <div class="header-container">
         <div class="logo-text">SISTEMA DE ACOMPANHAMENTO</div>
         <div class="sistema-nome">AtaCotada</div>
-        <div class="subtitulo">Marinha do Brasil</div>
+        <div class="subtitulo">Notas Fiscais</div>
     </div>
 """, unsafe_allow_html=True)
 
-# Conteúdo da página Notas Fiscais
+# ===== CONTEÚDO - NOTAS FISCAIS =====
 st.title("📄 Notas Fiscais")
+st.markdown("Consulta de notas fiscais eletrônicas a partir dos dados abertos do **Portal da Transparência**.")
 
-st.write("Página de Notas Fiscais - em desenvolvimento")
+# --- Configuração da fonte de dados ---
+PASTA_ID = "1369rEJAqpprCP3dZp55eXaTcQRU9D5Ol"
+DOWNLOAD_BASE = "https://drive.usercontent.google.com/download?id={file_id}&export=download&confirm=t"
+CACHE_DIR = os.path.join(tempfile.gettempdir(), "atacotada_nf")
+os.makedirs(CACHE_DIR, exist_ok=True)
+
+# Fallback caso a listagem falhe
+ARQUIVOS_FALLBACK = {
+    "1HwHmY16I7OXmhdRqhaBbLY_tuyLe3plx": "Notas Fiscais - Arquivo 1",
+    "1j1y5PgaxbgRWbPkwymRBYE6kNNDSJeM6": "Notas Fiscais - Arquivo 2",
+    "1tSqz-nIiM_uDZW38GdWeRboNC7nwq3jH": "Notas Fiscais - Arquivo 3",
+    "1tgekwOo8__NZZSs2OdFMS6xT6pS3LXVn": "Notas Fiscais - Arquivo 4",
+}
+
+
+# --- Funções auxiliares ---
+@st.cache_data(ttl=600, show_spinner=False)
+def listar_arquivos_disponiveis(folder_id):
+    """Descobre os arquivos CSV disponíveis no Portal da Transparência."""
+    url = f"https://drive.google.com/drive/folders/{folder_id}"
+    try:
+        resp = requests.get(url, timeout=30)
+        resp.raise_for_status()
+        # Extrair data-id dos elementos do HTML
+        ids_encontrados = re.findall(r'data-id="([a-zA-Z0-9_-]{20,})"', resp.text)
+        ids_encontrados = list(dict.fromkeys(ids_encontrados))  # Remove duplicatas
+
+        if not ids_encontrados:
+            return None
+
+        # Tentar obter nomes dos arquivos via Content-Disposition
+        arquivos = {}
+        for fid in ids_encontrados:
+            try:
+                dl_url = DOWNLOAD_BASE.format(file_id=fid)
+                head_resp = requests.head(dl_url, allow_redirects=True, timeout=15)
+                cd = head_resp.headers.get("Content-Disposition", "")
+                match = re.search(r"filename\*?=[\"']?(?:UTF-8'')?([^\"';\r\n]+)", cd)
+                if match:
+                    nome = requests.utils.unquote(match.group(1)).strip()
+                else:
+                    nome = f"Arquivo {fid[:10]}"
+                arquivos[fid] = nome
+            except Exception:
+                arquivos[fid] = f"Arquivo {fid[:10]}"
+
+        return arquivos if arquivos else None
+    except Exception:
+        return None
+
+
+def baixar_arquivo_csv(file_id, progress_bar=None):
+    """Baixa o arquivo CSV para cache local."""
+    cache_path = os.path.join(CACHE_DIR, f"{file_id}.csv")
+
+    if os.path.exists(cache_path):
+        return cache_path
+
+    url = DOWNLOAD_BASE.format(file_id=file_id)
+    response = requests.get(url, stream=True, timeout=600)
+    response.raise_for_status()
+
+    total = int(response.headers.get("content-length", 0))
+    downloaded = 0
+    tmp_path = cache_path + ".tmp"
+
+    with open(tmp_path, "wb") as f:
+        for data in response.iter_content(chunk_size=131072):
+            f.write(data)
+            downloaded += len(data)
+            if progress_bar and total:
+                pct = min(downloaded / total, 1.0)
+                mb_down = downloaded / (1024 * 1024)
+                mb_total = total / (1024 * 1024)
+                progress_bar.progress(pct, text=f"Baixando... {mb_down:.0f} / {mb_total:.0f} MB ({pct*100:.0f}%)")
+
+    os.rename(tmp_path, cache_path)
+    return cache_path
+
+
+@st.cache_data(show_spinner=False, ttl=1800)
+def pesquisar_notas(file_path, filtro_produto="", filtro_nome_dest="", filtro_uf_dest="", filtro_uf_emit="", max_resultados=1000):
+    """Pesquisa nos dados CSV filtrando por produto, nome destinatário, UF destinatário e UF emitente."""
+    resultados = []
+    total_linhas = 0
+
+    for chunk in pd.read_csv(
+        file_path,
+        sep=";",
+        encoding="latin-1",
+        chunksize=50000,
+        dtype=str,
+        on_bad_lines="skip",
+    ):
+        mask = pd.Series(True, index=chunk.index)
+
+        if filtro_produto and filtro_produto.strip():
+            col_prod = "DESCRIÇÃO DO PRODUTO/SERVIÇO"
+            if col_prod in chunk.columns:
+                mask &= chunk[col_prod].astype(str).str.contains(
+                    filtro_produto.strip(), case=False, na=False
+                )
+
+        if filtro_nome_dest and filtro_nome_dest.strip():
+            col_nome = "NOME DESTINATÁRIO"
+            if col_nome in chunk.columns:
+                mask &= chunk[col_nome].astype(str).str.contains(
+                    filtro_nome_dest.strip(), case=False, na=False
+                )
+
+        if filtro_uf_dest and filtro_uf_dest.strip():
+            col_uf_dest = "UF DESTINATÁRIO"
+            if col_uf_dest in chunk.columns:
+                mask &= chunk[col_uf_dest].astype(str).str.upper().eq(
+                    filtro_uf_dest.strip().upper()
+                )
+
+        if filtro_uf_emit and filtro_uf_emit.strip():
+            col_uf_emit = "UF EMITENTE"
+            if col_uf_emit in chunk.columns:
+                mask &= chunk[col_uf_emit].astype(str).str.upper().eq(
+                    filtro_uf_emit.strip().upper()
+                )
+
+        filtered = chunk[mask]
+        if len(filtered) > 0:
+            resultados.append(filtered)
+
+        total_linhas += len(chunk)
+
+        total_encontrados = sum(len(r) for r in resultados)
+        if total_encontrados >= max_resultados:
+            break
+
+    if resultados:
+        df = pd.concat(resultados, ignore_index=True).head(max_resultados)
+        return df, total_linhas
+    return pd.DataFrame(), total_linhas
+
+
+# --- Carregar lista de arquivos ---
+with st.spinner("Carregando lista de arquivos do Portal da Transparência..."):
+    arquivos_portal = listar_arquivos_disponiveis(PASTA_ID)
+
+if not arquivos_portal:
+    arquivos_portal = ARQUIVOS_FALLBACK.copy()
+    st.warning("⚠️ Não foi possível listar os arquivos. Usando dados conhecidos como fallback.")
+
+col_info, col_refresh = st.columns([4, 1])
+with col_info:
+    st.markdown(f"**{len(arquivos_portal)}** arquivo(s) disponível(is) no Portal da Transparência.")
+with col_refresh:
+    if st.button("🔄 Atualizar lista", use_container_width=True):
+        listar_arquivos_disponiveis.clear()
+        st.rerun()
+
+# --- Formulário de busca ---
+st.markdown('<div class="filtros-container">', unsafe_allow_html=True)
+st.subheader("🔍 Filtros de Pesquisa")
+
+nomes_arquivos = list(arquivos_portal.values())
+ids_arquivos = list(arquivos_portal.keys())
+
+arquivo_idx = st.selectbox(
+    "📂 Arquivo / Período",
+    options=range(len(nomes_arquivos)),
+    format_func=lambda i: nomes_arquivos[i],
+    help="Selecione o arquivo CSV a ser consultado",
+)
+
+col1, col2 = st.columns(2)
+
+with col1:
+    filtro_produto = st.text_input(
+        "Descrição do Produto / Serviço",
+        placeholder="Ex: TINTA, PARAFUSO, DIESEL...",
+        help="Pesquisa parcial na descrição do produto/serviço",
+    )
+
+with col2:
+    filtro_nome_dest = st.text_input(
+        "Nome Destinatário",
+        placeholder="Ex: ARSENAL, HOSPITAL NAVAL...",
+        help="Pesquisa parcial no nome do destinatário",
+    )
+
+col3, col4, col5 = st.columns(3)
+
+with col3:
+    filtro_uf_dest = st.text_input(
+        "UF Destinatário",
+        placeholder="Ex: RJ, SP, DF...",
+        help="Sigla do estado do destinatário (filtro exato)",
+        max_chars=2,
+    )
+
+with col4:
+    filtro_uf_emit = st.text_input(
+        "UF Emitente",
+        placeholder="Ex: RJ, SP, MG...",
+        help="Sigla do estado do emitente/fornecedor (filtro exato)",
+        max_chars=2,
+    )
+
+with col5:
+    max_resultados = st.number_input(
+        "Máximo de resultados",
+        min_value=100,
+        max_value=10000,
+        value=500,
+        step=100,
+        help="Limita a quantidade de registros retornados para otimizar a performance",
+    )
+
+buscar = st.button("🔎 Pesquisar Notas Fiscais", use_container_width=True)
+st.markdown('</div>', unsafe_allow_html=True)
+
+# --- Processar busca ---
+if buscar:
+    if not filtro_produto and not filtro_nome_dest and not filtro_uf_dest and not filtro_uf_emit:
+        st.warning("⚠️ Informe pelo menos um filtro para realizar a pesquisa.")
+    else:
+        file_id = ids_arquivos[arquivo_idx]
+        file_name = nomes_arquivos[arquivo_idx]
+
+        # Etapa 1: Download do arquivo
+        progress_bar = st.progress(0, text="Verificando arquivo...")
+        cache_path = os.path.join(CACHE_DIR, f"{file_id}.csv")
+
+        if os.path.exists(cache_path):
+            progress_bar.progress(1.0, text="✅ Arquivo já em cache local")
+        else:
+            try:
+                cache_path = baixar_arquivo_csv(file_id, progress_bar)
+            except Exception as e:
+                progress_bar.empty()
+                st.error(f"❌ Erro ao baixar o arquivo: {str(e)}")
+                st.stop()
+
+        # Etapa 2: Pesquisa nos dados
+        progress_bar.progress(1.0, text="🔍 Pesquisando nos dados...")
+
+        try:
+            df_resultado, total_linhas = pesquisar_notas(
+                cache_path, filtro_produto, filtro_nome_dest, filtro_uf_dest, filtro_uf_emit, max_resultados
+            )
+        except Exception as e:
+            progress_bar.empty()
+            st.error(f"❌ Erro ao processar o arquivo: {str(e)}")
+            st.stop()
+
+        progress_bar.empty()
+
+        if df_resultado.empty:
+            st.info("📭 Nenhuma nota fiscal encontrada para os filtros informados.")
+        else:
+            # Colunas e ordem definidas pelo usuário
+            colunas_exibicao = {
+                "DATA EMISSÃO": "Data",
+                "DESCRIÇÃO DO PRODUTO/SERVIÇO": "Produto",
+                "UNIDADE": "Unidade",
+                "QUANTIDADE": "Quantidade",
+                "VALOR UNITÁRIO": "Valor Unitário",
+                "VALOR TOTAL": "Valor Total",
+                "UF DESTINATÁRIO": "UF Destinatário",
+                "NOME DESTINATÁRIO": "Nome Destinatário",
+                "RAZÃO SOCIAL EMITENTE": "Razão Social Emitente",
+                "CPF/CNPJ Emitente": "CNPJ Emitente",
+                "UF EMITENTE": "UF Emitente",
+                "MUNICÍPIO EMITENTE": "Município",
+                "NCM/SH (TIPO DE PRODUTO)": "NCM/SH (Tipo de Produto)",
+                "CHAVE DE ACESSO": "Chave de Acesso",
+                "NATUREZA DA OPERAÇÃO": "Natureza da Operação",
+            }
+            colunas_disponiveis = [c for c in colunas_exibicao if c in df_resultado.columns]
+            df_exib = df_resultado[colunas_disponiveis].rename(columns=colunas_exibicao).copy()
+
+            # --- Cards de estatísticas ---
+            st.markdown("---")
+            col_s1, col_s2, col_s3, col_s4 = st.columns(4)
+
+            with col_s1:
+                st.markdown(f"""
+                <div class="stats-card">
+                    <div style="color: #d4af37; font-size: 14px; font-weight: 600;">REGISTROS ENCONTRADOS</div>
+                    <div style="color: #ffffff; font-size: 32px; font-weight: bold;">{len(df_resultado):,}</div>
+                    <div style="color: #aaaaaa; font-size: 12px;">{total_linhas:,} linhas analisadas</div>
+                </div>
+                """, unsafe_allow_html=True)
+
+            with col_s2:
+                fornecedores = (
+                    df_resultado["RAZÃO SOCIAL EMITENTE"].nunique()
+                    if "RAZÃO SOCIAL EMITENTE" in df_resultado.columns
+                    else 0
+                )
+                st.markdown(f"""
+                <div class="stats-card">
+                    <div style="color: #d4af37; font-size: 14px; font-weight: 600;">FORNECEDORES</div>
+                    <div style="color: #ffffff; font-size: 32px; font-weight: bold;">{fornecedores}</div>
+                    <div style="color: #aaaaaa; font-size: 12px;">Distintos</div>
+                </div>
+                """, unsafe_allow_html=True)
+
+            with col_s3:
+                orgaos = (
+                    df_resultado["ÓRGÃO DESTINATÁRIO"].nunique()
+                    if "ÓRGÃO DESTINATÁRIO" in df_resultado.columns
+                    else 0
+                )
+                st.markdown(f"""
+                <div class="stats-card">
+                    <div style="color: #d4af37; font-size: 14px; font-weight: 600;">ÓRGÃOS DESTINO</div>
+                    <div style="color: #ffffff; font-size: 32px; font-weight: bold;">{orgaos}</div>
+                    <div style="color: #aaaaaa; font-size: 12px;">Distintos</div>
+                </div>
+                """, unsafe_allow_html=True)
+
+            with col_s4:
+                try:
+                    total_valor = pd.to_numeric(
+                        df_resultado["VALOR TOTAL"]
+                        .str.replace(".", "", regex=False)
+                        .str.replace(",", ".", regex=False),
+                        errors="coerce",
+                    ).sum()
+                    valor_fmt = (
+                        f"R$ {total_valor:,.2f}"
+                        .replace(",", "X")
+                        .replace(".", ",")
+                        .replace("X", ".")
+                    )
+                except Exception:
+                    valor_fmt = "—"
+                st.markdown(f"""
+                <div class="stats-card">
+                    <div style="color: #d4af37; font-size: 14px; font-weight: 600;">VALOR TOTAL</div>
+                    <div style="color: #ffffff; font-size: 20px; font-weight: bold;">{valor_fmt}</div>
+                    <div style="color: #aaaaaa; font-size: 12px;">Soma dos registros</div>
+                </div>
+                """, unsafe_allow_html=True)
+
+            # --- Tabela de resultados ---
+            st.markdown("---")
+            st.subheader("📋 Resultados")
+            st.markdown(f"**Arquivo:** {file_name}")
+            st.dataframe(
+                df_exib,
+                use_container_width=True,
+                hide_index=True,
+                height=min(len(df_exib) * 38 + 40, 700),
+            )
+
+            # --- Botões de download ---
+            st.markdown("---")
+            col_d1, col_d2 = st.columns(2)
+
+            with col_d1:
+                csv_data = df_exib.to_csv(index=False, sep=";", encoding="utf-8-sig")
+                st.download_button(
+                    "📥 Baixar resultados (CSV)",
+                    data=csv_data,
+                    file_name="notas_fiscais_resultado.csv",
+                    mime="text/csv",
+                    use_container_width=True,
+                )
+
+            with col_d2:
+                try:
+                    excel_buffer = io.BytesIO()
+                    df_exib.to_excel(excel_buffer, index=False, engine="openpyxl")
+                    st.download_button(
+                        "📥 Baixar resultados (Excel)",
+                        data=excel_buffer.getvalue(),
+                        file_name="notas_fiscais_resultado.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        use_container_width=True,
+                    )
+                except Exception:
+                    pass
+
+            # --- Informações ---
+            st.markdown("---")
+            st.markdown(f"""
+            <div style="background: #0a2540; border: 1px solid #333; border-radius: 8px; padding: 1rem; margin-top: 0.5rem;">
+                <p style="color: #d4af37; font-weight: bold; margin-bottom: 0.5rem;">ℹ️ Informações:</p>
+                <ul style="color: #cccccc; font-size: 13px; line-height: 1.8;">
+                    <li>Dados extraídos do <b>Portal da Transparência</b> — Notas Fiscais Eletrônicas.</li>
+                    <li>Na primeira consulta, os dados são carregados e armazenados em <b>cache local</b> (pode levar alguns minutos para arquivos grandes).</li>
+                    <li>Consultas subsequentes no mesmo arquivo são <b>muito mais rápidas</b>.</li>
+                    <li>Limite de <b>{max_resultados}</b> resultados para otimizar a performance.</li>
+                    <li>Os resultados podem ser exportados em <b>CSV</b> ou <b>Excel</b>.</li>
+                </ul>
+                <p style="color: #d4af37; text-align: center; margin-top: 1rem; font-size: 14px; font-weight: 600;">
+                    Notas Fiscais podem ser usadas na pesquisa de preço, acesse para baixar com a chave de acesso:
+                    <a href="https://www.nfe.fazenda.gov.br/portal/principal.aspx" target="_blank" style="color: #ffd700; text-decoration: underline;">https://www.nfe.fazenda.gov.br/portal/principal.aspx</a>
+                </p>
+            </div>
+            """, unsafe_allow_html=True)
