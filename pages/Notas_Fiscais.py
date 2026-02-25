@@ -279,6 +279,7 @@ with st.sidebar:
     st.page_link("pages/Adesões.py", label="🤝 Adesões", icon="📋")
     st.page_link("pages/Notas_Fiscais.py", label="📄 Notas Fiscais", icon="🧾")
     st.markdown("---")
+    st.markdown('<div style="text-align:center;color:#d4af37;font-size:10px;font-weight:600;padding:0.3rem 0;white-space:nowrap;">Centro de Operações do Abastecimento</div>', unsafe_allow_html=True)
     st.markdown('<div class="sidebar-footer">Marinha do Brasil<br>AtaCotada v1.0</div>', unsafe_allow_html=True)
 
 # Header
@@ -302,10 +303,18 @@ os.makedirs(CACHE_DIR, exist_ok=True)
 
 # Fallback caso a listagem falhe
 ARQUIVOS_FALLBACK = {
-    "1HwHmY16I7OXmhdRqhaBbLY_tuyLe3plx": "Notas Fiscais - Arquivo 1",
-    "1j1y5PgaxbgRWbPkwymRBYE6kNNDSJeM6": "Notas Fiscais - Arquivo 2",
-    "1tSqz-nIiM_uDZW38GdWeRboNC7nwq3jH": "Notas Fiscais - Arquivo 3",
-    "1tgekwOo8__NZZSs2OdFMS6xT6pS3LXVn": "Notas Fiscais - Arquivo 4",
+    "1HwHmY16I7OXmhdRqhaBbLY_tuyLe3plx": "202503_NFe_NotaFiscalItem.csv",
+    "1vYWRVtDFCklm2o2TQJPbFbVzEGUZBKYt": "202504_NFe_NotaFiscalItem.csv",
+    "13JjeGhNsIoUlfZH8ZnNOtB_xa3aCAyVJ": "202505_NFe_NotaFiscalItem.csv",
+    "1j1y5PgaxbgRWbPkwymRBYE6kNNDSJeM6": "202506_NFe_NotaFiscalItem.csv",
+    "1ibH9e3GRS638eLDoMyWsxcckKW4RYYFR": "202507_NFe_NotaFiscalItem.csv",
+    "1wTiEvuD0NgSGXTbPB9LSlrFgqmXnZDUa": "202508_NFe_NotaFiscalItem.csv",
+    "1ZJJtcfFpkCtQBfxUB-iOowv0buFq01VX": "202509_NFe_NotaFiscalItem.csv",
+    "1sTDH3Zi38dZmsL3NOb1pcbV9WEDxn6yh": "202510_NFe_NotaFiscalItem.csv",
+    "1jD1NLznnwvdHhWcr3NSBGeIzrRjMxX3g": "202511_NFe_NotaFiscalItem.csv",
+    "1Ye9GhANeEErRuV4GjC3Y-wyn6HKUTSDh": "202512_NFe_NotaFiscalItem.csv",
+    "1tSqz-nIiM_uDZW38GdWeRboNC7nwq3jH": "202601_NFe_NotaFiscalItem.csv",
+    "1tgekwOo8__NZZSs2OdFMS6xT6pS3LXVn": "202602_NFe_NotaFiscalItem.csv",
 }
 
 
@@ -324,19 +333,21 @@ def listar_arquivos_disponiveis(folder_id):
         if not ids_encontrados:
             return None
 
-        # Tentar obter nomes dos arquivos via Content-Disposition
+        # Obter nomes dos arquivos via título da página do Google Drive
         arquivos = {}
         for fid in ids_encontrados:
             try:
-                dl_url = DOWNLOAD_BASE.format(file_id=fid)
-                head_resp = requests.head(dl_url, allow_redirects=True, timeout=15)
-                cd = head_resp.headers.get("Content-Disposition", "")
-                match = re.search(r"filename\*?=[\"']?(?:UTF-8'')?([^\"';\r\n]+)", cd)
-                if match:
-                    nome = requests.utils.unquote(match.group(1)).strip()
+                view_url = f"https://drive.google.com/file/d/{fid}/view"
+                view_resp = requests.get(view_url, timeout=15)
+                title_match = re.search(r"<title>([^<]+)</title>", view_resp.text)
+                if title_match:
+                    nome = title_match.group(1).replace(" - Google Drive", "").strip()
+                    if nome and nome != "Google Drive":
+                        arquivos[fid] = nome
+                    else:
+                        arquivos[fid] = f"Arquivo {fid[:10]}"
                 else:
-                    nome = f"Arquivo {fid[:10]}"
-                arquivos[fid] = nome
+                    arquivos[fid] = f"Arquivo {fid[:10]}"
             except Exception:
                 arquivos[fid] = f"Arquivo {fid[:10]}"
 
@@ -349,12 +360,25 @@ def baixar_arquivo_csv(file_id, progress_bar=None):
     """Baixa o arquivo CSV para cache local."""
     cache_path = os.path.join(CACHE_DIR, f"{file_id}.csv")
 
+    # Verificar cache existente — descartar se for muito pequeno (provável HTML de erro)
     if os.path.exists(cache_path):
-        return cache_path
+        if os.path.getsize(cache_path) > 10000:
+            return cache_path
+        else:
+            os.remove(cache_path)
 
     url = DOWNLOAD_BASE.format(file_id=file_id)
     response = requests.get(url, stream=True, timeout=600)
     response.raise_for_status()
+
+    # Detectar resposta HTML (quota excedida, página de confirmação, etc.)
+    content_type = response.headers.get("Content-Type", "")
+    if "text/html" in content_type:
+        response.close()
+        raise Exception(
+            "O Google Drive retornou uma página de erro (quota de downloads excedida). "
+            "Tente novamente em alguns minutos."
+        )
 
     total = int(response.headers.get("content-length", 0))
     downloaded = 0
@@ -369,6 +393,16 @@ def baixar_arquivo_csv(file_id, progress_bar=None):
                 mb_down = downloaded / (1024 * 1024)
                 mb_total = total / (1024 * 1024)
                 progress_bar.progress(pct, text=f"Baixando... {mb_down:.0f} / {mb_total:.0f} MB ({pct*100:.0f}%)")
+
+    # Validar que o arquivo baixado é CSV (não HTML de erro)
+    with open(tmp_path, "rb") as f:
+        head = f.read(200)
+    if b"<!DOCTYPE" in head or b"<html" in head.lower():
+        os.remove(tmp_path)
+        raise Exception(
+            "O arquivo baixado não é um CSV válido (quota de downloads do Google Drive excedida). "
+            "Tente novamente em alguns minutos."
+        )
 
     os.rename(tmp_path, cache_path)
     return cache_path
@@ -732,6 +766,10 @@ if buscar:
         progress_bar = st.progress(0, text="Verificando arquivo...")
         cache_path = os.path.join(CACHE_DIR, f"{file_id}.csv")
 
+        # Invalidar cache corrompido (HTML salvo como CSV)
+        if os.path.exists(cache_path) and os.path.getsize(cache_path) < 10000:
+            os.remove(cache_path)
+
         if os.path.exists(cache_path):
             progress_bar.progress(1.0, text="✅ Arquivo já em cache local")
         else:
@@ -739,7 +777,7 @@ if buscar:
                 cache_path = baixar_arquivo_csv(file_id, progress_bar)
             except Exception as e:
                 progress_bar.empty()
-                st.error(f"❌ Erro ao baixar o arquivo: {str(e)}")
+                st.error(f"❌ {str(e)}")
                 st.stop()
 
         # Etapa 2: Pesquisa nos dados

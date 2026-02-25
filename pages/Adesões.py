@@ -260,6 +260,7 @@ with st.sidebar:
     st.page_link("pages/Adesões.py", label="🤝 Adesões", icon="📋")
     st.page_link("pages/Notas_Fiscais.py", label="📄 Notas Fiscais", icon="🧾")
     st.markdown("---")
+    st.markdown('<div style="text-align:center;color:#d4af37;font-size:10px;font-weight:600;padding:0.3rem 0;white-space:nowrap;">Centro de Operações do Abastecimento</div>', unsafe_allow_html=True)
     st.markdown('<div class="sidebar-footer">Marinha do Brasil<br>AtaCotada v1.0</div>', unsafe_allow_html=True)
 
 # Header
@@ -767,6 +768,17 @@ selected_uf = st.session_state.get("selected_uf")
 if results:
     uasg_index = load_uasg_index(_data_path("uasgs.json"))
 
+    # Card com quantidade de atas encontradas
+    st.markdown(
+        f"""
+        <div class="metric-card" style="text-align:center;margin-bottom:1.2rem;">
+            <div style="color:#d4af37;font-size:2rem;font-weight:bold;">{len(results)}</div>
+            <div style="color:#cbd5e1;font-size:0.95rem;">ata{"s" if len(results) != 1 else ""} encontrada{"s" if len(results) != 1 else ""} no total</div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
     if modo_exibicao == "Mapa":
         st.subheader("Mapa das atas encontradas")
         st.caption("Clique no estado onde deseja encontrar atas para adesão.")
@@ -802,6 +814,16 @@ if results:
         if not display_results:
             st.info("Nenhuma ata encontrada para este estado.")
         else:
+            label_uf = f" em {selected_uf}" if selected_uf else ""
+            st.markdown(
+                f"""
+                <div class="metric-card" style="text-align:center;margin-bottom:1rem;">
+                    <div style="color:#d4af37;font-size:1.6rem;font-weight:bold;">{len(display_results)}</div>
+                    <div style="color:#cbd5e1;font-size:0.9rem;">ata{"s" if len(display_results) != 1 else ""}{label_uf}</div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
             for raw in display_results:
                 normalized = normalize_item(raw)
                 if not normalized:

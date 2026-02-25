@@ -360,6 +360,7 @@ with st.sidebar:
     st.page_link("pages/Adesões.py", label="🤝 Adesões", icon="📋")
     st.page_link("pages/Notas_Fiscais.py", label="📄 Notas Fiscais", icon="🧾")
     st.markdown("---")
+    st.markdown('<div style="text-align:center;color:#d4af37;font-size:10px;font-weight:600;padding:0.3rem 0;white-space:nowrap;">Centro de Operações do Abastecimento</div>', unsafe_allow_html=True)
     st.markdown('<div class="sidebar-footer">Marinha do Brasil<br>AtaCotada v1.0</div>', unsafe_allow_html=True)
 
 # Função para formatar preço em reais
