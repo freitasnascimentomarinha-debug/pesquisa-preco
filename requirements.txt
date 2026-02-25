@@ -4,3 +4,6 @@ pandas
 fpdf2
 openpyxl
 reportlab
+aiohttp
+folium
+streamlit-folium
