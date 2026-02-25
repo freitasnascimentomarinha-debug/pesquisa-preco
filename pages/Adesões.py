@@ -1,4 +1,5 @@
 import asyncio
+import base64
 import json
 import os
 import re
@@ -242,7 +243,17 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # ===== SIDEBAR - Navegação customizada =====
+# Carregar imagem do acanto para a sidebar
+_acanto_path = os.path.join(DATA_DIR, "acanto.png")
+if os.path.exists(_acanto_path):
+    with open(_acanto_path, "rb") as _f:
+        _acanto_b64 = base64.b64encode(_f.read()).decode()
+else:
+    _acanto_b64 = None
+
 with st.sidebar:
+    if _acanto_b64:
+        st.markdown(f'<div style="text-align:center;padding:1rem 0 0.5rem 0;"><img src="data:image/png;base64,{_acanto_b64}" style="max-width:70%;height:auto;"></div>', unsafe_allow_html=True)
     st.markdown("## MENU")
     st.markdown("---")
     st.page_link("streamlit_app.py", label="⚓ Cotação", icon="📊")
