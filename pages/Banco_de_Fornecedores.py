@@ -299,54 +299,20 @@ st.write("Digite o nome da atividade econômica (CNAE) para encontrar fornecedor
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# LISTA DE CNAEs — completa via API do IBGE (1.300+ subclasses)
+# LISTA DE CNAEs — 1.332 subclasses (fonte: IBGE/CONCLA)
 # ═══════════════════════════════════════════════════════════════════════════
 
-@st.cache_data(ttl=86400, show_spinner=False)   # cache por 24 h
-def _fetch_cnaes_ibge() -> dict:
-    """Busca TODAS as subclasses CNAE da API pública do IBGE/CONCLA."""
-    url = "https://servicodados.ibge.gov.br/api/v2/cnae/subclasses"
-    resp = requests.get(url, timeout=30)
-    resp.raise_for_status()
-    data = resp.json()
+import json as _json
 
-    cnae_dict: dict[str, int] = {}
-    for item in data:
-        code_str = item["id"]           # ex.: "4761003"
-        code_int = int(code_str)
-        desc = item["descricao"].strip().title()
+_CNAE_JSON_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "cnaes_completo.json")
 
-        # Formatar código CNAE legível: XXXX-X/XX
-        if len(code_str) == 7:
-            fmt = f"{code_str[:4]}-{code_str[4]}/{code_str[5:]}"
-        else:
-            fmt = code_str
+@st.cache_data(show_spinner=False)
+def _load_cnaes() -> dict:
+    """Carrega a lista completa de CNAEs do arquivo JSON local."""
+    with open(_CNAE_JSON_PATH, "r", encoding="utf-8") as f:
+        return _json.load(f)
 
-        label = f"{desc} ({fmt})"
-        cnae_dict[label] = code_int
-
-    return cnae_dict
-
-
-# Fallback mínimo caso a API do IBGE esteja fora do ar
-_CNAE_FALLBACK = {
-    "Comércio Varejista De Artigos De Escritório (4761-0/03)": 4761003,
-    "Comércio Atacadista De Equipamentos De Informática (4651-6/01)": 4651601,
-    "Comércio Atacadista De Produtos Alimentícios Em Geral (4639-7/01)": 4639701,
-    "Comércio Atacadista De Medicamentos E Drogas De Uso Humano (4644-3/01)": 4644301,
-    "Comércio Atacadista De Materiais De Construção Em Geral (4679-6/99)": 4679699,
-    "Serviços De Engenharia (7112-0/00)": 7112000,
-    "Serviços De Tecnologia Da Informação (6311-9/00)": 6311900,
-    "Serviços De Limpeza Em Prédios E Domicílios (8121-4/00)": 8121400,
-    "Manutenção E Reparação De Veículos Automotores (4520-0/01)": 4520001,
-}
-
-try:
-    CNAE_LIST = _fetch_cnaes_ibge()
-    if not CNAE_LIST:
-        raise ValueError("Lista vazia")
-except Exception:
-    CNAE_LIST = _CNAE_FALLBACK
+CNAE_LIST = _load_cnaes()
 
 
 def format_cnpj(cnpj: str) -> str:
