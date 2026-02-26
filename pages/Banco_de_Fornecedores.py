@@ -299,62 +299,54 @@ st.write("Digite o nome da atividade econômica (CNAE) para encontrar fornecedor
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# LISTA DE CNAEs
+# LISTA DE CNAEs — completa via API do IBGE (1.300+ subclasses)
 # ═══════════════════════════════════════════════════════════════════════════
 
-# Lista abrangente de CNAEs (código + nome) para seleção
-# Fonte: classificação IBGE / CONCLA
-CNAE_LIST = {
-    "Comércio varejista de artigos de escritório": 4761003,
-    "Comércio varejista de materiais de construção em geral": 4744099,
-    "Comércio atacadista de equipamentos de informática": 4651601,
-    "Comércio atacadista de materiais de construção em geral": 4679699,
-    "Comércio atacadista de máquinas e equipamentos para uso industrial": 4663000,
-    "Comércio atacadista de produtos alimentícios em geral": 4639701,
-    "Comércio varejista de produtos alimentícios em geral": 4712100,
-    "Comércio atacadista de medicamentos e drogas de uso humano": 4644301,
-    "Comércio varejista de produtos farmacêuticos": 4771701,
-    "Comércio atacadista de combustíveis": 4681801,
-    "Comércio atacadista de ferragens e ferramentas": 4672900,
-    "Comércio atacadista de materiais elétricos": 4673700,
-    "Comércio atacadista de papel e papelão": 4647801,
-    "Comércio varejista de combustíveis": 4731800,
-    "Comércio atacadista de materiais hospitalares": 4645101,
-    "Comércio atacadista de peças e acessórios para veículos": 4530703,
-    "Comércio atacadista de produtos de higiene pessoal": 4646001,
-    "Comércio atacadista de produtos químicos": 4684299,
-    "Comércio varejista de materiais elétricos": 4742300,
-    "Comércio varejista de equipamentos de informática": 4751201,
-    "Comércio atacadista de embalagens": 4686901,
-    "Comércio atacadista de tintas, vernizes e similares": 4679601,
-    "Comércio atacadista de móveis e artigos de colchoaria": 4649401,
-    "Comércio atacadista de artigos de vestuário": 4641901,
-    "Comércio atacadista de bebidas": 4635401,
-    "Fabricação de móveis com predominância de madeira": 3101200,
-    "Fabricação de produtos de limpeza e polimento": 2062200,
-    "Fabricação de equipamentos de informática": 2621300,
-    "Fabricação de medicamentos para uso humano": 2121101,
-    "Fabricação de produtos de papel para uso doméstico": 1742701,
-    "Manutenção e reparação de máquinas e equipamentos": 3314710,
-    "Manutenção e reparação de veículos automotores": 4520001,
-    "Serviços de engenharia": 7112000,
-    "Serviços de limpeza em prédios e domicílios": 8121400,
-    "Serviços de vigilância e segurança privada": 8011101,
-    "Serviços de alimentação para eventos e recepções": 5620104,
-    "Restaurantes e similares": 5611201,
-    "Serviços de transporte rodoviário de carga": 4930202,
-    "Serviços de manutenção predial": 4399103,
-    "Locação de mão-de-obra temporária": 7820500,
-    "Serviços de tecnologia da informação": 6311900,
-    "Consultoria em tecnologia da informação": 6202300,
-    "Desenvolvimento de programas de computador": 6201501,
-    "Serviços de impressão e reprodução": 1813001,
-    "Atividades de teleatendimento": 8220200,
-    "Aluguel de máquinas e equipamentos": 7739099,
-    "Serviços de paisagismo": 8130300,
-    "Fornecimento de alimentos preparados para empresas": 5620101,
-    "Comércio atacadista de instrumentos e materiais médico-cirúrgicos": 4645103,
+@st.cache_data(ttl=86400, show_spinner=False)   # cache por 24 h
+def _fetch_cnaes_ibge() -> dict:
+    """Busca TODAS as subclasses CNAE da API pública do IBGE/CONCLA."""
+    url = "https://servicodados.ibge.gov.br/api/v2/cnae/subclasses"
+    resp = requests.get(url, timeout=30)
+    resp.raise_for_status()
+    data = resp.json()
+
+    cnae_dict: dict[str, int] = {}
+    for item in data:
+        code_str = item["id"]           # ex.: "4761003"
+        code_int = int(code_str)
+        desc = item["descricao"].strip().title()
+
+        # Formatar código CNAE legível: XXXX-X/XX
+        if len(code_str) == 7:
+            fmt = f"{code_str[:4]}-{code_str[4]}/{code_str[5:]}"
+        else:
+            fmt = code_str
+
+        label = f"{desc} ({fmt})"
+        cnae_dict[label] = code_int
+
+    return cnae_dict
+
+
+# Fallback mínimo caso a API do IBGE esteja fora do ar
+_CNAE_FALLBACK = {
+    "Comércio Varejista De Artigos De Escritório (4761-0/03)": 4761003,
+    "Comércio Atacadista De Equipamentos De Informática (4651-6/01)": 4651601,
+    "Comércio Atacadista De Produtos Alimentícios Em Geral (4639-7/01)": 4639701,
+    "Comércio Atacadista De Medicamentos E Drogas De Uso Humano (4644-3/01)": 4644301,
+    "Comércio Atacadista De Materiais De Construção Em Geral (4679-6/99)": 4679699,
+    "Serviços De Engenharia (7112-0/00)": 7112000,
+    "Serviços De Tecnologia Da Informação (6311-9/00)": 6311900,
+    "Serviços De Limpeza Em Prédios E Domicílios (8121-4/00)": 8121400,
+    "Manutenção E Reparação De Veículos Automotores (4520-0/01)": 4520001,
 }
+
+try:
+    CNAE_LIST = _fetch_cnaes_ibge()
+    if not CNAE_LIST:
+        raise ValueError("Lista vazia")
+except Exception:
+    CNAE_LIST = _CNAE_FALLBACK
 
 
 def format_cnpj(cnpj: str) -> str:
