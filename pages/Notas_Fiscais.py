@@ -678,6 +678,497 @@ def gerar_html_fornecedores_nf(df_resultado):
 </html>"""
 
 
+# --- Funções de geração de relatórios formatados ---
+
+def gerar_nome_pesquisa(filtro_produto="", filtro_nome_dest="", filtro_uf_dest="", filtro_uf_emit=""):
+    """Gera nome descritivo da pesquisa baseado nos filtros"""
+    partes = []
+    if filtro_produto and filtro_produto.strip():
+        partes.append(filtro_produto.strip().upper())
+    if filtro_nome_dest and filtro_nome_dest.strip():
+        partes.append(filtro_nome_dest.strip())
+    if filtro_uf_dest and filtro_uf_dest.strip():
+        partes.append(f"Dest:{filtro_uf_dest.strip().upper()}")
+    if filtro_uf_emit and filtro_uf_emit.strip():
+        partes.append(f"Emit:{filtro_uf_emit.strip().upper()}")
+    return " | ".join(partes) if partes else "Consulta Geral"
+
+
+def gerar_filtros_texto(filtro_produto="", filtro_nome_dest="", filtro_uf_dest="", filtro_uf_emit=""):
+    """Gera texto descritivo dos filtros aplicados"""
+    partes = []
+    if filtro_produto and filtro_produto.strip():
+        partes.append(f"Produto: {filtro_produto.strip()}")
+    if filtro_nome_dest and filtro_nome_dest.strip():
+        partes.append(f"Destinatário: {filtro_nome_dest.strip()}")
+    if filtro_uf_dest and filtro_uf_dest.strip():
+        partes.append(f"UF Dest.: {filtro_uf_dest.strip().upper()}")
+    if filtro_uf_emit and filtro_uf_emit.strip():
+        partes.append(f"UF Emit.: {filtro_uf_emit.strip().upper()}")
+    return " | ".join(partes) if partes else "Sem filtros específicos"
+
+
+def sanitizar_nome_arquivo(nome):
+    """Remove caracteres inválidos para nomes de arquivo"""
+    nome = re.sub(r'[<>:"/\\|?*]', '', str(nome))
+    nome = re.sub(r'\s+', '_', nome.strip())
+    return nome[:60] if nome else "Geral"
+
+
+def _pdf_safe(text):
+    """Garante texto seguro para renderização PDF com fontes Latin-1"""
+    if not text or str(text) == 'nan' or str(text) == 'None':
+        return ''
+    try:
+        return str(text).encode('latin-1', 'replace').decode('latin-1')
+    except Exception:
+        return str(text)
+
+
+def _fmt_brl(valor):
+    """Formata valor numérico para R$ no padrão brasileiro"""
+    try:
+        return (f"R$ {valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+    except Exception:
+        return "—"
+
+
+JUSTIFICATIVA_NF = (
+    "Justificativa quanto à utilização de Notas Fiscais como parâmetro de pesquisa de preços\n\n"
+    "Considerando a necessidade de obtenção de parâmetros idôneos para a formação do preço "
+    "estimado da contratação, e diante da inexistência ou insuficiência de registros plenamente "
+    "compatíveis nos demais parâmetros prioritários, foram utilizadas Notas Fiscais recentes como "
+    "elemento complementar de pesquisa de mercado.\n\n"
+    "As referidas Notas Fiscais comprovam preços efetivamente praticados em contratações reais, "
+    "observando-se a similaridade do objeto e a compatibilidade técnica com o item em análise. "
+    "Ressalta-se que os documentos considerados encontram-se dentro do intervalo temporal admitido "
+    "para fins de aferição de atualidade de preços, atendendo ao critério de contemporaneidade da pesquisa.\n\n"
+    "A utilização dessas Notas Fiscais está devidamente fundamentada no parâmetro relativo a "
+    "aquisições e contratações similares, constituindo meio legítimo de comprovação de valores "
+    "praticados no mercado.\n\n"
+    "Adicionalmente, informa-se que a planilha que acompanha o presente relatório contém a chave "
+    "de acesso de cada Nota Fiscal utilizada, possibilitando a verificação de autenticidade e validade "
+    "diretamente no Portal Nacional da NF-e, garantindo transparência, rastreabilidade e segurança "
+    "documental ao procedimento.\n\n"
+    "Dessa forma, entende-se que a metodologia adotada atende aos princípios da razoabilidade, "
+    "economicidade e motivação do ato administrativo, conferindo robustez à formação do preço estimado."
+)
+
+
+def gerar_pdf_notas(df_exib, item_pesquisado, filtros_texto, stats_info, file_name):
+    """Gera PDF formatado e padronizado com os resultados das notas fiscais"""
+    from fpdf import FPDF
+
+    # Colunas principais (sem Chave de Acesso) — landscape A4 (largura útil ~277mm)
+    colunas_pdf_def = [
+        ("Data", 22),
+        ("Produto", 55),
+        ("Unidade", 13),
+        ("Quantidade", 17),
+        ("Valor Unitário", 22),
+        ("Valor Total", 22),
+        ("Razão Social Emitente", 50),
+        ("CNPJ Emitente", 28),
+        ("UF Emitente", 12),
+        ("Nome Destinatário", 36),
+    ]
+
+    # Chave de Acesso será exibida em sub-linha separada
+    tem_chave = "Chave de Acesso" in df_exib.columns
+
+    colunas_pdf = [(n, w) for n, w in colunas_pdf_def if n in df_exib.columns]
+    if not colunas_pdf:
+        cols = list(df_exib.columns)[:8]
+        w_each = 277 / max(len(cols), 1)
+        colunas_pdf = [(c, w_each) for c in cols]
+
+    total_w = sum(w for _, w in colunas_pdf)
+    effective_w = 277
+    if abs(total_w - effective_w) > 1:
+        factor = effective_w / total_w
+        colunas_pdf = [(n, round(w * factor, 1)) for n, w in colunas_pdf]
+
+    col_names = [n for n, _ in colunas_pdf]
+    col_widths = [w for _, w in colunas_pdf]
+    x_start = 10
+
+    # Altura por registro: linha principal + sub-linha chave de acesso
+    row_h = 5
+    chave_h = 4 if tem_chave else 0
+    block_h = row_h + chave_h
+
+    class PDFNotas(FPDF):
+        def header(self):
+            self.set_fill_color(0, 26, 77)
+            self.rect(0, 0, self.w, 30, 'F')
+            self.set_fill_color(212, 175, 55)
+            self.rect(0, 30, self.w, 1.2, 'F')
+            self.set_font('Helvetica', 'B', 20)
+            self.set_text_color(212, 175, 55)
+            self.set_xy(10, 4)
+            self.cell(60, 10, 'AtaCotada')
+            self.set_font('Helvetica', 'B', 11)
+            self.set_text_color(255, 255, 255)
+            self.set_xy(10, 16)
+            self.cell(self.w - 80, 8, _pdf_safe(f'Notas Fiscais - {item_pesquisado}')[:90])
+            self.set_font('Helvetica', '', 7)
+            self.set_text_color(180, 180, 180)
+            self.set_xy(self.w - 70, 6)
+            self.cell(60, 5, 'Marinha do Brasil', align='R')
+            self.set_y(35)
+
+        def footer(self):
+            self.set_y(-10)
+            self.set_fill_color(0, 26, 77)
+            self.rect(0, self.h - 10, self.w, 10, 'F')
+            self.set_font('Helvetica', 'I', 6.5)
+            self.set_text_color(160, 160, 160)
+            dh = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+            self.cell(0, 8, _pdf_safe(f'AtaCotada - Gerado em {dh}'), align='L')
+            self.set_x(-30)
+            self.cell(20, 8, f'{self.page_no()}/{{nb}}', align='R')
+
+    pdf = PDFNotas(orientation='L', unit='mm', format='A4')
+    pdf.alias_nb_pages()
+    pdf.set_auto_page_break(auto=True, margin=15)
+    pdf.add_page()
+
+    # Caixa de filtros
+    y0 = pdf.get_y()
+    pdf.set_fill_color(245, 248, 255)
+    pdf.set_draw_color(0, 51, 204)
+    pdf.rect(x_start, y0, effective_w, 12, 'DF')
+    pdf.set_xy(x_start + 3, y0 + 1.5)
+    pdf.set_font('Helvetica', 'B', 8)
+    pdf.set_text_color(0, 26, 77)
+    pdf.cell(18, 4, 'Filtros:')
+    pdf.set_font('Helvetica', '', 7.5)
+    pdf.set_text_color(51, 51, 51)
+    pdf.cell(0, 4, _pdf_safe(filtros_texto))
+    pdf.set_xy(x_start + 3, y0 + 6.5)
+    pdf.set_font('Helvetica', 'I', 6.5)
+    pdf.set_text_color(120, 120, 120)
+    pdf.cell(0, 4, _pdf_safe(f'Arquivo: {file_name}'))
+    pdf.set_y(y0 + 15)
+
+    # Cards de estatísticas — dividir em 2 linhas se houver mais de 4
+    stats_items = list(stats_info.items())
+    row1 = stats_items[:4]
+    row2 = stats_items[4:]
+
+    def _draw_stats_row(items, y_pos):
+        n = len(items)
+        sw = effective_w / max(n, 1)
+        for i, (label, value) in enumerate(items):
+            sx = x_start + i * sw
+            pdf.set_fill_color(10, 37, 64)
+            pdf.rect(sx + 0.5, y_pos, sw - 1, 13, 'F')
+            pdf.set_fill_color(212, 175, 55)
+            pdf.rect(sx + 0.5, y_pos, 1.2, 13, 'F')
+            pdf.set_xy(sx + 4, y_pos + 1)
+            pdf.set_font('Helvetica', '', 5.5)
+            pdf.set_text_color(212, 175, 55)
+            pdf.cell(sw - 6, 4, _pdf_safe(str(label)))
+            pdf.set_xy(sx + 4, y_pos + 6)
+            pdf.set_font('Helvetica', 'B', 9)
+            pdf.set_text_color(255, 255, 255)
+            pdf.cell(sw - 6, 5, _pdf_safe(str(value)))
+
+    y_s = pdf.get_y()
+    _draw_stats_row(row1, y_s)
+    if row2:
+        y_s2 = y_s + 15
+        _draw_stats_row(row2, y_s2)
+        pdf.set_y(y_s2 + 17)
+    else:
+        pdf.set_y(y_s + 17)
+
+    # Colunas numéricas alinhadas à direita
+    _right_cols = {'Quantidade', 'Valor Unitário', 'Valor Total'}
+
+    def draw_table_header():
+        pdf.set_fill_color(0, 26, 77)
+        pdf.set_text_color(255, 255, 255)
+        pdf.set_font('Helvetica', 'B', 6)
+        pdf.set_draw_color(30, 30, 80)
+        pdf.set_x(x_start)
+        for name, w in zip(col_names, col_widths):
+            h_align = 'R' if name in _right_cols else 'L'
+            pdf.cell(w, 6.5, _pdf_safe(name), border=1, fill=True, align=h_align)
+        pdf.ln()
+        # Sub-cabeçalho para Chave de Acesso
+        if tem_chave:
+            pdf.set_x(x_start)
+            pdf.set_font('Helvetica', 'B', 5)
+            pdf.set_fill_color(0, 26, 77)
+            pdf.cell(sum(col_widths), 4, 'Chave de Acesso', border=1, fill=True, align='L')
+            pdf.ln()
+        pdf.set_fill_color(212, 175, 55)
+        pdf.rect(x_start, pdf.get_y(), sum(col_widths), 0.4, 'F')
+        pdf.ln(0.6)
+
+    draw_table_header()
+
+    pdf.set_font('Helvetica', '', 5.5)
+    max_rows_pdf = min(len(df_exib), 800)
+
+    for idx in range(max_rows_pdf):
+        row = df_exib.iloc[idx]
+        if pdf.get_y() + block_h + 1 > pdf.h - 15:
+            pdf.add_page()
+            draw_table_header()
+            pdf.set_font('Helvetica', '', 5.5)
+
+        if idx % 2 == 0:
+            fill_color = (255, 255, 255)
+        else:
+            fill_color = (243, 246, 252)
+
+        pdf.set_fill_color(*fill_color)
+        pdf.set_text_color(51, 51, 51)
+        pdf.set_draw_color(230, 230, 230)
+        pdf.set_x(x_start)
+
+        # Linha principal
+        pdf.set_font('Helvetica', '', 5.5)
+        for name, w in zip(col_names, col_widths):
+            val = str(row.get(name, ''))
+            if val in ('nan', 'None'):
+                val = ''
+            max_chars = int(w / 1.6)
+            if len(val) > max_chars:
+                val = val[:max_chars - 2] + '..'
+            align = 'R' if name in ('Quantidade', 'Valor Unitário', 'Valor Total') else 'L'
+            pdf.cell(w, row_h, _pdf_safe(val), border='', fill=True, align=align)
+        pdf.ln()
+
+        # Sub-linha: Chave de Acesso completa
+        if tem_chave:
+            chave = str(row.get('Chave de Acesso', ''))
+            if chave in ('nan', 'None'):
+                chave = ''
+            pdf.set_fill_color(*fill_color)
+            pdf.set_x(x_start)
+            pdf.set_font('Helvetica', '', 4.5)
+            pdf.set_text_color(100, 100, 100)
+            pdf.cell(sum(col_widths), chave_h, _pdf_safe(f'  Chave: {chave}'), border='B', fill=True, align='L')
+            pdf.ln()
+        else:
+            # Borda inferior quando não tem chave
+            pdf.set_x(x_start)
+            pdf.cell(sum(col_widths), 0, '', border='B')
+            pdf.ln()
+
+    pdf.set_draw_color(0, 26, 77)
+    pdf.set_line_width(0.3)
+    pdf.line(x_start, pdf.get_y(), x_start + sum(col_widths), pdf.get_y())
+
+    if len(df_exib) > max_rows_pdf:
+        pdf.ln(3)
+        pdf.set_font('Helvetica', 'I', 7)
+        pdf.set_text_color(130, 130, 130)
+        pdf.cell(0, 4, _pdf_safe(f'... e mais {len(df_exib) - max_rows_pdf} registros (limitado a {max_rows_pdf} no PDF)'), align='C')
+
+    # --- Justificativa ---
+    pdf.add_page()
+    pdf.ln(5)
+    # Título centralizado e em negrito
+    just_paragraphs = JUSTIFICATIVA_NF.split('\n\n')
+    pdf.set_font('Helvetica', 'B', 11)
+    pdf.set_text_color(0, 26, 77)
+    pdf.multi_cell(effective_w, 6, _pdf_safe(just_paragraphs[0]), align='C')
+    pdf.ln(4)
+    # Parágrafos do corpo
+    pdf.set_font('Helvetica', '', 9)
+    pdf.set_text_color(51, 51, 51)
+    for par in just_paragraphs[1:]:
+        pdf.set_x(x_start)
+        pdf.multi_cell(effective_w, 5, _pdf_safe(par), align='J')
+        pdf.ln(3)
+
+    return bytes(pdf.output())
+
+
+def gerar_excel_formatado(df_exib, item_pesquisado, filtros_texto, stats_info, file_name):
+    """Gera Excel formatado com cabeçalho bonito, cores padronizadas e nome do item"""
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.utils import get_column_letter
+
+    output = io.BytesIO()
+
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df_exib.to_excel(writer, index=False, sheet_name='Notas Fiscais', startrow=7)
+        ws = writer.sheets['Notas Fiscais']
+
+        max_col = len(df_exib.columns)
+        last_col = get_column_letter(max_col)
+
+        # Estilos
+        navy = PatternFill(start_color='001A4D', end_color='001A4D', fill_type='solid')
+        dark_navy = PatternFill(start_color='0A2540', end_color='0A2540', fill_type='solid')
+        light_bg = PatternFill(start_color='F5F8FF', end_color='F5F8FF', fill_type='solid')
+        alt_row = PatternFill(start_color='EDF2FA', end_color='EDF2FA', fill_type='solid')
+        white_bg = PatternFill(start_color='FFFFFF', end_color='FFFFFF', fill_type='solid')
+
+        gold_title = Font(name='Calibri', bold=True, color='D4AF37', size=20)
+        white_subtitle = Font(name='Calibri', bold=True, color='FFFFFF', size=13)
+        gray_info = Font(name='Calibri', color='B0B0B0', size=9, italic=True)
+        filter_font = Font(name='Calibri', color='333333', size=9)
+        date_font = Font(name='Calibri', color='888888', size=8)
+        gold_stat = Font(name='Calibri', bold=True, color='D4AF37', size=10)
+        header_font = Font(name='Calibri', bold=True, color='FFFFFF', size=11)
+        data_font = Font(name='Calibri', size=10, color='333333')
+
+        gold_bottom = Border(bottom=Side(style='medium', color='D4AF37'))
+        thin_bottom = Border(bottom=Side(style='thin', color='E8E8E8'))
+
+        center = Alignment(horizontal='center', vertical='center')
+        left_align = Alignment(horizontal='left', vertical='center')
+        wrap_center = Alignment(horizontal='center', vertical='center', wrap_text=True)
+
+        # Linha 1: Título AtaCotada
+        ws.merge_cells(f'A1:{last_col}1')
+        c = ws['A1']
+        c.value = 'AtaCotada'
+        c.font = gold_title
+        c.fill = navy
+        c.alignment = center
+        ws.row_dimensions[1].height = 40
+        for col in range(2, max_col + 1):
+            ws.cell(row=1, column=col).fill = navy
+
+        # Linha 2: Subtítulo com item pesquisado
+        ws.merge_cells(f'A2:{last_col}2')
+        c = ws['A2']
+        c.value = f'Notas Fiscais — {item_pesquisado}'
+        c.font = white_subtitle
+        c.fill = navy
+        c.alignment = center
+        ws.row_dimensions[2].height = 26
+        for col in range(2, max_col + 1):
+            ws.cell(row=2, column=col).fill = navy
+
+        # Linha 3: Marinha do Brasil
+        ws.merge_cells(f'A3:{last_col}3')
+        c = ws['A3']
+        c.value = 'Marinha do Brasil — Centro de Operações do Abastecimento'
+        c.font = gray_info
+        c.fill = navy
+        c.alignment = center
+        ws.row_dimensions[3].height = 18
+        for col in range(2, max_col + 1):
+            ws.cell(row=3, column=col).fill = navy
+
+        # Linha 4: Filtros
+        ws.merge_cells(f'A4:{last_col}4')
+        c = ws['A4']
+        c.value = f'Filtros aplicados:  {filtros_texto}'
+        c.font = filter_font
+        c.fill = light_bg
+        c.alignment = left_align
+        ws.row_dimensions[4].height = 20
+        for col in range(2, max_col + 1):
+            ws.cell(row=4, column=col).fill = light_bg
+
+        # Linha 5: Arquivo e data
+        ws.merge_cells(f'A5:{last_col}5')
+        c = ws['A5']
+        data_hora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        c.value = f'Arquivo: {file_name}  |  Gerado em: {data_hora}'
+        c.font = date_font
+        c.fill = light_bg
+        c.alignment = left_align
+        ws.row_dimensions[5].height = 18
+        for col in range(2, max_col + 1):
+            ws.cell(row=5, column=col).fill = light_bg
+
+        # Linha 6: Estatísticas
+        stats_list = list(stats_info.items())
+        for i in range(max_col):
+            cell = ws.cell(row=6, column=i + 1)
+            cell.fill = dark_navy
+            if i < len(stats_list):
+                label, value = stats_list[i]
+                cell.value = f'{label}: {value}'
+                cell.font = gold_stat
+                cell.alignment = center
+        ws.row_dimensions[6].height = 24
+
+        # Linha 7: Separador
+        for i in range(1, max_col + 1):
+            cell = ws.cell(row=7, column=i)
+            cell.fill = white_bg
+            cell.border = Border(bottom=Side(style='thin', color='D4AF37'))
+        ws.row_dimensions[7].height = 4
+
+        # Linha 8: Cabeçalho da tabela
+        for col_idx in range(1, max_col + 1):
+            cell = ws.cell(row=8, column=col_idx)
+            cell.font = header_font
+            cell.fill = navy
+            cell.alignment = wrap_center
+            cell.border = gold_bottom
+        ws.row_dimensions[8].height = 28
+
+        # Linhas de dados
+        for row_idx in range(9, 9 + len(df_exib)):
+            for col_idx in range(1, max_col + 1):
+                cell = ws.cell(row=row_idx, column=col_idx)
+                cell.font = data_font
+                cell.alignment = left_align
+                cell.border = thin_bottom
+                if (row_idx - 9) % 2 == 1:
+                    cell.fill = alt_row
+                else:
+                    cell.fill = white_bg
+
+        # Auto-ajustar largura das colunas
+        for col_idx in range(1, max_col + 1):
+            col_l = get_column_letter(col_idx)
+            header_len = len(str(ws.cell(row=8, column=col_idx).value or ''))
+            max_len = header_len
+            for row_idx in range(9, min(9 + len(df_exib), 109)):
+                val = ws.cell(row=row_idx, column=col_idx).value
+                if val is not None:
+                    max_len = max(max_len, len(str(val)))
+            adjusted = min(max_len * 1.15 + 2, 50)
+            ws.column_dimensions[col_l].width = max(adjusted, 10)
+
+        # Congelar painéis abaixo do cabeçalho
+        ws.freeze_panes = 'A9'
+
+        # --- Justificativa no final ---
+        just_start = 9 + len(df_exib) + 2  # 2 linhas em branco
+        just_font_bold = Font(name='Calibri', bold=True, color='001A4D', size=11)
+        just_font = Font(name='Calibri', color='333333', size=10)
+        just_align = Alignment(horizontal='center', vertical='center', wrap_text=True)
+        just_align_body = Alignment(horizontal='justify', vertical='top', wrap_text=True)
+
+        just_paragraphs = JUSTIFICATIVA_NF.split('\n\n')
+        current_row = just_start
+
+        # Título
+        ws.merge_cells(f'A{current_row}:{last_col}{current_row}')
+        cell = ws.cell(row=current_row, column=1)
+        cell.value = just_paragraphs[0]
+        cell.font = just_font_bold
+        cell.alignment = just_align
+        ws.row_dimensions[current_row].height = 30
+        current_row += 1
+
+        # Parágrafos
+        for par in just_paragraphs[1:]:
+            ws.merge_cells(f'A{current_row}:{last_col}{current_row}')
+            cell = ws.cell(row=current_row, column=1)
+            cell.value = par
+            cell.font = just_font
+            cell.alignment = just_align_body
+            ws.row_dimensions[current_row].height = max(60, len(par) // 2)
+            current_row += 1
+
+    return output.getvalue()
+
+
 # --- Carregar lista de arquivos ---
 with st.spinner("Carregando lista de arquivos do Portal da Transparência..."):
     arquivos_portal = listar_arquivos_disponiveis(PASTA_ID)
@@ -808,6 +1299,8 @@ if buscar:
             st.session_state["nf_total_linhas"] = total_linhas
             st.session_state["nf_file_name"] = file_name
             st.session_state["nf_max_resultados"] = max_resultados
+            st.session_state["nf_item_pesquisado"] = gerar_nome_pesquisa(filtro_produto, filtro_nome_dest, filtro_uf_dest, filtro_uf_emit)
+            st.session_state["nf_filtros_texto"] = gerar_filtros_texto(filtro_produto, filtro_nome_dest, filtro_uf_dest, filtro_uf_emit)
 
 # --- Exibir resultados (persistidos no session_state) ---
 if "nf_resultado" in st.session_state and not st.session_state["nf_resultado"].empty:
@@ -836,6 +1329,50 @@ if "nf_resultado" in st.session_state and not st.session_state["nf_resultado"].e
     }
     colunas_disponiveis = [c for c in colunas_exibicao if c in df_resultado.columns]
     df_exib = df_resultado[colunas_disponiveis].rename(columns=colunas_exibicao).copy()
+
+    # --- Filtro de Outliers ---
+    _col_vunit = "Valor Unitário"
+    _valores_num = pd.Series(dtype=float)
+    if _col_vunit in df_exib.columns:
+        _valores_num = pd.to_numeric(
+            df_exib[_col_vunit].astype(str)
+            .str.replace(".", "", regex=False)
+            .str.replace(",", ".", regex=False),
+            errors="coerce"
+        )
+
+    col_outlier, _ = st.columns([1, 2])
+    with col_outlier:
+        remover_outliers = st.checkbox(
+            "🎯 Remover Outliers (IQR)",
+            value=False,
+            help="Remove valores unitários discrepantes usando o método IQR (Intervalo Interquartil). "
+                 "Valores abaixo de Q1 − 1.5×IQR ou acima de Q3 + 1.5×IQR são removidos.",
+        )
+
+    if remover_outliers and not _valores_num.dropna().empty:
+        q1 = _valores_num.quantile(0.25)
+        q3 = _valores_num.quantile(0.75)
+        iqr = q3 - q1
+        lim_inf = max(q1 - 1.5 * iqr, 0)
+        lim_sup = q3 + 1.5 * iqr
+        mask_inlier = ((_valores_num >= lim_inf) & (_valores_num <= lim_sup)) | _valores_num.isna()
+        n_removidos = int((~mask_inlier).sum())
+        df_exib = df_exib[mask_inlier].reset_index(drop=True)
+        _valores_num = _valores_num[mask_inlier].reset_index(drop=True)
+        if n_removidos > 0:
+            st.info(f"🎯 {n_removidos} registro(s) com valor unitário discrepante removido(s) "
+                    f"(limites: {_fmt_brl(lim_inf)} — {_fmt_brl(lim_sup)}).")
+
+    # Calcular estatísticas de preço unitário
+    _vnum_valid = _valores_num.dropna()
+    if not _vnum_valid.empty:
+        preco_menor = _vnum_valid.min()
+        preco_medio = _vnum_valid.mean()
+        preco_mediana = _vnum_valid.median()
+        preco_maior = _vnum_valid.max()
+    else:
+        preco_menor = preco_medio = preco_mediana = preco_maior = 0
 
     # --- Cards de estatísticas ---
     st.markdown("---")
@@ -902,6 +1439,45 @@ if "nf_resultado" in st.session_state and not st.session_state["nf_resultado"].e
         </div>
         """, unsafe_allow_html=True)
 
+    # --- Cards de preço unitário ---
+    col_p1, col_p2, col_p3, col_p4 = st.columns(4)
+
+    with col_p1:
+        st.markdown(f"""
+        <div class="stats-card">
+            <div style="color: #d4af37; font-size: 14px; font-weight: 600;">MENOR PREÇO UNIT.</div>
+            <div style="color: #00ff88; font-size: 22px; font-weight: bold;">{_fmt_brl(preco_menor)}</div>
+            <div style="color: #aaaaaa; font-size: 12px;">Valor unitário mínimo</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col_p2:
+        st.markdown(f"""
+        <div class="stats-card">
+            <div style="color: #d4af37; font-size: 14px; font-weight: 600;">PREÇO MÉDIO</div>
+            <div style="color: #ffffff; font-size: 22px; font-weight: bold;">{_fmt_brl(preco_medio)}</div>
+            <div style="color: #aaaaaa; font-size: 12px;">Média aritmética</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col_p3:
+        st.markdown(f"""
+        <div class="stats-card">
+            <div style="color: #d4af37; font-size: 14px; font-weight: 600;">MEDIANA</div>
+            <div style="color: #ffffff; font-size: 22px; font-weight: bold;">{_fmt_brl(preco_mediana)}</div>
+            <div style="color: #aaaaaa; font-size: 12px;">Valor central</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with col_p4:
+        st.markdown(f"""
+        <div class="stats-card">
+            <div style="color: #d4af37; font-size: 14px; font-weight: 600;">MAIOR PREÇO UNIT.</div>
+            <div style="color: #ff6666; font-size: 22px; font-weight: bold;">{_fmt_brl(preco_maior)}</div>
+            <div style="color: #aaaaaa; font-size: 12px;">Valor unitário máximo</div>
+        </div>
+        """, unsafe_allow_html=True)
+
     # --- Tabela de resultados ---
     st.markdown("---")
     st.subheader("📋 Resultados")
@@ -913,33 +1489,86 @@ if "nf_resultado" in st.session_state and not st.session_state["nf_resultado"].e
         height=min(len(df_exib) * 38 + 40, 700),
     )
 
+    # --- Preparar dados para exportação ---
+    item_pesquisado = st.session_state.get("nf_item_pesquisado", "Consulta Geral")
+    filtros_texto = st.session_state.get("nf_filtros_texto", "")
+    nome_arquivo_base = sanitizar_nome_arquivo(item_pesquisado)
+
+    # Montar estatísticas para os relatórios
+    _fornecedores_exp = (
+        df_exib["Razão Social Emitente"].nunique()
+        if "Razão Social Emitente" in df_exib.columns else 0
+    )
+    try:
+        _total_valor_exp = pd.to_numeric(
+            df_exib["Valor Total"].astype(str)
+            .str.replace(".", "", regex=False)
+            .str.replace(",", ".", regex=False),
+            errors="coerce",
+        ).sum()
+        _valor_fmt_exp = _fmt_brl(_total_valor_exp)
+    except Exception:
+        _valor_fmt_exp = "—"
+
+    stats_export = {
+        "REGISTROS": f"{len(df_exib):,}",
+        "FORNECEDORES": str(_fornecedores_exp),
+        "VALOR TOTAL": _valor_fmt_exp,
+        "MENOR PREÇO": _fmt_brl(preco_menor),
+        "PREÇO MÉDIO": _fmt_brl(preco_medio),
+        "MEDIANA": _fmt_brl(preco_mediana),
+        "MAIOR PREÇO": _fmt_brl(preco_maior),
+    }
+
     # --- Botões de download ---
     st.markdown("---")
-    col_d1, col_d2 = st.columns(2)
+    col_d1, col_d2, col_d3 = st.columns(3)
 
     with col_d1:
-        csv_data = df_exib.to_csv(index=False, sep=";", encoding="utf-8-sig")
+        _csv_stats = (
+            f"# Estatísticas de Preço Unitário: "
+            f"Menor={_fmt_brl(preco_menor)} | Médio={_fmt_brl(preco_medio)} "
+            f"| Mediana={_fmt_brl(preco_mediana)} | Maior={_fmt_brl(preco_maior)}\n"
+        )
+        _csv_just = "\n\n" + JUSTIFICATIVA_NF.replace('\n\n', '\n') + "\n"
+        csv_data = _csv_stats + df_exib.to_csv(index=False, sep=";", encoding="utf-8-sig") + _csv_just
         st.download_button(
-            "📥 Baixar resultados (CSV)",
+            "📥 Baixar CSV",
             data=csv_data,
-            file_name="notas_fiscais_resultado.csv",
+            file_name=f"NF_{nome_arquivo_base}.csv",
             mime="text/csv",
             use_container_width=True,
         )
 
     with col_d2:
         try:
-            excel_buffer = io.BytesIO()
-            df_exib.to_excel(excel_buffer, index=False, engine="openpyxl")
+            excel_data = gerar_excel_formatado(
+                df_exib, item_pesquisado, filtros_texto, stats_export, file_name
+            )
             st.download_button(
-                "📥 Baixar resultados (Excel)",
-                data=excel_buffer.getvalue(),
-                file_name="notas_fiscais_resultado.xlsx",
+                "📥 Baixar Planilha Excel",
+                data=excel_data,
+                file_name=f"NF_{nome_arquivo_base}.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 use_container_width=True,
             )
-        except Exception:
-            pass
+        except Exception as e:
+            st.error(f"Erro ao gerar Excel: {e}")
+
+    with col_d3:
+        try:
+            pdf_data = gerar_pdf_notas(
+                df_exib, item_pesquisado, filtros_texto, stats_export, file_name
+            )
+            st.download_button(
+                "📥 Baixar PDF",
+                data=pdf_data,
+                file_name=f"NF_{nome_arquivo_base}.pdf",
+                mime="application/pdf",
+                use_container_width=True,
+            )
+        except Exception as e:
+            st.error(f"Erro ao gerar PDF: {e}")
 
     # --- Botão Consultar Fornecedores ---
     st.markdown("<br>", unsafe_allow_html=True)
