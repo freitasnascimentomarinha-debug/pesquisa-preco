@@ -16,6 +16,7 @@ DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "Proje
 
 # ── Constantes da API ──────────────────────────────────────────────────────
 API_URL = "https://dadosabertos.compras.gov.br/modulo-arp/2_consultarARPItem"
+API_URL_UNIDADES = "https://dadosabertos.compras.gov.br/modulo-arp/3_consultarUnidadesItem"
 MAX_CONCURRENCY = 4
 DATE_RANGE_DAYS = 360
 PAGE_SIZE = {"Material": 100, "Serviço": 100}
@@ -590,6 +591,83 @@ async def search_async(
         return results
 
 
+async def fetch_unit_detail(
+    session: aiohttp.ClientSession,
+    semaphore: asyncio.Semaphore,
+    numero_ata: str,
+    unidade_gerenciadora: str,
+    numero_item: str,
+) -> Optional[Dict]:
+    """Busca detalhes de saldo/adesão no endpoint 3_consultarUnidadesItem."""
+    params = {
+        "numeroAta": numero_ata,
+        "unidadeGerenciadora": unidade_gerenciadora,
+        "numeroItem": numero_item,
+        "tamanhoPagina": 10,
+        "pagina": 1,
+    }
+    retries = 3
+    delay = 0.5
+    async with semaphore:
+        for attempt in range(retries):
+            try:
+                async with session.get(API_URL_UNIDADES, params=params) as response:
+                    response.raise_for_status()
+                    data = await response.json()
+                    results = data.get("resultado", [])
+                    if results:
+                        return results[0]
+                    return None
+            except Exception:
+                if attempt == retries - 1:
+                    return None
+                await asyncio.sleep(delay)
+                delay *= 2
+    return None
+
+
+async def enrich_results_async(
+    display_results: List[Dict],
+    max_concurrency: int = MAX_CONCURRENCY,
+) -> Dict[str, Dict]:
+    """Para cada ata em display_results, busca detalhes de saldo/adesão.
+    Retorna dict mapeando identificador -> detalhes."""
+    timeout = aiohttp.ClientTimeout(total=15)
+    semaphore = asyncio.Semaphore(max_concurrency)
+    connector = aiohttp.TCPConnector(limit=None, ssl=False)
+    details: Dict[str, Dict] = {}
+
+    async with aiohttp.ClientSession(timeout=timeout, connector=connector) as session:
+        tasks = []
+        keys = []
+        for raw in display_results:
+            numero_ata = raw.get("numeroAtaRegistroPreco", "")
+            unidade = raw.get("codigoUnidadeGerenciadora", "") or str(raw.get("codigoUasg", ""))
+            numero_item = raw.get("numeroItem", "")
+            identificador = raw.get("numeroControlePncpAta", "")
+            if not (numero_ata and unidade and numero_item):
+                continue
+            keys.append(identificador)
+            tasks.append(
+                asyncio.create_task(
+                    fetch_unit_detail(session, semaphore, numero_ata, unidade, numero_item)
+                )
+            )
+        results_list = await asyncio.gather(*tasks, return_exceptions=True)
+        for key, result in zip(keys, results_list):
+            if isinstance(result, dict):
+                details[key] = result
+    return details
+
+
+def run_enrich(display_results: List[Dict]) -> Dict[str, Dict]:
+    """Wrapper síncrono para enriquecer resultados com dados do endpoint 3."""
+    try:
+        return asyncio.run(enrich_results_async(display_results))
+    except Exception:
+        return {}
+
+
 def run_search(
     tipo: str,
     codigo: str,
@@ -824,16 +902,67 @@ if results:
                 """,
                 unsafe_allow_html=True,
             )
+            # Enriquecer resultados com dados do endpoint 3_consultarUnidadesItem
+            with st.spinner("Buscando detalhes de saldo e adesão…"):
+                enriched = run_enrich(display_results)
+
             for raw in display_results:
                 normalized = normalize_item(raw)
                 if not normalized:
                     continue
-                numero, unidade, fornecedor, _, url = normalized
+                numero, unidade, fornecedor, identificador, url = normalized
+
+                # Código UASG do órgão
+                uasg_code = extract_uasg(raw) or "N/I"
+
+                detail = enriched.get(identificador, {})
+                saldo_adesoes = detail.get("saldoAdesoes", "N/I")
+                saldo_remanejamento = detail.get("saldoRemanejamentoEmpenho", "N/I")
+                qtd_limite_adesao = detail.get("qtdLimiteAdesao", "N/I")
+                qtd_limite_compra = detail.get("qtdLimiteInformadoCompra", "N/I")
+                aceita_adesao_raw = detail.get("aceitaAdesao")
+                if aceita_adesao_raw is True:
+                    aceita_adesao = '<span style="color:#22c55e;font-weight:bold;">✅ Sim</span>'
+                elif aceita_adesao_raw is False:
+                    aceita_adesao = '<span style="color:#ef4444;font-weight:bold;">❌ Não</span>'
+                else:
+                    aceita_adesao = '<span style="color:#94a3b8;">N/I</span>'
+
+                # Número do item (vem da API 2)
+                numero_item = raw.get("numeroItem", "N/I")
+
+                # Vigência final (tentar nomes possíveis do campo na API 2)
+                vigencia_final_raw = (
+                    raw.get("dataVigenciaFinal")
+                    or raw.get("dataFimVigencia")
+                    or raw.get("dataVigenciaFinalAta")
+                    or raw.get("dataFinalVigencia")
+                    or raw.get("vigenciaFim")
+                    or ""
+                )
+                if vigencia_final_raw:
+                    try:
+                        vigencia_dt = dt.fromisoformat(vigencia_final_raw.replace("Z", "+00:00"))
+                        vigencia_final = vigencia_dt.strftime("%d/%m/%Y")
+                    except Exception:
+                        vigencia_final = str(vigencia_final_raw)[:10]
+                else:
+                    vigencia_final = "N/I"
+
                 st.markdown(
                     f"""
                     <div class="result-card">
-                        <div class="status-text">Ata {numero} • {unidade}</div>
+                        <div class="status-text">Ata {numero} • {unidade} (UASG {uasg_code})</div>
                         <div><a href="{url}" target="_blank">Visualizar documento – {fornecedor}</a></div>
+                        <div style="display:flex;flex-wrap:wrap;gap:0.6rem 1.4rem;margin-top:0.5rem;font-size:0.85rem;color:#cbd5e1;">
+                            <span>🔢 <b>Item:</b> {numero_item}</span>
+                            <span>📅 <b>Vigência Final:</b> {vigencia_final}</span>
+                            <span>📦 <b>Saldo Adesões:</b> {saldo_adesoes}</span>
+                            <span>🔄 <b>Saldo Remanej.:</b> {saldo_remanejamento}</span>
+                            <span>📊 <b>Lim. Adesão:</b> {qtd_limite_adesao}</span>
+                            <span>🛒 <b>Lim. Compra:</b> {qtd_limite_compra}</span>
+                            <span>🤝 <b>Aceita Adesão:</b> {aceita_adesao}</span>
+                        </div>
                     </div>
                     """,
                     unsafe_allow_html=True,
