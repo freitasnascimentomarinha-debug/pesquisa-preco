@@ -240,6 +240,131 @@ st.markdown("""
             background-color: #c5a028 !important;
             color: #ffffff !important;
         }
+
+        /* ===== ATA CARDS (st.container com border) ===== */
+        [data-testid="stVerticalBlockBorderWrapper"] {
+            background: linear-gradient(135deg, rgba(0, 26, 77, 0.55) 0%, rgba(10, 20, 50, 0.7) 100%) !important;
+            border: 1px solid rgba(212, 175, 55, 0.25) !important;
+            border-radius: 12px !important;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.25) !important;
+            transition: border-color 0.25s ease, box-shadow 0.25s ease !important;
+            margin-bottom: 0.6rem !important;
+        }
+
+        [data-testid="stVerticalBlockBorderWrapper"]:hover {
+            border-color: #d4af37 !important;
+            box-shadow: 0 6px 28px rgba(212, 175, 55, 0.15) !important;
+        }
+
+        /* Link do fornecedor */
+        .ata-fornecedor-link {
+            color: #d4af37 !important;
+            text-decoration: none !important;
+            font-weight: 700 !important;
+            font-size: 0.88rem;
+        }
+
+        .ata-fornecedor-link:hover {
+            color: #f0d060 !important;
+            text-decoration: underline !important;
+        }
+
+        .ata-info-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.4rem 0.6rem;
+        }
+
+        .ata-tag {
+            background: rgba(212, 175, 55, 0.08);
+            border: 1px solid rgba(212, 175, 55, 0.15);
+            border-radius: 6px;
+            padding: 0.2rem 0.55rem;
+            font-size: 0.78rem;
+            color: #cbd5e1;
+            white-space: nowrap;
+        }
+
+        /* Botão "Outros Docs" — parece uma tag, sem espaço extra */
+        [data-testid="stVerticalBlockBorderWrapper"] .stElementContainer:has(.stButton) {
+            margin-top: 0.45rem !important;
+            margin-bottom: 0 !important;
+        }
+
+        [data-testid="stVerticalBlockBorderWrapper"] .stButton > button {
+            background: rgba(212, 175, 55, 0.08) !important;
+            border: 1px solid rgba(212, 175, 55, 0.15) !important;
+            color: #d4af37 !important;
+            font-size: 0.73rem !important;
+            padding: 0.12rem 0.5rem !important;
+            border-radius: 6px !important;
+            font-weight: 600 !important;
+            min-height: 0 !important;
+            height: 1.45rem !important;
+            line-height: 1 !important;
+            white-space: nowrap !important;
+            width: auto !important;
+        }
+
+        [data-testid="stVerticalBlockBorderWrapper"] .stButton > button:hover {
+            background: rgba(212, 175, 55, 0.18) !important;
+            border-color: #d4af37 !important;
+            color: #f0d060 !important;
+        }
+
+        /* Botão secundário genérico (fallback) */
+        .stButton > button[data-testid="stBaseButton-secondary"] {
+            border-color: rgba(212, 175, 55, 0.4) !important;
+            color: #d4af37 !important;
+            font-size: 0.78rem !important;
+            padding: 0.25rem 0.7rem !important;
+            border-radius: 6px !important;
+            background: transparent !important;
+        }
+        .stButton > button[data-testid="stBaseButton-secondary"]:hover {
+            background: rgba(212, 175, 55, 0.12) !important;
+            border-color: #d4af37 !important;
+            color: #f0d060 !important;
+        }
+
+        /* Lista de docs retornados */
+        .doc-list-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.4rem;
+            margin-bottom: 0.8rem;
+        }
+
+        .doc-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: rgba(0, 26, 77, 0.6);
+            border: 1px solid rgba(212, 175, 55, 0.2);
+            border-radius: 20px;
+            padding: 0.3rem 0.75rem;
+            color: #d4af37 !important;
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-decoration: none !important;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+        }
+
+        .doc-pill:hover {
+            background: rgba(0, 26, 77, 0.85);
+            border-color: #d4af37;
+            color: #f0d060 !important;
+        }
+
+        .doc-badge {
+            background: rgba(212, 175, 55, 0.15);
+            border-radius: 4px;
+            padding: 0.05rem 0.35rem;
+            font-size: 0.68rem;
+            color: #d4af37;
+            font-weight: 500;
+        }
     </style>
 """, unsafe_allow_html=True)
 
@@ -303,6 +428,106 @@ def build_ata_url(identifier: str) -> str:
         )
     except Exception:
         return ""
+
+
+def build_ata_documents_url(identifier: str) -> str:
+    """Monta a URL da API PNCP para listar todos os documentos de uma Ata."""
+    try:
+        orgao = identifier.split("-")[0]
+        compra = identifier.split("/")[1].split("-")[0]
+        year = identifier.split("-")[2].split("/")[0].lstrip("0") or "0"
+        ata = identifier.split("-")[-1].split("/")[0].lstrip("0") or "0"
+        return (
+            f"https://pncp.gov.br/pncp-api/v1/orgaos/{orgao}"
+            f"/compras/{compra}/{year}/atas/{ata}/arquivos"
+        )
+    except Exception:
+        return ""
+
+
+def build_compra_documents_url(identifier: str) -> str:
+    """Monta a URL da API PNCP para listar os documentos da Compra/Licitação."""
+    try:
+        orgao = identifier.split("-")[0]
+        compra = identifier.split("/")[1].split("-")[0]
+        year = identifier.split("-")[2].split("/")[0].lstrip("0") or "0"
+        return (
+            f"https://pncp.gov.br/pncp-api/v1/orgaos/{orgao}"
+            f"/compras/{compra}/{year}/arquivos"
+        )
+    except Exception:
+        return ""
+
+
+def _fetch_docs_from_url(url: str, _requests) -> Tuple[List[Dict], str]:
+    """Busca documentos de uma URL da API PNCP."""
+    try:
+        r = _requests.get(url, timeout=15)
+        if r.status_code == 401:
+            return [], "Acesso negado (401)."
+        if r.status_code == 403:
+            return [], "Acesso proibido (403)."
+        if r.status_code == 404:
+            return [], ""  # Sem documentos neste endpoint, não é erro
+        r.raise_for_status()
+        data = r.json()
+        if isinstance(data, list):
+            return data, ""
+        return data.get("resultado", data.get("arquivos", [])), ""
+    except _requests.exceptions.Timeout:
+        return [], "Tempo limite excedido."
+    except _requests.exceptions.ConnectionError:
+        return [], "Erro de conexão."
+    except Exception as e:
+        return [], f"Erro: {str(e)}"
+
+
+def fetch_ata_documents(identifier: str) -> Tuple[List[Dict], str]:
+    """Busca todos os documentos relacionados a uma Ata de Registro de Preço
+    via API PNCP, combinando documentos da ata e da compra/licitação.
+    Retorna (lista_de_docs, mensagem_de_erro). Se sucesso, erro é string vazia."""
+    import requests as _requests
+
+    url_ata = build_ata_documents_url(identifier)
+    url_compra = build_compra_documents_url(identifier)
+
+    if not url_ata and not url_compra:
+        return [], "Não foi possível montar a URL da ata."
+
+    all_docs: List[Dict] = []
+    erros: List[str] = []
+
+    # Buscar documentos da ata
+    if url_ata:
+        docs_ata, err_ata = _fetch_docs_from_url(url_ata, _requests)
+        for doc in docs_ata:
+            doc["_origem"] = "Ata"
+        all_docs.extend(docs_ata)
+        if err_ata:
+            erros.append(f"Ata: {err_ata}")
+
+    # Buscar documentos da compra/licitação
+    if url_compra:
+        docs_compra, err_compra = _fetch_docs_from_url(url_compra, _requests)
+        for doc in docs_compra:
+            doc["_origem"] = "Compra"
+        all_docs.extend(docs_compra)
+        if err_compra:
+            erros.append(f"Compra: {err_compra}")
+
+    # Deduplica por URL (caso existam documentos repetidos)
+    seen_urls = set()
+    unique_docs: List[Dict] = []
+    for doc in all_docs:
+        doc_url = doc.get("url", doc.get("uri", ""))
+        if doc_url and doc_url in seen_urls:
+            continue
+        if doc_url:
+            seen_urls.add(doc_url)
+        unique_docs.append(doc)
+
+    erro_msg = " | ".join(erros) if erros and not unique_docs else ""
+    return unique_docs, erro_msg
 
 
 def normalize_item(item: Dict) -> Optional[Tuple[str, str, str, str, str]]:
@@ -907,7 +1132,7 @@ if results:
             with st.spinner("Buscando detalhes de saldo e adesão…"):
                 enriched = run_enrich(display_results)
 
-            for raw in display_results:
+            for idx, raw in enumerate(display_results):
                 normalized = normalize_item(raw)
                 if not normalized:
                     continue
@@ -923,11 +1148,11 @@ if results:
                 qtd_limite_compra = detail.get("qtdLimiteInformadoCompra", "N/I")
                 aceita_adesao_raw = detail.get("aceitaAdesao")
                 if aceita_adesao_raw is True:
-                    aceita_adesao = '<span style="color:#22c55e;font-weight:bold;">✅ Sim</span>'
+                    aceita_adesao = '✅ Sim'
                 elif aceita_adesao_raw is False:
-                    aceita_adesao = '<span style="color:#ef4444;font-weight:bold;">❌ Não</span>'
+                    aceita_adesao = '❌ Não'
                 else:
-                    aceita_adesao = '<span style="color:#94a3b8;">N/I</span>'
+                    aceita_adesao = 'N/I'
 
                 # Número do item (vem da API 2)
                 numero_item = raw.get("numeroItem", "N/I")
@@ -950,23 +1175,82 @@ if results:
                 else:
                     vigencia_final = "N/I"
 
-                st.markdown(
-                    f"""
-                    <div class="result-card">
-                        <div class="status-text">Ata {numero} • {unidade} (UASG {uasg_code})</div>
-                        <div><a href="{url}" target="_blank">Visualizar documento – {fornecedor}</a></div>
-                        <div style="display:flex;flex-wrap:wrap;gap:0.6rem 1.4rem;margin-top:0.5rem;font-size:0.85rem;color:#cbd5e1;">
-                            <span>🔢 <b>Item:</b> {numero_item}</span>
-                            <span>📅 <b>Vigência Final:</b> {vigencia_final}</span>
-                            <span>📦 <b>Saldo Adesões:</b> {saldo_adesoes}</span>
-                            <span>🔄 <b>Saldo Remanej.:</b> {saldo_remanejamento}</span>
-                            <span>📊 <b>Lim. Adesão:</b> {qtd_limite_adesao}</span>
-                            <span>🛒 <b>Lim. Compra:</b> {qtd_limite_compra}</span>
-                            <span>🤝 <b>Aceita Adesão:</b> {aceita_adesao}</span>
-                        </div>
-                    </div>
-                    """,
-                    unsafe_allow_html=True,
-                )
+                # ── Card visual da ata ──
+                doc_session_key = f"docs_{identificador}_{idx}"
+                doc_err_key = f"docs_err_{identificador}_{idx}"
+                btn_key = f"btn_docs_{idx}_{identificador[:30]}"
+
+                with st.container(border=True):
+                    # Título da ata
+                    st.markdown(f"**Ata {numero} • {unidade} (UASG {uasg_code})**")
+
+                    # Link do fornecedor
+                    if url:
+                        st.markdown(
+                            f'<a href="{url}" target="_blank" class="ata-fornecedor-link">'
+                            f'Visualizar documento – {fornecedor}</a>',
+                            unsafe_allow_html=True,
+                        )
+                    else:
+                        st.markdown(
+                            f'<span class="ata-fornecedor-link">Visualizar documento – {fornecedor}</span>',
+                            unsafe_allow_html=True,
+                        )
+
+                    # Tags com todas as informações
+                    st.markdown(
+                        f"""<div class="ata-info-grid">
+                            <span class="ata-tag">🔢 Item: {numero_item}</span>
+                            <span class="ata-tag">📅 Vigência Final: {vigencia_final}</span>
+                            <span class="ata-tag">📦 Saldo Adesões: {saldo_adesoes}</span>
+                            <span class="ata-tag">🔄 Saldo Remanej.: {saldo_remanejamento}</span>
+                            <span class="ata-tag">📊 Lim. Adesão: {qtd_limite_adesao}</span>
+                            <span class="ata-tag">🛒 Lim. Compra: {qtd_limite_compra}</span>
+                            <span class="ata-tag">🤝 Aceita Adesão: {aceita_adesao}</span>
+                        </div>""",
+                        unsafe_allow_html=True,
+                    )
+
+                    if st.button("📂 Outros Docs", key=btn_key):
+                        with st.spinner("Buscando…"):
+                            docs, erro = fetch_ata_documents(identificador)
+                            st.session_state[doc_session_key] = docs
+                            st.session_state[doc_err_key] = erro
+
+                    # Documentos carregados
+                    if doc_err_key in st.session_state and st.session_state[doc_err_key]:
+                        st.warning(st.session_state[doc_err_key])
+
+                    if doc_session_key in st.session_state:
+                        # Filtrar docs do tipo "Ata de Registro de Preço" (já disponível via link do fornecedor)
+                        docs = [
+                            d for d in st.session_state[doc_session_key]
+                            if "ata de registro" not in (d.get("tipoDocumentoNome") or "").lower()
+                        ]
+                        if docs:
+                            base_url = build_ata_documents_url(identificador)
+                            doc_links_html = ""
+                            for doc_idx, doc in enumerate(docs):
+                                titulo = (
+                                    doc.get("titulo")
+                                    or doc.get("tituloDocumento")
+                                    or doc.get("nomeArquivo")
+                                    or doc.get("nome")
+                                    or f"Documento {doc_idx + 1}"
+                                )
+                                tipo_doc = doc.get("tipoDocumentoNome", doc.get("tipoDocumento", doc.get("tipo", "")))
+                                seq = doc.get("sequencialDocumento", doc.get("sequencial", doc_idx + 1))
+                                doc_url = doc.get("url", doc.get("uri", f"{base_url}/{seq}"))
+                                badge = f'<span class="doc-badge">{tipo_doc}</span>' if tipo_doc else ""
+                                doc_links_html += (
+                                    f'<a href="{doc_url}" target="_blank" class="doc-pill">'
+                                    f'📎 {titulo} {badge}</a>'
+                                )
+                            st.markdown(
+                                f'<div class="doc-list-row">{doc_links_html}</div>',
+                                unsafe_allow_html=True,
+                            )
+                        else:
+                            st.caption("Nenhum documento adicional encontrado.")
 elif start_button and tipo and codigo:
     st.info("Nenhuma ata encontrada para este critério.")
