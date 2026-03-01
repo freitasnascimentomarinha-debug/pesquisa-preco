@@ -171,12 +171,11 @@ def consultar_transparencia(cnpj_limpo):
 with st.sidebar:
     st.markdown('<div class="logo-text">MARINHA DO BRASIL</div>', unsafe_allow_html=True)
     st.markdown("---")
-    st.page_link("Home.py", label="Início", icon="🏠")
-    st.page_link("streamlit_app.py", label="Cotação", icon="📊")
-    st.page_link("pages/Consulta.py", label="💻 Consulta CNPJ", icon="💻")
-    st.page_link("pages/Adesões.py", label="Adesões", icon="📋")
-    st.page_link("pages/Notas_Fiscais.py", label="Notas Fiscais", icon="🧾")
-    st.page_link("pages/Banco_de_Fornecedores.py", label="Fornecedores", icon="🏢")
+    st.page_link("streamlit_app.py", label="⚓ Cotação", icon="📊")
+    st.page_link("pages/Adesões.py", label="🤝 Adesões", icon="📋")
+    st.page_link("pages/Notas_Fiscais.py", label="📄 Notas Fiscais", icon="🧾")
+    st.page_link("pages/Banco_de_Fornecedores.py", label="🏢 Fornecedores", icon="🔍")
+    st.page_link("pages/Consulta.py", label="Consulta CNPJ", icon="💻")
     st.markdown("---")
     st.markdown('<div class="sidebar-footer">AtaCotada v1.0</div>', unsafe_allow_html=True)
 
