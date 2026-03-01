@@ -490,6 +490,19 @@ def gerar_relatorio_excel(dataframe, estatisticas, outliers_info, col_precounita
     left_align = Alignment(horizontal='left', vertical='center')
     
     # CABEÇALHO SUPERIOR
+    item_str = "Pesquisa de Preços - Cotação"
+    if not dataframe.empty:
+        col_codigo = encontrar_coluna(dataframe, ['codigoItemCatalogo', 'codigo_item', 'codigo'])
+        col_desc = encontrar_coluna(dataframe, ['descricaoItem', 'descricao', 'description'])
+        
+        codigo = str(dataframe.iloc[0][col_codigo]) if col_codigo else ""
+        desc = str(dataframe.iloc[0][col_desc]) if col_desc else ""
+        
+        if codigo and desc:
+            item_str = f"{codigo} - {desc}"
+        elif desc:
+            item_str = desc
+
     ws.merge_cells(f'A1:{last_col}1')
     ws['A1'] = "AtaCotada"
     ws['A1'].font = gold_title
@@ -498,7 +511,7 @@ def gerar_relatorio_excel(dataframe, estatisticas, outliers_info, col_precounita
     ws.row_dimensions[1].height = 40
     
     ws.merge_cells(f'A2:{last_col}2')
-    ws['A2'] = "Pesquisa de Preços - Cotação"
+    ws['A2'] = item_str
     ws['A2'].font = white_subtitle
     ws['A2'].fill = navy
     ws['A2'].alignment = center
@@ -631,6 +644,19 @@ def gerar_relatorio_pdf_simples(dataframe, estatisticas, outliers_info, col_prec
     effective_w = 280
     x_start = 8
     
+    item_str = 'Pesquisa de Preços - Cotação Pública'
+    if not dataframe.empty:
+        col_codigo = encontrar_coluna(dataframe, ['codigoItemCatalogo', 'codigo_item', 'codigo'])
+        col_desc = encontrar_coluna(dataframe, ['descricaoItem', 'descricao', 'description'])
+        
+        codigo = str(dataframe.iloc[0][col_codigo]) if col_codigo else ""
+        desc = str(dataframe.iloc[0][col_desc]) if col_desc else ""
+        
+        if codigo and desc:
+            item_str = f"{codigo} - {desc}"
+        elif desc:
+            item_str = desc
+
     class PDFCotacao(FPDF):
         def header(self):
             self.set_fill_color(0, 26, 77)
@@ -644,7 +670,7 @@ def gerar_relatorio_pdf_simples(dataframe, estatisticas, outliers_info, col_prec
             self.set_font('Arial', 'B', 11)
             self.set_text_color(255, 255, 255)
             self.set_xy(10, 16)
-            self.cell(0, 8, _pdf_safe('Pesquisa de Preços - Cotação Pública'))
+            self.cell(0, 8, _pdf_safe(item_str))
             self.set_font('Arial', '', 7)
             self.set_text_color(180, 180, 180)
             self.set_xy(self.w - 70, 6)
@@ -676,12 +702,12 @@ def gerar_relatorio_pdf_simples(dataframe, estatisticas, outliers_info, col_prec
     coef_var = (desvio / preco_med * 100) if preco_med != 0 else 0
     
     stats_data = [
-        ("Mínimo", formatar_moeda_br(preco_min)),
-        ("Médio", formatar_moeda_br(preco_med)),
-        ("Mediana", formatar_moeda_br(preco_mediano)),
-        ("Máximo", formatar_moeda_br(preco_max)),
-        ("Desvio Padrão", f"{desvio:.2f}"),
-        ("CV", f"{coef_var:.2f}%")
+        ("Mínimo", f"R$ {formatar_moeda_br(preco_min)}"),
+        ("Médio", f"R$ {formatar_moeda_br(preco_med)}"),
+        ("Mediana", f"R$ {formatar_moeda_br(preco_mediano)}"),
+        ("Máximo", f"R$ {formatar_moeda_br(preco_max)}"),
+        ("Desvio Padrão", f"R$ {formatar_moeda_br(desvio)}"),
+        ("CV", f"{coef_var:.2f}%".replace('.', ','))
     ]
     
     pdf.set_y(38)
@@ -763,11 +789,20 @@ def gerar_relatorio_pdf_simples(dataframe, estatisticas, outliers_info, col_prec
         pdf.set_fill_color(245, 248, 255)
         for i, col_r in enumerate(col_reais):
             val = row[col_r]
+            w = widths_to_use[i]
+            
             if labels[i] == 'V. Unitário':
-                txt = formatar_moeda_br(val)
+                txt = f"R$ {formatar_moeda_br(val)}"
+            elif labels[i] == 'Data':
+                txt = str(val)[:10] if pd.notna(val) else ""
             else:
-                txt = str(val)[:30] if val else ""
-            pdf.cell(widths_to_use[i], 6, _pdf_safe(txt), 1, 0, 'C', fill)
+                txt = str(val) if pd.notna(val) else ""
+                txt = txt.replace('\n', ' ').replace('\r', '')
+                # Truncate string to avoid overlapping cells in PDF
+                while len(txt) > 0 and pdf.get_string_width(_pdf_safe(txt)) > w - 2:
+                    txt = txt[:-1]
+                    
+            pdf.cell(w, 6, _pdf_safe(txt), 1, 0, 'C', fill)
         pdf.ln()
 
     # JUSTIFICATIVA
