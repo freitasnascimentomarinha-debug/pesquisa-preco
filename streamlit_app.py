@@ -10,6 +10,31 @@ from fpdf import FPDF
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils.dataframe import dataframe_to_rows
+from openpyxl.utils import get_column_letter
+import re
+
+JUSTIFICATIVA_COTACAO = (
+    "Justificativa quanto aos critérios de Pesquisa de Preços (IN 65/2021)\n\n"
+    "A presente pesquisa de preços foi realizada em estrita observância aos critérios e parâmetros "
+    "estabelecidos pela Instrução Normativa SEGES/ME nº 65, de 7 de julho de 2021. Foram priorizados "
+    "dados provenientes de aquisições e contratações similares no âmbito da Administração Pública, "
+    "assegurando a contemporaneidade dos registros e a compatibilidade técnica com o objeto pretendido.\n\n"
+    "Os valores obtidos refletem os preços efetivamente praticados no mercado, garantindo a "
+    "economicidade e a ampla fundamentação na formação do preço estimado para a contratação. "
+    "Ressalta-se que a utilização de painéis de preços e bancos de dados oficiais confere "
+    "transparência, rastreabilidade e segurança documental ao procedimento de aferição do valor de mercado.\n\n"
+    "Dessa forma, entende-se que a metodologia adotada atende aos princípios da razoabilidade, "
+    "economicidade e motivação do ato administrativo, conferindo robustez à formação do preço estimado."
+)
+
+def _pdf_safe(text):
+    """Garante texto seguro para renderização PDF"""
+    if not text or str(text) == 'nan' or str(text) == 'None':
+        return ''
+    try:
+        return str(text).encode('latin-1', 'replace').decode('latin-1')
+    except Exception:
+        return str(text)
 
 # Configuração da página
 st.set_page_config(
@@ -430,62 +455,67 @@ def remover_outliers_iqr(dataframe, coluna):
 # Função para gerar relatório em Excel formatado
 def gerar_relatorio_excel(dataframe, estatisticas, outliers_info, col_precounitario):
     """
-    Gera um relatório em Excel com os dados formatados e editável.
+    Gera um relatório em Excel com os dados formatados (Layout Notas Fiscais).
     """
     wb = Workbook()
     ws = wb.active
-    ws.title = "Relatório"
+    ws.title = "Relatório Cotação"
     
-    # Estilos
-    header_fill = PatternFill(start_color="001A4D", end_color="001A4D", fill_type="solid")
-    header_font = Font(bold=True, color="FFFFFF", size=11)
-    title_font = Font(bold=True, color="D4AF37", size=14)
-    stats_fill = PatternFill(start_color="0033CC", end_color="0033CC", fill_type="solid")
-    stats_font = Font(bold=True, color="FFFFFF", size=10)
-    border = Border(
-        left=Side(style='thin'),
-        right=Side(style='thin'),
-        top=Side(style='thin'),
-        bottom=Side(style='thin')
+    max_col = 12
+    last_col = 'L'
+    
+    # Estilos (Padrão Notas Fiscais)
+    navy = PatternFill(start_color='001A4D', end_color='001A4D', fill_type='solid')
+    dark_navy = PatternFill(start_color='0A2540', end_color='0A2540', fill_type='solid')
+    light_bg = PatternFill(start_color='F5F8FF', end_color='F5F8FF', fill_type='solid')
+    alt_row = PatternFill(start_color='EDF2FA', end_color='EDF2FA', fill_type='solid')
+    white_bg = PatternFill(start_color='FFFFFF', end_color='FFFFFF', fill_type='solid')
+    
+    gold_title = Font(name='Calibri', bold=True, color='D4AF37', size=20)
+    white_subtitle = Font(name='Calibri', bold=True, color='FFFFFF', size=13)
+    gray_info = Font(name='Calibri', color='B0B0B0', size=9, italic=True)
+    header_font = Font(name='Calibri', bold=True, color='FFFFFF', size=11)
+    gold_stat = Font(name='Calibri', bold=True, color='D4AF37', size=10)
+    data_font = Font(name='Calibri', size=10, color='333333')
+    
+    border_thin = Border(
+        left=Side(style='thin', color='E8E8E8'),
+        right=Side(style='thin', color='E8E8E8'),
+        top=Side(style='thin', color='E8E8E8'),
+        bottom=Side(style='thin', color='E8E8E8')
     )
+    gold_bottom = Border(bottom=Side(style='medium', color='D4AF37'))
     
-    # TÍTULO
+    center = Alignment(horizontal='center', vertical='center')
+    left_align = Alignment(horizontal='left', vertical='center')
+    
+    # CABEÇALHO SUPERIOR
+    ws.merge_cells(f'A1:{last_col}1')
     ws['A1'] = "AtaCotada"
-    ws['A1'].font = title_font
-    ws['A1'].alignment = Alignment(horizontal='center', vertical='center')
-    ws.merge_cells('A1:L1')
-    ws.row_dimensions[1].height = 25
+    ws['A1'].font = gold_title
+    ws['A1'].fill = navy
+    ws['A1'].alignment = center
+    ws.row_dimensions[1].height = 40
     
-    # Subtítulo
-    ws['A2'] = "MARINHA DO BRASIL - Pesquisa de Preços"
-    ws['A2'].font = Font(size=10, bold=True)
-    ws['A2'].alignment = Alignment(horizontal='center')
-    ws.merge_cells('A2:L2')
+    ws.merge_cells(f'A2:{last_col}2')
+    ws['A2'] = "Pesquisa de Preços - Cotação"
+    ws['A2'].font = white_subtitle
+    ws['A2'].fill = navy
+    ws['A2'].alignment = center
+    ws.row_dimensions[2].height = 26
     
-    # Data
-    data_hora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-    ws['A3'] = f"Relatório gerado em: {data_hora}"
-    ws['A3'].font = Font(size=9)
-    ws['A3'].alignment = Alignment(horizontal='center')
-    ws.merge_cells('A3:L3')
+    ws.merge_cells(f'A3:{last_col}3')
+    ws['A3'] = "Marinha do Brasil - Centro de Operações do Abastecimento"
+    ws['A3'].font = gray_info
+    ws['A3'].fill = navy
+    ws['A3'].alignment = center
     ws.row_dimensions[3].height = 18
     
+    for row_h in range(1, 4):
+        for col_h in range(1, max_col + 1):
+            ws.cell(row=row_h, column=col_h).fill = navy
+
     # ESTATÍSTICAS
-    ws['A5'] = "ESTATÍSTICAS"
-    ws['A5'].font = Font(bold=True, size=11, color="D4AF37")
-    ws.row_dimensions[5].height = 18
-    
-    # Cabeçalho estatísticas
-    stats_labels = ['Preço Mín', 'Preço Médio', 'Preço Mediano', 'Preço Máx', 'Desvio Padrão', 'Coef. Variação']
-    for col, label in enumerate(stats_labels, 1):
-        cell = ws.cell(row=6, column=col)
-        cell.value = label
-        cell.font = stats_font
-        cell.fill = stats_fill
-        cell.alignment = Alignment(horizontal='center', vertical='center')
-        cell.border = border
-    
-    # Valores estatísticas
     preco_min = dataframe[col_precounitario].min()
     preco_med = dataframe[col_precounitario].mean()
     preco_mediano = dataframe[col_precounitario].median()
@@ -493,38 +523,24 @@ def gerar_relatorio_excel(dataframe, estatisticas, outliers_info, col_precounita
     desvio = dataframe[col_precounitario].std()
     coef_var = (desvio / preco_med * 100) if preco_med != 0 else 0
     
-    stats_values = [preco_min, preco_med, preco_mediano, preco_max, desvio, coef_var]
-    for col, valor in enumerate(stats_values, 1):
-        cell = ws.cell(row=7, column=col)
-        if col == 6:  # Coeficiente de variação
-            cell.value = valor
-            cell.number_format = '0.00"%"'
-        else:
-            cell.value = valor
-            cell.number_format = 'R$ #,##0.00'
-        cell.font = Font(size=10, bold=True)
-        cell.alignment = Alignment(horizontal='center', vertical='center')
-        cell.border = border
+    stats_list = [
+        ("TOTAL", str(len(dataframe))),
+        ("Mínimo", formatar_moeda_br(preco_min)),
+        ("Médio", formatar_moeda_br(preco_med)),
+        ("Mediana", formatar_moeda_br(preco_mediano)),
+        ("Máximo", formatar_moeda_br(preco_max)),
+        ("CV", f"{coef_var:.2f}%")
+    ]
     
-    ws.row_dimensions[7].height = 20
-    
-    # INFORMAÇÕES ADICIONAIS
-    ws['A9'] = "INFORMAÇÕES"
-    ws['A9'].font = Font(bold=True, size=11, color="D4AF37")
-    
-    total_registros = len(dataframe)
-    outliers_removidos = outliers_info['removidos'] if outliers_info else 0
-    
-    ws['A10'] = f"Total de Registros: {total_registros}"
-    ws['A11'] = f"Outliers Removidos: {outliers_removidos}"
-    ws['A10'].font = Font(size=10, bold=True)
-    ws['A11'].font = Font(size=10, bold=True)
-    
-    # DADOS DA TABELA
-    ws['A13'] = "DADOS"
-    ws['A13'].font = Font(bold=True, size=11, color="D4AF37")
-    
-    # Preparar colunas a serem exibidas
+    for i, (label, val) in enumerate(stats_list):
+        col_idx = i + 1
+        ws.cell(row=5, column=col_idx).value = f"{label}: {val}"
+        ws.cell(row=5, column=col_idx).font = gold_stat
+        ws.cell(row=5, column=col_idx).fill = dark_navy
+        ws.cell(row=5, column=col_idx).alignment = center
+    ws.row_dimensions[5].height = 24
+
+    # DADOS
     colunas_mapa = {
         'idCompra': 'ID Compra',
         'niFornecedor': 'NI Fornecedor',
@@ -540,66 +556,68 @@ def gerar_relatorio_excel(dataframe, estatisticas, outliers_info, col_precounita
         'nomeUasg': 'Nome UASG'
     }
     
-    colunas_encontradas = {}
-    for col_esperada, label in colunas_mapa.items():
-        col_real = encontrar_coluna(dataframe, [col_esperada, col_esperada.lower()])
-        if col_real:
-            colunas_encontradas[col_real] = label
+    col_reais = []
+    labels = []
+    for col_esp, label in colunas_mapa.items():
+        cr = encontrar_coluna(dataframe, [col_esp])
+        if cr:
+            col_reais.append(cr)
+            labels.append(label)
+            
+    # Cabeçalho da tabela
+    start_row = 7
+    for c_idx, label in enumerate(labels, 1):
+        cell = ws.cell(row=start_row, column=c_idx)
+        cell.value = label
+        cell.font = header_font
+        cell.fill = navy
+        cell.alignment = center
+        cell.border = gold_bottom
+    ws.row_dimensions[start_row].height = 28
     
-    # Selecionar apenas as colunas encontradas
-    df_export = dataframe[[col for col in colunas_encontradas.keys()]].copy()
-    
-    # Renomear colunas
-    df_export.columns = [colunas_encontradas[col] for col in df_export.columns]
-    
-    # Formatar preços
-    if 'Preço Unitário' in df_export.columns:
-        df_export['Preço Unitário'] = df_export['Preço Unitário'].apply(lambda x: x if pd.isna(x) else float(x))
-    
-    # Escrever dados na planilha
-    start_row = 14
-    for r_idx, row in enumerate(dataframe_to_rows(df_export, index=False, header=True), start_row):
-        for c_idx, value in enumerate(row, 1):
+    # Linhas de dados
+    for r_idx, row_data in enumerate(dataframe[col_reais].values, start_row + 1):
+        for c_idx, value in enumerate(row_data, 1):
             cell = ws.cell(row=r_idx, column=c_idx)
             cell.value = value
-            
-            # Formatar cabeçalho
-            if r_idx == start_row:
-                cell.font = header_font
-                cell.fill = header_fill
-                cell.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+            cell.font = data_font
+            cell.border = border_thin
+            if (r_idx - start_row) % 2 == 0:
+                cell.fill = alt_row
             else:
-                cell.alignment = Alignment(horizontal='left', vertical='top', wrap_text=True)
-                # Formatar preços
-                if c_idx == 6 and isinstance(value, (int, float)):  # Coluna Preço Unitário
-                    cell.value = value
-                    cell.number_format = 'R$ #,##0.00'
+                cell.fill = white_bg
             
-            cell.border = border
+            # Formatação moeda na coluna Preço Unitário
+            if labels[c_idx-1] == 'Preço Unitário' and isinstance(value, (int, float)):
+                cell.number_format = 'R$ #,##0.00'
+
+    # JUSTIFICATIVA IN 65
+    current_row = start_row + len(dataframe) + 2
+    ws.merge_cells(f'A{current_row}:{last_col}{current_row}')
+    cell_just_title = ws.cell(row=current_row, column=1)
+    paragraphs = JUSTIFICATIVA_COTACAO.split('\n\n')
+    cell_just_title.value = paragraphs[0]
+    cell_just_title.font = Font(name='Calibri', bold=True, color='001A4D', size=11)
+    cell_just_title.alignment = center
+    ws.row_dimensions[current_row].height = 30
     
-    # Ajustar largura das colunas
-    column_widths = {
-        'A': 12,  # ID Compra
-        'B': 12,  # NI Fornecedor
-        'C': 12,  # Código Item
-        'D': 30,  # Descrição
-        'E': 12,  # Data Compra
-        'F': 12,  # Unidade
-        'G': 10,  # Quantidade
-        'H': 15,  # Preço Unitário
-        'I': 16,  # CNPJ
-        'J': 30,  # Fornecedor
-        'K': 12,  # Cod. UASG
-        'L': 30   # Nome UASG
-    }
+    current_row += 1
+    for par in paragraphs[1:]:
+        ws.merge_cells(f'A{current_row}:{last_col}{current_row}')
+        cell_par = ws.cell(row=current_row, column=1)
+        cell_par.value = par
+        cell_par.font = Font(name='Calibri', size=10, color='333333')
+        cell_par.alignment = Alignment(horizontal='justify', vertical='top', wrap_text=True)
+        ws.row_dimensions[current_row].height = 60
+        current_row += 1
+
+    # Ajustar larguras
+    column_widths = [12, 12, 12, 40, 12, 12, 10, 15, 18, 30, 12, 30]
+    for i, w in enumerate(column_widths, 1):
+        ws.column_dimensions[get_column_letter(i)].width = w
+
+    ws.freeze_panes = f'A{start_row+1}'
     
-    for col, width in column_widths.items():
-        ws.column_dimensions[col].width = width
-    
-    # Congelar painel (linhas/colunas do cabeçalho)
-    ws.freeze_panes = 'A15'
-    
-    # Salvar em BytesIO
     output = BytesIO()
     wb.save(output)
     output.seek(0)
@@ -608,41 +626,48 @@ def gerar_relatorio_excel(dataframe, estatisticas, outliers_info, col_precounita
 # Função para gerar PDF simples a partir dos dados
 def gerar_relatorio_pdf_simples(dataframe, estatisticas, outliers_info, col_precounitario):
     """
-    Gera um relatório PDF simples e limpo com tabela completa de dados.
+    Gera um relatório PDF (Layout Notas Fiscais) com justificativa IN 65.
     """
-    pdf = FPDF(orientation='L', unit='mm', format='A4')
+    effective_w = 280
+    x_start = 8
+    
+    class PDFCotacao(FPDF):
+        def header(self):
+            self.set_fill_color(0, 26, 77)
+            self.rect(0, 0, self.w, 30, 'F')
+            self.set_fill_color(212, 175, 55)
+            self.rect(0, 30, self.w, 1.2, 'F')
+            self.set_font('Arial', 'B', 20)
+            self.set_text_color(212, 175, 55)
+            self.set_xy(10, 4)
+            self.cell(60, 10, 'AtaCotada')
+            self.set_font('Arial', 'B', 11)
+            self.set_text_color(255, 255, 255)
+            self.set_xy(10, 16)
+            self.cell(0, 8, _pdf_safe('Pesquisa de Preços - Cotação Pública'))
+            self.set_font('Arial', '', 7)
+            self.set_text_color(180, 180, 180)
+            self.set_xy(self.w - 70, 6)
+            self.cell(60, 5, 'Marinha do Brasil', align='R')
+            self.set_y(35)
+
+        def footer(self):
+            self.set_y(-10)
+            self.set_fill_color(0, 26, 77)
+            self.rect(0, self.h - 10, self.w, 10, 'F')
+            self.set_font('Arial', 'I', 6.5)
+            self.set_text_color(160, 160, 160)
+            dh = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+            self.cell(0, 8, _pdf_safe(f'AtaCotada - Gerado em {dh}'), align='L')
+            self.set_x(-30)
+            self.cell(20, 8, f'{self.page_no()}/{{nb}}', align='R')
+
+    pdf = PDFCotacao(orientation='L', unit='mm', format='A4')
+    pdf.alias_nb_pages()
+    pdf.set_auto_page_break(auto=True, margin=15)
     pdf.add_page()
-    pdf.set_margins(8, 8, 8)
     
-    # CABEÇALHO
-    pdf.set_font("Arial", "B", 14)
-    pdf.set_text_color(212, 175, 55)
-    pdf.cell(0, 8, "AtaCotada", ln=True, align="C")
-    
-    pdf.set_font("Arial", "", 9)
-    pdf.set_text_color(0, 0, 0)
-    pdf.cell(0, 4, "MARINHA DO BRASIL - Pesquisa de Preços", ln=True, align="C")
-    
-    data_hora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-    pdf.cell(0, 4, f"Relatório gerado em: {data_hora}", ln=True, align="C")
-    pdf.ln(2)
-    
-    # TABELA DE ESTATÍSTICAS
-    pdf.set_font("Arial", "B", 9)
-    pdf.set_fill_color(0, 26, 77)
-    pdf.set_text_color(255, 255, 255)
-    
-    col_width_stats = 28
-    pdf.cell(col_width_stats, 6, "Preço Mín", 1, 0, "C", True)
-    pdf.cell(col_width_stats, 6, "Preço Médio", 1, 0, "C", True)
-    pdf.cell(col_width_stats, 6, "Preço Mediano", 1, 0, "C", True)
-    pdf.cell(col_width_stats, 6, "Preço Máx", 1, 0, "C", True)
-    pdf.cell(col_width_stats, 6, "Desvio Padrão", 1, 0, "C", True)
-    pdf.cell(col_width_stats, 6, "Coef. Variação", 1, 1, "C", True)
-    
-    pdf.set_font("Arial", "", 8)
-    pdf.set_text_color(0, 0, 0)
-    
+    # ESTATÍSTICAS
     preco_min = dataframe[col_precounitario].min()
     preco_med = dataframe[col_precounitario].mean()
     preco_mediano = dataframe[col_precounitario].median()
@@ -650,106 +675,104 @@ def gerar_relatorio_pdf_simples(dataframe, estatisticas, outliers_info, col_prec
     desvio = dataframe[col_precounitario].std()
     coef_var = (desvio / preco_med * 100) if preco_med != 0 else 0
     
-    pdf.cell(col_width_stats, 6, f"R$ {formatar_moeda_br(preco_min)}", 1, 0, "C")
-    pdf.cell(col_width_stats, 6, f"R$ {formatar_moeda_br(preco_med)}", 1, 0, "C")
-    pdf.cell(col_width_stats, 6, f"R$ {formatar_moeda_br(preco_mediano)}", 1, 0, "C")
-    pdf.cell(col_width_stats, 6, f"R$ {formatar_moeda_br(preco_max)}", 1, 0, "C")
-    pdf.cell(col_width_stats, 6, f"{desvio:.2f}".replace('.', ','), 1, 0, "C")
-    pdf.cell(col_width_stats, 6, f"{coef_var:.2f}%".replace('.', ','), 1, 1, "C")
+    stats_data = [
+        ("Mínimo", formatar_moeda_br(preco_min)),
+        ("Médio", formatar_moeda_br(preco_med)),
+        ("Mediana", formatar_moeda_br(preco_mediano)),
+        ("Máximo", formatar_moeda_br(preco_max)),
+        ("Desvio Padrão", f"{desvio:.2f}"),
+        ("CV", f"{coef_var:.2f}%")
+    ]
     
-    pdf.ln(2)
-    
-    # INFORMAÇÕES
-    pdf.set_font("Arial", "B", 8)
-    total_registros = len(dataframe)
-    outliers_removidos = outliers_info['removidos'] if outliers_info else 0
-    
-    pdf.cell(0, 4, f"Total de Preços Encontrados: {total_registros} | Outliers Removidos: {outliers_removidos}", ln=True)
-    pdf.ln(2)
-    
-    # TABELA DE DADOS
-    pdf.set_font("Arial", "B", 8)
-    pdf.cell(0, 4, "TABELA DE DADOS", ln=True)
-    pdf.ln(1)
-    
-    # Preparar colunas a serem exibidas (mesmas do Excel)
+    pdf.set_y(38)
+    sw = effective_w / 6
+    for label, val in stats_data:
+        x = pdf.get_x()
+        y = pdf.get_y()
+        pdf.set_fill_color(10, 37, 64)
+        pdf.rect(x, y, sw - 1, 12, 'F')
+        pdf.set_fill_color(212, 175, 55)
+        pdf.rect(x, y, 1.2, 12, 'F')
+        pdf.set_xy(x + 2, y + 1.5)
+        pdf.set_font('Arial', '', 6)
+        pdf.set_text_color(212, 175, 55)
+        pdf.cell(sw - 4, 3, _pdf_safe(label))
+        pdf.set_xy(x + 2, y + 5)
+        pdf.set_font('Arial', 'B', 8)
+        pdf.set_text_color(255, 255, 255)
+        pdf.cell(sw - 4, 5, _pdf_safe(val))
+        pdf.set_xy(x + sw, y)
+    pdf.ln(15)
+
+    # DADOS
     colunas_mapa = {
         'idCompra': 'ID Compra',
-        'niFornecedor': 'NI Fornecedor',
-        'codigoItemCatalogo': 'Código Item',
-        'descricaoItem': 'Descrição',
-        'dataCompra': 'Data Compra',
-        'unidadeFornecimento': 'Unidade',
-        'quantidade': 'Quantidade',
-        'precoUnitario': 'Preço Unit.',
+        'dataCompra': 'Data',
+        'quantidade': 'Qtd',
+        'precoUnitario': 'V. Unitário',
         'cnpj': 'CNPJ',
         'nomeFornecedor': 'Fornecedor',
-        'codigoUasg': 'Cod. UASG',
-        'nomeUasg': 'Nome UASG'
+        'nomeUasg': 'Órgão'
     }
     
-    colunas_encontradas = {}
-    for col_esperada, label in colunas_mapa.items():
-        col_real = encontrar_coluna(dataframe, [col_esperada, col_esperada.lower()])
-        if col_real:
-            colunas_encontradas[col_real] = label
-    
-    if colunas_encontradas:
-        # Calcular largura das colunas dinamicamente
-        # Largura disponível: A4 landscape = 297mm, menos margens (8+8=16) = 281mm
-        largura_disponivel = 297 - 16
-        num_colunas = len(colunas_encontradas)
-        col_width_dados = largura_disponivel / num_colunas
-        
-        # Cabeçalho da tabela de dados
-        pdf.set_font("Arial", "B", 7)
-        pdf.set_fill_color(0, 26, 77)
-        pdf.set_text_color(255, 255, 255)
-        
-        y_before_header = pdf.get_y()
-        for label in colunas_encontradas.values():
-            pdf.cell(col_width_dados, 5, label[:15], 1, 0, "C", True)
-        pdf.ln()
-        
-        # Dados da tabela - TODOS os registros
-        pdf.set_font("Arial", "", 6)
-        pdf.set_text_color(0, 0, 0)
-        
-        for idx in range(len(dataframe)):
-            # Verificar se precisa adicionar nova página
-            if pdf.get_y() > 180:  # Deixar espaço para rodapé
-                pdf.add_page()
-                # Repetir cabeçalho em nova página
-                pdf.set_font("Arial", "B", 7)
-                pdf.set_fill_color(0, 26, 77)
-                pdf.set_text_color(255, 255, 255)
-                
-                for label in colunas_encontradas.values():
-                    pdf.cell(col_width_dados, 5, label[:15], 1, 0, "C", True)
-                pdf.ln()
-                
-                pdf.set_font("Arial", "", 6)
-                pdf.set_text_color(0, 0, 0)
-            
-            for col_real, label in colunas_encontradas.items():
-                valor = dataframe.iloc[idx][col_real]
-                if isinstance(valor, float) and col_real == encontrar_coluna(dataframe, ['precoUnitario', 'precunitario']):
-                    cell_text = f"R$ {formatar_moeda_br(valor)}"
-                else:
-                    cell_text = str(valor)[:18] if valor else ""
-                pdf.cell(col_width_dados, 5, cell_text, 1, 0, "C")
+    col_reais = []
+    labels = []
+    for col_esp, label in colunas_mapa.items():
+        cr = encontrar_coluna(dataframe, [col_esp])
+        if cr:
+            col_reais.append(cr)
+            labels.append(label)
+
+    # Tabela header
+    num_cols = len(labels)
+    cw = effective_w / num_cols
+    pdf.set_fill_color(0, 26, 77)
+    pdf.set_text_color(255, 255, 255)
+    pdf.set_font('Arial', 'B', 7)
+    for l in labels:
+        pdf.cell(cw, 7, _pdf_safe(l), 1, 0, 'C', True)
+    pdf.ln()
+
+    # Linhas
+    pdf.set_font('Arial', '', 6)
+    pdf.set_text_color(51, 51, 51)
+    for idx, row in dataframe.iterrows():
+        if pdf.get_y() > 175:
+            pdf.add_page()
+            pdf.set_fill_color(0, 26, 77)
+            pdf.set_text_color(255, 255, 255)
+            pdf.set_font('Arial', 'B', 7)
+            for l in labels:
+                pdf.cell(cw, 7, _pdf_safe(l), 1, 0, 'C', True)
             pdf.ln()
-    
-    # RODAPÉ
-    pdf.ln(1)
-    pdf.set_font("Arial", "", 7)
-    pdf.set_text_color(212, 175, 55)
-    pdf.cell(0, 4, "Idealizado e Desenvolvido por COpAb - Sobressalentes - V1.2026", ln=True, align="C")
-    
-    pdf.set_font("Arial", "", 6)
-    pdf.set_text_color(100, 100, 100)
-    pdf.cell(0, 4, f"Página {pdf.page_no()}", align="C")
-    
+            pdf.set_font('Arial', '', 6)
+            pdf.set_text_color(51, 51, 51)
+            
+        fill = idx % 2 == 1
+        pdf.set_fill_color(245, 248, 255)
+        for i, col_r in enumerate(col_reais):
+            val = row[col_r]
+            if labels[i] == 'V. Unitário':
+                txt = formatar_moeda_br(val)
+            else:
+                txt = str(val)[:30] if val else ""
+            pdf.cell(cw, 6, _pdf_safe(txt), 1, 0, 'C', fill)
+        pdf.ln()
+
+    # JUSTIFICATIVA
+    pdf.add_page()
+    pdf.ln(10)
+    paragraphs = JUSTIFICATIVA_COTACAO.split('\n\n')
+    pdf.set_font('Arial', 'B', 12)
+    pdf.set_text_color(0, 26, 77)
+    pdf.multi_cell(0, 8, _pdf_safe(paragraphs[0]), align='C')
+    pdf.ln(5)
+    pdf.set_font('Arial', '', 10)
+    pdf.set_text_color(51, 51, 51)
+    for p in paragraphs[1:]:
+        pdf.multi_cell(0, 6, _pdf_safe(p), align='J')
+        pdf.ln(4)
+
     pdf_output = pdf.output(dest='S')
     if isinstance(pdf_output, bytearray):
         return bytes(pdf_output)
