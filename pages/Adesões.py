@@ -1210,7 +1210,6 @@ if results:
                             <span class="ata-tag">🛒 Compra: {num_compra}</span>
                             <span class="ata-tag">🆔 ID Compra: {id_compra}</span>
                             <span class="ata-tag">📅 Vigência Final: {vigencia_final}</span>
-                            <span class="ata-tag">Box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);</span>
                             <span class="ata-tag">📦 Saldo Adesões: {saldo_adesoes}</span>
                             <span class="ata-tag">🔄 Saldo Remanej.: {saldo_remanejamento}</span>
                             <span class="ata-tag">📊 Lim. Adesão: {qtd_limite_adesao}</span>
