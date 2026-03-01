@@ -661,6 +661,8 @@ def gerar_relatorio_pdf_simples(dataframe, estatisticas, outliers_info, col_prec
     colunas_mapa = {
         'idCompra': 'ID Compra',
         'dataCompra': 'Data',
+        'codigoUasg': 'UASG',
+        'unidadeFornecimento': 'Unid.',
         'quantidade': 'Qtd',
         'precoUnitario': 'V. Unitário',
         'niFornecedor': 'CNPJ',
@@ -668,6 +670,8 @@ def gerar_relatorio_pdf_simples(dataframe, estatisticas, outliers_info, col_prec
         'uf': 'UF',
         'nomeUasg': 'Órgão'
     }
+    
+    col_widths = [18, 16, 15, 12, 12, 18, 26, 60, 8, 95]
     
     col_reais = []
     labels = []
@@ -678,13 +682,19 @@ def gerar_relatorio_pdf_simples(dataframe, estatisticas, outliers_info, col_prec
             labels.append(label)
 
     # Tabela header
-    num_cols = len(labels)
-    cw = effective_w / num_cols
     pdf.set_fill_color(0, 26, 77)
     pdf.set_text_color(255, 255, 255)
     pdf.set_font('Arial', 'B', 7)
-    for l in labels:
-        pdf.cell(cw, 7, _pdf_safe(l), 1, 0, 'C', True)
+    
+    # Ajuste dinâmico caso alguma coluna não seja encontrada
+    if len(labels) == len(col_widths):
+        widths_to_use = col_widths
+    else:
+        cw = effective_w / len(labels) if len(labels) > 0 else effective_w
+        widths_to_use = [cw] * len(labels)
+        
+    for i, l in enumerate(labels):
+        pdf.cell(widths_to_use[i], 7, _pdf_safe(l), 1, 0, 'C', True)
     pdf.ln()
 
     # Linhas
@@ -696,8 +706,8 @@ def gerar_relatorio_pdf_simples(dataframe, estatisticas, outliers_info, col_prec
             pdf.set_fill_color(0, 26, 77)
             pdf.set_text_color(255, 255, 255)
             pdf.set_font('Arial', 'B', 7)
-            for l in labels:
-                pdf.cell(cw, 7, _pdf_safe(l), 1, 0, 'C', True)
+            for i, l in enumerate(labels):
+                pdf.cell(widths_to_use[i], 7, _pdf_safe(l), 1, 0, 'C', True)
             pdf.ln()
             pdf.set_font('Arial', '', 6)
             pdf.set_text_color(51, 51, 51)
@@ -710,7 +720,7 @@ def gerar_relatorio_pdf_simples(dataframe, estatisticas, outliers_info, col_prec
                 txt = formatar_moeda_br(val)
             else:
                 txt = str(val)[:30] if val else ""
-            pdf.cell(cw, 6, _pdf_safe(txt), 1, 0, 'C', fill)
+            pdf.cell(widths_to_use[i], 6, _pdf_safe(txt), 1, 0, 'C', fill)
         pdf.ln()
 
     # JUSTIFICATIVA
