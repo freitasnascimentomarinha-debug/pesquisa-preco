@@ -166,6 +166,14 @@ with st.sidebar:
     st.page_link("pages/Banco_de_Fornecedores.py", label="🏢 Fornecedores", icon="🔍")
     st.page_link("pages/Consulta.py", label="Consulta CNPJ", icon="💻")
     st.markdown("---")
+    st.markdown("## LINKS ÚTEIS")
+    st.markdown("""
+    <div style="margin-bottom: 1rem;">
+        <a href="https://freitasnascimentomarinha-debug.github.io/ShootMail/" target="_blank" style="color: #cbd5e1; text-decoration: none; font-size: 0.9rem; display: flex; align-items: center; gap: 0.5rem;">
+            📧 Disparador de Emails
+        </a>
+    </div>
+    """, unsafe_allow_html=True)
     st.markdown('<div class="sidebar-footer">AtaCotada v1.0</div>', unsafe_allow_html=True)
 
 # Main Header
