@@ -297,7 +297,7 @@ with st.sidebar:
 # Header
 st.markdown("""
     <div class="header-container">
-        <div class="logo-text">SISTEMA DE ACOMPANHAMENTO</div>
+        <div class="logo-text">⚓ MARINHA DO BRASIL ⚓</div>
         <div class="sistema-nome">AtaCotada</div>
         <div class="subtitulo">Banco de Fornecedores</div>
     </div>
