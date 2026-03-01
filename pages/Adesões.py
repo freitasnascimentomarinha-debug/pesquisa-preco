@@ -530,7 +530,7 @@ def fetch_ata_documents(identifier: str) -> Tuple[List[Dict], str]:
     return unique_docs, erro_msg
 
 
-def normalize_item(item: Dict) -> Optional[Tuple[str, str, str, str, str]]:
+def normalize_item(item: Dict) -> Optional[Tuple[str, str, str, str, str, str, str]]:
     if item.get("maximoAdesao", 0) == 0:
         return None
     numero_ata = item.get("numeroAtaRegistroPreco", "Ata não informada")
@@ -538,7 +538,13 @@ def normalize_item(item: Dict) -> Optional[Tuple[str, str, str, str, str]]:
     fornecedor = item.get("nomeRazaoSocialFornecedor", "Fornecedor não informado")
     identificador = item.get("numeroControlePncpAta", "")
     url = build_ata_url(identificador)
-    return numero_ata, unidade, fornecedor, identificador, url
+    
+    # Extrair numeroCompra e idCompra
+    numero_compra = item.get("numeroCompra", "N/I")
+    # idCompra costuma vir de identificadores do tipo "XXXXX.XXXXXX/YYYY-ZZ" ou campos específicos
+    id_compra = item.get("idCompra") or item.get("numeroSequencialCompra") or "N/I"
+    
+    return numero_ata, unidade, fornecedor, identificador, url, str(numero_compra), str(id_compra)
 
 
 def filter_results_by_uf(
@@ -1136,7 +1142,7 @@ if results:
                 normalized = normalize_item(raw)
                 if not normalized:
                     continue
-                numero, unidade, fornecedor, identificador, url = normalized
+                numero, unidade, fornecedor, identificador, url, num_compra, id_compra = normalized
 
                 # Código UASG do órgão
                 uasg_code = extract_uasg(raw) or "N/I"
@@ -1201,7 +1207,10 @@ if results:
                     st.markdown(
                         f"""<div class="ata-info-grid">
                             <span class="ata-tag">🔢 Item: {numero_item}</span>
+                            <span class="ata-tag">🛒 Compra: {num_compra}</span>
+                            <span class="ata-tag">🆔 ID Compra: {id_compra}</span>
                             <span class="ata-tag">📅 Vigência Final: {vigencia_final}</span>
+                            <span class="ata-tag">Box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);</span>
                             <span class="ata-tag">📦 Saldo Adesões: {saldo_adesoes}</span>
                             <span class="ata-tag">🔄 Saldo Remanej.: {saldo_remanejamento}</span>
                             <span class="ata-tag">📊 Lim. Adesão: {qtd_limite_adesao}</span>

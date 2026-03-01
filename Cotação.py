@@ -2,7 +2,7 @@ import streamlit as st
 import requests
 import pandas as pd
 import streamlit.components.v1 as components
-from datetime import datetime, timedelta
+from datetime import datetime
 from io import BytesIO
 from fpdf import FPDF
 from openpyxl import Workbook
@@ -480,7 +480,6 @@ def gerar_relatorio_excel(dataframe, estatisticas, outliers_info, col_precounita
     # Preparar colunas a serem exibidas
     colunas_mapa = {
         'idCompra': 'ID Compra',
-        'numeroCompra': 'Número Compra',
         'niFornecedor': 'NI Fornecedor',
         'codigoItemCatalogo': 'Código Item',
         'descricaoItem': 'Descrição',
@@ -629,7 +628,6 @@ def gerar_relatorio_pdf_simples(dataframe, estatisticas, outliers_info, col_prec
     # Preparar colunas a serem exibidas (mesmas do Excel)
     colunas_mapa = {
         'idCompra': 'ID Compra',
-        'numeroCompra': 'Número Compra',
         'niFornecedor': 'NI Fornecedor',
         'codigoItemCatalogo': 'Código Item',
         'descricaoItem': 'Descrição',
@@ -1081,22 +1079,26 @@ if st.session_state.get('itens'):
         if isinstance(st.session_state['itens'], list) and all(isinstance(item, dict) for item in st.session_state['itens']):
             df_completo = pd.json_normalize(st.session_state['itens'])
             
-            # --- FILTRO DE 1 ANO (A partir do dia presente) ---
-            if 'dataCompra' in df_completo.columns:
-                df_completo['dataCompra'] = pd.to_datetime(df_completo['dataCompra'], errors='coerce')
-                data_hoje = datetime.today()
-                um_ano_atras = data_hoje - timedelta(days=365)
-                # Filtra apenas o último ano
-                df_completo = df_completo[df_completo['dataCompra'] >= um_ano_atras]
-                # Converte de volta para string legível para não quebrar outras partes
-                df_completo['dataCompra'] = df_completo['dataCompra'].dt.strftime('%d/%m/%Y')
-            
             # Encontrar colunas com nomes variáveis
             col_unidade = encontrar_coluna(df_completo, ['unidadeFornecimento', 'unidade_fornecimento', 'unidade', 'unitFornecimento'])
             col_nome_unidade = encontrar_coluna(df_completo, ['nomeUnidadeFornecimento', 'nome_unidade_fornecimento', 'nomeUnidade', 'nome_unidade'])
             col_estado = encontrar_coluna(df_completo, ['uf', 'estado', 'estadoUf', 'estado_uf'])
             col_precounitario = encontrar_coluna(df_completo, ['precoUnitario', 'preco_unitario', 'preço_unitário'])
             col_uasg = encontrar_coluna(df_completo, ['nomeUasg', 'nome_uasg', 'uasg', 'nomeUAsg'])
+            col_data_compra = encontrar_coluna(df_completo, ['dataCompra', 'data_compra', 'data'])
+
+            # Filtro de janela de 1 ano (sempre a partir do dia presente)
+            if col_data_compra:
+                try:
+                    df_completo[col_data_compra] = pd.to_datetime(df_completo[col_data_compra], errors='coerce')
+                    hoje = pd.Timestamp.now().normalize()
+                    um_ano_atras = hoje - pd.DateOffset(years=1)
+                    df_completo = df_completo[
+                        (df_completo[col_data_compra] >= um_ano_atras) & 
+                        (df_completo[col_data_compra] <= hoje)
+                    ].copy()
+                except Exception as e:
+                    st.warning(f"Erro ao filtrar por data: {e}")
             
             # Seção de Filtros
             st.markdown("""

@@ -1132,6 +1132,21 @@ if st.session_state.get('itens'):
             col_estado = encontrar_coluna(df_completo, ['uf', 'estado', 'estadoUf', 'estado_uf'])
             col_precounitario = encontrar_coluna(df_completo, ['precoUnitario', 'preco_unitario', 'preço_unitário'])
             col_uasg = encontrar_coluna(df_completo, ['nomeUasg', 'nome_uasg', 'uasg', 'nomeUAsg'])
+            col_data_compra = encontrar_coluna(df_completo, ['dataCompra', 'data_compra', 'data'])
+
+            # Filtro de janela de 1 ano (sempre a partir do dia presente)
+            if col_data_compra:
+                try:
+                    df_completo[col_data_compra] = pd.to_datetime(df_completo[col_data_compra], errors='coerce')
+                    hoje = pd.Timestamp.now().normalize()
+                    um_ano_atras = hoje - pd.DateOffset(years=1)
+                    df_completo = df_completo[
+                        (df_completo[col_data_compra] >= um_ano_atras) & 
+                        (df_completo[col_data_compra] <= hoje)
+                    ].copy()
+                    # Voltar para string para exibição se necessário, mas manter formato para filtros
+                except Exception as e:
+                    st.warning(f"Erro ao filtrar por data: {e}")
             
             # Seção de Filtros
             st.markdown("""
