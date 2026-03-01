@@ -140,32 +140,21 @@ def consultar_opencnpj(cnpj_limpo):
 @st.cache_data(ttl=3600)
 def consultar_comprasgov(cnpj_limpo, data_inicial, data_final):
     try:
-        url = f"https://dadosabertos.compras.gov.br/modulo-contratos/1_consultarContratos?cnpj_contratada={cnpj_limpo}&data_assinatura_inicial={data_inicial}&data_assinatura_final={data_final}"
-        resp = requests.get(url, timeout=15)
+        url = f"http://compras.dados.gov.br/contratos/v1/contratos.json?cnpj_contratada={cnpj_limpo}"
+        resp = requests.get(url, timeout=30)
         if resp.status_code == 200:
-            # Em alguns casos a API retorna o dict direto ou 'resultado'
             dados = resp.json()
             if isinstance(dados, dict) and 'resultado' in dados:
                 return dados['resultado']
+            elif isinstance(dados, dict) and '_embedded' in dados:
+                # ComprasNet Legacy API format
+                return dados['_embedded'].get('contratos', [])
             return dados if isinstance(dados, list) else []
     except Exception as e:
         return []
     return []
 
-@st.cache_data(ttl=3600)
-def consultar_transparencia(cnpj_limpo):
-    # A API do Portal da Transparencia não possui filtro de data no endpoint principal por fornecedor diretamente,
-    # então usaremos data de assinatura no processamento se necessário ou buscaremos sem data.
-    try:
-        url = f"https://api.portaldatransparencia.gov.br/api-de-dados/contratos?cnpjFornecedor={cnpj_limpo}&pagina=1"
-        api_key = st.secrets["transparencia"]["api_key"]
-        headers = {'chave-api-dados': api_key}
-        resp = requests.get(url, headers=headers, timeout=15)
-        if resp.status_code == 200:
-            return resp.json()
-    except Exception as e:
-        return []
-    return []
+# Remover cache_data do Portal da Transparencia pois não pode ser consultado de forma global agnóstica sem Unidade
 
 # Sidebar Navigation
 with st.sidebar:
@@ -214,10 +203,9 @@ if btn_consultar and cnpj_input:
     if len(cnpj_limpo) != 14:
         st.error("CNPJ inválido. Certifique-se de preencher 14 dígitos inteiros.")
     else:
-        with st.spinner(f"Consultando bases de dados para o CNPJ {formatar_cnpj(cnpj_limpo)}..."):
+        with st.spinner(f"Consultando bases de dados para o CNPJ {formatar_cnpj(cnpj_limpo)} (Isso pode levar até 30s)..."):
             dados_empresa = consultar_opencnpj(cnpj_limpo)
             contratos_cg = consultar_comprasgov(cnpj_limpo, data_ini, data_fim)
-            contratos_tr = consultar_transparencia(cnpj_limpo)
 
         st.markdown("---")
 
@@ -225,6 +213,12 @@ if btn_consultar and cnpj_input:
         if dados_empresa:
             st.markdown(f"### Informações da Empresa: {dados_empresa.get('nome_fantasia') or dados_empresa.get('razao_social')}")
             
+            # Formatar telefones (se houver)
+            telefones_lista = dados_empresa.get('telefones', [])
+            tel_formatado = "N/A"
+            if telefones_lista:
+                tel_formatado = f"({telefones_lista[0].get('ddd', '')}) {telefones_lista[0].get('numero', '')}"
+
             e_col1, e_col2 = st.columns(2)
             with e_col1:
                 st.markdown(f"""
@@ -242,7 +236,7 @@ if btn_consultar and cnpj_input:
                 <div class="info-card">
                     <div class="info-title">Contato e Endereço</div>
                     <div class="info-item"><span class="info-label">Email:</span> <span class="info-value">{dados_empresa.get('email', 'N/A')}</span></div>
-                    <div class="info-item"><span class="info-label">Telefone:</span> <span class="info-value">{dados_empresa.get('telefone', 'N/A')}</span></div>
+                    <div class="info-item"><span class="info-label">Telefone:</span> <span class="info-value">{tel_formatado}</span></div>
                     <div class="info-item"><span class="info-label">Endereço:</span> <span class="info-value">{ender}</span></div>
                     <div class="info-item"><span class="info-label">CEP:</span> <span class="info-value">{dados_empresa.get('cep', 'N/A')}</span></div>
                 </div>
@@ -253,57 +247,39 @@ if btn_consultar and cnpj_input:
         st.markdown("---")
         st.markdown("### Histórico de Contratos Governamentais")
         
-        tab1, tab2 = st.tabs(["Compras.gov.br", "Portal da Transparência"])
-        
-        with tab1:
-            st.write("##### Fonte: Dados Abertos Compras.gov.br")
-            if contratos_cg and len(contratos_cg) > 0:
-                st.success(f"Encontrados {len(contratos_cg)} contratos.")
-                for c in contratos_cg:
-                    uasg_nome = c.get('nome_orgao', 'N/A')
-                    uasg_cod = c.get('codigo_orgao', '')
-                    valor = c.get('valor_inicial', 0)
-                    objeto = c.get('objeto', 'N/A')
-                    vigencia_inicio = c.get('data_inicio_vigencia', 'N/A')
-                    vigencia_fim = c.get('data_fim_vigencia', 'N/A')
-                    
-                    st.markdown(f"""
-                    <div class="contract-card">
-                        <div class="contract-title">📄 Órgão/UASG: {uasg_cod} - {uasg_nome}</div>
-                        <div style="margin-bottom:0.5rem; color:#cbd5e1;"><strong>Objeto:</strong> {objeto}</div>
-                        <div style="display:flex; justify-content:space-between; flex-wrap:wrap; color:#cbd5e1; font-size:0.9rem;">
-                            <div><strong>Vigência:</strong> {vigencia_inicio} a {vigencia_fim}</div>
-                            <div style="color:#d4af37; font-weight:bold;">Valor: {formatar_moeda_br(valor)}</div>
-                        </div>
+        st.write("##### Fonte: Dados Abertos Compras.gov.br")
+        if contratos_cg and len(contratos_cg) > 0:
+            # Filtrar manual por data se a API retornou sem filtrar (caso da API legada)
+            contratos_filtrados = []
+            for c in contratos_cg:
+                data_ass = c.get('data_assinatura') or c.get('data_inicio_vigencia')
+                if data_ass and data_ass >= data_ini and data_ass <= data_fim:
+                    contratos_filtrados.append(c)
+                elif not data_ass:
+                    contratos_filtrados.append(c)
+            
+            # Se for a API legada, o array pode não ter sido filtrado pela data no servidor.
+            # No entanto, se usamos os parametros na URL (como no legacy), a URL ignorou se nao suporta.
+            
+            st.success(f"Encontrados {len(contratos_filtrados)} contratos no período analisado.")
+            for c in contratos_filtrados:
+                uasg_nome = c.get('nome_orgao') or c.get('ug_nome', 'N/A')
+                uasg_cod = c.get('codigo_orgao') or c.get('ug', '')
+                valor = c.get('valor_inicial') or c.get('valor_total', 0)
+                objeto = c.get('objeto', 'N/A')
+                vigencia_inicio = c.get('data_inicio_vigencia') or c.get('data_assinatura', 'N/A')
+                vigencia_fim = c.get('data_fim_vigencia', 'N/A')
+                
+                st.markdown(f"""
+                <div class="contract-card">
+                    <div class="contract-title">📄 Órgão/UASG: {uasg_cod} - {uasg_nome}</div>
+                    <div style="margin-bottom:0.5rem; color:#cbd5e1;"><strong>Objeto:</strong> {objeto}</div>
+                    <div style="display:flex; justify-content:space-between; flex-wrap:wrap; color:#cbd5e1; font-size:0.9rem;">
+                        <div><strong>Vigência:</strong> {vigencia_inicio} a {vigencia_fim}</div>
+                        <div style="color:#d4af37; font-weight:bold;">Valor: {formatar_moeda_br(valor)}</div>
                     </div>
-                    """, unsafe_allow_html=True)
-            else:
-                st.info("Nenhum contrato encontrado associado a este CNPJ no Compras.gov.br.")
-
-        with tab2:
-            st.write("##### Fonte: Portal da Transparência")
-            if hasattr(st, 'secrets') and "transparencia" in st.secrets:
-                if contratos_tr and len(contratos_tr) > 0:
-                    st.success(f"Encontrados {len(contratos_tr)} contratos (página 1).")
-                    for c in contratos_tr:
-                        orgao = c.get('orgao', {}).get('nomeOrgao', 'N/A')
-                        valor = c.get('valorInicial', 0)
-                        objeto = c.get('objeto', 'N/A')
-                        data_assinatura = c.get('dataAssinatura', 'N/A')
-                        data_fim = c.get('dataFimVigencia', 'N/A')
-                        
-                        st.markdown(f"""
-                        <div class="contract-card">
-                            <div class="contract-title">📄 Órgão: {orgao}</div>
-                            <div style="margin-bottom:0.5rem; color:#cbd5e1;"><strong>Objeto:</strong> {objeto}</div>
-                            <div style="display:flex; justify-content:space-between; flex-wrap:wrap; color:#cbd5e1; font-size:0.9rem;">
-                                <div><strong>Vigência:</strong> {data_assinatura} a {data_fim}</div>
-                                <div style="color:#d4af37; font-weight:bold;">Valor: {formatar_moeda_br(valor)}</div>
-                            </div>
-                        </div>
-                        """, unsafe_allow_html=True)
-                else:
-                    st.info("Nenhum contrato encontrado associado a este CNPJ no Portal da Transparência.")
-            else:
-                st.error("Chave da API do Portal da Transparência não configurada. Verifique os secrets do Streamlit.")
+                </div>
+                """, unsafe_allow_html=True)
+        else:
+            st.info("Nenhum contrato encontrado associado a este CNPJ no Compras.gov.br dentro deste período.")
 
