@@ -496,15 +496,15 @@ def gerar_relatorio_excel(dataframe, estatisticas, outliers_info, col_precounita
     # DADOS
     colunas_mapa = {
         'idCompra': 'ID Compra',
-        'niFornecedor': 'NI Fornecedor',
         'codigoItemCatalogo': 'Código Item',
         'descricaoItem': 'Descrição',
         'dataCompra': 'Data Compra',
         'unidadeFornecimento': 'Unidade',
         'quantidade': 'Quantidade',
         'precoUnitario': 'Preço Unitário',
-        'cnpj': 'CNPJ',
+        'niFornecedor': 'CNPJ Fornecedor',
         'nomeFornecedor': 'Fornecedor',
+        'uf': 'UF',
         'codigoUasg': 'Cod. UASG',
         'nomeUasg': 'Nome UASG'
     }
@@ -565,7 +565,7 @@ def gerar_relatorio_excel(dataframe, estatisticas, outliers_info, col_precounita
         current_row += 1
 
     # Ajustar larguras
-    column_widths = [12, 12, 12, 40, 12, 12, 10, 15, 18, 30, 12, 30]
+    column_widths = [12, 12, 40, 12, 12, 10, 15, 18, 30, 6, 12, 30]
     for i, w in enumerate(column_widths, 1):
         ws.column_dimensions[get_column_letter(i)].width = w
 
@@ -663,8 +663,9 @@ def gerar_relatorio_pdf_simples(dataframe, estatisticas, outliers_info, col_prec
         'dataCompra': 'Data',
         'quantidade': 'Qtd',
         'precoUnitario': 'V. Unitário',
-        'cnpj': 'CNPJ',
+        'niFornecedor': 'CNPJ',
         'nomeFornecedor': 'Fornecedor',
+        'uf': 'UF',
         'nomeUasg': 'Órgão'
     }
     
