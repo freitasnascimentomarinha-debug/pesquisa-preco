@@ -173,7 +173,7 @@ with st.sidebar:
     st.markdown("---")
     st.page_link("Home.py", label="Início", icon="🏠")
     st.page_link("streamlit_app.py", label="Cotação", icon="📊")
-    st.page_link("pages/Consulta.py", label="Consulta", icon="🔍")
+    st.page_link("pages/Consulta.py", label="💻 Consulta CNPJ", icon="💻")
     st.page_link("pages/Adesões.py", label="Adesões", icon="📋")
     st.page_link("pages/Notas_Fiscais.py", label="Notas Fiscais", icon="🧾")
     st.page_link("pages/Banco_de_Fornecedores.py", label="Fornecedores", icon="🏢")
