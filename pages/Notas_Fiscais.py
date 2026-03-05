@@ -288,6 +288,11 @@ with st.sidebar:
             📧 Disparador de Emails
         </a>
     </div>
+    <div style="margin-bottom: 1rem;">
+        <a href="https://detetive-obtencao.vercel.app/" target="_blank" style="color: #cbd5e1; text-decoration: none; font-size: 0.9rem; display: flex; align-items: center; gap: 0.5rem;">
+            🚨 Detetive Obtenção
+        </a>
+    </div>
     """, unsafe_allow_html=True)
     st.markdown('<div style="text-align:center;color:#d4af37;font-size:10px;font-weight:600;padding:0.3rem 0;white-space:nowrap;">Centro de Operações do Abastecimento</div>', unsafe_allow_html=True)
     st.markdown('<div class="sidebar-footer">Marinha do Brasil<br>AtaCotada v1.0</div>', unsafe_allow_html=True)
