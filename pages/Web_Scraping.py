@@ -715,15 +715,15 @@ def gerar_relatorio_csv(resultados):
 # ===================== SIDEBAR =====================
 
 with st.sidebar:
-    st.markdown("## ⚓ ATACOTADA")
-    st.page_link("streamlit_app.py", label="🏠 Cotação")
-    st.page_link("pages/Consulta.py", label="🔍 Consulta")
-    st.page_link("pages/Banco_de_Fornecedores.py", label="🏢 Banco de Fornecedores")
-    st.page_link("pages/Notas_Fiscais.py", label="📄 Notas Fiscais")
-    st.page_link("pages/Adesões.py", label="📋 Adesões")
-    st.page_link("pages/Web_Scraping.py", label="🕷️ Web Scraping")
+    st.markdown("## MENU")
     st.markdown("---")
-    st.markdown('<div class="sidebar-footer">AtaCotada v2.0<br>Marinha do Brasil</div>', unsafe_allow_html=True)
+    st.page_link("streamlit_app.py", label="⚓ Cotação", icon="📊")
+    st.page_link("pages/Adesões.py", label="🤝 Adesões", icon="📋")
+    st.page_link("pages/Notas_Fiscais.py", label="📄 Notas Fiscais", icon="🧾")
+    st.page_link("pages/Banco_de_Fornecedores.py", label="🏢 Fornecedores", icon="🔍")
+    st.page_link("pages/Consulta.py", label="Consulta CNPJ", icon="💻")
+    st.page_link("pages/Web_Scraping.py", label="🕷️ Web Scraping", icon="🌐")
+    st.markdown("---")
 
 
 # ===================== HEADER =====================

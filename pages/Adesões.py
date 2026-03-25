@@ -387,6 +387,7 @@ with st.sidebar:
     st.page_link("pages/Notas_Fiscais.py", label="📄 Notas Fiscais", icon="🧾")
     st.page_link("pages/Banco_de_Fornecedores.py", label="🏢 Fornecedores", icon="🔍")
     st.page_link("pages/Consulta.py", label="Consulta CNPJ", icon="💻")
+    st.page_link("pages/Web_Scraping.py", label="🕷️ Web Scraping", icon="🌐")
     st.markdown("---")
     st.markdown("## LINKS ÚTEIS")
     st.markdown("""
