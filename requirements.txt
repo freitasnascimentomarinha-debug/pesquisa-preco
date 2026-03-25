@@ -7,3 +7,6 @@ reportlab
 aiohttp
 folium
 streamlit-folium
+beautifulsoup4
+lxml
+playwright
