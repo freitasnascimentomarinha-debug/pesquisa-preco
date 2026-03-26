@@ -756,19 +756,31 @@ body {{ font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 20px; ba
 
 # ===================== SCRAPING COM PLAYWRIGHT =====================
 
+def _is_streamlit_cloud():
+    """Detecta se está rodando no Streamlit Community Cloud."""
+    # No Community Cloud, o HOME é /home/appuser e existe a variável STREAMLIT_SHARING_MODE
+    return (
+        os.environ.get("STREAMLIT_SHARING_MODE") is not None
+        or os.environ.get("HOME", "") == "/home/appuser"
+        or os.path.exists("/mount/src")
+    )
+
+
 def _ensure_playwright_installed():
-    """Verifica se playwright está instalado e funcional (pacote + browser)."""
+    """Verifica se playwright está instalado (pacote + browser baixado)."""
+    # Playwright não funciona no Streamlit Community Cloud (sem sudo, sem binários de browser)
+    if _is_streamlit_cloud():
+        return False
     try:
         from playwright.sync_api import sync_playwright
-        # Testar se o browser realmente abre
-        with sync_playwright() as p:
-            browser = p.chromium.launch(
-                headless=True,
-                args=["--no-sandbox", "--disable-dev-shm-usage"],
-            )
-            browser.close()
-        return True
-    except Exception:
+        # Verificar se os arquivos do browser existem
+        import glob
+        home = os.path.expanduser("~")
+        browsers_path = os.path.join(home, ".cache", "ms-playwright")
+        if os.path.isdir(browsers_path) and glob.glob(os.path.join(browsers_path, "chromium*")):
+            return True
+        return False
+    except ImportError:
         return False
 
 
@@ -1386,17 +1398,21 @@ with col1:
 
 with col2:
     st.markdown("#### ⚙️ Configurações")
-    usar_playwright = st.checkbox(
-        "Usar navegador automatizado",
-        value=False,
-        help="Ativa o Playwright para sites com carregamento dinâmico. Mais lento, porém mais preciso.",
-    )
-    if usar_playwright:
-        if _ensure_playwright_installed():
-            st.success("✅ Playwright ativo", icon="🎭")
-        else:
-            st.error("❌ Playwright não disponível. Instale com: pip install playwright && playwright install chromium")
-            usar_playwright = False
+    if _is_streamlit_cloud():
+        st.info("ℹ️ Navegador automatizado indisponível na nuvem.", icon="☁️")
+        usar_playwright = False
+    else:
+        usar_playwright = st.checkbox(
+            "Usar navegador automatizado",
+            value=False,
+            help="Ativa o Playwright para sites com carregamento dinâmico. Mais lento, porém mais preciso.",
+        )
+        if usar_playwright:
+            if _ensure_playwright_installed():
+                st.success("✅ Playwright ativo", icon="🎭")
+            else:
+                st.error("❌ Playwright não disponível. Instale com: pip install playwright && playwright install chromium")
+                usar_playwright = False
     max_fontes = st.number_input(
         "Máx. fontes por item",
         min_value=1,
