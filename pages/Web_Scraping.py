@@ -1015,9 +1015,11 @@ st.markdown("""
 
 # ===================== INTERFACE PRINCIPAL =====================
 
-st.markdown("""
-<div class="info-card">
-    <div class="info-title">⚙️ Como Funciona o Web Scraping</div>
+import streamlit.components.v1 as _components
+
+_como_funciona_html = """
+<div style="background: linear-gradient(135deg, #1a1a1a 0%, #252525 100%); border: 1px solid #333; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; color: #e0e0e0; font-family: 'Segoe UI', sans-serif; font-size: 15px; line-height: 1.6;">
+    <div style="font-size: 1.2rem; font-weight: bold; color: #d4af37; margin-bottom: 1rem;">⚙️ Como Funciona o Web Scraping</div>
     <div style="margin-bottom: 0.8rem;">Este módulo automatiza a pesquisa de preços na internet para fins de <b>cotação e estimativa de preços</b>,
     em conformidade com a IN 65/2021. O sistema busca preços diretamente em sites de fornecedores
     (ignorando marketplaces como Mercado Livre, Amazon, Shopee etc.) para obter valores mais próximos
@@ -1040,15 +1042,15 @@ st.markdown("""
     <div style="margin-left: 1rem; margin-bottom: 1rem;">
         <div style="margin-bottom:0.4rem;">• <b>Navegador Automatizado (Playwright):</b> Quando ativado, usa um navegador real (Chromium)
             para acessar sites que carregam preços via JavaScript. É mais lento, mas captura preços
-            de sites dinâmicos que o modo padrão não consegue ler. <span style="font-style:italic;">Recomendação: deixe desativado
-            na maioria dos casos; ative apenas se estiver recebendo poucos resultados.</span></div>
+            de sites dinâmicos que o modo padrão não consegue ler. <i>Recomendação: deixe desativado
+            na maioria dos casos; ative apenas se estiver recebendo poucos resultados.</i></div>
         <div style="margin-bottom:0.4rem;">• <b>Máx. fontes por item:</b> Quantidade máxima de orçamentos diferentes que o sistema
-            buscará para cada material. <span style="font-style:italic;">Recomendação: <b>3</b> fontes é o ideal — já atende
-            à IN 65/2021 e mantém a pesquisa rápida.</span></div>
+            buscará para cada material. <i>Recomendação: <b>3</b> fontes é o ideal — já atende
+            à IN 65/2021 e mantém a pesquisa rápida.</i></div>
         <div style="margin-bottom:0.4rem;">• <b>Delay mínimo / máximo (seg):</b> Intervalo de espera entre cada requisição,
             simulando comportamento humano. Evita bloqueios dos sites.
-            <span style="font-style:italic;">Recomendação: mínimo <b>2s</b> e máximo <b>6s</b> (padrão) —
-            aumente para 4s/10s se pesquisar muitos itens de uma vez.</span></div>
+            <i>Recomendação: mínimo <b>2s</b> e máximo <b>6s</b> (padrão) —
+            aumente para 4s/10s se pesquisar muitos itens de uma vez.</i></div>
     </div>
 
     <div style="font-weight:bold; color:#d4af37; margin-bottom: 0.5rem;">✅ Configuração Ideal para a Maioria dos Casos:</div>
@@ -1058,7 +1060,8 @@ st.markdown("""
         <div style="margin-bottom:0.3rem;">• Delay mínimo: <b>2.0s</b> &nbsp;|&nbsp; Delay máximo: <b>6.0s</b></div>
     </div>
 </div>
-""", unsafe_allow_html=True)
+"""
+_components.html(_como_funciona_html, height=620, scrolling=False)
 
 # Formulário de entrada
 st.markdown("### 📝 Itens para Pesquisa")
