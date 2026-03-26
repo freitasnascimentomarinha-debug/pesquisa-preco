@@ -507,28 +507,125 @@ def buscar_urls(session, query, headers, num_results=8):
 
 
 def extrair_precos_pagina(html_content):
-    """Extrai possíveis preços de uma página HTML."""
-    precos = []
+    """Extrai possíveis preços de uma página HTML usando múltiplas estratégias."""
+    from bs4 import BeautifulSoup
 
-    # Padrões de preço em reais
+    precos_estruturados = []  # Alta confiança (JSON-LD, meta, classes de preço)
+    precos_regex = []         # Baixa confiança (regex genérico)
+
+    soup = BeautifulSoup(html_content, "html.parser")
+
+    # --- Estratégia 1: JSON-LD (schema.org) — máxima confiança ---
+    for script_tag in soup.find_all("script", type="application/ld+json"):
+        try:
+            data = json.loads(script_tag.string or "")
+            _extrair_preco_jsonld(data, precos_estruturados)
+        except (json.JSONDecodeError, TypeError):
+            continue
+
+    # --- Estratégia 2: Meta tags (og:price, product:price) ---
+    for meta in soup.find_all("meta"):
+        prop = (meta.get("property") or meta.get("name") or "").lower()
+        if any(k in prop for k in ("price", "amount", "preco")):
+            content = meta.get("content", "")
+            val = _parse_valor_br(content)
+            if val:
+                precos_estruturados.append(val)
+
+    # --- Estratégia 3: Elementos com classes/atributos de preço ---
+    seletores_preco = [
+        "[class*='price']", "[class*='preco']", "[class*='Price']",
+        "[class*='valor']", "[class*='Valor']",
+        "[itemprop='price']", "[data-price]",
+        "[class*='sale']", "[class*='offer']",
+        "[class*='product-price']", "[class*='finalPrice']",
+    ]
+    for sel in seletores_preco:
+        for elem in soup.select(sel):
+            # Priorizar atributo content/data-price sobre texto
+            for attr in ("content", "data-price", "data-value"):
+                attr_val = elem.get(attr)
+                if attr_val:
+                    val = _parse_valor_br(attr_val)
+                    if val:
+                        precos_estruturados.append(val)
+            # Texto do elemento
+            texto = elem.get_text(strip=True)
+            val = _extrair_valor_texto(texto)
+            if val:
+                precos_estruturados.append(val)
+
+    # --- Estratégia 4: Regex no HTML bruto (fallback) ---
     padroes = [
         r"R\$\s*(\d{1,3}(?:\.\d{3})*,\d{2})",
         r"R\$\s*(\d+,\d{2})",
-        r"(?:por|preço|valor|price)[\s:]*R\$\s*(\d{1,3}(?:\.\d{3})*,\d{2})",
     ]
-
     for padrao in padroes:
         matches = re.findall(padrao, html_content, re.IGNORECASE)
         for match in matches:
-            try:
-                valor_str = match.replace(".", "").replace(",", ".")
-                valor = float(valor_str)
-                if 0.01 < valor < 1_000_000:  # Filtra valores absurdos
-                    precos.append(valor)
-            except (ValueError, TypeError):
-                continue
+            val = _parse_valor_br(match)
+            if val:
+                precos_regex.append(val)
 
-    return sorted(set(precos))
+    # Se temos preços estruturados, preferir eles; senão usar regex
+    if precos_estruturados:
+        return sorted(set(precos_estruturados))
+    return sorted(set(precos_regex))
+
+
+def _extrair_preco_jsonld(data, out):
+    """Extrai preços de dados JSON-LD recursivamente."""
+    if isinstance(data, list):
+        for item in data:
+            _extrair_preco_jsonld(item, out)
+        return
+    if not isinstance(data, dict):
+        return
+    # offers.price / offers.lowPrice
+    for key in ("price", "lowPrice", "highPrice"):
+        if key in data:
+            val = _parse_valor_br(str(data[key]))
+            if val:
+                out.append(val)
+    # Recursão em sub-objetos relevantes
+    for key in ("offers", "priceSpecification", "mainEntity"):
+        if key in data:
+            _extrair_preco_jsonld(data[key], out)
+
+
+def _parse_valor_br(texto):
+    """Converte texto de preço BR ou internacional para float. Retorna None se inválido."""
+    if not texto:
+        return None
+    texto = texto.strip().replace("R$", "").replace("\xa0", "").strip()
+    # Formato BR: 1.234,56
+    m = re.match(r"^(\d{1,3}(?:\.\d{3})*),(\d{2})$", texto)
+    if m:
+        val = float(texto.replace(".", "").replace(",", "."))
+        return val if 0.50 < val < 500_000 else None
+    # Formato BR simples: 123,45
+    m = re.match(r"^(\d+),(\d{2})$", texto)
+    if m:
+        val = float(texto.replace(",", "."))
+        return val if 0.50 < val < 500_000 else None
+    # Formato internacional: 1234.56
+    m = re.match(r"^(\d+(?:\.\d+)?)$", texto)
+    if m:
+        val = float(texto)
+        return val if 0.50 < val < 500_000 else None
+    return None
+
+
+def _extrair_valor_texto(texto):
+    """Extrai primeiro valor monetário de um texto curto."""
+    if not texto:
+        return None
+    m = re.search(r"R\$\s*(\d{1,3}(?:\.\d{3})*,\d{2})", texto)
+    if not m:
+        m = re.search(r"(\d{1,3}(?:\.\d{3})*,\d{2})", texto)
+    if m:
+        return _parse_valor_br(m.group(1))
+    return None
 
 
 def extrair_titulo_pagina(html_content):
@@ -569,28 +666,77 @@ def scraping_requests(session, url, headers):
         try:
             soup = BeautifulSoup(html, "html.parser")
             # Remover scripts e styles para captura limpa
-            for tag in soup(["script", "style", "noscript"]):
+            for tag in soup(["script", "style", "noscript", "svg", "iframe"]):
                 tag.decompose()
-            body_text = soup.get_text(separator="\n", strip=True)[:3000]
-            # Salvar captura como imagem via HTML renderizado
+
+            # Extrair trecho de texto ao redor do preço para contexto
+            body_text_full = soup.get_text(separator="\n", strip=True)
+            preco_formatado = f"{preco_medio:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+            trecho_preco = ""
+            idx_preco = body_text_full.find(preco_formatado)
+            if idx_preco == -1:
+                # Tentar formato sem milhar
+                preco_simples = f"{preco_medio:.2f}".replace(".", ",")
+                idx_preco = body_text_full.find(preco_simples)
+            if idx_preco >= 0:
+                inicio = max(0, idx_preco - 200)
+                fim = min(len(body_text_full), idx_preco + 200)
+                trecho_preco = body_text_full[inicio:fim]
+            else:
+                trecho_preco = body_text_full[:600]
+
+            # Listar todos os preços encontrados
+            todos_precos_str = " | ".join([f"R$ {p:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".") for p in precos[:8]])
+
             screenshot_dir = SCREENSHOT_DIR
             os.makedirs(screenshot_dir, exist_ok=True)
             safe_name = re.sub(r'[^a-zA-Z0-9]', '_', titulo[:40])
             snapshot_path = os.path.join(screenshot_dir, f"{safe_name}_{hash(url) % 10000}.html")
             with open(snapshot_path, "w", encoding="utf-8") as f:
                 f.write(f"""<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>{titulo}</title>
-<style>body{{font-family:Arial;padding:20px;max-width:900px;margin:auto;background:#f5f5f5}}
-.header{{background:#001a4d;color:#d4af37;padding:15px;border-radius:8px;margin-bottom:15px}}
-.price{{color:#006600;font-size:24px;font-weight:bold;margin:10px 0}}
-.url{{color:#666;font-size:12px;word-break:break-all}}
-.content{{background:#fff;padding:15px;border-radius:8px;border:1px solid #ddd;white-space:pre-wrap;font-size:13px;max-height:600px;overflow:auto}}
+<html><head><meta charset="utf-8"><title>Evidência — {titulo}</title>
+<style>
+body {{ font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 20px; background: #f8f9fa; color: #333; }}
+.evidence-card {{ max-width: 900px; margin: auto; background: #fff; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.1); overflow: hidden; }}
+.evidence-header {{ background: linear-gradient(135deg, #001a4d 0%, #003399 100%); color: #fff; padding: 20px 24px; }}
+.evidence-header h2 {{ margin: 0 0 8px 0; font-size: 18px; color: #d4af37; }}
+.evidence-price {{ font-size: 28px; font-weight: bold; color: #4CAF50; margin: 12px 0; }}
+.evidence-meta {{ display: flex; gap: 24px; flex-wrap: wrap; font-size: 12px; color: #ccc; margin-top: 8px; }}
+.evidence-meta span {{ display: flex; align-items: center; gap: 4px; }}
+.evidence-body {{ padding: 20px 24px; }}
+.evidence-section {{ margin-bottom: 16px; }}
+.evidence-section-title {{ font-weight: 600; color: #001a4d; font-size: 14px; margin-bottom: 6px; border-bottom: 2px solid #d4af37; padding-bottom: 4px; display: inline-block; }}
+.evidence-url {{ color: #1a73e8; word-break: break-all; font-size: 13px; }}
+.evidence-context {{ background: #f5f5f5; border-left: 4px solid #d4af37; padding: 12px 16px; border-radius: 0 8px 8px 0; font-size: 13px; line-height: 1.6; white-space: pre-wrap; word-wrap: break-word; max-height: 400px; overflow-y: auto; }}
+.all-prices {{ background: #e8f5e9; padding: 8px 12px; border-radius: 6px; font-size: 13px; color: #2e7d32; }}
+.evidence-footer {{ background: #f0f0f0; text-align: center; padding: 10px; font-size: 11px; color: #999; }}
 </style></head><body>
-<div class="header"><h2>{titulo}</h2>
-<div class="price">Preço encontrado: R$ {preco_medio:,.2f}</div>
-<div class="url">Fonte: {url}</div>
-<div style="color:#fff;font-size:11px;margin-top:5px">Capturado em: {datetime.now().strftime('%d/%m/%Y %H:%M')}</div></div>
-<div class="content">{body_text[:2000]}</div>
+<div class="evidence-card">
+  <div class="evidence-header">
+    <h2>{titulo}</h2>
+    <div class="evidence-price">R$ {preco_medio:,.2f}</div>
+    <div class="evidence-meta">
+      <span>📅 {datetime.now().strftime('%d/%m/%Y %H:%M')}</span>
+      <span>🌐 {extrair_dominio(url)}</span>
+      <span>📊 {len(precos)} preço(s) detectado(s)</span>
+    </div>
+  </div>
+  <div class="evidence-body">
+    <div class="evidence-section">
+      <div class="evidence-section-title">🔗 Fonte</div>
+      <div class="evidence-url"><a href="{url}" target="_blank">{url}</a></div>
+    </div>
+    <div class="evidence-section">
+      <div class="evidence-section-title">💰 Todos os Preços Detectados</div>
+      <div class="all-prices">{todos_precos_str}</div>
+    </div>
+    <div class="evidence-section">
+      <div class="evidence-section-title">📄 Contexto Extraído</div>
+      <div class="evidence-context">{trecho_preco}</div>
+    </div>
+  </div>
+  <div class="evidence-footer">Evidência gerada automaticamente pelo AtaCotada — Marinha do Brasil</div>
+</div>
 </body></html>""")
             screenshot_path = snapshot_path
         except Exception:
@@ -963,6 +1109,154 @@ def gerar_relatorio_csv(resultados):
     return output
 
 
+def gerar_pdf_evidencias(resultados):
+    """Gera um PDF único com todas as evidências de preço coletadas."""
+    from fpdf import FPDF
+
+    class EvidenciaPDF(FPDF):
+        def header(self):
+            self.set_font("Helvetica", "B", 10)
+            self.set_text_color(0, 26, 77)
+            self.cell(0, 8, "AtaCotada - Evidencias de Pesquisa de Precos", align="C", new_x="LMARGIN", new_y="NEXT")
+            self.set_draw_color(212, 175, 55)
+            self.set_line_width(0.5)
+            self.line(10, self.get_y(), 200, self.get_y())
+            self.ln(4)
+
+        def footer(self):
+            self.set_y(-15)
+            self.set_font("Helvetica", "I", 8)
+            self.set_text_color(128, 128, 128)
+            self.cell(0, 10, f"Marinha do Brasil - Pagina {self.page_no()}/{{nb}}", align="C")
+
+    pdf = EvidenciaPDF(orientation="P", unit="mm", format="A4")
+    pdf.alias_nb_pages()
+    pdf.set_auto_page_break(auto=True, margin=20)
+
+    screenshots = [r for r in resultados if r.get("screenshot") and os.path.exists(r.get("screenshot", ""))]
+
+    if not screenshots:
+        pdf.add_page()
+        pdf.set_font("Helvetica", "", 14)
+        pdf.cell(0, 40, "Nenhuma evidencia capturada.", align="C")
+        buf = BytesIO()
+        pdf.output(buf)
+        buf.seek(0)
+        return buf
+
+    # Capa
+    pdf.add_page()
+    pdf.ln(30)
+    pdf.set_font("Helvetica", "B", 24)
+    pdf.set_text_color(0, 26, 77)
+    pdf.cell(0, 15, "Relatorio de Evidencias", align="C", new_x="LMARGIN", new_y="NEXT")
+    pdf.set_font("Helvetica", "", 14)
+    pdf.set_text_color(80, 80, 80)
+    pdf.cell(0, 10, "Pesquisa de Precos - Web Scraping", align="C", new_x="LMARGIN", new_y="NEXT")
+    pdf.ln(10)
+    pdf.set_draw_color(212, 175, 55)
+    pdf.set_line_width(1)
+    pdf.line(60, pdf.get_y(), 150, pdf.get_y())
+    pdf.ln(10)
+    pdf.set_font("Helvetica", "", 12)
+    pdf.set_text_color(60, 60, 60)
+    pdf.cell(0, 8, f"Data: {datetime.now().strftime('%d/%m/%Y %H:%M')}", align="C", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 8, f"Total de evidencias: {len(screenshots)}", align="C", new_x="LMARGIN", new_y="NEXT")
+    itens_unicos = list(set(r.get("item", "") for r in screenshots))
+    pdf.cell(0, 8, f"Itens pesquisados: {len(itens_unicos)}", align="C", new_x="LMARGIN", new_y="NEXT")
+
+    # Páginas de evidência
+    for i, r in enumerate(screenshots, 1):
+        pdf.add_page()
+
+        # Cabeçalho da evidência
+        pdf.set_fill_color(0, 26, 77)
+        pdf.rect(10, pdf.get_y(), 190, 28, "F")
+        pdf.set_font("Helvetica", "B", 11)
+        pdf.set_text_color(212, 175, 55)
+        y_start = pdf.get_y() + 3
+        pdf.set_xy(14, y_start)
+        pdf.cell(180, 6, f"Evidencia {i}/{len(screenshots)}", new_x="LMARGIN", new_y="NEXT")
+        pdf.set_x(14)
+        pdf.set_font("Helvetica", "", 9)
+        pdf.set_text_color(255, 255, 255)
+        titulo_clean = (r.get("titulo", "Sem titulo") or "Sem titulo").encode("latin-1", "replace").decode("latin-1")
+        pdf.cell(180, 5, titulo_clean[:90], new_x="LMARGIN", new_y="NEXT")
+
+        # Preço em destaque
+        pdf.set_x(14)
+        pdf.set_font("Helvetica", "B", 16)
+        pdf.set_text_color(76, 175, 80)
+        preco_str = f"R$ {r['preco']:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+        pdf.cell(180, 10, preco_str, new_x="LMARGIN", new_y="NEXT")
+
+        pdf.ln(6)
+
+        # Info do item
+        pdf.set_text_color(60, 60, 60)
+        pdf.set_font("Helvetica", "B", 10)
+        pdf.cell(30, 7, "Item:")
+        pdf.set_font("Helvetica", "", 10)
+        item_clean = (r.get("item", "-") or "-").encode("latin-1", "replace").decode("latin-1")
+        pdf.cell(0, 7, item_clean, new_x="LMARGIN", new_y="NEXT")
+
+        pdf.set_font("Helvetica", "B", 10)
+        pdf.cell(30, 7, "Fornecedor:")
+        pdf.set_font("Helvetica", "", 10)
+        pdf.cell(0, 7, r.get("dominio", "-"), new_x="LMARGIN", new_y="NEXT")
+
+        pdf.set_font("Helvetica", "B", 10)
+        pdf.cell(30, 7, "Data Coleta:")
+        pdf.set_font("Helvetica", "", 10)
+        pdf.cell(0, 7, r.get("data_coleta", datetime.now().strftime("%d/%m/%Y %H:%M")), new_x="LMARGIN", new_y="NEXT")
+
+        pdf.set_font("Helvetica", "B", 10)
+        pdf.cell(30, 7, "URL:")
+        pdf.set_font("Helvetica", "", 8)
+        pdf.set_text_color(26, 115, 232)
+        url_str = (r.get("url", "-") or "-")[:120]
+        pdf.cell(0, 7, url_str, new_x="LMARGIN", new_y="NEXT")
+        pdf.set_text_color(60, 60, 60)
+
+        # Separador
+        pdf.ln(4)
+        pdf.set_draw_color(212, 175, 55)
+        pdf.set_line_width(0.3)
+        pdf.line(10, pdf.get_y(), 200, pdf.get_y())
+        pdf.ln(4)
+
+        # Conteúdo da evidência (trecho do HTML)
+        sc_path = r["screenshot"]
+        if sc_path.endswith(".html"):
+            try:
+                from bs4 import BeautifulSoup as BS4
+                with open(sc_path, "r", encoding="utf-8") as f:
+                    ev_html = f.read()
+                ev_soup = BS4(ev_html, "html.parser")
+                # Pegar o trecho de contexto
+                contexto_div = ev_soup.select_one(".evidence-context")
+                if contexto_div:
+                    contexto_texto = contexto_div.get_text(strip=True)[:1500]
+                else:
+                    contexto_texto = ev_soup.get_text(separator="\n", strip=True)[:1500]
+                contexto_texto = contexto_texto.encode("latin-1", "replace").decode("latin-1")
+
+                pdf.set_font("Helvetica", "B", 10)
+                pdf.set_text_color(0, 26, 77)
+                pdf.cell(0, 7, "Contexto Extraido da Pagina:", new_x="LMARGIN", new_y="NEXT")
+                pdf.set_font("Helvetica", "", 9)
+                pdf.set_text_color(80, 80, 80)
+                pdf.multi_cell(190, 5, contexto_texto)
+            except Exception:
+                pdf.set_font("Helvetica", "I", 9)
+                pdf.cell(0, 7, f"Evidencia salva em: {sc_path}", new_x="LMARGIN", new_y="NEXT")
+
+    buf = BytesIO()
+    pdf.output(buf)
+    buf.seek(0)
+    return buf
+
+
 # ===================== SIDEBAR =====================
 
 # Carregar imagem do acanto para a sidebar
@@ -1052,16 +1346,10 @@ _como_funciona_html = """
             <i>Recomendação: mínimo <b>2s</b> e máximo <b>6s</b> (padrão) —
             aumente para 4s/10s se pesquisar muitos itens de uma vez.</i></div>
     </div>
-
-    <div style="font-weight:bold; color:#d4af37; margin-bottom: 0.5rem;">✅ Configuração Ideal para a Maioria dos Casos:</div>
-    <div style="margin-left: 1rem;">
-        <div style="margin-bottom:0.3rem;">• Navegador automatizado: <b>Desativado</b></div>
-        <div style="margin-bottom:0.3rem;">• Máx. fontes por item: <b>3</b></div>
-        <div style="margin-bottom:0.3rem;">• Delay mínimo: <b>2.0s</b> &nbsp;|&nbsp; Delay máximo: <b>6.0s</b></div>
-    </div>
 </div>
 """
-_components.html(_como_funciona_html, height=620, scrolling=False)
+with st.expander("⚙️ Como Funciona o Web Scraping", expanded=False):
+    _components.html(_como_funciona_html, height=520, scrolling=False)
 
 # Formulário de entrada
 st.markdown("### 📝 Itens para Pesquisa")
@@ -1191,7 +1479,19 @@ if "scraping_resultados" in st.session_state and st.session_state["scraping_resu
         screenshots = [r for r in resultados if r.get("screenshot") and os.path.exists(r.get("screenshot", ""))]
 
         if screenshots:
-            st.markdown(f"**{len(screenshots)} evidências visuais capturadas**")
+            col_ev_info, col_ev_pdf = st.columns([3, 1])
+            with col_ev_info:
+                st.markdown(f"**{len(screenshots)} evidências visuais capturadas**")
+            with col_ev_pdf:
+                pdf_ev_data = gerar_pdf_evidencias(resultados)
+                st.download_button(
+                    label="📑 Exportar Evidências em PDF",
+                    data=pdf_ev_data,
+                    file_name=f"evidencias_scraping_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
+                    mime="application/pdf",
+                    use_container_width=True,
+                    type="primary",
+                )
             for r in screenshots:
                 with st.expander(f"📸 {r['item']} — {r['dominio']} — {formatar_moeda_br(r['preco'])}"):
                     sc_path = r["screenshot"]
@@ -1215,7 +1515,7 @@ if "scraping_resultados" in st.session_state and st.session_state["scraping_resu
     with tab_export:
         st.markdown("#### 📥 Exportar Relatório")
 
-        col_exp1, col_exp2, col_exp3 = st.columns(3)
+        col_exp1, col_exp2, col_exp3, col_exp4 = st.columns(4)
 
         with col_exp1:
             excel_data = gerar_relatorio_excel(resultados)
@@ -1246,6 +1546,16 @@ if "scraping_resultados" in st.session_state and st.session_state["scraping_resu
                 data=json_data,
                 file_name=f"relatorio_scraping_{datetime.now().strftime('%Y%m%d_%H%M')}.json",
                 mime="application/json",
+                use_container_width=True,
+            )
+
+        with col_exp4:
+            pdf_data = gerar_pdf_evidencias(resultados)
+            st.download_button(
+                label="📑 Baixar Evidências PDF",
+                data=pdf_data,
+                file_name=f"evidencias_scraping_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
+                mime="application/pdf",
                 use_container_width=True,
             )
 
