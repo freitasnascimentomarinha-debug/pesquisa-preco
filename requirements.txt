@@ -8,5 +8,6 @@ aiohttp
 folium
 streamlit-folium
 beautifulsoup4
+ddgs
 lxml
 playwright

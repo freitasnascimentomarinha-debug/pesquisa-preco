@@ -159,6 +159,15 @@ st.markdown("""
             overflow: hidden;
             margin: 0.5rem 0;
         }
+
+        .sidebar-footer {
+            color: #666666;
+            font-size: 11px;
+            text-align: center;
+            padding: 1rem 0;
+            border-top: 1px solid #333333;
+            margin-top: 2rem;
+        }
     </style>
 """, unsafe_allow_html=True)
 
@@ -271,9 +280,42 @@ def formatar_moeda_br(valor):
 
 # ===================== SCRAPING COM REQUESTS + BS4 =====================
 
+def _dedup_urls(urls, num_results=8):
+    """Remove duplicatas mantendo ordem e diversidade de domínios."""
+    seen = set()
+    unique = []
+    for u in urls:
+        dom = extrair_dominio(u)
+        if dom not in seen:
+            seen.add(dom)
+            unique.append(u)
+    return unique[:num_results]
+
+
+def buscar_ddgs_api(query, num_results=8):
+    """Busca usando o pacote ddgs (DuckDuckGo Search) — mais confiável em servidores."""
+    try:
+        from ddgs import DDGS
+        results = list(DDGS().text(query, region="br-pt", max_results=num_results))
+        urls = [r["href"] for r in results if r.get("href") and dominio_valido(r["href"])]
+        return _dedup_urls(urls, num_results)
+    except ImportError:
+        try:
+            from duckduckgo_search import DDGS
+            with DDGS() as ddgs:
+                results = list(ddgs.text(query, region="br-pt", max_results=num_results))
+            urls = [r["href"] for r in results if r.get("href") and dominio_valido(r["href"])]
+            return _dedup_urls(urls, num_results)
+        except Exception:
+            return []
+    except Exception:
+        return []
+
+
 def buscar_duckduckgo(session, query, headers, num_results=8):
     """Busca no DuckDuckGo HTML usando requests e retorna lista de URLs."""
     from bs4 import BeautifulSoup
+    from urllib.parse import unquote
 
     url = f"https://html.duckduckgo.com/html/?q={quote_plus(query)}"
     try:
@@ -284,31 +326,25 @@ def buscar_duckduckgo(session, query, headers, num_results=8):
         soup = BeautifulSoup(resp.text, "html.parser")
         urls = []
 
-        # DuckDuckGo HTML: resultados ficam em <a class="result__a">
         for a_tag in soup.select("a.result__a"):
             href = a_tag.get("href", "")
             if href.startswith("//duckduckgo.com/l/?uddg="):
-                # Extrair URL real do redirect
-                from urllib.parse import unquote
                 real_url = unquote(href.split("uddg=")[1].split("&")[0])
             elif href.startswith("http"):
                 real_url = href
             else:
                 continue
-
             if real_url.startswith("http") and dominio_valido(real_url):
                 urls.append(real_url)
 
-        # Remover duplicatas mantendo ordem e diversidade de domínios
-        seen = set()
-        unique = []
-        for u in urls:
-            dom = extrair_dominio(u)
-            if dom not in seen:
-                seen.add(dom)
-                unique.append(u)
+        # Fallback: links dentro de .result__body ou .result
+        if not urls:
+            for a_tag in soup.select(".result a[href^='http']"):
+                href = a_tag.get("href", "")
+                if dominio_valido(href):
+                    urls.append(href)
 
-        return unique[:num_results]
+        return _dedup_urls(urls, num_results)
 
     except Exception:
         return []
@@ -331,7 +367,6 @@ def buscar_google_requests(session, query, headers, num_results=8):
         soup = BeautifulSoup(resp.text, "html.parser")
         urls = []
 
-        # Método 1: links /url?q=
         for a_tag in soup.find_all("a", href=True):
             href = a_tag["href"]
             if href.startswith("/url?q="):
@@ -339,22 +374,13 @@ def buscar_google_requests(session, query, headers, num_results=8):
                 if real_url.startswith("http") and dominio_valido(real_url):
                     urls.append(real_url)
 
-        # Método 2: links diretos dentro de divs de resultado
         if not urls:
             for a_tag in soup.select("a[href^='http']"):
                 href = a_tag.get("href", "")
                 if href.startswith("http") and dominio_valido(href):
                     urls.append(href)
 
-        seen = set()
-        unique = []
-        for u in urls:
-            dom = extrair_dominio(u)
-            if dom not in seen:
-                seen.add(dom)
-                unique.append(u)
-
-        return unique[:num_results]
+        return _dedup_urls(urls, num_results)
 
     except Exception:
         return []
@@ -375,7 +401,6 @@ def buscar_bing_requests(session, query, headers, num_results=8):
         soup = BeautifulSoup(resp.text, "html.parser")
         urls = []
 
-        # Resultados orgânicos do Bing ficam em <li class="b_algo"> > <h2> > <a>
         for li in soup.select("li.b_algo"):
             a_tag = li.select_one("h2 a")
             if a_tag:
@@ -383,35 +408,37 @@ def buscar_bing_requests(session, query, headers, num_results=8):
                 if href.startswith("http") and dominio_valido(href):
                     urls.append(href)
 
-        # Fallback: qualquer link principal nos resultados
         if not urls:
             for a_tag in soup.select("#b_results a[href^='http']"):
                 href = a_tag.get("href", "")
                 if href.startswith("http") and dominio_valido(href):
                     urls.append(href)
 
-        seen = set()
-        unique = []
-        for u in urls:
-            dom = extrair_dominio(u)
-            if dom not in seen:
-                seen.add(dom)
-                unique.append(u)
-
-        return unique[:num_results]
+        return _dedup_urls(urls, num_results)
 
     except Exception:
         return []
 
 
 def buscar_urls(session, query, headers, num_results=8):
-    """Busca combinada: DuckDuckGo primeiro, Google, depois Bing como fallback."""
+    """Busca combinada: DDGS API > DuckDuckGo HTML > Google > Bing."""
+    # 1. Tentar DDGS API (mais confiável em ambientes de servidor)
+    urls = buscar_ddgs_api(query, num_results)
+    if urls:
+        return urls, "DDGS API"
+    # 2. DuckDuckGo HTML scraping
     urls = buscar_duckduckgo(session, query, headers, num_results)
-    if not urls:
-        urls = buscar_google_requests(session, query, headers, num_results)
-    if not urls:
-        urls = buscar_bing_requests(session, query, headers, num_results)
-    return urls
+    if urls:
+        return urls, "DuckDuckGo HTML"
+    # 3. Google
+    urls = buscar_google_requests(session, query, headers, num_results)
+    if urls:
+        return urls, "Google"
+    # 4. Bing
+    urls = buscar_bing_requests(session, query, headers, num_results)
+    if urls:
+        return urls, "Bing"
+    return [], "nenhum"
 
 
 def extrair_precos_pagina(html_content):
@@ -609,14 +636,14 @@ def executar_scraping(itens, usar_playwright, progress_bar, log_container, statu
             log_msg(log_container, logs, f"⏳ Aguardando {delay:.1f}s...", "info")
             time.sleep(delay)
 
-            # Buscar URLs (DuckDuckGo + fallback Google)
-            urls = buscar_urls(session, query, headers)
+            # Buscar URLs (DDGS API > DuckDuckGo HTML > Google > Bing)
+            urls, engine = buscar_urls(session, query, headers)
 
             if not urls:
                 log_msg(log_container, logs, f"⚠ Nenhum resultado encontrado para \"{query}\"", "warn")
                 continue
 
-            log_msg(log_container, logs, f"📋 {len(urls)} resultados encontrados", "info")
+            log_msg(log_container, logs, f"📋 {len(urls)} resultados encontrados via {engine}", "info")
 
             for url in urls:
                 if len(orcamentos_item) >= MAX_FONTES_POR_ITEM:
