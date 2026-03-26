@@ -122,6 +122,7 @@ st.markdown("""
             text-decoration: none !important;
             display: flex !important;
             align-items: center !important;
+            justify-content: center !important;
         }
 
         [data-testid="stSidebar"] a[data-testid="stPageLink-NavLink"] span {
@@ -277,12 +278,12 @@ with st.sidebar:
         st.markdown(f'<div style="text-align:center;padding:1rem 0 0.5rem 0;"><img src="data:image/png;base64,{_acanto_b64}" style="max-width:70%;height:auto;"></div>', unsafe_allow_html=True)
     st.markdown("## MENU")
     st.markdown("---")
-    st.page_link("streamlit_app.py", label="⚓ Cotação", icon="📊")
-    st.page_link("pages/Adesões.py", label="🤝 Adesões", icon="📋")
-    st.page_link("pages/Notas_Fiscais.py", label="📄 Notas Fiscais", icon="🧾")
-    st.page_link("pages/Banco_de_Fornecedores.py", label="🏢 Fornecedores", icon="🔍")
+    st.page_link("streamlit_app.py", label="Cotação", icon="⚓")
+    st.page_link("pages/Adesões.py", label="Adesões", icon="🤝")
+    st.page_link("pages/Notas_Fiscais.py", label="Notas Fiscais", icon="📄")
+    st.page_link("pages/Banco_de_Fornecedores.py", label="Fornecedores", icon="🏢")
     st.page_link("pages/Consulta.py", label="Consulta CNPJ", icon="💻")
-    st.page_link("pages/Web_Scraping.py", label="🕷️ Web Scraping", icon="🌐")
+    st.page_link("pages/Web_Scraping.py", label="Web Scraping", icon="🕷️")
     st.markdown("---")
     st.markdown("## LINKS ÚTEIS")
     st.markdown("""

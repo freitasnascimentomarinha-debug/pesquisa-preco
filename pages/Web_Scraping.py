@@ -78,6 +78,7 @@ st.markdown("""
             text-decoration: none !important;
             display: flex !important;
             align-items: center !important;
+            justify-content: center !important;
         }
 
         [data-testid="stSidebar"] a[data-testid="stPageLink-NavLink"] span { color: #ffffff !important; }
@@ -964,15 +965,25 @@ def gerar_relatorio_csv(resultados):
 
 # ===================== SIDEBAR =====================
 
+# Carregar imagem do acanto para a sidebar
+_acanto_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "Projeto Adesões", "acanto.png")
+if os.path.exists(_acanto_path):
+    with open(_acanto_path, "rb") as _f:
+        _acanto_b64 = base64.b64encode(_f.read()).decode()
+else:
+    _acanto_b64 = None
+
 with st.sidebar:
+    if _acanto_b64:
+        st.markdown(f'<div style="text-align:center;padding:1rem 0 0.5rem 0;"><img src="data:image/png;base64,{_acanto_b64}" style="max-width:70%;height:auto;"></div>', unsafe_allow_html=True)
     st.markdown("## MENU")
     st.markdown("---")
-    st.page_link("streamlit_app.py", label="⚓ Cotação", icon="📊")
-    st.page_link("pages/Adesões.py", label="🤝 Adesões", icon="📋")
-    st.page_link("pages/Notas_Fiscais.py", label="📄 Notas Fiscais", icon="🧾")
-    st.page_link("pages/Banco_de_Fornecedores.py", label="🏢 Fornecedores", icon="🔍")
+    st.page_link("streamlit_app.py", label="Cotação", icon="⚓")
+    st.page_link("pages/Adesões.py", label="Adesões", icon="🤝")
+    st.page_link("pages/Notas_Fiscais.py", label="Notas Fiscais", icon="📄")
+    st.page_link("pages/Banco_de_Fornecedores.py", label="Fornecedores", icon="🏢")
     st.page_link("pages/Consulta.py", label="Consulta CNPJ", icon="💻")
-    st.page_link("pages/Web_Scraping.py", label="🕷️ Web Scraping", icon="🌐")
+    st.page_link("pages/Web_Scraping.py", label="Web Scraping", icon="🕷️")
     st.markdown("---")
     st.markdown("## LINKS ÚTEIS")
     st.markdown("""
@@ -1007,45 +1018,45 @@ st.markdown("""
 st.markdown("""
 <div class="info-card">
     <div class="info-title">⚙️ Como Funciona o Web Scraping</div>
-    <p style="margin-bottom: 0.8rem;">Este módulo automatiza a pesquisa de preços na internet para fins de <b>cotação e estimativa de preços</b>,
+    <div style="margin-bottom: 0.8rem;">Este módulo automatiza a pesquisa de preços na internet para fins de <b>cotação e estimativa de preços</b>,
     em conformidade com a IN 65/2021. O sistema busca preços diretamente em sites de fornecedores
     (ignorando marketplaces como Mercado Livre, Amazon, Shopee etc.) para obter valores mais próximos
-    da realidade praticada no comércio direto.</p>
+    da realidade praticada no comércio direto.</div>
 
-    <p style="font-weight:bold; color:#d4af37; margin-bottom: 0.5rem;">🔄 Fluxo de Execução:</p>
-    <ol style="margin-left: 1rem; margin-bottom: 1rem;">
-        <li>Você informa os itens que deseja pesquisar (um por linha)</li>
-        <li>O sistema gera variações de busca para cada item (ex: "caneta preço", "comprar caneta online")</li>
-        <li>Para cada variação, busca URLs relevantes usando até <b>5 mecanismos</b> em cascata:
+    <div style="font-weight:bold; color:#d4af37; margin-bottom: 0.5rem;">🔄 Fluxo de Execução:</div>
+    <div style="margin-left: 1rem; margin-bottom: 1rem;">
+        <div style="margin-bottom:0.3rem;">1. Você informa os itens que deseja pesquisar (um por linha)</div>
+        <div style="margin-bottom:0.3rem;">2. O sistema gera variações de busca para cada item (ex: "caneta preço", "comprar caneta online")</div>
+        <div style="margin-bottom:0.3rem;">3. Para cada variação, busca URLs relevantes usando até <b>5 mecanismos</b> em cascata:
             <br><b>DDGS API → DuckDuckGo → Google → Bing</b>
             <br>Se nenhum scraping encontrar preço, aciona o <b>Google Shopping (SearchAPI)</b> como último recurso,
-            que retorna preços diretamente de lojas cadastradas no Google.</li>
-        <li>Acessa cada site encontrado e extrai preços em Reais (R$) do HTML</li>
-        <li>Salva automaticamente uma evidência (snapshot) de cada página onde encontrou preço</li>
-        <li>Gera relatório exportável em Excel, CSV ou JSON</li>
-    </ol>
+            que retorna preços diretamente de lojas cadastradas no Google.</div>
+        <div style="margin-bottom:0.3rem;">4. Acessa cada site encontrado e extrai preços em Reais (R$) do HTML</div>
+        <div style="margin-bottom:0.3rem;">5. Salva automaticamente uma evidência (snapshot) de cada página onde encontrou preço</div>
+        <div style="margin-bottom:0.3rem;">6. Gera relatório exportável em Excel, CSV ou JSON</div>
+    </div>
 
-    <p style="font-weight:bold; color:#d4af37; margin-bottom: 0.5rem;">⚙️ Configurações Disponíveis:</p>
-    <ul style="margin-left: 1rem; margin-bottom: 1rem;">
-        <li><b>Navegador Automatizado (Playwright):</b> Quando ativado, usa um navegador real (Chromium)
+    <div style="font-weight:bold; color:#d4af37; margin-bottom: 0.5rem;">⚙️ Configurações Disponíveis:</div>
+    <div style="margin-left: 1rem; margin-bottom: 1rem;">
+        <div style="margin-bottom:0.4rem;">• <b>Navegador Automatizado (Playwright):</b> Quando ativado, usa um navegador real (Chromium)
             para acessar sites que carregam preços via JavaScript. É mais lento, mas captura preços
-            de sites dinâmicos que o modo padrão não consegue ler. <i>Recomendação: deixe desativado
-            na maioria dos casos; ative apenas se estiver recebendo poucos resultados.</i></li>
-        <li><b>Máx. fontes por item:</b> Quantidade máxima de orçamentos diferentes que o sistema
-            buscará para cada material. <i>Recomendação: <b>3</b> fontes é o ideal — já atende
-            à IN 65/2021 e mantém a pesquisa rápida.</i></li>
-        <li><b>Delay mínimo / máximo (seg):</b> Intervalo de espera entre cada requisição,
+            de sites dinâmicos que o modo padrão não consegue ler. <span style="font-style:italic;">Recomendação: deixe desativado
+            na maioria dos casos; ative apenas se estiver recebendo poucos resultados.</span></div>
+        <div style="margin-bottom:0.4rem;">• <b>Máx. fontes por item:</b> Quantidade máxima de orçamentos diferentes que o sistema
+            buscará para cada material. <span style="font-style:italic;">Recomendação: <b>3</b> fontes é o ideal — já atende
+            à IN 65/2021 e mantém a pesquisa rápida.</span></div>
+        <div style="margin-bottom:0.4rem;">• <b>Delay mínimo / máximo (seg):</b> Intervalo de espera entre cada requisição,
             simulando comportamento humano. Evita bloqueios dos sites.
-            <i>Recomendação: mínimo <b>2s</b> e máximo <b>6s</b> (padrão) —
-            aumente para 4s/10s se pesquisar muitos itens de uma vez.</i></li>
-    </ul>
+            <span style="font-style:italic;">Recomendação: mínimo <b>2s</b> e máximo <b>6s</b> (padrão) —
+            aumente para 4s/10s se pesquisar muitos itens de uma vez.</span></div>
+    </div>
 
-    <p style="font-weight:bold; color:#d4af37; margin-bottom: 0.5rem;">✅ Configuração Ideal para a Maioria dos Casos:</p>
-    <ul style="margin-left: 1rem;">
-        <li>Navegador automatizado: <b>Desativado</b></li>
-        <li>Máx. fontes por item: <b>3</b></li>
-        <li>Delay mínimo: <b>2.0s</b> &nbsp;|&nbsp; Delay máximo: <b>6.0s</b></li>
-    </ul>
+    <div style="font-weight:bold; color:#d4af37; margin-bottom: 0.5rem;">✅ Configuração Ideal para a Maioria dos Casos:</div>
+    <div style="margin-left: 1rem;">
+        <div style="margin-bottom:0.3rem;">• Navegador automatizado: <b>Desativado</b></div>
+        <div style="margin-bottom:0.3rem;">• Máx. fontes por item: <b>3</b></div>
+        <div style="margin-bottom:0.3rem;">• Delay mínimo: <b>2.0s</b> &nbsp;|&nbsp; Delay máximo: <b>6.0s</b></div>
+    </div>
 </div>
 """, unsafe_allow_html=True)
 
