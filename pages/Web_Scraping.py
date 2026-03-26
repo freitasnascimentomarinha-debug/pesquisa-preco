@@ -271,11 +271,11 @@ def formatar_moeda_br(valor):
 
 # ===================== SCRAPING COM REQUESTS + BS4 =====================
 
-def buscar_google_requests(session, query, headers, num_results=8):
-    """Busca no Google usando requests e retorna lista de URLs."""
+def buscar_duckduckgo(session, query, headers, num_results=8):
+    """Busca no DuckDuckGo HTML usando requests e retorna lista de URLs."""
     from bs4 import BeautifulSoup
 
-    url = f"https://www.google.com.br/search?q={quote_plus(query)}&hl=pt-BR&num={num_results}"
+    url = f"https://html.duckduckgo.com/html/?q={quote_plus(query)}"
     try:
         resp = session.get(url, headers=headers, timeout=15)
         if resp.status_code != 200:
@@ -284,15 +284,22 @@ def buscar_google_requests(session, query, headers, num_results=8):
         soup = BeautifulSoup(resp.text, "html.parser")
         urls = []
 
-        for a_tag in soup.find_all("a", href=True):
-            href = a_tag["href"]
-            # Extrair URL real dos resultados do Google
-            if href.startswith("/url?q="):
-                real_url = href.split("/url?q=")[1].split("&")[0]
-                if real_url.startswith("http") and dominio_valido(real_url):
-                    urls.append(real_url)
+        # DuckDuckGo HTML: resultados ficam em <a class="result__a">
+        for a_tag in soup.select("a.result__a"):
+            href = a_tag.get("href", "")
+            if href.startswith("//duckduckgo.com/l/?uddg="):
+                # Extrair URL real do redirect
+                from urllib.parse import unquote
+                real_url = unquote(href.split("uddg=")[1].split("&")[0])
+            elif href.startswith("http"):
+                real_url = href
+            else:
+                continue
 
-        # Remover duplicatas mantendo ordem
+            if real_url.startswith("http") and dominio_valido(real_url):
+                urls.append(real_url)
+
+        # Remover duplicatas mantendo ordem e diversidade de domínios
         seen = set()
         unique = []
         for u in urls:
@@ -305,6 +312,106 @@ def buscar_google_requests(session, query, headers, num_results=8):
 
     except Exception:
         return []
+
+
+def buscar_google_requests(session, query, headers, num_results=8):
+    """Busca no Google usando requests (fallback)."""
+    from bs4 import BeautifulSoup
+    from urllib.parse import unquote
+
+    url = f"https://www.google.com.br/search?q={quote_plus(query)}&hl=pt-BR&num={num_results}"
+    google_headers = dict(headers)
+    google_headers["Referer"] = "https://www.google.com.br/"
+    google_headers["Accept"] = "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+    try:
+        resp = session.get(url, headers=google_headers, timeout=15)
+        if resp.status_code != 200:
+            return []
+
+        soup = BeautifulSoup(resp.text, "html.parser")
+        urls = []
+
+        # Método 1: links /url?q=
+        for a_tag in soup.find_all("a", href=True):
+            href = a_tag["href"]
+            if href.startswith("/url?q="):
+                real_url = unquote(href.split("/url?q=")[1].split("&")[0])
+                if real_url.startswith("http") and dominio_valido(real_url):
+                    urls.append(real_url)
+
+        # Método 2: links diretos dentro de divs de resultado
+        if not urls:
+            for a_tag in soup.select("a[href^='http']"):
+                href = a_tag.get("href", "")
+                if href.startswith("http") and dominio_valido(href):
+                    urls.append(href)
+
+        seen = set()
+        unique = []
+        for u in urls:
+            dom = extrair_dominio(u)
+            if dom not in seen:
+                seen.add(dom)
+                unique.append(u)
+
+        return unique[:num_results]
+
+    except Exception:
+        return []
+
+
+def buscar_bing_requests(session, query, headers, num_results=8):
+    """Busca no Bing como fallback adicional."""
+    from bs4 import BeautifulSoup
+
+    url = f"https://www.bing.com/search?q={quote_plus(query)}&setlang=pt-BR&count={num_results}"
+    bing_headers = dict(headers)
+    bing_headers["Referer"] = "https://www.bing.com/"
+    try:
+        resp = session.get(url, headers=bing_headers, timeout=15)
+        if resp.status_code != 200:
+            return []
+
+        soup = BeautifulSoup(resp.text, "html.parser")
+        urls = []
+
+        # Resultados orgânicos do Bing ficam em <li class="b_algo"> > <h2> > <a>
+        for li in soup.select("li.b_algo"):
+            a_tag = li.select_one("h2 a")
+            if a_tag:
+                href = a_tag.get("href", "")
+                if href.startswith("http") and dominio_valido(href):
+                    urls.append(href)
+
+        # Fallback: qualquer link principal nos resultados
+        if not urls:
+            for a_tag in soup.select("#b_results a[href^='http']"):
+                href = a_tag.get("href", "")
+                if href.startswith("http") and dominio_valido(href):
+                    urls.append(href)
+
+        seen = set()
+        unique = []
+        for u in urls:
+            dom = extrair_dominio(u)
+            if dom not in seen:
+                seen.add(dom)
+                unique.append(u)
+
+        return unique[:num_results]
+
+    except Exception:
+        return []
+
+
+def buscar_urls(session, query, headers, num_results=8):
+    """Busca combinada: DuckDuckGo primeiro, Google, depois Bing como fallback."""
+    urls = buscar_duckduckgo(session, query, headers, num_results)
+    if not urls:
+        urls = buscar_google_requests(session, query, headers, num_results)
+    if not urls:
+        urls = buscar_bing_requests(session, query, headers, num_results)
+    return urls
 
 
 def extrair_precos_pagina(html_content):
@@ -495,15 +602,15 @@ def executar_scraping(itens, usar_playwright, progress_bar, log_container, statu
                 break
 
             query = variante.format(item=item)
-            log_msg(log_container, logs, f"🔍 Buscando no Google: \"{query}\"", "info")
+            log_msg(log_container, logs, f"🔍 Buscando: \"{query}\"", "info")
 
             # Delay antes da busca
             delay = gerar_delay(2.0, 5.0)
             log_msg(log_container, logs, f"⏳ Aguardando {delay:.1f}s...", "info")
             time.sleep(delay)
 
-            # Buscar URLs no Google
-            urls = buscar_google_requests(session, query, headers)
+            # Buscar URLs (DuckDuckGo + fallback Google)
+            urls = buscar_urls(session, query, headers)
 
             if not urls:
                 log_msg(log_container, logs, f"⚠ Nenhum resultado encontrado para \"{query}\"", "warn")
@@ -724,6 +831,21 @@ with st.sidebar:
     st.page_link("pages/Consulta.py", label="Consulta CNPJ", icon="💻")
     st.page_link("pages/Web_Scraping.py", label="🕷️ Web Scraping", icon="🌐")
     st.markdown("---")
+    st.markdown("## LINKS ÚTEIS")
+    st.markdown("""
+    <div style="margin-bottom: 1rem;">
+        <a href="https://freitasnascimentomarinha-debug.github.io/ShootMail/" target="_blank" style="color: #cbd5e1; text-decoration: none; font-size: 0.9rem; display: flex; align-items: center; gap: 0.5rem;">
+            📧 Disparador de Emails
+        </a>
+    </div>
+    <div style="margin-bottom: 1rem;">
+        <a href="https://detetive-obtencao.vercel.app/" target="_blank" style="color: #cbd5e1; text-decoration: none; font-size: 0.9rem; display: flex; align-items: center; gap: 0.5rem;">
+            🚨 Detetive Obtenção
+        </a>
+    </div>
+    """, unsafe_allow_html=True)
+    st.markdown('<div style="text-align:center;color:#d4af37;font-size:10px;font-weight:600;padding:0.3rem 0;white-space:nowrap;">Centro de Operações do Abastecimento</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sidebar-footer">Marinha do Brasil<br>AtaCotada v1.0</div>', unsafe_allow_html=True)
 
 
 # ===================== HEADER =====================
