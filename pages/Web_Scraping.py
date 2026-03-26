@@ -198,6 +198,17 @@ DOMINIOS_IGNORADOS = [
     "google.com", "google.com.br", "youtube.com", "facebook.com",
     "instagram.com", "twitter.com", "linkedin.com", "wikipedia.org",
     "gov.br", "reddit.com", "tiktok.com",
+    # Marketplaces
+    "mercadolivre.com.br", "mercadolivre.com", "lista.mercadolivre.com.br",
+    "produto.mercadolivre.com.br", "mlstatic.com",
+    "magazineluiza.com.br", "magalu.com.br",
+    "shopee.com.br", "shopee.com",
+    "amazon.com.br", "amazon.com",
+    "aliexpress.com", "aliexpress.com.br",
+    "casasbahia.com.br", "pontofrio.com.br",
+    "submarino.com.br", "americanas.com.br",
+    "kabum.com.br", "zoom.com.br",
+    "buscape.com.br", "bondfaro.com.br",
 ]
 
 MAX_FONTES_POR_ITEM = 3
@@ -499,11 +510,44 @@ def scraping_requests(session, url, headers):
         # Pegar o preço mais provável (mediana dos encontrados)
         preco_medio = sorted(precos)[len(precos) // 2]
 
+        # Gerar screenshot HTML como evidência (sem precisar de Playwright)
+        screenshot_path = None
+        try:
+            soup = BeautifulSoup(html, "html.parser")
+            # Remover scripts e styles para captura limpa
+            for tag in soup(["script", "style", "noscript"]):
+                tag.decompose()
+            body_text = soup.get_text(separator="\n", strip=True)[:3000]
+            # Salvar captura como imagem via HTML renderizado
+            screenshot_dir = SCREENSHOT_DIR
+            os.makedirs(screenshot_dir, exist_ok=True)
+            safe_name = re.sub(r'[^a-zA-Z0-9]', '_', titulo[:40])
+            snapshot_path = os.path.join(screenshot_dir, f"{safe_name}_{hash(url) % 10000}.html")
+            with open(snapshot_path, "w", encoding="utf-8") as f:
+                f.write(f"""<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>{titulo}</title>
+<style>body{{font-family:Arial;padding:20px;max-width:900px;margin:auto;background:#f5f5f5}}
+.header{{background:#001a4d;color:#d4af37;padding:15px;border-radius:8px;margin-bottom:15px}}
+.price{{color:#006600;font-size:24px;font-weight:bold;margin:10px 0}}
+.url{{color:#666;font-size:12px;word-break:break-all}}
+.content{{background:#fff;padding:15px;border-radius:8px;border:1px solid #ddd;white-space:pre-wrap;font-size:13px;max-height:600px;overflow:auto}}
+</style></head><body>
+<div class="header"><h2>{titulo}</h2>
+<div class="price">Preço encontrado: R$ {preco_medio:,.2f}</div>
+<div class="url">Fonte: {url}</div>
+<div style="color:#fff;font-size:11px;margin-top:5px">Capturado em: {datetime.now().strftime('%d/%m/%Y %H:%M')}</div></div>
+<div class="content">{body_text[:2000]}</div>
+</body></html>""")
+            screenshot_path = snapshot_path
+        except Exception:
+            pass
+
         return {
             "titulo": titulo,
             "preco": preco_medio,
             "url": url,
             "dominio": extrair_dominio(url),
+            "screenshot": screenshot_path,
         }
     except Exception:
         return None
@@ -816,7 +860,11 @@ def gerar_relatorio_excel(resultados):
     for ws_sheet in [ws, ws_resumo]:
         for col in ws_sheet.columns:
             max_len = 0
-            col_letter = col[0].column_letter
+            try:
+                col_letter = col[0].column_letter
+            except AttributeError:
+                from openpyxl.utils import get_column_letter
+                col_letter = get_column_letter(col[0].column)
             for cell in col:
                 try:
                     if cell.value:
@@ -1035,12 +1083,22 @@ if "scraping_resultados" in st.session_state and st.session_state["scraping_resu
             st.markdown(f"**{len(screenshots)} evidências visuais capturadas**")
             for r in screenshots:
                 with st.expander(f"📸 {r['item']} — {r['dominio']} — {formatar_moeda_br(r['preco'])}"):
-                    st.image(r["screenshot"], caption=f"{r['dominio']} - {r['data_coleta']}")
+                    sc_path = r["screenshot"]
+                    if sc_path.endswith(".html"):
+                        # Renderizar snapshot HTML como evidência
+                        try:
+                            with open(sc_path, "r", encoding="utf-8") as f:
+                                html_content = f.read()
+                            import streamlit.components.v1 as components
+                            components.html(html_content, height=500, scrolling=True)
+                        except Exception:
+                            st.markdown(f"📄 Evidência salva em: `{sc_path}`")
+                    else:
+                        st.image(sc_path, caption=f"{r['dominio']} - {r['data_coleta']}")
                     st.markdown(f"**Link:** [{r['url']}]({r['url']})")
         else:
             st.info(
-                "Nenhuma evidência visual capturada. "
-                "Para capturar screenshots, ative o 'Navegador automatizado' nas configurações."
+                "Nenhuma evidência visual capturada nesta execução."
             )
 
     with tab_export:
