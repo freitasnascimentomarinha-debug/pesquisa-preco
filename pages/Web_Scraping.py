@@ -1329,14 +1329,14 @@ _como_funciona_html = """
     <div style="font-weight:bold; color:#d4af37; margin-bottom: 0.5rem;">🔄 Fluxo de Execução:</div>
     <div style="margin-left: 1rem; margin-bottom: 1rem;">
         <div style="margin-bottom:0.3rem;">1. Você informa os itens que deseja pesquisar (um por linha)</div>
-        <div style="margin-bottom:0.3rem;">2. O sistema gera variações de busca para cada item (ex: "caneta preço", "comprar caneta online")</div>
-        <div style="margin-bottom:0.3rem;">3. Para cada variação, busca URLs relevantes usando até <b>5 mecanismos</b> em cascata:
-            <br><b>DDGS API → DuckDuckGo → Google → Bing</b>
-            <br>Se nenhum scraping encontrar preço, aciona o <b>Google Shopping (SearchAPI)</b> como último recurso,
-            que retorna preços diretamente de lojas cadastradas no Google.</div>
-        <div style="margin-bottom:0.3rem;">4. Acessa cada site encontrado e extrai preços em Reais (R$) do HTML</div>
-        <div style="margin-bottom:0.3rem;">5. Salva automaticamente uma evidência (snapshot) de cada página onde encontrou preço</div>
-        <div style="margin-bottom:0.3rem;">6. Gera relatório exportável em Excel, CSV ou JSON</div>
+        <div style="margin-bottom:0.3rem;">2. O sistema gera até <b>5 variações de busca</b> para cada item (ex: "caneta preço", "comprar caneta online", "caneta fornecedor")</div>
+        <div style="margin-bottom:0.3rem;">3. Para cada variação, busca URLs relevantes usando <b>4 mecanismos em cascata</b>:
+            <br><b>DDGS API → DuckDuckGo HTML → Google → Bing</b></div>
+        <div style="margin-bottom:0.3rem;">4. Acessa cada site encontrado e extrai preços usando <b>4 estratégias de detecção</b>:
+            <br>dados estruturados (JSON-LD) → meta tags → classes de preço no HTML → regex em R$</div>
+        <div style="margin-bottom:0.3rem;">5. Se ao final não atingir o mínimo de orçamentos por item, complementa automaticamente com o <b>Google Shopping (SearchAPI)</b>, que retorna preços de lojas cadastradas no Google</div>
+        <div style="margin-bottom:0.3rem;">6. Salva uma evidência formatada (snapshot) de cada página com preço encontrado</div>
+        <div style="margin-bottom:0.3rem;">7. Gera relatório exportável em <b>Excel, CSV, JSON ou PDF de evidências</b></div>
     </div>
 
     <div style="font-weight:bold; color:#d4af37; margin-bottom: 0.5rem;">⚙️ Configurações Disponíveis:</div>
@@ -1356,7 +1356,7 @@ _como_funciona_html = """
 </div>
 """
 with st.expander("⚙️ Como Funciona o Web Scraping", expanded=False):
-    _components.html(_como_funciona_html, height=520, scrolling=False)
+    _components.html(_como_funciona_html, height=560, scrolling=False)
 
 # Formulário de entrada
 st.markdown("### 📝 Itens para Pesquisa")
