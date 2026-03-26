@@ -153,6 +153,7 @@ st.markdown("""
         .log-warn { color: #ffaa00; }
         .log-error { color: #ff4444; }
         .log-success { color: #44ff44; font-weight: bold; }
+        .log-orcamento { color: #1a1a1a; background: #87CEEB; font-weight: bold; padding: 2px 6px; border-radius: 4px; display: inline-block; margin: 1px 0; }
 
         .screenshot-container {
             border: 2px solid #d4af37;
@@ -951,8 +952,8 @@ def executar_scraping(itens, usar_playwright, progress_bar, log_container, statu
                     log_msg(
                         log_container,
                         logs,
-                        f"💰 Orçamento encontrado: {formatar_moeda_br(resultado['preco'])} em {dominio}",
-                        "success",
+                        f"💰 Orçamento [{len(orcamentos_item)}/{MAX_FONTES_POR_ITEM}] — {formatar_moeda_br(resultado['preco'])} em {dominio}",
+                        "orcamento",
                     )
                 else:
                     log_msg(log_container, logs, f"✗ Sem preço extraível de {dominio}", "error")
@@ -976,8 +977,8 @@ def executar_scraping(itens, usar_playwright, progress_bar, log_container, statu
                     log_msg(
                         log_container,
                         logs,
-                        f"💰 Google Shopping: {formatar_moeda_br(sr['preco'])} — {sr['dominio']} ({sr['titulo'][:50]})",
-                        "success",
+                        f"💰 Orçamento [{len(orcamentos_item)}/{MAX_FONTES_POR_ITEM}] — Google Shopping: {formatar_moeda_br(sr['preco'])} em {sr['dominio']}",
+                        "orcamento",
                     )
             if len(orcamentos_item) < MAX_FONTES_POR_ITEM:
                 log_msg(log_container, logs, f"⚠ Apenas {len(orcamentos_item)} orçamento(s) encontrado(s) para '{item}'", "warn")
@@ -1356,7 +1357,7 @@ _como_funciona_html = """
 </div>
 """
 with st.expander("⚙️ Como Funciona o Web Scraping", expanded=False):
-    _components.html(_como_funciona_html, height=560, scrolling=False)
+    _components.html(_como_funciona_html, height=700, scrolling=True)
 
 # Formulário de entrada
 st.markdown("### 📝 Itens para Pesquisa")
