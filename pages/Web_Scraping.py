@@ -757,11 +757,18 @@ body {{ font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 20px; ba
 # ===================== SCRAPING COM PLAYWRIGHT =====================
 
 def _ensure_playwright_installed():
-    """Verifica se playwright está instalado e instala browsers se necessário."""
+    """Verifica se playwright está instalado e funcional (pacote + browser)."""
     try:
         from playwright.sync_api import sync_playwright
+        # Testar se o browser realmente abre
+        with sync_playwright() as p:
+            browser = p.chromium.launch(
+                headless=True,
+                args=["--no-sandbox", "--disable-dev-shm-usage"],
+            )
+            browser.close()
         return True
-    except ImportError:
+    except Exception:
         return False
 
 
@@ -802,7 +809,10 @@ def scraping_playwright(url, item_nome, screenshot_path=None):
             time.sleep(gerar_delay_leitura(1.0, 2.5))
 
             # Aguardar possível carregamento dinâmico
-            page.wait_for_load_state("networkidle", timeout=10000)
+            try:
+                page.wait_for_load_state("networkidle", timeout=10000)
+            except Exception:
+                pass  # Timeout de networkidle não é crítico
 
             # Mais um scroll
             page.evaluate("window.scrollBy(0, Math.random() * 300 + 100)")
@@ -812,7 +822,7 @@ def scraping_playwright(url, item_nome, screenshot_path=None):
             titulo = page.title() or extrair_titulo_pagina(html)
             precos = extrair_precos_pagina(html)
 
-            # Captura de tela
+            # Captura de tela real como PNG
             if screenshot_path and precos:
                 os.makedirs(os.path.dirname(screenshot_path), exist_ok=True)
                 page.screenshot(path=screenshot_path, full_page=False)
@@ -828,8 +838,10 @@ def scraping_playwright(url, item_nome, screenshot_path=None):
                     "dominio": extrair_dominio(url),
                     "screenshot": screenshot_path if screenshot_path and os.path.exists(screenshot_path) else None,
                 }
-    except Exception:
-        pass
+    except Exception as e:
+        # Logar o erro em vez de engolir silenciosamente
+        import traceback
+        traceback.print_exc()
 
     return resultado
 
@@ -1379,6 +1391,12 @@ with col2:
         value=False,
         help="Ativa o Playwright para sites com carregamento dinâmico. Mais lento, porém mais preciso.",
     )
+    if usar_playwright:
+        if _ensure_playwright_installed():
+            st.success("✅ Playwright ativo", icon="🎭")
+        else:
+            st.error("❌ Playwright não disponível. Instale com: pip install playwright && playwright install chromium")
+            usar_playwright = False
     max_fontes = st.number_input(
         "Máx. fontes por item",
         min_value=1,
