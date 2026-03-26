@@ -864,8 +864,8 @@ def executar_scraping(itens, usar_playwright, progress_bar, log_container, statu
         orcamentos_item = []
         dominios_usados = set()
 
-        # Selecionar variantes de busca aleatoriamente
-        variantes = random.sample(VARIANTES_BUSCA, min(3, len(VARIANTES_BUSCA)))
+        # Selecionar variantes de busca aleatoriamente (usar mais variantes para maximizar cobertura)
+        variantes = random.sample(VARIANTES_BUSCA, min(5, len(VARIANTES_BUSCA)))
 
         for variante in variantes:
             if len(orcamentos_item) >= MAX_FONTES_POR_ITEM:
@@ -957,23 +957,30 @@ def executar_scraping(itens, usar_playwright, progress_bar, log_container, statu
                 else:
                     log_msg(log_container, logs, f"✗ Sem preço extraível de {dominio}", "error")
 
-        if not orcamentos_item:
-            # Fallback: tentar SearchAPI (Google Shopping) que retorna preços diretos
-            log_msg(log_container, logs, f"🛒 Tentando Google Shopping (SearchAPI) para '{item}'...", "info")
-            searchapi_results = buscar_searchapi(item, MAX_FONTES_POR_ITEM)
+        # Complemento: se não atingiu o mínimo de fontes, usar SearchAPI (Google Shopping)
+        faltam = MAX_FONTES_POR_ITEM - len(orcamentos_item)
+        if faltam > 0:
+            log_msg(log_container, logs, f"🛒 Faltam {faltam} orçamento(s) para '{item}'. Tentando Google Shopping (SearchAPI)...", "info")
+            searchapi_results = buscar_searchapi(item, faltam + 2)  # pedir extras para compensar duplicados
             if searchapi_results:
-                for sr in searchapi_results[:MAX_FONTES_POR_ITEM]:
+                dominios_ja = {r['dominio'] for r in orcamentos_item}
+                for sr in searchapi_results:
+                    if len(orcamentos_item) >= MAX_FONTES_POR_ITEM:
+                        break
+                    if sr.get('dominio') in dominios_ja:
+                        continue
                     sr["item"] = item
                     sr["data_coleta"] = datetime.now().strftime("%d/%m/%Y %H:%M")
                     orcamentos_item.append(sr)
+                    dominios_ja.add(sr.get('dominio', ''))
                     log_msg(
                         log_container,
                         logs,
                         f"💰 Google Shopping: {formatar_moeda_br(sr['preco'])} — {sr['dominio']} ({sr['titulo'][:50]})",
                         "success",
                     )
-            else:
-                log_msg(log_container, logs, f"⚠ Nenhum orçamento encontrado para '{item}'", "warn")
+            if len(orcamentos_item) < MAX_FONTES_POR_ITEM:
+                log_msg(log_container, logs, f"⚠ Apenas {len(orcamentos_item)} orçamento(s) encontrado(s) para '{item}'", "warn")
 
         resultados.extend(orcamentos_item)
 
