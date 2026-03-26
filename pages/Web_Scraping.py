@@ -215,6 +215,10 @@ MAX_FONTES_POR_ITEM = 3
 MAX_RETRIES = 2
 SCREENSHOT_DIR = "/tmp/scraping_screenshots"
 
+# SearchAPI.io (Google Shopping) — fallback quando DDGS falha
+SEARCHAPI_KEY = "wZb2W9zvLh3gPziTp2639VCr"
+SEARCHAPI_URL = "https://www.searchapi.io/api/v1/search"
+
 
 # ===================== FUNÇÕES AUXILIARES =====================
 
@@ -426,6 +430,55 @@ def buscar_bing_requests(session, query, headers, num_results=8):
                     urls.append(href)
 
         return _dedup_urls(urls, num_results)
+
+    except Exception:
+        return []
+
+
+def buscar_searchapi(query, num_results=8):
+    """Busca usando SearchAPI.io (Google Shopping) — fallback pago e confiável.
+    Retorna resultados diretos com preços já extraídos."""
+    import requests as req
+
+    if not SEARCHAPI_KEY:
+        return []
+
+    try:
+        params = {
+            "engine": "google_shopping",
+            "q": query,
+            "api_key": SEARCHAPI_KEY,
+            "location": "Brazil",
+            "gl": "br",
+            "hl": "pt",
+            "num": num_results,
+        }
+        resp = req.get(SEARCHAPI_URL, params=params, timeout=20)
+        if resp.status_code != 200:
+            return []
+
+        data = resp.json()
+        shopping_results = data.get("shopping_results", [])
+
+        resultados = []
+        for item in shopping_results:
+            preco = item.get("extracted_price")
+            titulo = item.get("title", "")
+            seller = item.get("seller", "Google Shopping")
+            thumbnail = item.get("thumbnail", "")
+            product_link = item.get("product_link", "")
+
+            if preco and preco > 0 and titulo:
+                resultados.append({
+                    "titulo": titulo,
+                    "preco": preco,
+                    "url": product_link,
+                    "dominio": seller,
+                    "thumbnail": thumbnail,
+                    "fonte": "Google Shopping (SearchAPI)",
+                })
+
+        return resultados[:num_results]
 
     except Exception:
         return []
@@ -758,7 +811,22 @@ def executar_scraping(itens, usar_playwright, progress_bar, log_container, statu
                     log_msg(log_container, logs, f"✗ Sem preço extraível de {dominio}", "error")
 
         if not orcamentos_item:
-            log_msg(log_container, logs, f"⚠ Nenhum orçamento encontrado para '{item}'", "warn")
+            # Fallback: tentar SearchAPI (Google Shopping) que retorna preços diretos
+            log_msg(log_container, logs, f"🛒 Tentando Google Shopping (SearchAPI) para '{item}'...", "info")
+            searchapi_results = buscar_searchapi(item, MAX_FONTES_POR_ITEM)
+            if searchapi_results:
+                for sr in searchapi_results[:MAX_FONTES_POR_ITEM]:
+                    sr["item"] = item
+                    sr["data_coleta"] = datetime.now().strftime("%d/%m/%Y %H:%M")
+                    orcamentos_item.append(sr)
+                    log_msg(
+                        log_container,
+                        logs,
+                        f"💰 Google Shopping: {formatar_moeda_br(sr['preco'])} — {sr['dominio']} ({sr['titulo'][:50]})",
+                        "success",
+                    )
+            else:
+                log_msg(log_container, logs, f"⚠ Nenhum orçamento encontrado para '{item}'", "warn")
 
         resultados.extend(orcamentos_item)
 
@@ -938,16 +1006,45 @@ st.markdown("""
 
 st.markdown("""
 <div class="info-card">
-    <div class="info-title">ℹ️ Como funciona</div>
-    <p>Este módulo realiza pesquisa de preços automatizada na web, coletando orçamentos de diferentes
-    fornecedores para os materiais informados. O sistema opera de forma controlada e discreta,
-    simulando comportamento humano para garantir estabilidade.</p>
-    <ul>
-        <li>Busca inteligente no Google com variações naturais</li>
-        <li>Máximo de 3 fontes distintas por item</li>
-        <li>Delays aleatórios entre requisições</li>
-        <li>Captura de evidências visuais (screenshots)</li>
-        <li>Relatório exportável em Excel e CSV</li>
+    <div class="info-title">⚙️ Como Funciona o Web Scraping</div>
+    <p style="margin-bottom: 0.8rem;">Este módulo automatiza a pesquisa de preços na internet para fins de <b>cotação e estimativa de preços</b>,
+    em conformidade com a IN 65/2021. O sistema busca preços diretamente em sites de fornecedores
+    (ignorando marketplaces como Mercado Livre, Amazon, Shopee etc.) para obter valores mais próximos
+    da realidade praticada no comércio direto.</p>
+
+    <p style="font-weight:bold; color:#d4af37; margin-bottom: 0.5rem;">🔄 Fluxo de Execução:</p>
+    <ol style="margin-left: 1rem; margin-bottom: 1rem;">
+        <li>Você informa os itens que deseja pesquisar (um por linha)</li>
+        <li>O sistema gera variações de busca para cada item (ex: "caneta preço", "comprar caneta online")</li>
+        <li>Para cada variação, busca URLs relevantes usando até <b>5 mecanismos</b> em cascata:
+            <br><b>DDGS API → DuckDuckGo → Google → Bing</b>
+            <br>Se nenhum scraping encontrar preço, aciona o <b>Google Shopping (SearchAPI)</b> como último recurso,
+            que retorna preços diretamente de lojas cadastradas no Google.</li>
+        <li>Acessa cada site encontrado e extrai preços em Reais (R$) do HTML</li>
+        <li>Salva automaticamente uma evidência (snapshot) de cada página onde encontrou preço</li>
+        <li>Gera relatório exportável em Excel, CSV ou JSON</li>
+    </ol>
+
+    <p style="font-weight:bold; color:#d4af37; margin-bottom: 0.5rem;">⚙️ Configurações Disponíveis:</p>
+    <ul style="margin-left: 1rem; margin-bottom: 1rem;">
+        <li><b>Navegador Automatizado (Playwright):</b> Quando ativado, usa um navegador real (Chromium)
+            para acessar sites que carregam preços via JavaScript. É mais lento, mas captura preços
+            de sites dinâmicos que o modo padrão não consegue ler. <i>Recomendação: deixe desativado
+            na maioria dos casos; ative apenas se estiver recebendo poucos resultados.</i></li>
+        <li><b>Máx. fontes por item:</b> Quantidade máxima de orçamentos diferentes que o sistema
+            buscará para cada material. <i>Recomendação: <b>3</b> fontes é o ideal — já atende
+            à IN 65/2021 e mantém a pesquisa rápida.</i></li>
+        <li><b>Delay mínimo / máximo (seg):</b> Intervalo de espera entre cada requisição,
+            simulando comportamento humano. Evita bloqueios dos sites.
+            <i>Recomendação: mínimo <b>2s</b> e máximo <b>6s</b> (padrão) —
+            aumente para 4s/10s se pesquisar muitos itens de uma vez.</i></li>
+    </ul>
+
+    <p style="font-weight:bold; color:#d4af37; margin-bottom: 0.5rem;">✅ Configuração Ideal para a Maioria dos Casos:</p>
+    <ul style="margin-left: 1rem;">
+        <li>Navegador automatizado: <b>Desativado</b></li>
+        <li>Máx. fontes por item: <b>3</b></li>
+        <li>Delay mínimo: <b>2.0s</b> &nbsp;|&nbsp; Delay máximo: <b>6.0s</b></li>
     </ul>
 </div>
 """, unsafe_allow_html=True)
