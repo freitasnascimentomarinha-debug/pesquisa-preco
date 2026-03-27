@@ -953,28 +953,29 @@ def executar_scraping(itens, usar_playwright, progress_bar, log_container, statu
                     f"{re.sub(r'[^a-zA-Z0-9]', '_', item)}_{len(orcamentos_item)+1}.png",
                 )
 
-                # Tentar com requests primeiro
-                for tentativa in range(MAX_RETRIES + 1):
-                    # Simular tempo de leitura
-                    time.sleep(gerar_delay_leitura())
-
-                    resultado = scraping_requests(session, url, headers)
-                    if resultado:
-                        break
-
-                    if tentativa < MAX_RETRIES:
-                        retry_delay = gerar_delay(3.0, 7.0)
-                        log_msg(log_container, logs, f"🔄 Retry {tentativa+1}/{MAX_RETRIES} em {retry_delay:.1f}s...", "warn")
-                        time.sleep(retry_delay)
-                        # Trocar User-Agent no retry
-                        headers = gerar_headers()
-                        session.headers.update(headers)
-
-                # Se requests falhou e Playwright disponível, tentar com Playwright
-                if not resultado and playwright_disponivel:
+                # Se Playwright selecionado e disponível, usar primeiro
+                if playwright_disponivel:
                     log_msg(log_container, logs, f"🎭 Tentando com navegador automatizado: {dominio}", "info")
                     time.sleep(gerar_delay(1.5, 3.5))
                     resultado = scraping_playwright(url, item, screenshot_path)
+
+                # Se Playwright não disponível ou falhou, tentar com requests
+                if not resultado:
+                    for tentativa in range(MAX_RETRIES + 1):
+                        # Simular tempo de leitura
+                        time.sleep(gerar_delay_leitura())
+
+                        resultado = scraping_requests(session, url, headers)
+                        if resultado:
+                            break
+
+                        if tentativa < MAX_RETRIES:
+                            retry_delay = gerar_delay(3.0, 7.0)
+                            log_msg(log_container, logs, f"🔄 Retry {tentativa+1}/{MAX_RETRIES} em {retry_delay:.1f}s...", "warn")
+                            time.sleep(retry_delay)
+                            # Trocar User-Agent no retry
+                            headers = gerar_headers()
+                            session.headers.update(headers)
 
                 if resultado:
                     resultado["item"] = item
