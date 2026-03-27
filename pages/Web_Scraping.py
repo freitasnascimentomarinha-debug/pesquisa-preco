@@ -802,6 +802,53 @@ def _ensure_playwright_installed():
         return False
 
 
+def _fechar_popups(page):
+    """Tenta fechar popups, modais e banners de cookies comuns."""
+    # Seletores comuns de botões de fechar popup/cookie
+    seletores_fechar = [
+        # Banners de cookies
+        'button:has-text("Aceitar")', 'button:has-text("Aceito")',
+        'button:has-text("Concordo")', 'button:has-text("OK")',
+        'button:has-text("Entendi")', 'button:has-text("Prosseguir")',
+        'button:has-text("Accept")', 'button:has-text("Got it")',
+        'button:has-text("I agree")',
+        # Botões de fechar genéricos
+        '[class*="close"]', '[class*="dismiss"]',
+        '[aria-label="Close"]', '[aria-label="Fechar"]',
+        '[class*="cookie"] button', '[id*="cookie"] button',
+        '[class*="popup"] button', '[class*="modal"] [class*="close"]',
+        '.modal .close', '.popup-close', '.btn-close',
+        # Overlays
+        '[class*="overlay"] [class*="close"]',
+    ]
+    for seletor in seletores_fechar:
+        try:
+            el = page.locator(seletor).first
+            if el.is_visible(timeout=500):
+                el.click(timeout=1000)
+                time.sleep(0.3)
+        except Exception:
+            continue
+
+
+def _scrollar_ate_preco(page):
+    """Tenta scrollar até o elemento que contém o preço na página."""
+    seletores_preco = [
+        '[class*="price"]', '[class*="preco"]', '[class*="valor"]',
+        '[class*="Price"]', '[class*="product-price"]',
+        '[data-testid*="price"]', '[itemprop="price"]',
+        '.price', '#price', '.product-price',
+    ]
+    for seletor in seletores_preco:
+        try:
+            el = page.locator(seletor).first
+            if el.is_visible(timeout=500):
+                el.scroll_into_view_if_needed(timeout=2000)
+                return
+        except Exception:
+            continue
+
+
 def scraping_playwright(url, item_nome, screenshot_path=None):
     """Acessa uma página via Playwright (para sites dinâmicos) e extrai informações."""
     try:
@@ -834,15 +881,18 @@ def scraping_playwright(url, item_nome, screenshot_path=None):
             # Navegar com timeout
             page.goto(url, wait_until="domcontentloaded", timeout=20000)
 
-            # Simular scroll humano
-            page.evaluate("window.scrollBy(0, Math.random() * 400 + 200)")
-            time.sleep(gerar_delay_leitura(1.0, 2.5))
-
             # Aguardar possível carregamento dinâmico
             try:
                 page.wait_for_load_state("networkidle", timeout=10000)
             except Exception:
                 pass  # Timeout de networkidle não é crítico
+
+            # Fechar popups, modais e banners de cookies
+            _fechar_popups(page)
+
+            # Simular scroll humano
+            page.evaluate("window.scrollBy(0, Math.random() * 400 + 200)")
+            time.sleep(gerar_delay_leitura(1.0, 2.5))
 
             # Mais um scroll
             page.evaluate("window.scrollBy(0, Math.random() * 300 + 100)")
@@ -855,6 +905,9 @@ def scraping_playwright(url, item_nome, screenshot_path=None):
             # Captura de tela real como PNG
             if screenshot_path and precos:
                 os.makedirs(os.path.dirname(screenshot_path), exist_ok=True)
+                # Tentar scrollar até o elemento com preço para capturar evidência clara
+                _scrollar_ate_preco(page)
+                time.sleep(0.5)
                 page.screenshot(path=screenshot_path, full_page=False)
 
             browser.close()
@@ -1563,10 +1616,31 @@ if "scraping_resultados" in st.session_state and st.session_state["scraping_resu
                                 html_content = f.read()
                             import streamlit.components.v1 as components
                             components.html(html_content, height=500, scrolling=True)
+                            # Botão de download do HTML
+                            st.download_button(
+                                label="⬇️ Baixar evidência",
+                                data=html_content,
+                                file_name=f"evidencia_{r['item']}_{r['dominio']}.html",
+                                mime="text/html",
+                                key=f"dl_html_{r['item']}_{r['dominio']}_{id(r)}",
+                            )
                         except Exception:
                             st.markdown(f"📄 Evidência salva em: `{sc_path}`")
                     else:
                         st.image(sc_path, caption=f"{r['dominio']} - {r['data_coleta']}")
+                        # Botão de download da imagem PNG
+                        try:
+                            with open(sc_path, "rb") as img_file:
+                                img_bytes = img_file.read()
+                            st.download_button(
+                                label="⬇️ Baixar screenshot",
+                                data=img_bytes,
+                                file_name=f"screenshot_{r['item']}_{r['dominio']}.png",
+                                mime="image/png",
+                                key=f"dl_img_{r['item']}_{r['dominio']}_{id(r)}",
+                            )
+                        except Exception:
+                            pass
                     st.markdown(f"**Link:** [{r['url']}]({r['url']})")
         else:
             st.info(
