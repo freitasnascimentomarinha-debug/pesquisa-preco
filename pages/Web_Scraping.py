@@ -872,7 +872,7 @@ def _fechar_popups(page):
         '[class*="cookie"] button', '[id*="cookie"] button',
         '[class*="lgpd"] button', '[id*="lgpd"] button',
         '[class*="consent"] button', '[id*="consent"] button',
-        # Botões X de fechar (popups promocionais)
+        # Botões X de fechar (popups promocionais / modais)
         '[class*="modal"] [class*="close"]', '[class*="modal"] button[class*="close"]',
         '[class*="popup"] [class*="close"]', '[class*="popup"] button[class*="close"]',
         '[class*="promo"] [class*="close"]', '[class*="banner"] [class*="close"]',
@@ -881,11 +881,9 @@ def _fechar_popups(page):
         '[aria-label="Close"]', '[aria-label="Fechar"]',
         '[aria-label="close"]', '[aria-label="fechar"]',
         'button[title="Close"]', 'button[title="Fechar"]',
-        # Fechar genéricos (ícone X)
         '[class*="close-btn"]', '[class*="closebtn"]', '[class*="close_btn"]',
         '[class*="CloseButton"]', '[class*="closeButton"]',
         '[class*="icon-close"]', '[class*="icon_close"]',
-        '[class*="dismiss"]', '[class*="Dismiss"]',
         # Overlays
         '[class*="overlay"] [class*="close"]',
         '[class*="lightbox"] [class*="close"]',
@@ -899,36 +897,18 @@ def _fechar_popups(page):
         except Exception:
             continue
 
-    # Tentar fechar modais/overlays via tecla Escape
-    try:
-        page.keyboard.press("Escape")
-        time.sleep(0.3)
-    except Exception:
-        pass
-
-    # Remover overlays/modais via JavaScript (força bruta para popups resistentes)
+    # Ocultar (não remover) apenas overlays escuros de fundo de modal via CSS
     try:
         page.evaluate("""() => {
-            // Remover elementos com z-index alto que cobrem a tela (modais/overlays)
-            const all = document.querySelectorAll('*');
-            for (const el of all) {
+            document.querySelectorAll('[class*="overlay"], [class*="backdrop"], [class*="modal-bg"]').forEach(el => {
                 const style = window.getComputedStyle(el);
-                const zIndex = parseInt(style.zIndex) || 0;
-                const pos = style.position;
-                // Elementos fixos/absolutos com z-index alto = popup/modal/overlay
-                if ((pos === 'fixed' || pos === 'absolute') && zIndex > 100) {
-                    const rect = el.getBoundingClientRect();
-                    // Se cobre boa parte da tela, remover
-                    if (rect.width > window.innerWidth * 0.3 && rect.height > window.innerHeight * 0.3) {
-                        el.remove();
-                    }
+                if (style.position === 'fixed' && parseFloat(style.opacity) < 1) {
+                    el.style.display = 'none';
                 }
-            }
-            // Restaurar scroll no body (alguns modais bloqueiam)
+            });
             document.body.style.overflow = 'auto';
             document.documentElement.style.overflow = 'auto';
         }""")
-        time.sleep(0.3)
     except Exception:
         pass
 
