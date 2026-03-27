@@ -773,12 +773,30 @@ def _ensure_playwright_installed():
         return False
     try:
         from playwright.sync_api import sync_playwright
-        # Verificar se os arquivos do browser existem
         import glob
+
+        # Verificar em múltiplos caminhos possíveis (Codespaces podem variar o HOME)
+        candidate_paths = []
+
+        # PLAYWRIGHT_BROWSERS_PATH tem prioridade
+        env_path = os.environ.get("PLAYWRIGHT_BROWSERS_PATH")
+        if env_path:
+            candidate_paths.append(env_path)
+
+        # Caminho padrão baseado no HOME atual
         home = os.path.expanduser("~")
-        browsers_path = os.path.join(home, ".cache", "ms-playwright")
-        if os.path.isdir(browsers_path) and glob.glob(os.path.join(browsers_path, "chromium*")):
-            return True
+        candidate_paths.append(os.path.join(home, ".cache", "ms-playwright"))
+
+        # Caminhos comuns em Codespaces / dev containers
+        for user_dir in ["/home/codespace", "/home/vscode", "/root"]:
+            p = os.path.join(user_dir, ".cache", "ms-playwright")
+            if p not in candidate_paths:
+                candidate_paths.append(p)
+
+        for browsers_path in candidate_paths:
+            if os.path.isdir(browsers_path) and glob.glob(os.path.join(browsers_path, "chromium*")):
+                return True
+
         return False
     except ImportError:
         return False
