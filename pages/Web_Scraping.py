@@ -859,32 +859,78 @@ def _ensure_playwright_installed():
 
 
 def _fechar_popups(page):
-    """Tenta fechar popups, modais e banners de cookies comuns."""
-    # Seletores comuns de botões de fechar popup/cookie
+    """Tenta fechar popups, modais, banners de cookies e propagandas."""
+    # Seletores de botões de fechar (ordem: mais específicos primeiro)
     seletores_fechar = [
-        # Banners de cookies
+        # Banners de cookies / LGPD
         'button:has-text("Aceitar")', 'button:has-text("Aceito")',
-        'button:has-text("Concordo")', 'button:has-text("OK")',
-        'button:has-text("Entendi")', 'button:has-text("Prosseguir")',
-        'button:has-text("Accept")', 'button:has-text("Got it")',
-        'button:has-text("I agree")',
-        # Botões de fechar genéricos
-        '[class*="close"]', '[class*="dismiss"]',
-        '[aria-label="Close"]', '[aria-label="Fechar"]',
+        'button:has-text("Concordo")', 'button:has-text("Entendi")',
+        'button:has-text("Prosseguir")', 'button:has-text("Accept")',
+        'button:has-text("Got it")', 'button:has-text("I agree")',
+        'button:has-text("continuar e fechar")', 'button:has-text("Continuar")',
+        'a:has-text("continuar e fechar")', 'a:has-text("Continuar e fechar")',
         '[class*="cookie"] button', '[id*="cookie"] button',
-        '[class*="popup"] button', '[class*="modal"] [class*="close"]',
+        '[class*="lgpd"] button', '[id*="lgpd"] button',
+        '[class*="consent"] button', '[id*="consent"] button',
+        # Botões X de fechar (popups promocionais)
+        '[class*="modal"] [class*="close"]', '[class*="modal"] button[class*="close"]',
+        '[class*="popup"] [class*="close"]', '[class*="popup"] button[class*="close"]',
+        '[class*="promo"] [class*="close"]', '[class*="banner"] [class*="close"]',
         '.modal .close', '.popup-close', '.btn-close',
+        'button.close', '[data-dismiss="modal"]',
+        '[aria-label="Close"]', '[aria-label="Fechar"]',
+        '[aria-label="close"]', '[aria-label="fechar"]',
+        'button[title="Close"]', 'button[title="Fechar"]',
+        # Fechar genéricos (ícone X)
+        '[class*="close-btn"]', '[class*="closebtn"]', '[class*="close_btn"]',
+        '[class*="CloseButton"]', '[class*="closeButton"]',
+        '[class*="icon-close"]', '[class*="icon_close"]',
+        '[class*="dismiss"]', '[class*="Dismiss"]',
         # Overlays
         '[class*="overlay"] [class*="close"]',
+        '[class*="lightbox"] [class*="close"]',
     ]
     for seletor in seletores_fechar:
         try:
             el = page.locator(seletor).first
-            if el.is_visible(timeout=500):
+            if el.is_visible(timeout=300):
                 el.click(timeout=1000)
                 time.sleep(0.3)
         except Exception:
             continue
+
+    # Tentar fechar modais/overlays via tecla Escape
+    try:
+        page.keyboard.press("Escape")
+        time.sleep(0.3)
+    except Exception:
+        pass
+
+    # Remover overlays/modais via JavaScript (força bruta para popups resistentes)
+    try:
+        page.evaluate("""() => {
+            // Remover elementos com z-index alto que cobrem a tela (modais/overlays)
+            const all = document.querySelectorAll('*');
+            for (const el of all) {
+                const style = window.getComputedStyle(el);
+                const zIndex = parseInt(style.zIndex) || 0;
+                const pos = style.position;
+                // Elementos fixos/absolutos com z-index alto = popup/modal/overlay
+                if ((pos === 'fixed' || pos === 'absolute') && zIndex > 100) {
+                    const rect = el.getBoundingClientRect();
+                    // Se cobre boa parte da tela, remover
+                    if (rect.width > window.innerWidth * 0.3 && rect.height > window.innerHeight * 0.3) {
+                        el.remove();
+                    }
+                }
+            }
+            // Restaurar scroll no body (alguns modais bloqueiam)
+            document.body.style.overflow = 'auto';
+            document.documentElement.style.overflow = 'auto';
+        }""")
+        time.sleep(0.3)
+    except Exception:
+        pass
 
 
 def _scrollar_ate_preco(page):
