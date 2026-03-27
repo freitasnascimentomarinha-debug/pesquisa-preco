@@ -918,14 +918,14 @@ def _fechar_popups(page):
 
 
 def _scrollar_ate_preco(page):
-    """Tenta scrollar até o elemento que contém o preço e retorna a bounding box para clip."""
+    """Tenta scrollar até o elemento que contém o preço na página."""
     # Primeiro tentar encontrar o container do produto (título + preço juntos)
     seletores_produto = [
         '[class*="product-info"]', '[class*="product-detail"]',
         '[class*="productInfo"]', '[class*="produto"]',
         '[class*="product-main"]', '[class*="product-summary"]',
         '[itemtype*="schema.org/Product"]',
-        'main', '[role="main"]', '#product', '#produto',
+        '#product', '#produto',
     ]
     seletores_preco = [
         '[class*="price"]', '[class*="preco"]', '[class*="valor"]',
@@ -933,15 +933,13 @@ def _scrollar_ate_preco(page):
         '[data-testid*="price"]', '[itemprop="price"]',
         '.price', '#price', '.product-price',
     ]
-    # Tentar container do produto primeiro (captura título + preço)
+    # Tentar container do produto primeiro
     for seletor in seletores_produto:
         try:
             el = page.locator(seletor).first
             if el.is_visible(timeout=500):
                 el.scroll_into_view_if_needed(timeout=2000)
-                box = el.bounding_box()
-                if box and box['height'] > 100:
-                    return box
+                return
         except Exception:
             continue
     # Fallback: scrollar até o preço
@@ -950,15 +948,16 @@ def _scrollar_ate_preco(page):
             el = page.locator(seletor).first
             if el.is_visible(timeout=500):
                 el.scroll_into_view_if_needed(timeout=2000)
-                return None
+                # Subir um pouco para pegar contexto acima do preço
+                page.evaluate("window.scrollBy(0, -150)")
+                return
         except Exception:
             continue
-    # Se nada encontrado, voltar ao topo
+    # Se nada encontrado, posicionar logo abaixo do cabeçalho
     try:
-        page.evaluate("window.scrollTo(0, 0)")
+        page.evaluate("window.scrollTo(0, 150)")
     except Exception:
         pass
-    return None
 
 
 def _conteudo_relevante(html, titulo, item_nome):
@@ -1066,22 +1065,10 @@ def scraping_playwright(url, item_nome, screenshot_path=None):
                 _fechar_popups(page)
                 time.sleep(0.3)
                 # Tentar scrollar até o elemento com preço para capturar evidência clara
-                box = _scrollar_ate_preco(page)
+                _scrollar_ate_preco(page)
                 time.sleep(0.5)
-                # Se encontrou bounding box do container do produto, fazer clip
-                if box:
-                    # Expandir a área para dar contexto visual (mais espaço acima e abaixo)
-                    clip_x = max(0, box['x'] - 30)
-                    clip_y = max(0, box['y'] - 80)  # mais espaço acima para pegar título
-                    clip_w = min(box['width'] + 60, 1366 - clip_x)
-                    clip_h = min(box['height'] + 200, 768 * 2)  # mais espaço abaixo
-                    clip_h = max(clip_h, 600)  # mínimo de 600px de altura
-                    page.screenshot(path=screenshot_path, clip={'x': clip_x, 'y': clip_y, 'width': clip_w, 'height': clip_h})
-                else:
-                    # Sem box: scrollar um pouco abaixo do cabeçalho para evitar cortar produto
-                    page.evaluate("window.scrollTo(0, 150)")
-                    time.sleep(0.3)
-                    page.screenshot(path=screenshot_path, full_page=False)
+                # Screenshot da viewport inteira (sem clip para evitar zoom)
+                page.screenshot(path=screenshot_path, full_page=False)
 
             browser.close()
 
