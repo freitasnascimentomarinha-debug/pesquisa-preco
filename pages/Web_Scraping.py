@@ -694,7 +694,7 @@ def _eh_pagina_produto(html, titulo):
     return True
 
 
-def scraping_requests(session, url, headers):
+def scraping_requests(session, url, headers, item_nome=None):
     """Acessa uma página via requests e extrai informações."""
     from bs4 import BeautifulSoup
 
@@ -708,6 +708,10 @@ def scraping_requests(session, url, headers):
 
         # Verificar se é uma página de produto antes de gastar tempo extraindo preços
         if not _eh_pagina_produto(html, titulo):
+            return None
+
+        # Verificar se o conteúdo é relevante para o item buscado
+        if item_nome and not _conteudo_relevante(html, titulo, item_nome):
             return None
 
         precos = extrair_precos_pagina(html)
@@ -957,6 +961,37 @@ def _scrollar_ate_preco(page):
     return None
 
 
+def _conteudo_relevante(html, titulo, item_nome):
+    """Verifica se a página tem relação com o item buscado (não é busca/categoria genérica)."""
+    if not item_nome:
+        return True
+    item_lower = item_nome.lower().strip()
+    titulo_lower = (titulo or "").lower()
+    html_lower = html[:15000].lower()
+    # Palavras-chave do item (ex: "fita isolante" -> ["fita", "isolante"])
+    palavras = [p for p in item_lower.split() if len(p) > 2]
+    if not palavras:
+        return True
+    # Verificar se o título contém pelo menos uma palavra do item
+    titulo_match = any(p in titulo_lower for p in palavras)
+    # Verificar se o HTML contém as palavras do item próximas de preço
+    html_match = all(p in html_lower for p in palavras)
+    # Detectar páginas de busca/categoria (muitos produtos listados)
+    indicadores_listagem = [
+        "resultados para", "resultados de busca", "resultado da pesquisa",
+        "mostrando", "itens encontrados", "produtos encontrados",
+        "ordenar por", "filtrar por", "filtrar resultados",
+    ]
+    eh_listagem = any(ind in html_lower for ind in indicadores_listagem)
+    # Se é uma listagem genérica e o título não menciona o item, rejeitar
+    if eh_listagem and not titulo_match:
+        return False
+    # Se nem título nem HTML mencionam o item, rejeitar
+    if not titulo_match and not html_match:
+        return False
+    return True
+
+
 def scraping_playwright(url, item_nome, screenshot_path=None):
     """Acessa uma página via Playwright (para sites dinâmicos) e extrai informações."""
     try:
@@ -995,12 +1030,15 @@ def scraping_playwright(url, item_nome, screenshot_path=None):
             except Exception:
                 pass  # Timeout de networkidle não é crítico
 
-            # Fechar popups, modais e banners de cookies
+            # Fechar popups, modais e banners de cookies (1ª tentativa)
             _fechar_popups(page)
 
             # Simular scroll humano
             page.evaluate("window.scrollBy(0, Math.random() * 400 + 200)")
             time.sleep(gerar_delay_leitura(1.0, 2.5))
+
+            # Fechar popups que apareceram com delay (2ª tentativa)
+            _fechar_popups(page)
 
             # Mais um scroll
             page.evaluate("window.scrollBy(0, Math.random() * 300 + 100)")
@@ -1009,8 +1047,13 @@ def scraping_playwright(url, item_nome, screenshot_path=None):
             html = page.content()
             titulo = page.title() or extrair_titulo_pagina(html)
 
-            # Verificar se é uma página de produto
+            # Verificar se é uma página de produto (não busca/categoria)
             if not _eh_pagina_produto(html, titulo):
+                browser.close()
+                return None
+
+            # Verificar se o conteúdo é relevante para o item buscado
+            if not _conteudo_relevante(html, titulo, item_nome):
                 browser.close()
                 return None
 
@@ -1019,6 +1062,9 @@ def scraping_playwright(url, item_nome, screenshot_path=None):
             # Captura de tela real como PNG
             if screenshot_path and precos:
                 os.makedirs(os.path.dirname(screenshot_path), exist_ok=True)
+                # Fechar popups tardios antes do screenshot (3ª tentativa)
+                _fechar_popups(page)
+                time.sleep(0.3)
                 # Tentar scrollar até o elemento com preço para capturar evidência clara
                 box = _scrollar_ate_preco(page)
                 time.sleep(0.5)
@@ -1145,7 +1191,7 @@ def executar_scraping(itens, usar_playwright, progress_bar, log_container, statu
                         # Simular tempo de leitura
                         time.sleep(gerar_delay_leitura())
 
-                        resultado = scraping_requests(session, url, headers)
+                        resultado = scraping_requests(session, url, headers, item_nome=item)
                         if resultado:
                             break
 
