@@ -187,12 +187,12 @@ USER_AGENTS = [
 ]
 
 VARIANTES_BUSCA = [
-    "{item} preço",
-    "{item} comprar",
-    "{item} fornecedor",
-    "comprar {item} online",
-    "{item} valor unitário",
-    "{item} loja online",
+    "{item} preço brasil",
+    "{item} comprar brasil",
+    "{item} fornecedor brasil",
+    "comprar {item} online brasil",
+    "{item} valor unitário loja brasileira",
+    "{item} loja online brasil",
 ]
 
 # Domínios a ignorar nos resultados
@@ -223,6 +223,10 @@ DOMINIOS_IGNORADOS = [
     "comparador.", "versus.com", "techtudo.com.br",
     "tudocelular.com", "canaltech.com.br", "tecmundo.com.br",
     "olx.com.br", "enjoei.com.br",
+    # Específicos
+    "forneceb2b.com", "forneceb2b.com.br",
+    # Domínios de Portugal e Europa
+    ".pt", ".es", ".fr", ".de", ".it", ".uk", ".eu",
 ]
 
 MAX_FONTES_POR_ITEM = 3
@@ -271,10 +275,16 @@ def gerar_headers(user_agent=None):
 
 
 def dominio_valido(url):
-    """Verifica se o domínio não está na lista de ignorados."""
+    """Verifica se o domínio não está na lista de ignorados e é brasileiro."""
     try:
         dominio = urlparse(url).netloc.lower()
-        return not any(d in dominio for d in DOMINIOS_IGNORADOS)
+        # Rejeitar domínios na lista de ignorados
+        if any(d in dominio for d in DOMINIOS_IGNORADOS):
+            return False
+        # Aceitar apenas domínios brasileiros (.com.br, .br) ou .com genéricos
+        if dominio.endswith('.br') or dominio.endswith('.com') or dominio.endswith('.net') or dominio.endswith('.org'):
+            return True
+        return False
     except Exception:
         return False
 
@@ -988,14 +998,17 @@ def scraping_playwright(url, item_nome, screenshot_path=None):
                 time.sleep(0.5)
                 # Se encontrou bounding box do container do produto, fazer clip
                 if box:
-                    # Expandir a área para dar contexto visual
-                    clip_x = max(0, box['x'] - 20)
-                    clip_y = max(0, box['y'] - 20)
-                    clip_w = min(box['width'] + 40, 1366 - clip_x)
-                    clip_h = min(box['height'] + 40, 768 * 2)  # limitar altura
-                    clip_h = max(clip_h, 400)  # mínimo de 400px de altura
+                    # Expandir a área para dar contexto visual (mais espaço acima e abaixo)
+                    clip_x = max(0, box['x'] - 30)
+                    clip_y = max(0, box['y'] - 80)  # mais espaço acima para pegar título
+                    clip_w = min(box['width'] + 60, 1366 - clip_x)
+                    clip_h = min(box['height'] + 200, 768 * 2)  # mais espaço abaixo
+                    clip_h = max(clip_h, 600)  # mínimo de 600px de altura
                     page.screenshot(path=screenshot_path, clip={'x': clip_x, 'y': clip_y, 'width': clip_w, 'height': clip_h})
                 else:
+                    # Sem box: scrollar um pouco abaixo do cabeçalho para evitar cortar produto
+                    page.evaluate("window.scrollTo(0, 150)")
+                    time.sleep(0.3)
                     page.screenshot(path=screenshot_path, full_page=False)
 
             browser.close()
