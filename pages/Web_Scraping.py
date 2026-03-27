@@ -562,11 +562,19 @@ def extrair_precos_pagina(html_content):
         "[itemprop='price']", "[data-price]",
         "[class*='sale']", "[class*='offer']",
         "[class*='product-price']", "[class*='finalPrice']",
+        "[class*='priceBox']", "[class*='price-box']",
+        "[class*='current-price']", "[class*='selling-price']",
+        "[class*='special-price']", "[class*='best-price']",
+        "[class*='productPrice']", "[class*='item-price']",
+        "[class*='amount']", "[class*='cost']",
+        "[data-product-price]", "[data-amount]",
+        "[data-value]", "[data-sale-price]",
     ]
     for sel in seletores_preco:
         for elem in soup.select(sel):
             # Priorizar atributo content/data-price sobre texto
-            for attr in ("content", "data-price", "data-value"):
+            for attr in ("content", "data-price", "data-value", "data-product-price",
+                         "data-amount", "data-sale-price", "data-original-price", "value"):
                 attr_val = elem.get(attr)
                 if attr_val:
                     val = _parse_valor_br(attr_val)
@@ -582,6 +590,7 @@ def extrair_precos_pagina(html_content):
     padroes = [
         r"R\$\s*(\d{1,3}(?:\.\d{3})*,\d{2})",
         r"R\$\s*(\d+,\d{2})",
+        r"BRL\s*(\d{1,3}(?:\.\d{3})*,\d{2})",
     ]
     for padrao in padroes:
         matches = re.findall(padrao, html_content, re.IGNORECASE)
@@ -589,6 +598,27 @@ def extrair_precos_pagina(html_content):
             val = _parse_valor_br(match)
             if val:
                 precos_regex.append(val)
+
+    # --- Estratégia 5: Preços em JavaScript inline ---
+    # Muitos e-commerce colocam preço em variáveis JS
+    padroes_js = [
+        r'["\']price["\']\s*:\s*["\']?(\d+[.,]\d{2})["\']?',
+        r'["\']amount["\']\s*:\s*["\']?(\d+[.,]\d{2})["\']?',
+        r'["\']value["\']\s*:\s*["\']?(\d+[.,]\d{2})["\']?',
+        r'["\']preco["\']\s*:\s*["\']?(\d+[.,]\d{2})["\']?',
+        r'["\']salePrice["\']\s*:\s*["\']?(\d+[.,]\d{2})["\']?',
+        r'["\']sellingPrice["\']\s*:\s*["\']?(\d+[.,]\d{2})["\']?',
+    ]
+    for script_tag in soup.find_all("script"):
+        script_text = script_tag.string or ""
+        if not script_text:
+            continue
+        for padrao in padroes_js:
+            matches = re.findall(padrao, script_text, re.IGNORECASE)
+            for match in matches:
+                val = _parse_valor_br(match)
+                if val:
+                    precos_regex.append(val)
 
     # Se temos preços estruturados, preferir eles; senão usar regex
     if precos_estruturados:
@@ -620,19 +650,26 @@ def _parse_valor_br(texto):
     """Converte texto de preço BR ou internacional para float. Retorna None se inválido."""
     if not texto:
         return None
-    texto = texto.strip().replace("R$", "").replace("\xa0", "").strip()
+    texto = texto.strip().replace("R$", "").replace("\xa0", "").replace("\u00a0", "").strip()
+    # Remover espaços internos
+    texto = texto.replace(" ", "")
     # Formato BR: 1.234,56
     m = re.match(r"^(\d{1,3}(?:\.\d{3})*),(\d{2})$", texto)
     if m:
         val = float(texto.replace(".", "").replace(",", "."))
         return val if 0.50 < val < 500_000 else None
-    # Formato BR simples: 123,45
+    # Formato BR simples: 123,45 ou 1,50
     m = re.match(r"^(\d+),(\d{2})$", texto)
     if m:
         val = float(texto.replace(",", "."))
         return val if 0.50 < val < 500_000 else None
-    # Formato internacional: 1234.56
-    m = re.match(r"^(\d+(?:\.\d+)?)$", texto)
+    # Formato internacional com ponto: 1234.56
+    m = re.match(r"^(\d+)\.(\d{2})$", texto)
+    if m:
+        val = float(texto)
+        return val if 0.50 < val < 500_000 else None
+    # Formato inteiro (sem centavos): 1234 ou 12
+    m = re.match(r"^(\d+)$", texto)
     if m:
         val = float(texto)
         return val if 0.50 < val < 500_000 else None
@@ -643,11 +680,19 @@ def _extrair_valor_texto(texto):
     """Extrai primeiro valor monetário de um texto curto."""
     if not texto:
         return None
+    # R$ 1.234,56 ou R$ 123,45 ou R$ 6,44
     m = re.search(r"R\$\s*(\d{1,3}(?:\.\d{3})*,\d{2})", texto)
-    if not m:
-        m = re.search(r"(\d{1,3}(?:\.\d{3})*,\d{2})", texto)
     if m:
         return _parse_valor_br(m.group(1))
+    # Sem R$ mas com formato BR: 1.234,56 ou 123,45
+    m = re.search(r"(\d{1,3}(?:\.\d{3})*,\d{2})", texto)
+    if m:
+        return _parse_valor_br(m.group(1))
+    # Formato com ponto decimal: 123.45
+    m = re.search(r"(\d+\.\d{2})\b", texto)
+    if m:
+        val = float(m.group(1))
+        return val if 0.50 < val < 500_000 else None
     return None
 
 
