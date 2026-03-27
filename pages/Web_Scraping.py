@@ -211,6 +211,18 @@ DOMINIOS_IGNORADOS = [
     "submarino.com.br", "americanas.com.br",
     "kabum.com.br", "zoom.com.br",
     "buscape.com.br", "bondfaro.com.br",
+    # Streamlit / app próprio
+    "streamlit.app", "streamlit.io", "share.streamlit.io",
+    # Blogs, notícias, comparadores, fóruns
+    "blog.", "medium.com", "blogspot.com", "wordpress.com",
+    "noticias.", "uol.com.br", "globo.com", "g1.globo.com",
+    "folha.uol.com.br", "terra.com.br", "ig.com.br",
+    "reclameaqui.com.br", "jusbrasil.com.br",
+    "slideshare.net", "scribd.com", "pinterest.com",
+    "quora.com", "stackoverflow.com", "github.com",
+    "comparador.", "versus.com", "techtudo.com.br",
+    "tudocelular.com", "canaltech.com.br", "tecmundo.com.br",
+    "olx.com.br", "enjoei.com.br",
 ]
 
 MAX_FONTES_POR_ITEM = 3
@@ -643,6 +655,35 @@ def extrair_titulo_pagina(html_content):
     return "Sem título"
 
 
+def _eh_pagina_produto(html, titulo):
+    """Verifica se a página parece ser de um produto/fornecedor e não blog/notícia/comparador."""
+    titulo_lower = (titulo or "").lower()
+    html_lower = html[:5000].lower()
+    # Rejeitar páginas que claramente não são de produto
+    termos_rejeitar = [
+        "notícia", "artigo", "blog post", "publicado em", "autor:",
+        "cookie policy", "política de privacidade", "terms of service",
+        "404 not found", "page not found", "página não encontrada",
+        "error 404", "403 forbidden", "access denied",
+    ]
+    for termo in termos_rejeitar:
+        if termo in titulo_lower or termo in html_lower:
+            return False
+    # Indicadores positivos de página de produto
+    indicadores_produto = [
+        "add to cart", "adicionar ao carrinho", "comprar", "buy now",
+        "add-to-cart", "addtocart", "carrinho", "cart",
+        'itemprop="price"', 'itemprop="offers"', "schema.org/Product",
+        "schema.org/Offer", '"@type":"Product"', '"@type": "Product"',
+        "product-price", "preco", "preço", "valor unitário",
+    ]
+    for ind in indicadores_produto:
+        if ind in html_lower or ind in html[:10000]:
+            return True
+    # Se tem preços detectáveis, considerar válido
+    return True
+
+
 def scraping_requests(session, url, headers):
     """Acessa uma página via requests e extrai informações."""
     from bs4 import BeautifulSoup
@@ -654,6 +695,11 @@ def scraping_requests(session, url, headers):
 
         html = resp.text
         titulo = extrair_titulo_pagina(html)
+
+        # Verificar se é uma página de produto antes de gastar tempo extraindo preços
+        if not _eh_pagina_produto(html, titulo):
+            return None
+
         precos = extrair_precos_pagina(html)
 
         if not precos:
@@ -832,21 +878,47 @@ def _fechar_popups(page):
 
 
 def _scrollar_ate_preco(page):
-    """Tenta scrollar até o elemento que contém o preço na página."""
+    """Tenta scrollar até o elemento que contém o preço e retorna a bounding box para clip."""
+    # Primeiro tentar encontrar o container do produto (título + preço juntos)
+    seletores_produto = [
+        '[class*="product-info"]', '[class*="product-detail"]',
+        '[class*="productInfo"]', '[class*="produto"]',
+        '[class*="product-main"]', '[class*="product-summary"]',
+        '[itemtype*="schema.org/Product"]',
+        'main', '[role="main"]', '#product', '#produto',
+    ]
     seletores_preco = [
         '[class*="price"]', '[class*="preco"]', '[class*="valor"]',
         '[class*="Price"]', '[class*="product-price"]',
         '[data-testid*="price"]', '[itemprop="price"]',
         '.price', '#price', '.product-price',
     ]
+    # Tentar container do produto primeiro (captura título + preço)
+    for seletor in seletores_produto:
+        try:
+            el = page.locator(seletor).first
+            if el.is_visible(timeout=500):
+                el.scroll_into_view_if_needed(timeout=2000)
+                box = el.bounding_box()
+                if box and box['height'] > 100:
+                    return box
+        except Exception:
+            continue
+    # Fallback: scrollar até o preço
     for seletor in seletores_preco:
         try:
             el = page.locator(seletor).first
             if el.is_visible(timeout=500):
                 el.scroll_into_view_if_needed(timeout=2000)
-                return
+                return None
         except Exception:
             continue
+    # Se nada encontrado, voltar ao topo
+    try:
+        page.evaluate("window.scrollTo(0, 0)")
+    except Exception:
+        pass
+    return None
 
 
 def scraping_playwright(url, item_nome, screenshot_path=None):
@@ -900,15 +972,31 @@ def scraping_playwright(url, item_nome, screenshot_path=None):
 
             html = page.content()
             titulo = page.title() or extrair_titulo_pagina(html)
+
+            # Verificar se é uma página de produto
+            if not _eh_pagina_produto(html, titulo):
+                browser.close()
+                return None
+
             precos = extrair_precos_pagina(html)
 
             # Captura de tela real como PNG
             if screenshot_path and precos:
                 os.makedirs(os.path.dirname(screenshot_path), exist_ok=True)
                 # Tentar scrollar até o elemento com preço para capturar evidência clara
-                _scrollar_ate_preco(page)
+                box = _scrollar_ate_preco(page)
                 time.sleep(0.5)
-                page.screenshot(path=screenshot_path, full_page=False)
+                # Se encontrou bounding box do container do produto, fazer clip
+                if box:
+                    # Expandir a área para dar contexto visual
+                    clip_x = max(0, box['x'] - 20)
+                    clip_y = max(0, box['y'] - 20)
+                    clip_w = min(box['width'] + 40, 1366 - clip_x)
+                    clip_h = min(box['height'] + 40, 768 * 2)  # limitar altura
+                    clip_h = max(clip_h, 400)  # mínimo de 400px de altura
+                    page.screenshot(path=screenshot_path, clip={'x': clip_x, 'y': clip_y, 'width': clip_w, 'height': clip_h})
+                else:
+                    page.screenshot(path=screenshot_path, full_page=False)
 
             browser.close()
 
