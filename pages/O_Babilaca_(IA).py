@@ -1607,6 +1607,8 @@ with tab_chat:
     with tb_col2:
         if st.button("🗑️ Limpar conversa", use_container_width=True):
             st.session_state["babilaca_messages"] = []
+            st.session_state.pop("_arquivo_texto", None)
+            st.session_state.pop("_arquivo_nome", None)
             st.rerun()
     with tb_col3:
         arquivo_chat = st.file_uploader(
@@ -1631,6 +1633,13 @@ with tab_chat:
                 st.success("CSV processado.")
             except Exception as e:
                 texto_arquivo = f"[Erro ao ler CSV: {e}]"
+        # Persistir no session_state para não perder no rerun
+        if texto_arquivo:
+            st.session_state["_arquivo_texto"] = texto_arquivo
+            st.session_state["_arquivo_nome"] = arquivo_chat.name
+    else:
+        # Recuperar texto previamente extraído (se houver)
+        texto_arquivo = st.session_state.get("_arquivo_texto", "")
 
     # Histórico de mensagens
     for msg in st.session_state["babilaca_messages"]:
