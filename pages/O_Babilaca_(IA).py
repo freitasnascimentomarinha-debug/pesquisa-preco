@@ -157,7 +157,7 @@ MODELOS_DISPONIVEIS = {
     # --- Gratuitos ---
     "Google Gemini 2.5 Flash (grátis)": "google/gemini-2.5-flash:free",
     "Meta Llama 4 Maverick (grátis)": "meta-llama/llama-4-maverick:free",
-    "DeepSeek V3 0324 (grátis)": "deepseek/deepseek-chat-v3-0324:free",
+    "Mistral Small 3.1 24B (grátis)": "mistralai/mistral-small-3.1-24b-instruct:free",
     "Qwen3 30B (grátis)": "qwen/qwen3-30b-a3b:free",
     # --- Custo-benefício ---
     "Perplexity Sonar": "perplexity/sonar",
