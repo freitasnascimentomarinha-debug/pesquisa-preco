@@ -294,20 +294,52 @@ _mod = _ilu.module_from_spec(_spec)
 _spec.loader.exec_module(_mod)
 BASE_JURIDICA = _mod.BASE_JURIDICA
 
+# --- Texto integral da Lei 14.133/2021 (parser automático) ---
+_spec_lei = _ilu.spec_from_file_location(
+    "lei_parser",
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "lei_parser.py"),
+)
+_mod_lei = _ilu.module_from_spec(_spec_lei)
+_spec_lei.loader.exec_module(_mod_lei)
+ARTIGOS_LEI_INTEGRAL = _mod_lei.get_artigos_lei()
+
+
+def _score_item(item: dict, tokens: set[str]) -> float:
+    """Calcula score de relevância de um item da base jurídica."""
+    kws = set(w.lower() for w in item["palavras_chave"])
+    all_text = (item["conteudo"] + " " + item["titulo"]).lower()
+    score = sum(1 for t in tokens if any(t in kw for kw in kws))
+    score += sum(0.3 for t in tokens if t in all_text)
+    return score
+
 
 def buscar_base_juridica(pergunta: str, top_n: int = 12) -> list[dict]:
     """Busca os trechos mais relevantes da base jurídica para a pergunta.
-    Retorna uma mistura equilibrada de Leis, INs, Legislação Complementar e Acórdãos TCU."""
+    Retorna uma mistura equilibrada de Leis, INs, Legislação Complementar e Acórdãos TCU.
+    Agora inclui texto integral da Lei 14.133/2021 como fonte complementar."""
     tokens = set(re.findall(r"\w+", pergunta.lower()))
+
+    # 1) Pontuar itens da base curada (INs, acórdãos, resumos manuais)
     scored = []
     for item in BASE_JURIDICA:
-        kws = set(w.lower() for w in item["palavras_chave"])
-        all_text = (item["conteudo"] + " " + item["titulo"]).lower()
-        score = sum(1 for t in tokens if any(t in kw for kw in kws))
-        score += sum(0.3 for t in tokens if t in all_text)
+        score = _score_item(item, tokens)
         if score > 0:
             scored.append((score, item))
+
+    # 2) Pontuar artigos do texto integral da lei
+    artigos_ids_curados = {
+        item["artigo"] for item in BASE_JURIDICA if "Lei 14.133" in item.get("fonte", "")
+    }
+    for item in ARTIGOS_LEI_INTEGRAL:
+        # Evitar duplicar artigos que já estão na base curada
+        if item["artigo"] in artigos_ids_curados:
+            continue
+        score = _score_item(item, tokens)
+        if score > 0:
+            scored.append((score, item))
+
     scored.sort(key=lambda x: x[0], reverse=True)
+
     # Garantir mix equilibrado: leis + legislação complementar + INs + acórdãos
     leis = [s for s in scored if "Lei 14.133" in s[1]["fonte"]]
     outras_leis = [
@@ -322,9 +354,9 @@ def buscar_base_juridica(pergunta: str, top_n: int = 12) -> list[dict]:
     acordaos = [s for s in scored if "TCU" in s[1]["fonte"] or "Acord" in s[1]["fonte"]]
     resultado = []
     # Pegar os melhores de cada categoria, proporcionalmente
-    max_lei = max(2, top_n // 4)
-    max_outras = max(2, top_n // 4)
-    max_in = max(2, top_n // 4)
+    max_lei = max(3, top_n // 3)  # mais espaço para leis (texto integral)
+    max_outras = max(2, top_n // 5)
+    max_in = max(2, top_n // 5)
     max_tcu = max(3, top_n - max_lei - max_outras - max_in)
     resultado.extend(leis[:max_lei])
     resultado.extend(outras_leis[:max_outras])
