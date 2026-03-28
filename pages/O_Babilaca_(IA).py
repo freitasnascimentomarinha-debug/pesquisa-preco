@@ -137,7 +137,14 @@ for k, v in _defaults.items():
 # ============================================================
 # BASE JURÍDICA (RAG SIMPLIFICADO) — arquivo externo
 # ============================================================
-from base_juridica import BASE_JURIDICA  # noqa: E402
+import importlib.util as _ilu
+_spec = _ilu.spec_from_file_location(
+    "base_juridica",
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "base_juridica.py"),
+)
+_mod = _ilu.module_from_spec(_spec)
+_spec.loader.exec_module(_mod)
+BASE_JURIDICA = _mod.BASE_JURIDICA
 
 
 def buscar_base_juridica(pergunta: str, top_n: int = 12) -> list[dict]:
