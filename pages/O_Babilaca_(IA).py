@@ -153,6 +153,43 @@ st.markdown("""
         display: flex;
         flex-direction: column;
     }
+
+    /* Traduzir textos do file_uploader para PT-BR */
+    [data-testid="stFileUploaderDropzone"] span:has(+ small) {
+        visibility: hidden;
+        position: relative;
+    }
+    [data-testid="stFileUploaderDropzone"] span:has(+ small)::after {
+        content: "Arraste e solte o arquivo aqui";
+        visibility: visible;
+        position: absolute;
+        left: 0;
+        white-space: nowrap;
+    }
+    [data-testid="stFileUploaderDropzone"] small {
+        visibility: hidden;
+        position: relative;
+    }
+    [data-testid="stFileUploaderDropzone"] small::after {
+        content: "Limite de 200MB por arquivo";
+        visibility: visible;
+        position: absolute;
+        left: 0;
+        white-space: nowrap;
+    }
+    [data-testid="stFileUploaderDropzoneInstructions"] button[data-testid="baseButton-minimal"] {
+        visibility: hidden;
+        position: relative;
+    }
+    [data-testid="stFileUploaderDropzoneInstructions"] button[data-testid="baseButton-minimal"]::after {
+        content: "Procurar arquivos";
+        visibility: visible;
+        position: absolute;
+        left: 50%;
+        transform: translateX(-50%);
+        white-space: nowrap;
+        color: #d4af37;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -163,23 +200,43 @@ OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 MEMORIA_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "babilaca_memoria.json")
 REQ_COUNTER_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "babilaca_req_count.json")
 
-def _ler_req_count() -> int:
-    """Lê contador persistente de requisições."""
+def _ler_req_data() -> dict:
+    """Lê dados persistentes de requisições (total + por chave)."""
     try:
         with open(REQ_COUNTER_PATH, "r") as f:
-            return json.load(f).get("total", 0)
+            data = json.load(f)
+            # Migrar formato antigo {total: N} para novo
+            if "por_chave" not in data:
+                data = {"total": data.get("total", 0), "por_chave": {}}
+            return data
     except Exception:
-        return 0
+        return {"total": 0, "por_chave": {}}
 
-def _incrementar_req_count() -> int:
-    """Incrementa e salva contador persistente. Retorna novo total."""
-    total = _ler_req_count() + 1
+def _ler_req_count() -> int:
+    """Lê contador persistente total de requisições."""
+    return _ler_req_data().get("total", 0)
+
+def _ler_req_count_chave(api_key: str) -> int:
+    """Lê contador de requisições para uma chave de API específica."""
+    data = _ler_req_data()
+    # Usar hash parcial da chave como identificador (segurança)
+    chave_id = api_key[-12:] if len(api_key) > 12 else api_key
+    return data.get("por_chave", {}).get(chave_id, 0)
+
+def _incrementar_req_count(api_key: str = "") -> int:
+    """Incrementa e salva contador persistente (total + por chave). Retorna novo total."""
+    data = _ler_req_data()
+    data["total"] = data.get("total", 0) + 1
+    if api_key:
+        chave_id = api_key[-12:] if len(api_key) > 12 else api_key
+        data.setdefault("por_chave", {})
+        data["por_chave"][chave_id] = data["por_chave"].get(chave_id, 0) + 1
     try:
         with open(REQ_COUNTER_PATH, "w") as f:
-            json.dump({"total": total}, f)
+            json.dump(data, f)
     except Exception:
         pass
-    return total
+    return data["total"]
 
 MODELOS_DISPONIVEIS = {
     # ===== GRÁTIS (custo $0) =====
@@ -551,7 +608,7 @@ def chamar_ia(
             if resp.status_code == 200:
                 data = resp.json()
                 # Incrementar contador persistente de requisições
-                _incrementar_req_count()
+                _incrementar_req_count(api_key)
                 return data["choices"][0]["message"]["content"]
 
             # --- Tratamento de erros conhecidos ---
@@ -1563,6 +1620,8 @@ with tab_chat:
 
     saldo_info = st.session_state.get("_saldo_or")
     req_total = _ler_req_count()
+    api_key_atual = st.session_state.get("babilaca_api_key", "")
+    req_chave = _ler_req_count_chave(api_key_atual) if api_key_atual else 0
     if saldo_info:
         gasto_total = saldo_info.get("usage", 0) or 0
         gasto_dia = saldo_info.get("usage_daily", 0) or 0
@@ -1576,7 +1635,7 @@ with tab_chat:
             <span style="color:#d4af37;font-weight:bold;font-size:0.82rem;">Selecione seu Modelo Treinado para Licita\u00e7\u00f5es</span>
             <span style="color:{cor_gasto};font-size:0.85rem;font-weight:bold;">Gasto: ${gasto_total:.4f}</span>
             <span style="color:#94a3b8;font-size:0.75rem;">Hoje: ${gasto_dia:.4f} | Semana: ${gasto_semana:.4f} {free_tag}</span>
-            <span style="color:#60a5fa;font-size:0.75rem;font-weight:bold;">Requisicoes: {req_total}</span>
+            <span style="color:#60a5fa;font-size:0.75rem;font-weight:bold;">Req. totais: {req_total} | Esta chave: {req_chave}</span>
             <span style="color:#ef4444;font-size:0.75rem;font-weight:bold;">Custo medio: US$ {custo_medio:.6f}/req</span>
         </div>
         """, unsafe_allow_html=True)
@@ -1584,7 +1643,7 @@ with tab_chat:
         st.markdown(f"""
         <div style="background:rgba(10,22,40,0.5);border:1px solid #1e3a5f;border-radius:8px;padding:0.4rem 1rem;margin-bottom:0.6rem;display:flex;align-items:center;gap:0.8rem;">
             <span style="color:#94a3b8;font-size:0.8rem;">Selecione seu Modelo Treinado para Licita\u00e7\u00f5es</span>
-            <span style="color:#60a5fa;font-size:0.8rem;font-weight:bold;">Requisicoes: {req_total}</span>
+            <span style="color:#60a5fa;font-size:0.8rem;font-weight:bold;">Req. totais: {req_total} | Esta chave: {req_chave}</span>
         </div>
         """, unsafe_allow_html=True)
 
