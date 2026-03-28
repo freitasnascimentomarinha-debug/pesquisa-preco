@@ -39,19 +39,70 @@ st.markdown("""
     body, .main { background-color: #001a4d; color: #ffffff; }
     .stApp { background-color: #001a4d; }
 
+    /* SIDEBAR MODERNA */
     [data-testid="stSidebar"] {
-        background: linear-gradient(180deg, #0a0a0a 0%, #1a1a1a 100%);
-        border-right: 2px solid #d4af37;
+        background: linear-gradient(180deg, #0a0a0a 0%, #111111 50%, #0a0a0a 100%) !important;
+        border-right: 3px solid #d4af37 !important;
+        box-shadow: 4px 0 15px rgba(0, 0, 0, 0.5);
     }
-    [data-testid="stSidebar"] label,
-    [data-testid="stSidebar"] .stText,
-    [data-testid="stSidebar"] div { color: #ffffff !important; }
-    [data-testid="stSidebar"] .stMarkdown h1,
-    [data-testid="stSidebar"] .stMarkdown h2,
-    [data-testid="stSidebar"] .stMarkdown h3 {
-        color: #d4af37; border-bottom: 2px solid #d4af37;
-        padding-bottom: 0.5rem; margin-bottom: 1rem;
+    [data-testid="stSidebar"] [data-testid="stVerticalBlock"] { background: transparent !important; }
+    [data-testid="stSidebarNav"] { display: none !important; }
+
+    /* Título da sidebar */
+    [data-testid="stSidebar"] .stMarkdown h2 {
+        color: #d4af37 !important;
+        font-family: 'Arial Black', sans-serif;
+        font-size: 22px;
+        text-align: center;
+        letter-spacing: 2px;
+        text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.8);
+        border-bottom: 2px solid #d4af37;
+        padding-bottom: 0.75rem;
+        margin-bottom: 1.5rem;
     }
+
+    /* Links de navegação na sidebar */
+    [data-testid="stSidebar"] a[data-testid="stPageLink-NavLink"] {
+        background: linear-gradient(135deg, #1a1a1a 0%, #252525 100%) !important;
+        color: #ffffff !important;
+        border: 1px solid #333333 !important;
+        border-radius: 10px !important;
+        margin: 0.4rem 0 !important;
+        padding: 0.85rem 1.2rem !important;
+        font-weight: 600 !important;
+        font-size: 15px !important;
+        transition: all 0.3s ease !important;
+        text-decoration: none !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+    [data-testid="stSidebar"] a[data-testid="stPageLink-NavLink"] span {
+        color: #ffffff !important;
+    }
+    [data-testid="stSidebar"] a[data-testid="stPageLink-NavLink"]:hover {
+        background: linear-gradient(135deg, #252525 0%, #353535 100%) !important;
+        border: 1px solid #d4af37 !important;
+        transform: translateX(5px);
+        box-shadow: 0 4px 15px rgba(212, 175, 55, 0.25) !important;
+    }
+    [data-testid="stSidebar"] a[data-testid="stPageLink-NavLink"]:hover span {
+        color: #d4af37 !important;
+    }
+    /* Link ativo / página atual */
+    [data-testid="stSidebar"] a[data-testid="stPageLink-NavLink"][aria-current="page"] {
+        background: linear-gradient(135deg, #d4af37 0%, #c5a028 100%) !important;
+        color: #0a0a0a !important;
+        border: 1px solid #d4af37 !important;
+        font-weight: bold !important;
+        box-shadow: 0 4px 15px rgba(212, 175, 55, 0.4) !important;
+    }
+    [data-testid="stSidebar"] a[data-testid="stPageLink-NavLink"][aria-current="page"] span {
+        color: #0a0a0a !important;
+    }
+    [data-testid="stSidebar"] label, [data-testid="stSidebar"] .stText, [data-testid="stSidebar"] p { color: #ffffff !important; }
+    [data-testid="stSidebar"] hr { border-color: #333333 !important; margin: 1rem 0 !important; }
+    .sidebar-footer { color: #666666; font-size: 11px; text-align: center; padding: 1rem 0; border-top: 1px solid #333333; margin-top: 2rem; }
 
     .babilaca-header {
         background: linear-gradient(135deg, #001a4d 0%, #0033cc 100%);
@@ -140,7 +191,7 @@ for k, v in _defaults.items():
 import importlib.util as _ilu
 _spec = _ilu.spec_from_file_location(
     "base_juridica",
-    os.path.join(os.path.dirname(os.path.abspath(__file__)), "base_juridica.py"),
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "base_juridica.py"),
 )
 _mod = _ilu.module_from_spec(_spec)
 _spec.loader.exec_module(_mod)
