@@ -163,19 +163,28 @@ OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 MEMORIA_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "babilaca_memoria.json")
 
 MODELOS_DISPONIVEIS = {
-    # --- Custo-benefício (pagos, estáveis) ---
-    "Google Gemini 2.5 Flash": "google/gemini-2.5-flash",
-    "Perplexity Sonar": "perplexity/sonar",
-    "OpenAI GPT-4.1 Mini": "openai/gpt-4.1-mini",
-    "DeepSeek V3.2": "deepseek/deepseek-v3.2",
-    "Anthropic Claude 3.5 Haiku": "anthropic/claude-3.5-haiku",
-    "Meta Llama 4 Scout": "meta-llama/llama-4-scout",
-    "Qwen3 235B": "qwen/qwen3-235b-a22b",
-    # --- Grátis (⚠️ sujeitos a limite/disponibilidade) ---
-    "⚠️ Gemini 2.5 Flash (grátis)": "google/gemini-2.5-flash:free",
-    "⚠️ DeepSeek V3 (grátis)": "deepseek/deepseek-chat:free",
-    "⚠️ Mistral Small 3.1 (grátis)": "mistralai/mistral-small-3.1-24b-instruct:free",
-    "⚠️ Qwen3 30B (grátis)": "qwen/qwen3-30b-a3b:free",
+    # ===== GRÁTIS (custo $0) =====
+    "🆓 Google Gemma 3 27B (grátis)": "google/gemma-3-27b-it:free",
+    "🆓 Meta Llama 3.3 70B (grátis)": "meta-llama/llama-3.3-70b-instruct:free",
+    "🆓 NVIDIA Nemotron Super 120B (grátis)": "nvidia/nemotron-3-super-120b-a12b:free",
+    "🆓 NVIDIA Nemotron Nano 9B (grátis)": "nvidia/nemotron-nano-9b-v2:free",
+    "🆓 Mistral Small 3.1 24B (grátis)": "mistralai/mistral-small-3.1-24b-instruct:free",
+    "🆓 Qwen3 Coder 480B (grátis)": "qwen/qwen3-coder:free",
+    "🆓 Qwen3 Next 80B (grátis)": "qwen/qwen3-next-80b-a3b-instruct:free",
+    "🆓 OpenAI GPT-OSS 120B (grátis)": "openai/gpt-oss-120b:free",
+    "🆓 MiniMax M2.5 (grátis)": "minimax/minimax-m2.5:free",
+    "🆓 StepFun 3.5 Flash (grátis)": "stepfun/step-3.5-flash:free",
+    # ===== PAGOS BARATOS (bom custo-benefício) =====
+    "💰 Google Gemini 2.5 Flash ($0.15/M)": "google/gemini-2.5-flash",
+    "💰 OpenAI GPT-4.1 Nano ($0.10/M)": "openai/gpt-4.1-nano",
+    "💰 OpenAI GPT-4.1 Mini ($0.40/M)": "openai/gpt-4.1-mini",
+    "💰 Perplexity Sonar": "perplexity/sonar",
+    "💰 DeepSeek V3.2": "deepseek/deepseek-v3.2",
+    "💰 NVIDIA Nemotron Super 49B ($0.10/M)": "nvidia/llama-3.3-nemotron-super-49b-v1.5",
+    "💰 Meta Llama 4 Scout ($0.08/M)": "meta-llama/llama-4-scout",
+    "💰 Mistral Small 3.2 24B ($0.08/M)": "mistralai/mistral-small-3.2-24b-instruct",
+    "💰 Google Gemini 2.0 Flash ($0.10/M)": "google/gemini-2.0-flash-001",
+    "💰 Anthropic Claude 3.5 Haiku": "anthropic/claude-3.5-haiku",
 }
 
 # ============================================================
@@ -587,36 +596,6 @@ def consultar_saldo_openrouter() -> dict | None:
         pass
     return None
 
-
-# ---- Buscar modelos disponíveis no OpenRouter em tempo real ----
-@st.cache_data(ttl=300, show_spinner=False)
-def buscar_modelos_openrouter() -> dict:
-    """Consulta a API do OpenRouter e retorna modelos grátis + pagos baratos disponíveis."""
-    try:
-        resp = requests.get("https://openrouter.ai/api/v1/models", timeout=15)
-        if resp.status_code != 200:
-            return {}
-        modelos = resp.json().get("data", [])
-        gratis = {}
-        baratos = {}
-        for m in modelos:
-            mid = m.get("id", "")
-            nome = m.get("name", mid)
-            pricing = m.get("pricing", {})
-            prompt_price = float(pricing.get("prompt", "999") or "999")
-            # Modelos grátis: custo 0
-            if prompt_price == 0:
-                gratis[f"🆓 {nome}"] = mid
-            # Modelos pagos baratos: até $1/M tokens
-            elif prompt_price <= 0.000001:
-                custo_1m = prompt_price * 1_000_000
-                baratos[f"💰 {nome} (${custo_1m:.2f}/M tok)"] = mid
-        # Limitar a 12 de cada para não poluir
-        gratis_top = dict(list(sorted(gratis.items()))[:12])
-        baratos_top = dict(list(sorted(baratos.items(), key=lambda x: x[0]))[:10])
-        return {**gratis_top, **baratos_top}
-    except Exception:
-        return {}
 
 def extrair_cnpj(texto: str) -> str | None:
     m = re.search(r"\d{2}\.?\d{3}\.?\d{3}/?\d{4}-?\d{2}", texto)
@@ -1553,59 +1532,53 @@ with tab_chat:
 
     # --- Consultar uso OpenRouter automaticamente ao carregar ---
     if "_saldo_or" not in st.session_state:
-        st.session_state["_saldo_or"] = consultar_saldo_openrouter()
+        try:
+            st.session_state["_saldo_or"] = consultar_saldo_openrouter()
+        except Exception:
+            st.session_state["_saldo_or"] = None
 
     saldo_info = st.session_state.get("_saldo_or")
     if saldo_info:
-        gasto_total = saldo_info.get("usage", 0)
-        gasto_dia = saldo_info.get("usage_daily", 0)
-        gasto_semana = saldo_info.get("usage_weekly", 0)
+        gasto_total = saldo_info.get("usage", 0) or 0
+        gasto_dia = saldo_info.get("usage_daily", 0) or 0
+        gasto_semana = saldo_info.get("usage_weekly", 0) or 0
         is_free = saldo_info.get("is_free_tier", False)
-        free_tag = ' · <span style="color:#22c55e;font-weight:600;">FREE TIER</span>' if is_free else ""
+        free_tag = ' <span style="color:#22c55e;font-weight:600;">FREE TIER</span>' if is_free else ""
         cor_gasto = "#22c55e" if gasto_total < 1 else "#f59e0b" if gasto_total < 3 else "#ef4444"
         st.markdown(f"""
         <div style="background:rgba(10,22,40,0.7);border:1px solid #1e3a5f;border-radius:8px;padding:0.4rem 1rem;margin-bottom:0.6rem;display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
-            <span style="color:#d4af37;font-weight:bold;font-size:0.82rem;">💳 OpenRouter</span>
-            <span style="color:{cor_gasto};font-size:0.85rem;font-weight:bold;">Gasto total: ${gasto_total:.4f}</span>
-            <span style="color:#94a3b8;font-size:0.75rem;">Hoje: ${gasto_dia:.4f} · Semana: ${gasto_semana:.4f}{free_tag}</span>
-            <a href="https://openrouter.ai/settings/credits" target="_blank" style="color:#d4af37;font-size:0.75rem;text-decoration:none;margin-left:auto;">Ver créditos ↗</a>
+            <span style="color:#d4af37;font-weight:bold;font-size:0.82rem;">Uso OpenRouter</span>
+            <span style="color:{cor_gasto};font-size:0.85rem;font-weight:bold;">Gasto: ${gasto_total:.4f}</span>
+            <span style="color:#94a3b8;font-size:0.75rem;">Hoje: ${gasto_dia:.4f} | Semana: ${gasto_semana:.4f} {free_tag}</span>
+            <a href="https://openrouter.ai/settings/credits" target="_blank" style="color:#d4af37;font-size:0.75rem;text-decoration:none;margin-left:auto;">Ver creditos no site</a>
+        </div>
+        """, unsafe_allow_html=True)
+    else:
+        st.markdown("""
+        <div style="background:rgba(10,22,40,0.5);border:1px solid #1e3a5f;border-radius:8px;padding:0.4rem 1rem;margin-bottom:0.6rem;">
+            <span style="color:#94a3b8;font-size:0.8rem;">Uso OpenRouter: nao foi possivel consultar | <a href="https://openrouter.ai/settings/credits" target="_blank" style="color:#d4af37;text-decoration:none;">Ver creditos no site</a></span>
         </div>
         """, unsafe_allow_html=True)
 
-    # Barra de ferramentas: Modelo | Buscar modelos | Limpar conversa | Anexar arquivo
-    tb_col1, tb_col2, tb_col3, tb_col4 = st.columns([3, 1.2, 1.2, 1.2])
-
-    # Mesclar modelos fixos + modelos buscados da API (se houver)
-    modelos_atuais = dict(MODELOS_DISPONIVEIS)
-    if "modelos_openrouter" in st.session_state and st.session_state["modelos_openrouter"]:
-        modelos_atuais.update(st.session_state["modelos_openrouter"])
+    # Barra de ferramentas: Modelo | Limpar conversa | Anexar arquivo
+    tb_col1, tb_col2, tb_col3 = st.columns([3, 1.3, 1.3])
 
     with tb_col1:
         modelo_nome = st.selectbox(
             "Modelo de IA",
-            list(modelos_atuais.keys()),
-            index=list(modelos_atuais.values()).index(st.session_state["babilaca_modelo"])
-            if st.session_state["babilaca_modelo"] in modelos_atuais.values()
+            list(MODELOS_DISPONIVEIS.keys()),
+            index=list(MODELOS_DISPONIVEIS.values()).index(st.session_state["babilaca_modelo"])
+            if st.session_state["babilaca_modelo"] in MODELOS_DISPONIVEIS.values()
             else 0,
             key="toolbar_modelo",
             label_visibility="collapsed",
         )
-        st.session_state["babilaca_modelo"] = modelos_atuais[modelo_nome]
+        st.session_state["babilaca_modelo"] = MODELOS_DISPONIVEIS[modelo_nome]
     with tb_col2:
-        if st.button("🔍 Buscar modelos", use_container_width=True, help="Busca modelos grátis e baratos disponíveis agora no OpenRouter"):
-            with st.spinner("Consultando OpenRouter..."):
-                novos = buscar_modelos_openrouter()
-            if novos:
-                st.session_state["modelos_openrouter"] = novos
-                st.success(f"{len(novos)} modelos encontrados!")
-                st.rerun()
-            else:
-                st.warning("Não foi possível buscar modelos. Tente novamente.")
-    with tb_col3:
-        if st.button("�️ Limpar conversa", use_container_width=True):
+        if st.button("🗑️ Limpar conversa", use_container_width=True):
             st.session_state["babilaca_messages"] = []
             st.rerun()
-    with tb_col4:
+    with tb_col3:
         arquivo_chat = st.file_uploader(
             "📎 Anexar",
             type=["pdf", "xlsx", "xls", "csv"],
