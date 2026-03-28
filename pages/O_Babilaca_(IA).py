@@ -841,8 +841,209 @@ def classificar_risco_juridico(descricao_cenario: str) -> str:
 
 
 # ============================================================
-# SISTEMA DE ALERTAS
+# CHECKLIST POR MODALIDADE
 # ============================================================
+CHECKLIST_MODALIDADES = {
+    "Dispensa de Licitação": [
+        "Documento de Formalização de Demanda (DFD)",
+        "Estudo Técnico Preliminar (ETP)",
+        "Termo de Referência (TR)",
+        "Pesquisa de Preços (mínimo 3 fontes — IN 65/2021)",
+        "Mapa Comparativo de Preços",
+        "Justificativa para contratação direta",
+        "Razão da escolha do fornecedor",
+        "Justificativa do preço",
+        "Comprovante de regularidade fiscal e trabalhista do fornecedor",
+        "Parecer jurídico (Art. 72, Lei 14.133/2021)",
+        "Autorização da autoridade competente",
+        "Publicação no PNCP",
+    ],
+    "Pregão Eletrônico (PE)": [
+        "Documento de Formalização de Demanda (DFD)",
+        "Estudo Técnico Preliminar (ETP)",
+        "Mapa de Riscos",
+        "Termo de Referência (TR)",
+        "Pesquisa de Preços (mínimo 3 fontes — IN 65/2021)",
+        "Mapa Comparativo de Preços",
+        "Justificativa da modalidade (pregão)",
+        "Minuta do Edital",
+        "Parecer jurídico sobre o Edital (Art. 53, §4°)",
+        "Designação do pregoeiro e equipe de apoio",
+        "Autorização da autoridade competente",
+        "Publicação do Edital no PNCP e DOU",
+        "Ata da sessão pública",
+        "Relatório de adjudicação e homologação",
+        "Comprovante de publicação do resultado no PNCP",
+    ],
+    "Tomada de Preços por Julgamento por Item de Licitação (TJIL)": [
+        "Documento de Formalização de Demanda (DFD)",
+        "Estudo Técnico Preliminar (ETP)",
+        "Mapa de Riscos",
+        "Termo de Referência ou Projeto Básico",
+        "Pesquisa de Preços (mínimo 3 fontes — IN 65/2021)",
+        "Mapa Comparativo de Preços",
+        "Justificativa do critério de julgamento por item",
+        "Minuta do Edital",
+        "Parecer jurídico sobre o Edital",
+        "Designação da comissão de contratação",
+        "Autorização da autoridade competente",
+        "Publicação do Edital no PNCP e DOU",
+        "Ata de julgamento das propostas",
+        "Ata de habilitação",
+        "Relatório de adjudicação e homologação",
+    ],
+    "Tomada de Preços por Julgamento por Demanda de Licitação (TJDL)": [
+        "Documento de Formalização de Demanda (DFD)",
+        "Estudo Técnico Preliminar (ETP)",
+        "Mapa de Riscos",
+        "Termo de Referência ou Projeto Básico",
+        "Pesquisa de Preços (mínimo 3 fontes — IN 65/2021)",
+        "Mapa Comparativo de Preços",
+        "Justificativa do critério de julgamento global/lote",
+        "Justificativa da inviabilidade do parcelamento (se aplicável)",
+        "Minuta do Edital",
+        "Parecer jurídico sobre o Edital",
+        "Designação da comissão de contratação",
+        "Autorização da autoridade competente",
+        "Publicação do Edital no PNCP e DOU",
+        "Ata de julgamento das propostas",
+        "Ata de habilitação",
+        "Relatório de adjudicação e homologação",
+    ],
+    "Adesão a Ata de Registro de Preços (Carona)": [
+        "Documento de Formalização de Demanda (DFD)",
+        "Estudo Técnico Preliminar (ETP)",
+        "Justificativa da vantajosidade da adesão",
+        "Pesquisa de Preços comprovando compatibilidade com o mercado",
+        "Cópia da Ata de Registro de Preços vigente",
+        "Cópia do Edital da licitação que gerou a Ata",
+        "Ofício de consulta ao órgão gerenciador",
+        "Autorização do órgão gerenciador",
+        "Concordância do fornecedor",
+        "Comprovante de regularidade fiscal e trabalhista do fornecedor",
+        "Parecer jurídico",
+        "Autorização da autoridade competente",
+        "Publicação no PNCP",
+    ],
+}
+
+
+def gerar_checklist_pdf(modalidade: str, itens: list[str], status: dict[str, bool]) -> bytes:
+    """Gera um PDF bonito com o checklist do processo."""
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_auto_page_break(auto=True, margin=25)
+    pw = pdf.w - 40  # largura útil
+
+    # === CABEÇALHO ===
+    pdf.set_fill_color(0, 26, 77)
+    pdf.rect(0, 0, 210, 50, "F")
+    pdf.set_draw_color(212, 175, 55)
+    pdf.set_line_width(1.2)
+    pdf.line(0, 50, 210, 50)
+
+    pdf.set_y(8)
+    pdf.set_font("Helvetica", "B", 10)
+    pdf.set_text_color(212, 175, 55)
+    pdf.cell(0, 5, "MARINHA DO BRASIL", ln=True, align="C")
+    pdf.set_font("Helvetica", "", 8)
+    pdf.set_text_color(200, 200, 220)
+    pdf.cell(0, 4, "Centro de Operações do Abastecimento", ln=True, align="C")
+    pdf.ln(3)
+
+    pdf.set_font("Helvetica", "B", 16)
+    pdf.set_text_color(255, 255, 255)
+    pdf.cell(0, 9, _sanitize_for_pdf("CHECKLIST DE PROCESSO"), ln=True, align="C")
+    pdf.ln(1)
+
+    # === FAIXA DOURADA COM MODALIDADE ===
+    pdf.set_fill_color(212, 175, 55)
+    pdf.rect(0, 52, 210, 14, "F")
+    pdf.set_y(54)
+    pdf.set_font("Helvetica", "B", 13)
+    pdf.set_text_color(0, 26, 77)
+    pdf.cell(0, 9, _sanitize_for_pdf(modalidade), ln=True, align="C")
+    pdf.ln(6)
+
+    # === DATA ===
+    pdf.set_font("Helvetica", "", 9)
+    pdf.set_text_color(100, 100, 100)
+    pdf.cell(0, 6, f"Data: {datetime.now().strftime('%d/%m/%Y %H:%M')}", ln=True, align="R")
+    pdf.ln(2)
+
+    # === LINHA SEPARADORA ===
+    pdf.set_draw_color(212, 175, 55)
+    pdf.set_line_width(0.5)
+    pdf.line(20, pdf.get_y(), 190, pdf.get_y())
+    pdf.ln(6)
+
+    # === LEGENDA ===
+    pdf.set_font("Helvetica", "I", 8)
+    pdf.set_text_color(120, 120, 120)
+    pdf.cell(0, 5, "[X] = Documento presente    [  ] = Documento pendente", ln=True, align="C")
+    pdf.ln(6)
+
+    # === ITENS DO CHECKLIST ===
+    pdf.set_font("Helvetica", "", 11)
+    for i, item in enumerate(itens, 1):
+        checked = status.get(item, False)
+        marca = "X" if checked else "  "
+
+        y_antes = pdf.get_y()
+
+        # Fundo alternado
+        if i % 2 == 0:
+            pdf.set_fill_color(240, 245, 255)
+            pdf.rect(18, y_antes - 1, pw + 4, 9, "F")
+
+        # Checkbox
+        pdf.set_draw_color(0, 26, 77)
+        pdf.set_line_width(0.4)
+        pdf.rect(20, y_antes, 6, 6)
+        if checked:
+            pdf.set_font("Helvetica", "B", 11)
+            pdf.set_text_color(0, 120, 0)
+            pdf.set_xy(20.5, y_antes - 0.5)
+            pdf.cell(6, 7, "X", align="C")
+
+        # Texto do item
+        pdf.set_font("Helvetica", "", 10)
+        pdf.set_text_color(30, 30, 30)
+        pdf.set_xy(29, y_antes)
+        pdf.multi_cell(pw - 12, 6, _sanitize_for_pdf(f"{i}. {item}"))
+        pdf.ln(2)
+
+    # === RODAPÉ - LINHA DOURADA ===
+    pdf.ln(8)
+    pdf.set_draw_color(212, 175, 55)
+    pdf.set_line_width(0.8)
+    pdf.line(20, pdf.get_y(), 190, pdf.get_y())
+    pdf.ln(4)
+
+    # Resumo
+    total = len(itens)
+    marcados = sum(1 for it in itens if status.get(it, False))
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.set_text_color(0, 26, 77)
+    pdf.cell(0, 7, f"Total: {marcados}/{total} documentos presentes", ln=True, align="C")
+    pdf.ln(2)
+
+    if marcados == total:
+        pdf.set_text_color(0, 120, 0)
+        pdf.set_font("Helvetica", "B", 12)
+        pdf.cell(0, 7, _sanitize_for_pdf("PROCESSO COMPLETO"), ln=True, align="C")
+    else:
+        pdf.set_text_color(200, 50, 50)
+        pdf.set_font("Helvetica", "B", 12)
+        faltam = total - marcados
+        pdf.cell(0, 7, _sanitize_for_pdf(f"ATENÇÃO: {faltam} documento(s) pendente(s)"), ln=True, align="C")
+
+    pdf.ln(6)
+    pdf.set_font("Helvetica", "I", 7)
+    pdf.set_text_color(150, 150, 150)
+    pdf.cell(0, 5, _sanitize_for_pdf("Gerado por AtaCotada — O Babilaca (IA) — Marinha do Brasil"), ln=True, align="C")
+
+    return bytes(pdf.output())
 
 def verificar_alertas(palavras_chave: list[str] | None = None) -> list[dict]:
     """Verifica alertas proativos consultando APIs."""
@@ -961,10 +1162,10 @@ st.markdown("""
 # ============================================================
 # ABAS PRINCIPAIS
 # ============================================================
-tab_chat, tab_docs, tab_consultas = st.tabs([
+tab_chat, tab_docs, tab_checklist = st.tabs([
     "💬 Chat IA",
     "📄 Gerar Documentos com IA",
-    "🔍 Consultas (APIs)",
+    "📋 Checklist de Processo",
 ])
 
 # ============================================================
@@ -1326,183 +1527,63 @@ with tab_docs:
                 except Exception as e:
                     st.error(f"Erro ao processar arquivo: {e}")
 
-# ============================================================
-# TAB 3 — CONSULTAS (APIs)
-# ============================================================
-with tab_consultas:
-    st.markdown("### 🔍 Consultas em APIs Públicas")
+    # ---- Classificação de Risco Jurídico ----
+    st.markdown("---")
+    st.markdown("#### ⚖️ Classificação de Risco Jurídico")
+    cenario = st.text_area(
+        "Descreva o cenário de contratação para análise de risco:",
+        height=120,
+        key="cenario_risco",
+    )
+    if st.button("⚖️ Analisar Risco", key="btn_risco"):
+        if cenario:
+            with st.spinner("Analisando risco jurídico..."):
+                resultado = classificar_risco_juridico(cenario)
+            st.markdown(resultado)
+        else:
+            st.warning("Descreva o cenário.")
 
-    tipo_consulta = st.selectbox(
-        "Tipo de consulta",
-        ["Buscar Licitações (PNCP)", "Buscar Atas de Registro de Preços",
-         "Consultar Fornecedor (CNPJ)", "Buscar Preços de Mercado",
-         "Análise de Sobrepreço", "Classificação de Risco Jurídico"],
+# ============================================================
+# TAB 3 — CHECKLIST DE PROCESSO
+# ============================================================
+with tab_checklist:
+    st.markdown("### 📋 Checklist de Processo")
+    st.markdown("Selecione a modalidade do processo e confira os documentos necessários. Marque os que já possui e imprima a capa do processo.")
+
+    modalidade_sel = st.selectbox(
+        "Modalidade / Tipo de processo",
+        list(CHECKLIST_MODALIDADES.keys()),
+        key="checklist_modalidade",
     )
 
-    # ---- Licitações ----
-    if "Licitações" in tipo_consulta:
-        st.markdown("#### 🏛️ Buscar Licitações no PNCP")
-        kw_lic = st.text_input("Palavra-chave", key="kw_lic")
-        if st.button("🔍 Buscar", key="btn_lic"):
-            if kw_lic:
-                with st.spinner("Consultando PNCP..."):
-                    res = buscar_licitacoes(kw_lic)
-                if res.get("sucesso"):
-                    st.success(f"Fonte: {res['fonte']}")
-                    dados = res["dados"]
-                    if isinstance(dados, dict):
-                        dados_lista = dados.get("data", dados.get("resultado", []))
-                    elif isinstance(dados, list):
-                        dados_lista = dados
-                    else:
-                        dados_lista = []
-                    if dados_lista:
-                        st.json(dados_lista[:5])
-                    else:
-                        st.info("Nenhum resultado encontrado para o período.")
-                else:
-                    st.error(f"Erro: {res.get('erro')}")
-            else:
-                st.warning("Digite uma palavra-chave.")
-
-    # ---- Atas ----
-    elif "Atas" in tipo_consulta:
-        st.markdown("#### 📋 Buscar Atas de Registro de Preços")
-        desc_ata = st.text_input("Descrição do item", key="desc_ata")
-        cod_ata = st.text_input("Código do item no catálogo (opcional)", key="cod_ata")
-        if st.button("🔍 Buscar Atas", key="btn_ata"):
-            with st.spinner("Consultando ComprasGov..."):
-                res = buscar_atas(item_codigo=cod_ata, descricao=desc_ata)
-            if res.get("sucesso"):
-                st.success(f"Fonte: {res['fonte']}")
-                dados = res["dados"]
-                if isinstance(dados, dict):
-                    dados_lista = dados.get("resultado", dados.get("data", []))
-                elif isinstance(dados, list):
-                    dados_lista = dados
-                else:
-                    dados_lista = []
-                if dados_lista:
-                    try:
-                        df_atas = pd.json_normalize(dados_lista[:20])
-                        st.dataframe(df_atas, use_container_width=True)
-                    except Exception:
-                        st.json(dados_lista[:5])
-                else:
-                    st.info("Nenhuma ata encontrada.")
-            else:
-                st.error(f"Erro: {res.get('erro')}")
-
-    # ---- Fornecedor ----
-    elif "Fornecedor" in tipo_consulta:
-        st.markdown("#### 🏢 Consultar Fornecedor por CNPJ")
-        cnpj_input = st.text_input("CNPJ", placeholder="00.000.000/0000-00", key="cnpj_cons")
-        if st.button("🔍 Consultar", key="btn_cnpj"):
-            if cnpj_input:
-                with st.spinner("Consultando..."):
-                    res = consultar_fornecedor(cnpj_input)
-                if res.get("sucesso"):
-                    st.success(f"Fonte: {res['fonte']}")
-                    dados = res["dados"]
-                    # Exibir informações principais
-                    nome = dados.get("razao_social") or dados.get("razaoSocial") or dados.get("nome") or "N/I"
-                    fantasia = dados.get("nome_fantasia") or dados.get("nomeFantasia") or ""
-                    situacao = dados.get("situacao_cadastral") or dados.get("descricaoSituacaoCadastral") or ""
-                    st.markdown(f"**{nome}**")
-                    if fantasia:
-                        st.markdown(f"Nome fantasia: {fantasia}")
-                    st.markdown(f"Situação: {situacao}")
-                    with st.expander("Ver dados completos"):
-                        st.json(dados)
-                else:
-                    st.error(res.get("erro", "Erro na consulta."))
-            else:
-                st.warning("Digite um CNPJ.")
-
-    # ---- Preços de Mercado ----
-    elif "Preços" in tipo_consulta:
-        st.markdown("#### 💰 Buscar Preços de Mercado")
-        desc_preco = st.text_input("Descrição do item", key="desc_preco")
-        if st.button("🔍 Buscar Preços", key="btn_preco"):
-            if desc_preco:
-                with st.spinner("Buscando preços..."):
-                    res = buscar_precos_mercado(desc_preco)
-                if res.get("sucesso"):
-                    st.success(f"Fonte: {res['fonte']} — {res['quantidade']} preço(s) encontrado(s)")
-                    c1, c2, c3, c4 = st.columns(4)
-                    with c1:
-                        st.markdown(f"""<div class="stat-card"><div class="valor">R$ {res['menor']:,.2f}</div><div class="label">Menor</div></div>""", unsafe_allow_html=True)
-                    with c2:
-                        st.markdown(f"""<div class="stat-card"><div class="valor">R$ {res['media']:,.2f}</div><div class="label">Média</div></div>""", unsafe_allow_html=True)
-                    with c3:
-                        st.markdown(f"""<div class="stat-card"><div class="valor">R$ {res['mediana']:,.2f}</div><div class="label">Mediana</div></div>""", unsafe_allow_html=True)
-                    with c4:
-                        st.markdown(f"""<div class="stat-card"><div class="valor">R$ {res['maior']:,.2f}</div><div class="label">Maior</div></div>""", unsafe_allow_html=True)
-                    if res.get("precos"):
-                        st.bar_chart(pd.DataFrame({"Preços (R$)": res["precos"]}))
-                else:
-                    st.warning(res.get("erro", "Nenhum preço encontrado."))
-            else:
-                st.warning("Digite a descrição do item.")
-
-    # ---- Análise de Sobrepreço ----
-    elif "Sobrepreço" in tipo_consulta:
-        st.markdown("#### 🔎 Análise de Sobrepreço")
-        st.caption("Compare o valor proposto com preços de mercado para identificar possível sobrepreço.")
-        c1, c2 = st.columns(2)
-        with c1:
-            valor_ref = st.number_input("Valor proposto (R$)", min_value=0.0, format="%.2f", key="val_ref")
-        with c2:
-            desc_item_sp = st.text_input("Descrição do item para comparação", key="desc_sp")
-        if st.button("🔎 Analisar Sobrepreço", key="btn_sp"):
-            if valor_ref > 0 and desc_item_sp:
-                with st.spinner("Buscando preços de mercado..."):
-                    res = buscar_precos_mercado(desc_item_sp)
-                if res.get("sucesso") and res.get("precos"):
-                    analise = analisar_sobrepreco(res["precos"], valor_ref)
-                    st.markdown(f"### Resultado: {analise['risco']}")
-                    st.markdown(f"**{analise['mensagem']}**")
-                    c1, c2, c3 = st.columns(3)
-                    with c1:
-                        st.metric("Média de mercado", f"R$ {analise['media']:,.2f}")
-                    with c2:
-                        st.metric("Mediana de mercado", f"R$ {analise['mediana']:,.2f}")
-                    with c3:
-                        st.metric("Desvio da mediana", f"{analise['desvio_mediana_pct']}%")
-                else:
-                    st.warning("Não foi possível encontrar preços de mercado para comparação.")
-            else:
-                st.warning("Preencha o valor e a descrição do item.")
-
-    # ---- Risco Jurídico ----
-    elif "Risco" in tipo_consulta:
-        st.markdown("#### ⚖️ Classificação de Risco Jurídico")
-        cenario = st.text_area(
-            "Descreva o cenário de contratação para análise de risco:",
-            height=120,
-            key="cenario_risco",
-        )
-        if st.button("⚖️ Analisar Risco", key="btn_risco"):
-            if cenario:
-                with st.spinner("Analisando risco jurídico..."):
-                    resultado = classificar_risco_juridico(cenario)
-                st.markdown(resultado)
-            else:
-                st.warning("Descreva o cenário.")
-
-    # ---- Checklist de Conformidade ----
+    itens_checklist = CHECKLIST_MODALIDADES[modalidade_sel]
+    st.markdown(f"**{len(itens_checklist)} documentos necessários:**")
     st.markdown("---")
-    st.markdown("#### 📋 Checklist de Conformidade")
-    st.caption("Verifique se seu processo possui todos os documentos obrigatórios.")
-    checklist = [
-        "Documento de Formalização de Demanda (DFD)",
-        "Estudo Técnico Preliminar (ETP)",
-        "Termo de Referência (TR)",
-        "Pesquisa de Preços (mínimo 3 fontes)",
-        "Justificativa da modalidade de contratação",
-        "Análise de riscos",
-        "Parecer jurídico",
-        "Publicação no PNCP",
-    ]
-    for item in checklist:
-        st.checkbox(item, key=f"check_{hashlib.md5(item.encode()).hexdigest()[:8]}")
+
+    status_checks = {}
+    for item_ck in itens_checklist:
+        _key = f"ck_{hashlib.md5((modalidade_sel + item_ck).encode()).hexdigest()[:10]}"
+        status_checks[item_ck] = st.checkbox(item_ck, key=_key)
+
+    # Resumo
+    marcados = sum(1 for v in status_checks.values() if v)
+    total = len(itens_checklist)
+    st.markdown("---")
+    if marcados == total:
+        st.success(f"✅ Processo completo! {marcados}/{total} documentos presentes.")
+    elif marcados > 0:
+        st.warning(f"⚠️ {marcados}/{total} documentos presentes. Faltam {total - marcados}.")
+    else:
+        st.info(f"📋 {total} documentos necessários. Marque os que já possui.")
+
+    # Botão imprimir PDF
+    st.markdown("")
+    if st.button("🖨️ Imprimir Checklist (PDF)", use_container_width=True, key="btn_print_checklist"):
+        pdf_bytes = gerar_checklist_pdf(modalidade_sel, itens_checklist, status_checks)
+        st.download_button(
+            "⬇️ Baixar PDF",
+            pdf_bytes,
+            f"checklist_{modalidade_sel.replace(' ', '_').lower()}.pdf",
+            "application/pdf",
+            key="dl_checklist_pdf",
+        )
