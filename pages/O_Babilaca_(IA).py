@@ -569,6 +569,25 @@ def chamar_ia(
 # ROTEAMENTO DE INTENÇÃO
 # ============================================================
 
+# ---- Consultar saldo da conta OpenRouter ----
+def consultar_saldo_openrouter() -> dict | None:
+    """Consulta saldo e uso da conta via API /auth/key."""
+    api_key = st.session_state.get("babilaca_api_key", "")
+    if not api_key:
+        return None
+    try:
+        resp = requests.get(
+            "https://openrouter.ai/api/v1/auth/key",
+            headers={"Authorization": f"Bearer {api_key}"},
+            timeout=8,
+        )
+        if resp.status_code == 200:
+            return resp.json().get("data", {})
+    except Exception:
+        pass
+    return None
+
+
 # ---- Buscar modelos disponíveis no OpenRouter em tempo real ----
 @st.cache_data(ttl=300, show_spinner=False)
 def buscar_modelos_openrouter() -> dict:
@@ -1532,8 +1551,28 @@ tab_chat, tab_docs, tab_checklist = st.tabs([
 with tab_chat:
     st.markdown("### 💬 Converse com o Babilaca")
 
-    # Barra de ferramentas: Modelo | Buscar modelos | Limpar conversa | Anexar arquivo
-    tb_col1, tb_col2, tb_col3, tb_col4 = st.columns([3, 1.2, 1.2, 1.2])
+    # --- Indicador de uso OpenRouter ---
+    if "_saldo_or" not in st.session_state:
+        st.session_state["_saldo_or"] = None
+    saldo_info = st.session_state.get("_saldo_or")
+    if saldo_info:
+        gasto_total = saldo_info.get("usage", 0)
+        gasto_dia = saldo_info.get("usage_daily", 0)
+        gasto_semana = saldo_info.get("usage_weekly", 0)
+        is_free = saldo_info.get("is_free_tier", False)
+        free_tag = ' &nbsp;·&nbsp; <span style="color:#22c55e;font-weight:600;">FREE TIER</span>' if is_free else ""
+        cor_gasto = "#22c55e" if gasto_total < 1 else "#f59e0b" if gasto_total < 3 else "#ef4444"
+        st.markdown(f"""
+        <div style="background:rgba(10,22,40,0.7);border:1px solid #1e3a5f;border-radius:8px;padding:0.5rem 1rem;margin-bottom:0.8rem;display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
+            <span style="color:#d4af37;font-weight:bold;font-size:0.85rem;">💳 OpenRouter</span>
+            <span style="color:{cor_gasto};font-size:0.9rem;font-weight:bold;">Gasto total: ${gasto_total:.4f}</span>
+            <span style="color:#94a3b8;font-size:0.78rem;">Hoje: ${gasto_dia:.4f} &nbsp;·&nbsp; Semana: ${gasto_semana:.4f}{free_tag}</span>
+            <a href="https://openrouter.ai/settings/credits" target="_blank" style="color:#d4af37;font-size:0.78rem;text-decoration:none;margin-left:auto;">Ver créditos ↗</a>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # Barra de ferramentas: Modelo | Buscar modelos | Saldo | Limpar conversa | Anexar arquivo
+    tb_col1, tb_col2, tb_col3, tb_col4, tb_col5 = st.columns([3, 1.1, 0.9, 1.1, 1.1])
 
     # Mesclar modelos fixos + modelos buscados da API (se houver)
     modelos_atuais = dict(MODELOS_DISPONIVEIS)
@@ -1562,10 +1601,19 @@ with tab_chat:
             else:
                 st.warning("Não foi possível buscar modelos. Tente novamente.")
     with tb_col3:
+        if st.button("� Saldo", use_container_width=True, help="Consultar saldo da conta OpenRouter"):
+            with st.spinner("Consultando..."):
+                info = consultar_saldo_openrouter()
+            if info:
+                st.session_state["_saldo_or"] = info
+                st.rerun()
+            else:
+                st.warning("Não foi possível consultar o saldo.")
+    with tb_col4:
         if st.button("🗑️ Limpar conversa", use_container_width=True):
             st.session_state["babilaca_messages"] = []
             st.rerun()
-    with tb_col4:
+    with tb_col5:
         arquivo_chat = st.file_uploader(
             "📎 Anexar",
             type=["pdf", "xlsx", "xls", "csv"],
@@ -1651,6 +1699,13 @@ with tab_chat:
                 st.toast("Resposta salva!")
 
         st.session_state["babilaca_messages"].append({"role": "assistant", "content": resposta})
+        # Atualizar saldo após resposta
+        try:
+            saldo_atualizado = consultar_saldo_openrouter()
+            if saldo_atualizado:
+                st.session_state["_saldo_or"] = saldo_atualizado
+        except Exception:
+            pass
         # Auto-scroll para o final da conversa
         st.markdown(
             """<script>
