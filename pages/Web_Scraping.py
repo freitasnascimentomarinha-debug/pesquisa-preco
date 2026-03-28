@@ -1587,6 +1587,7 @@ with st.sidebar:
     st.page_link("pages/Banco_de_Fornecedores.py", label="Fornecedores", icon="🏢")
     st.page_link("pages/Consulta.py", label="Consulta CNPJ", icon="💻")
     st.page_link("pages/Web_Scraping.py", label="Web Scraping", icon="🕷️")
+    st.page_link("pages/O_Babilaca_(IA).py", label="O Babilaca (IA)", icon="🧠")
     st.markdown("---")
     st.markdown("## LINKS ÚTEIS")
     st.markdown("""
