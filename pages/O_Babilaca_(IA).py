@@ -851,7 +851,7 @@ def salvar_resposta(pergunta: str, resposta: str):
 # ============================================================
 # SIDEBAR — Navegação customizada (padrão do projeto)
 # ============================================================
-_acanto_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "Projeto Adesões", "acanto.png")
+_acanto_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "Projeto Adesões", "acanto.png")
 if os.path.exists(_acanto_path):
     with open(_acanto_path, "rb") as _f:
         _acanto_b64 = base64.b64encode(_f.read()).decode()
@@ -915,8 +915,8 @@ tab_chat, tab_docs, tab_consultas = st.tabs([
 with tab_chat:
     st.markdown("### 💬 Converse com o Babilaca")
 
-    # Barra de ferramentas: Modelo | Limpar conversa | Anexar arquivo | Base de conhecimento
-    tb_col1, tb_col2, tb_col3, tb_col4 = st.columns([3, 1.3, 1.3, 1.3])
+    # Barra de ferramentas: Modelo | Limpar conversa | Anexar arquivo
+    tb_col1, tb_col2, tb_col3 = st.columns([3, 1.3, 1.3])
     with tb_col1:
         modelo_nome = st.selectbox(
             "Modelo de IA",
@@ -939,41 +939,6 @@ with tab_chat:
             key="chat_upload",
             label_visibility="collapsed",
         )
-    with tb_col4:
-        with st.popover("📚 Base de Conhecimento", use_container_width=True):
-            # Organizar fontes por categoria
-            _leis = []
-            _outras = []
-            _ins = []
-            _acordaos = []
-            for _item in BASE_JURIDICA:
-                _f = _item["fonte"]
-                _a = _item.get("artigo", "")
-                _t = _item["titulo"]
-                _lk = _item["link"]
-                _label = f"{_f} — {_a}" if _a else _f
-                if "Lei 14.133" in _f:
-                    _leis.append((_label, _t, _lk))
-                elif "IN " in _f:
-                    _ins.append((_label, _t, _lk))
-                elif "TCU" in _f or "Acord" in _f:
-                    _acordaos.append((_label, _t, _lk))
-                else:
-                    _outras.append((_label, _t, _lk))
-            st.markdown(f"**{len(BASE_JURIDICA)} fontes verificadas**")
-            st.markdown("---")
-            st.markdown(f"##### ⚖️ Lei 14.133/2021 ({len(_leis)} artigos)")
-            for _lb, _tt, _lk in _leis:
-                st.markdown(f"- [{_lb}]({_lk}) — {_tt}")
-            st.markdown(f"##### 📜 Legislação Complementar ({len(_outras)} dispositivos)")
-            for _lb, _tt, _lk in _outras:
-                st.markdown(f"- [{_lb}]({_lk}) — {_tt}")
-            st.markdown(f"##### 📋 Instruções Normativas ({len(_ins)} dispositivos)")
-            for _lb, _tt, _lk in _ins:
-                st.markdown(f"- [{_lb}]({_lk}) — {_tt}")
-            st.markdown(f"##### 🏛️ Acórdãos TCU ({len(_acordaos)} acórdãos)")
-            for _lb, _tt, _lk in _acordaos:
-                st.markdown(f"- [{_lb}]({_lk}) — {_tt}")
 
     texto_arquivo = ""
     if arquivo_chat:
@@ -996,8 +961,11 @@ with tab_chat:
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
 
-    # Input do usuário
-    if prompt := st.chat_input("Digite sua pergunta sobre licitações, legislação ou contratações..."):
+# Input do usuário (fora das tabs — fixo no rodapé da página)
+prompt = st.chat_input("Digite sua pergunta sobre licitações, legislação ou contratações...")
+
+with tab_chat:
+    if prompt:
         # Adicionar mensagem do usuário
         st.session_state["babilaca_messages"].append({"role": "user", "content": prompt})
         with st.chat_message("user"):
@@ -1032,10 +1000,10 @@ with tab_chat:
 
             st.markdown(resposta)
 
-            # Botão salvar resposta
-            if st.button("💾 Salvar resposta", key=f"save_{len(st.session_state['babilaca_messages'])}"):
+            # Botão salvar resposta (joinha)
+            if st.button("👍", key=f"save_{len(st.session_state['babilaca_messages'])}"):
                 salvar_resposta(prompt, resposta)
-                st.toast("Resposta salva na memória!")
+                st.toast("Resposta salva!")
 
         st.session_state["babilaca_messages"].append({"role": "assistant", "content": resposta})
 
