@@ -154,16 +154,19 @@ OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 MEMORIA_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "babilaca_memoria.json")
 
 MODELOS_DISPONIVEIS = {
+    # --- Gratuitos ---
+    "Google Gemini 2.5 Flash (grátis)": "google/gemini-2.5-flash:free",
+    "Meta Llama 4 Maverick (grátis)": "meta-llama/llama-4-maverick:free",
+    "DeepSeek V3 0324 (grátis)": "deepseek/deepseek-chat-v3-0324:free",
+    "Qwen3 30B (grátis)": "qwen/qwen3-30b-a3b:free",
+    # --- Custo-benefício ---
+    "Perplexity Sonar": "perplexity/sonar",
     "Google Gemini 2.5 Flash": "google/gemini-2.5-flash",
-    "Google Gemini 2.5 Pro": "google/gemini-2.5-pro",
-    "OpenAI GPT-4.1": "openai/gpt-4.1",
     "OpenAI GPT-4.1 Mini": "openai/gpt-4.1-mini",
-    "Anthropic Claude Sonnet 4": "anthropic/claude-sonnet-4",
+    "Anthropic Claude 3.5 Haiku": "anthropic/claude-3.5-haiku",
     "DeepSeek V3.2": "deepseek/deepseek-v3.2",
-    "DeepSeek R1": "deepseek/deepseek-r1-0528",
     "Meta Llama 4 Maverick": "meta-llama/llama-4-maverick",
     "Qwen3 235B": "qwen/qwen3-235b-a22b",
-    "Meta Llama 3.3 70B (gratis)": "meta-llama/llama-3.3-70b-instruct:free",
 }
 
 # ============================================================
