@@ -11,3 +11,4 @@ beautifulsoup4
 ddgs
 lxml
 playwright
+PyPDF2

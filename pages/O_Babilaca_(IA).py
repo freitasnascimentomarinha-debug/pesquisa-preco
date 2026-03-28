@@ -1,0 +1,1753 @@
+"""
+O Babilaca (IA) — Assistente Inteligente para Licitações e Contratações Públicas
+Sistema integrado com IA, APIs públicas e geração de documentos (Lei 14.133/2021)
+"""
+
+import streamlit as st
+import requests
+import pandas as pd
+import json
+import os
+import re
+import io
+import hashlib
+from datetime import datetime, timedelta
+from fpdf import FPDF
+
+try:
+    import PyPDF2
+    PDF_SUPPORT = True
+except ImportError:
+    PDF_SUPPORT = False
+
+# ============================================================
+# CONFIGURAÇÃO DA PÁGINA
+# ============================================================
+st.set_page_config(
+    page_title="O Babilaca (IA)",
+    page_icon="🧠",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
+
+# ============================================================
+# CSS CUSTOMIZADO
+# ============================================================
+st.markdown("""
+<style>
+    body, .main { background-color: #001a4d; color: #ffffff; }
+    .stApp { background-color: #001a4d; }
+
+    [data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #0a0a0a 0%, #1a1a1a 100%);
+        border-right: 2px solid #d4af37;
+    }
+    [data-testid="stSidebar"] label,
+    [data-testid="stSidebar"] .stText,
+    [data-testid="stSidebar"] div { color: #ffffff !important; }
+    [data-testid="stSidebar"] .stMarkdown h1,
+    [data-testid="stSidebar"] .stMarkdown h2,
+    [data-testid="stSidebar"] .stMarkdown h3 {
+        color: #d4af37; border-bottom: 2px solid #d4af37;
+        padding-bottom: 0.5rem; margin-bottom: 1rem;
+    }
+
+    .babilaca-header {
+        background: linear-gradient(135deg, #001a4d 0%, #0033cc 100%);
+        padding: 1.2rem 2rem; border-radius: 12px;
+        margin-bottom: 1.5rem; text-align: center;
+        box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+    }
+    .babilaca-header h1 { color: #d4af37; margin: 0; font-size: 2rem; }
+    .babilaca-header p { color: #cbd5e1; margin: 0.3rem 0 0; font-size: 0.95rem; }
+
+    .disclaimer-box {
+        background: rgba(212,175,55,0.12); border: 1px solid #d4af37;
+        border-radius: 8px; padding: 0.6rem 1rem; margin-bottom: 1rem;
+        color: #d4af37; font-size: 0.85rem; text-align: center;
+    }
+    .doc-card {
+        background: linear-gradient(135deg, #0a1628 0%, #132244 100%);
+        border: 1px solid #1e3a5f; border-radius: 10px; padding: 1.2rem;
+        margin-bottom: 1rem; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
+    .doc-card h4 { color: #d4af37; margin-top: 0; }
+    .doc-card p  { color: #cbd5e1; font-size: 0.9rem; }
+
+    .alert-card {
+        border-radius: 10px; padding: 1rem; margin: 0.5rem 0;
+        border-left: 4px solid; color: #ffffff;
+    }
+    .alert-high   { background: rgba(220,38,38,0.15); border-color: #dc2626; }
+    .alert-medium { background: rgba(245,158,11,0.15); border-color: #f59e0b; }
+    .alert-low    { background: rgba(34,197,94,0.15); border-color: #22c55e; }
+    .alert-info   { background: rgba(59,130,246,0.15); border-color: #3b82f6; }
+
+    .stat-card {
+        background: linear-gradient(135deg, #0a1628 0%, #132244 100%);
+        border: 1px solid #1e3a5f; border-radius: 10px; padding: 1rem;
+        text-align: center;
+    }
+    .stat-card .valor { color: #d4af37; font-size: 1.8rem; font-weight: bold; }
+    .stat-card .label { color: #94a3b8; font-size: 0.8rem; }
+
+    div[data-testid="stChatMessage"] { background: rgba(10,22,40,0.6) !important; border-radius: 10px; }
+</style>
+""", unsafe_allow_html=True)
+
+# ============================================================
+# CONSTANTES
+# ============================================================
+OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
+MEMORIA_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "babilaca_memoria.json")
+
+MODELOS_DISPONIVEIS = {
+    "Google Gemini 2.0 Flash": "google/gemini-2.0-flash-001",
+    "Google Gemini 2.5 Flash (Preview)": "google/gemini-2.5-flash-preview",
+    "DeepSeek Chat V3": "deepseek/deepseek-chat-v3-0324",
+    "Meta Llama 3.1 70B": "meta-llama/llama-3.1-70b-instruct",
+    "OpenAI GPT-4o Mini": "openai/gpt-4o-mini",
+}
+
+# ============================================================
+# INICIALIZAÇÃO DO SESSION STATE
+# ============================================================
+_defaults = {
+    "babilaca_messages": [],
+    "babilaca_api_key": os.environ.get(
+        "OPENROUTER_API_KEY",
+        "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",
+    ),
+    "babilaca_modelo": "google/gemini-2.0-flash-001",
+    "babilaca_alertas": [],
+    "babilaca_docs_gerados": [],
+    "babilaca_preferencias": {},
+    "babilaca_respostas_salvas": [],
+}
+for k, v in _defaults.items():
+    if k not in st.session_state:
+        st.session_state[k] = v
+
+# ============================================================
+# BASE JURÍDICA (RAG SIMPLIFICADO)
+# ============================================================
+BASE_JURIDICA = [
+    # --- Lei 14.133/2021 ---
+    {
+        "fonte": "Lei 14.133/2021",
+        "artigo": "Art. 6°",
+        "titulo": "Definições",
+        "conteudo": (
+            "Define os conceitos fundamentais: obra, serviço, compra, alienação, "
+            "contratação direta, licitação, pregão, concorrência, diálogo competitivo, "
+            "sistema de registro de preços, ata de registro de preços, entre outros."
+        ),
+        "link": "https://www.planalto.gov.br/ccivil_03/_ato2019-2022/2021/lei/l14133.htm#art6",
+        "palavras_chave": [
+            "definição", "conceito", "obra", "serviço", "compra", "contratação",
+            "licitação", "pregão", "concorrência", "registro de preços", "ata",
+        ],
+    },
+    {
+        "fonte": "Lei 14.133/2021",
+        "artigo": "Art. 11",
+        "titulo": "Objetivos do processo licitatório",
+        "conteudo": (
+            "O processo licitatório tem por objetivos: I – assegurar a seleção da proposta "
+            "apta a gerar o resultado de contratação mais vantajoso para a Administração "
+            "Pública; II – assegurar tratamento isonômico entre os licitantes e justa "
+            "competição; III – evitar contratações com sobrepreço ou com preços "
+            "manifestamente inexequíveis e superfaturamento; IV – incentivar a inovação "
+            "e o desenvolvimento nacional sustentável."
+        ),
+        "link": "https://www.planalto.gov.br/ccivil_03/_ato2019-2022/2021/lei/l14133.htm#art11",
+        "palavras_chave": [
+            "objetivo", "vantajoso", "isonomia", "competição", "sobrepreço",
+            "inexequível", "superfaturamento", "inovação", "sustentável",
+        ],
+    },
+    {
+        "fonte": "Lei 14.133/2021",
+        "artigo": "Art. 28",
+        "titulo": "Modalidades de licitação",
+        "conteudo": (
+            "São modalidades de licitação: I – pregão; II – concorrência; "
+            "III – concurso; IV – leilão; V – diálogo competitivo. "
+            "O pregão é obrigatório para aquisição de bens e serviços comuns. "
+            "A concorrência aplica-se a obras, serviços especiais e bens especiais. "
+            "O diálogo competitivo é para contratações em que a Administração "
+            "necessita realizar diálogos com licitantes previamente selecionados."
+        ),
+        "link": "https://www.planalto.gov.br/ccivil_03/_ato2019-2022/2021/lei/l14133.htm#art28",
+        "palavras_chave": [
+            "modalidade", "pregão", "concorrência", "concurso", "leilão",
+            "diálogo competitivo", "bens comuns", "serviços comuns",
+        ],
+    },
+    {
+        "fonte": "Lei 14.133/2021",
+        "artigo": "Art. 23",
+        "titulo": "Pesquisa de preços",
+        "conteudo": (
+            "O valor previamente estimado da contratação deverá ser compatível com "
+            "os valores praticados pelo mercado, considerados os preços constantes de "
+            "bancos de dados públicos e as quantidades a serem contratadas. "
+            "A pesquisa de preços deve observar parâmetros definidos em regulamento."
+        ),
+        "link": "https://www.planalto.gov.br/ccivil_03/_ato2019-2022/2021/lei/l14133.htm#art23",
+        "palavras_chave": [
+            "preço", "estimado", "mercado", "pesquisa", "orçamento",
+            "banco de dados", "valor estimado", "cotação",
+        ],
+    },
+    {
+        "fonte": "Lei 14.133/2021",
+        "artigo": "Art. 72",
+        "titulo": "Fase preparatória — Planejamento",
+        "conteudo": (
+            "O processo de contratação terá as seguintes fases: "
+            "I – preparatória; II – de divulgação do edital de licitação; "
+            "III – de apresentação de propostas e lances; IV – de julgamento; "
+            "V – de habilitação; VI – recursal; VII – de homologação. "
+            "A fase preparatória compreende o estudo técnico preliminar, "
+            "o gerenciamento de riscos, o termo de referência ou projeto básico, "
+            "e o orçamento estimado."
+        ),
+        "link": "https://www.planalto.gov.br/ccivil_03/_ato2019-2022/2021/lei/l14133.htm#art72",
+        "palavras_chave": [
+            "fase", "preparatória", "edital", "proposta", "lance",
+            "julgamento", "habilitação", "recurso", "homologação",
+            "estudo técnico", "termo de referência", "planejamento",
+        ],
+    },
+    {
+        "fonte": "Lei 14.133/2021",
+        "artigo": "Art. 75",
+        "titulo": "Contratação direta — Dispensa e inexigibilidade",
+        "conteudo": (
+            "É dispensável a licitação em diversas hipóteses, incluindo: "
+            "contratação de valor até R$ 59.906,02 para obras e serviços de engenharia "
+            "(atualizado pelo Decreto 12.343/2024); até R$ 59.906,02 para outros serviços "
+            "e compras; em caso de emergência ou calamidade pública; "
+            "quando não acudirem interessados à licitação anterior. "
+            "É inexigível a licitação quando houver inviabilidade de competição, "
+            "como fornecedor exclusivo, profissional de notória especialização ou "
+            "artista consagrado."
+        ),
+        "link": "https://www.planalto.gov.br/ccivil_03/_ato2019-2022/2021/lei/l14133.htm#art75",
+        "palavras_chave": [
+            "dispensa", "inexigibilidade", "contratação direta", "emergência",
+            "valor", "limite", "fornecedor exclusivo", "notória especialização",
+        ],
+    },
+    {
+        "fonte": "Lei 14.133/2021",
+        "artigo": "Art. 82",
+        "titulo": "Sistema de Registro de Preços (SRP)",
+        "conteudo": (
+            "O Sistema de Registro de Preços pode ser adotado quando: "
+            "I – pelas características do bem ou serviço, houver necessidade de "
+            "contratações frequentes; II – for mais conveniente aquisição com previsão "
+            "de entregas parceladas; III – for conveniente para atendimento a mais de "
+            "um órgão ou entidade; IV – pela natureza do objeto, não for possível "
+            "definir previamente o quantitativo a ser demandado. "
+            "A ata de registro de preços terá prazo de validade de até 1 ano, "
+            "prorrogável por igual período."
+        ),
+        "link": "https://www.planalto.gov.br/ccivil_03/_ato2019-2022/2021/lei/l14133.htm#art82",
+        "palavras_chave": [
+            "registro de preços", "SRP", "ata", "adesão", "carona",
+            "frequente", "parcelada", "prazo", "validade",
+        ],
+    },
+    {
+        "fonte": "Lei 14.133/2021",
+        "artigo": "Art. 95",
+        "titulo": "Formalização dos contratos",
+        "conteudo": (
+            "O contrato deverá conter cláusulas que definam: o objeto e seus elementos "
+            "característicos; a vinculação ao edital; a legislação aplicável; "
+            "o regime de execução; o preço e condições de pagamento; "
+            "os prazos; os direitos e obrigações das partes; "
+            "a matriz de riscos (quando aplicável); as penalidades."
+        ),
+        "link": "https://www.planalto.gov.br/ccivil_03/_ato2019-2022/2021/lei/l14133.htm#art95",
+        "palavras_chave": [
+            "contrato", "cláusula", "objeto", "preço", "pagamento",
+            "prazo", "obrigação", "penalidade", "risco", "formalização",
+        ],
+    },
+    {
+        "fonte": "Lei 14.133/2021",
+        "artigo": "Art. 155-163",
+        "titulo": "Sanções administrativas",
+        "conteudo": (
+            "O licitante ou contratado será responsabilizado administrativamente: "
+            "advertência; multa (não inferior a 0,5% nem superior a 30% do valor contratado); "
+            "impedimento de licitar e contratar (até 3 anos); "
+            "declaração de inidoneidade (3 a 6 anos). "
+            "As sanções devem ser aplicadas com observância ao contraditório e ampla defesa."
+        ),
+        "link": "https://www.planalto.gov.br/ccivil_03/_ato2019-2022/2021/lei/l14133.htm#art155",
+        "palavras_chave": [
+            "sanção", "penalidade", "multa", "impedimento", "inidoneidade",
+            "advertência", "infração", "punição",
+        ],
+    },
+    # --- Instruções Normativas ---
+    {
+        "fonte": "IN SEGES/ME nº 65/2021",
+        "artigo": "Arts. 1° a 10",
+        "titulo": "Pesquisa de preços para contratações",
+        "conteudo": (
+            "Estabelece procedimentos para pesquisa de preços: "
+            "I – Painel de Preços ou banco de preços em saúde (parâmetro preferencial); "
+            "II – Aquisições e contratações similares de outros entes públicos; "
+            "III – Dados de pesquisa publicada em mídia especializada, sítios eletrônicos "
+            "especializados ou de domínio amplo; "
+            "IV – Pesquisa direta com fornecedores. "
+            "Deve-se utilizar no mínimo 3 preços. "
+            "Devem ser desconsiderados preços inexequíveis ou excessivamente elevados."
+        ),
+        "link": "https://www.gov.br/compras/pt-br/acesso-a-informacao/legislacao/instrucoes-normativas/instrucao-normativa-no-65-de-7-de-julho-de-2021",
+        "palavras_chave": [
+            "pesquisa de preços", "IN 65", "painel de preços", "cotação",
+            "fornecedor", "parâmetro", "mínimo", "preço inexequível",
+        ],
+    },
+    {
+        "fonte": "IN SEGES/ME nº 58/2022",
+        "artigo": "Planejamento da contratação",
+        "titulo": "Planejamento das contratações",
+        "conteudo": (
+            "Disciplina o planejamento das contratações, o Plano de Contratações Anual "
+            "(PCA) e o Documento de Formalização de Demanda (DFD). "
+            "O DFD deve conter: justificativa da necessidade, quantidade estimada, "
+            "previsão de data, grau de prioridade e indicação do requisitante. "
+            "O Estudo Técnico Preliminar (ETP) deve analisar a viabilidade, "
+            "os riscos e as alternativas de contratação."
+        ),
+        "link": "https://www.gov.br/compras/pt-br/acesso-a-informacao/legislacao/instrucoes-normativas/instrucao-normativa-seges-me-no-58-de-8-de-agosto-de-2022",
+        "palavras_chave": [
+            "planejamento", "PCA", "DFD", "demanda", "ETP",
+            "estudo técnico", "viabilidade", "prioridade", "IN 58",
+        ],
+    },
+    {
+        "fonte": "IN SEGES/ME nº 73/2022",
+        "artigo": "Sanções e cadastro",
+        "titulo": "Procedimentos para aplicação de sanções",
+        "conteudo": (
+            "Regulamenta o procedimento administrativo para aplicação de sanções, "
+            "o registro no SICAF, e o cadastro de fornecedores impedidos e inidôneos. "
+            "Define prazos, critérios de dosimetria e procedimentos para ampla defesa."
+        ),
+        "link": "https://www.gov.br/compras/pt-br/acesso-a-informacao/legislacao/instrucoes-normativas",
+        "palavras_chave": [
+            "sanção", "SICAF", "cadastro", "impedido", "inidôneo",
+            "dosimetria", "defesa", "IN 73",
+        ],
+    },
+    # --- Acórdãos TCU ---
+    {
+        "fonte": "TCU — Acórdão 1.793/2011-Plenário",
+        "artigo": "",
+        "titulo": "Pesquisa de preços ampla",
+        "conteudo": (
+            "O TCU firmou entendimento de que a pesquisa de preços deve contemplar "
+            "diversas fontes, incluindo contratações públicas anteriores, mídia "
+            "especializada e pesquisa direta com fornecedores, para que o preço "
+            "estimado reflita adequadamente os valores de mercado."
+        ),
+        "link": "https://pesquisa.apps.tcu.gov.br/",
+        "palavras_chave": [
+            "TCU", "pesquisa de preços", "fontes", "mercado", "acórdão",
+        ],
+    },
+    {
+        "fonte": "TCU — Acórdão 2.170/2007-Plenário",
+        "artigo": "",
+        "titulo": "Sobrepreço e superfaturamento",
+        "conteudo": (
+            "O TCU considera sobrepreço quando o preço contratado supera o preço "
+            "de referência (mediana de mercado). Superfaturamento ocorre quando há "
+            "medição ou pagamento indevido. Ambos configuram dano ao erário e "
+            "podem ensejar aplicação de sanções."
+        ),
+        "link": "https://pesquisa.apps.tcu.gov.br/",
+        "palavras_chave": [
+            "sobrepreço", "superfaturamento", "dano ao erário", "mediana",
+            "TCU", "referência",
+        ],
+    },
+    {
+        "fonte": "TCU — Acórdão 2.861/2008-Plenário",
+        "artigo": "",
+        "titulo": "Fracionamento de despesa",
+        "conteudo": (
+            "O TCU entende que o fracionamento de despesa com vistas a fugir da "
+            "modalidade licitatória adequada configura irregularidade grave. "
+            "O planejamento deve considerar todas as necessidades do exercício."
+        ),
+        "link": "https://pesquisa.apps.tcu.gov.br/",
+        "palavras_chave": [
+            "fracionamento", "despesa", "modalidade", "irregular",
+            "planejamento", "TCU",
+        ],
+    },
+    {
+        "fonte": "TCU — Acórdão 1.224/2020-Plenário",
+        "artigo": "",
+        "titulo": "Contratação direta — Justificativa do preço",
+        "conteudo": (
+            "Nas contratações diretas (dispensa e inexigibilidade), é indispensável "
+            "a justificativa detalhada do preço, demonstrando que o valor é compatível "
+            "com o mercado. A ausência de justificativa de preço é irregularidade grave."
+        ),
+        "link": "https://pesquisa.apps.tcu.gov.br/",
+        "palavras_chave": [
+            "contratação direta", "dispensa", "inexigibilidade",
+            "justificativa de preço", "mercado", "TCU",
+        ],
+    },
+]
+
+
+def buscar_base_juridica(pergunta: str, top_n: int = 5) -> list[dict]:
+    """Busca os trechos mais relevantes da base jurídica para a pergunta."""
+    tokens = set(re.findall(r"\w+", pergunta.lower()))
+    scored = []
+    for item in BASE_JURIDICA:
+        kws = set(w.lower() for w in item["palavras_chave"])
+        all_text = (item["conteudo"] + " " + item["titulo"]).lower()
+        score = sum(1 for t in tokens if any(t in kw for kw in kws))
+        score += sum(0.3 for t in tokens if t in all_text)
+        if score > 0:
+            scored.append((score, item))
+    scored.sort(key=lambda x: x[0], reverse=True)
+    return [s[1] for s in scored[:top_n]]
+
+
+# ============================================================
+# FUNÇÕES DE API (TOOLS)
+# ============================================================
+
+def buscar_licitacoes(palavra_chave: str, pagina: int = 1) -> dict:
+    """Busca licitações no PNCP."""
+    try:
+        hoje = datetime.now()
+        inicio = (hoje - timedelta(days=90)).strftime("%Y%m%d")
+        fim = hoje.strftime("%Y%m%d")
+        resp = requests.get(
+            "https://pncp.gov.br/api/consulta/v1/contratacoes/publicacao",
+            params={
+                "dataInicial": inicio,
+                "dataFinal": fim,
+                "pagina": pagina,
+                "tamanhoPagina": 10,
+            },
+            timeout=15,
+        )
+        if resp.status_code == 200:
+            data = resp.json()
+            # Filtrar por palavra-chave localmente se a API não suportar
+            if palavra_chave:
+                kw = palavra_chave.lower()
+                if isinstance(data, list):
+                    data = [
+                        i for i in data
+                        if kw in json.dumps(i, ensure_ascii=False).lower()
+                    ]
+                elif isinstance(data, dict) and "data" in data:
+                    data["data"] = [
+                        i for i in data.get("data", [])
+                        if kw in json.dumps(i, ensure_ascii=False).lower()
+                    ]
+            return {"sucesso": True, "dados": data, "fonte": "PNCP"}
+        return {"sucesso": False, "erro": f"HTTP {resp.status_code}"}
+    except Exception as e:
+        return {"sucesso": False, "erro": str(e)}
+
+
+def buscar_atas(item_codigo: str = "", descricao: str = "", pagina: int = 1) -> dict:
+    """Busca atas de registro de preços no ComprasGov."""
+    try:
+        params = {"tamanhoPagina": 10, "pagina": pagina}
+        if item_codigo:
+            params["codigoItemCatalogoMaterial"] = item_codigo
+        if descricao:
+            params["descricaoItem"] = descricao
+        resp = requests.get(
+            "https://dadosabertos.compras.gov.br/modulo-arp/2_consultarARPItem",
+            params=params,
+            timeout=15,
+        )
+        if resp.status_code == 200:
+            return {"sucesso": True, "dados": resp.json(), "fonte": "ComprasGov – Atas (ARP)"}
+        return {"sucesso": False, "erro": f"HTTP {resp.status_code}"}
+    except Exception as e:
+        return {"sucesso": False, "erro": str(e)}
+
+
+def consultar_fornecedor(cnpj: str) -> dict:
+    """Consulta dados do fornecedor via OpenCNPJ + BrasilAPI."""
+    cnpj_limpo = re.sub(r"[./-]", "", cnpj.strip())
+    resultado: dict = {"cnpj": cnpj_limpo, "sucesso": False}
+    # Tentativa 1 — OpenCNPJ
+    try:
+        resp = requests.get(f"https://api.opencnpj.org/{cnpj_limpo}", timeout=8)
+        if resp.status_code == 200:
+            resultado.update({"sucesso": True, "dados": resp.json(), "fonte": "OpenCNPJ"})
+            return resultado
+    except Exception:
+        pass
+    # Tentativa 2 — BrasilAPI
+    try:
+        resp = requests.get(
+            f"https://brasilapi.com.br/api/cnpj/v1/{cnpj_limpo}", timeout=8
+        )
+        if resp.status_code == 200:
+            resultado.update({"sucesso": True, "dados": resp.json(), "fonte": "BrasilAPI"})
+            return resultado
+    except Exception:
+        pass
+    resultado["erro"] = "Não foi possível consultar o CNPJ nas APIs disponíveis."
+    return resultado
+
+
+def buscar_fornecedores_cnae(cnae: str, pagina: int = 1) -> dict:
+    """Busca fornecedores por CNAE no ComprasGov."""
+    try:
+        resp = requests.get(
+            "https://dadosabertos.compras.gov.br/modulo-fornecedor/1_consultarFornecedor",
+            params={"cnae": cnae, "tamanhoPagina": 10, "pagina": pagina},
+            timeout=15,
+        )
+        if resp.status_code == 200:
+            return {"sucesso": True, "dados": resp.json(), "fonte": "ComprasGov – Fornecedores"}
+        return {"sucesso": False, "erro": f"HTTP {resp.status_code}"}
+    except Exception as e:
+        return {"sucesso": False, "erro": str(e)}
+
+
+def buscar_precos_mercado(descricao: str) -> dict:
+    """Busca preços de mercado via atas de registro de preços."""
+    resultado = buscar_atas(descricao=descricao)
+    if resultado.get("sucesso"):
+        dados = resultado.get("dados", [])
+        if isinstance(dados, dict):
+            dados = dados.get("resultado", dados.get("data", []))
+        precos = []
+        for item in (dados if isinstance(dados, list) else []):
+            preco = item.get("valorUnitario") or item.get("precoUnitario")
+            if preco:
+                precos.append(float(preco))
+        if precos:
+            return {
+                "sucesso": True,
+                "quantidade": len(precos),
+                "menor": min(precos),
+                "maior": max(precos),
+                "media": sum(precos) / len(precos),
+                "mediana": sorted(precos)[len(precos) // 2],
+                "precos": precos[:20],
+                "fonte": "ComprasGov – Atas (ARP)",
+            }
+    return {"sucesso": False, "erro": "Nenhum preço encontrado para o item."}
+
+
+# ============================================================
+# UTILIDADES — EXTRAÇÃO DE TEXTO
+# ============================================================
+
+def extrair_texto_pdf(arquivo) -> str:
+    """Extrai texto de um arquivo PDF enviado pelo usuário."""
+    if not PDF_SUPPORT:
+        return "[PyPDF2 não instalado — execute: pip install PyPDF2]"
+    try:
+        reader = PyPDF2.PdfReader(arquivo)
+        textos = []
+        for page in reader.pages:
+            t = page.extract_text()
+            if t:
+                textos.append(t)
+        return "\n".join(textos) if textos else "[Não foi possível extrair texto do PDF]"
+    except Exception as e:
+        return f"[Erro ao ler PDF: {e}]"
+
+
+def extrair_dados_excel(arquivo) -> tuple[str, pd.DataFrame | None]:
+    """Extrai dados de um arquivo Excel."""
+    try:
+        df = pd.read_excel(arquivo, engine="openpyxl")
+        resumo = f"Planilha com {len(df)} linhas e {len(df.columns)} colunas.\n"
+        resumo += f"Colunas: {', '.join(df.columns.astype(str))}\n"
+        resumo += f"Primeiras linhas:\n{df.head(10).to_string()}"
+        return resumo, df
+    except Exception as e:
+        return f"[Erro ao ler Excel: {e}]", None
+
+
+# ============================================================
+# COMUNICAÇÃO COM IA (OPENROUTER)
+# ============================================================
+
+SYSTEM_PROMPT = """Você é **O Babilaca**, um assistente jurídico inteligente especializado em licitações e contratações públicas brasileiras, com foco na Lei 14.133/2021.
+
+REGRAS OBRIGATÓRIAS:
+1. Baseie-se SEMPRE em fontes reais e verificáveis.
+2. Cite artigos de lei, instruções normativas e acórdãos quando aplicável.
+3. Forneça links oficiais sempre que possível.
+4. NUNCA invente informações, citações ou números de artigos.
+5. Se não souber, diga claramente.
+6. Responda sempre em português brasileiro.
+7. Destaque trechos relevantes da legislação com **negrito** ou > citação.
+8. Quando utilizar dados de APIs, indique a fonte.
+
+AVISO: Você é uma ferramenta de apoio. Recomende sempre que o usuário confirme nas fontes oficiais.
+
+{contexto_juridico}
+
+{dados_api}"""
+
+
+def _build_system_prompt(contexto_items: list[dict], dados_api: str = "") -> str:
+    if contexto_items:
+        partes = ["CONTEXTO JURÍDICO DISPONÍVEL:"]
+        for item in contexto_items:
+            partes.append(
+                f"**{item['fonte']} — {item.get('artigo','')} {item['titulo']}**\n"
+                f"{item['conteudo']}\n"
+                f"🔗 {item['link']}"
+            )
+        ctx = "\n\n".join(partes)
+    else:
+        ctx = ""
+    api_section = f"DADOS DE APIs:\n{dados_api}" if dados_api else ""
+    return SYSTEM_PROMPT.format(contexto_juridico=ctx, dados_api=api_section)
+
+
+def chamar_ia(
+    mensagens: list[dict],
+    system_prompt: str,
+    modelo: str | None = None,
+    temperatura: float = 0.3,
+) -> str:
+    """Envia mensagens ao OpenRouter e retorna a resposta."""
+    api_key = st.session_state.get("babilaca_api_key", "")
+    if not api_key:
+        return "⚠️ Chave de API não configurada. Acesse a aba **Configurações**."
+    model = modelo or st.session_state.get("babilaca_modelo", "google/gemini-2.0-flash-001")
+    payload = {
+        "model": model,
+        "messages": [{"role": "system", "content": system_prompt}] + mensagens,
+        "temperature": temperatura,
+        "max_tokens": 4096,
+    }
+    try:
+        resp = requests.post(
+            OPENROUTER_URL,
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+                "HTTP-Referer": "https://atacotada.streamlit.app",
+                "X-Title": "AtaCotada – O Babilaca",
+            },
+            json=payload,
+            timeout=60,
+        )
+        if resp.status_code == 200:
+            data = resp.json()
+            return data["choices"][0]["message"]["content"]
+        return f"⚠️ Erro na API (HTTP {resp.status_code}): {resp.text[:300]}"
+    except requests.Timeout:
+        return "⚠️ Tempo limite da requisição excedido. Tente novamente."
+    except Exception as e:
+        return f"⚠️ Erro ao chamar a IA: {e}"
+
+
+# ============================================================
+# ROTEAMENTO DE INTENÇÃO
+# ============================================================
+
+def extrair_cnpj(texto: str) -> str | None:
+    m = re.search(r"\d{2}\.?\d{3}\.?\d{3}/?\d{4}-?\d{2}", texto)
+    return re.sub(r"[./-]", "", m.group()) if m else None
+
+
+def analisar_intencao(msg: str) -> list[str]:
+    """Determina quais APIs chamar com base na mensagem."""
+    low = msg.lower()
+    acoes = []
+    if any(k in low for k in ["licitação", "licitacao", "pregão", "pregao", "edital", "contratação pública"]):
+        acoes.append("buscar_licitacoes")
+    if any(k in low for k in ["ata de registro", "ata ", "adesão", "adesao", "srp", "registro de preço"]):
+        acoes.append("buscar_atas")
+    if extrair_cnpj(msg):
+        acoes.append("consultar_fornecedor")
+    if any(k in low for k in ["fornecedor", "empresa", "cnae"]):
+        if "consultar_fornecedor" not in acoes:
+            acoes.append("buscar_fornecedores")
+    if any(k in low for k in ["preço", "preco", "cotação", "cotacao", "valor de mercado", "quanto custa"]):
+        acoes.append("buscar_precos")
+    return acoes
+
+
+def executar_apis(msg: str, acoes: list[str]) -> str:
+    """Executa as APIs necessárias e retorna texto com resultados."""
+    partes = []
+    for acao in acoes:
+        if acao == "buscar_licitacoes":
+            palavras = re.sub(r"[^\w\s]", "", msg).strip()
+            resultado = buscar_licitacoes(palavras)
+            partes.append(f"[API — Licitações PNCP]\n{json.dumps(resultado, ensure_ascii=False, default=str)[:2000]}")
+        elif acao == "buscar_atas":
+            palavras = re.sub(r"[^\w\s]", "", msg).strip()
+            resultado = buscar_atas(descricao=palavras)
+            partes.append(f"[API — Atas ARP]\n{json.dumps(resultado, ensure_ascii=False, default=str)[:2000]}")
+        elif acao == "consultar_fornecedor":
+            cnpj = extrair_cnpj(msg)
+            if cnpj:
+                resultado = consultar_fornecedor(cnpj)
+                partes.append(f"[API — Fornecedor {cnpj}]\n{json.dumps(resultado, ensure_ascii=False, default=str)[:2000]}")
+        elif acao == "buscar_fornecedores":
+            pass  # Requer CNAE específico; tratado via chat interativo
+        elif acao == "buscar_precos":
+            palavras = re.sub(r"[^\w\s]", "", msg).strip()
+            resultado = buscar_precos_mercado(palavras)
+            partes.append(f"[API — Preços de mercado]\n{json.dumps(resultado, ensure_ascii=False, default=str)[:2000]}")
+    return "\n\n".join(partes)
+
+
+# ============================================================
+# GERAÇÃO DE DOCUMENTOS
+# ============================================================
+
+def gerar_pdf_documento(titulo: str, corpo: str) -> bytes:
+    """Gera um PDF simples com título e corpo."""
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_auto_page_break(auto=True, margin=20)
+    # Título
+    pdf.set_font("Helvetica", "B", 16)
+    pdf.set_text_color(0, 26, 77)
+    pdf.cell(0, 12, titulo, ln=True, align="C")
+    pdf.ln(4)
+    pdf.set_draw_color(212, 175, 55)
+    pdf.line(20, pdf.get_y(), 190, pdf.get_y())
+    pdf.ln(8)
+    # Data
+    pdf.set_font("Helvetica", "", 9)
+    pdf.set_text_color(100, 100, 100)
+    pdf.cell(0, 6, f"Gerado em {datetime.now().strftime('%d/%m/%Y %H:%M')}", ln=True, align="R")
+    pdf.ln(4)
+    # Corpo
+    pdf.set_font("Helvetica", "", 11)
+    pdf.set_text_color(30, 30, 30)
+    for linha in corpo.split("\n"):
+        if linha.startswith("## "):
+            pdf.ln(4)
+            pdf.set_font("Helvetica", "B", 13)
+            pdf.multi_cell(0, 7, linha.replace("## ", ""))
+            pdf.set_font("Helvetica", "", 11)
+        elif linha.startswith("### "):
+            pdf.ln(2)
+            pdf.set_font("Helvetica", "B", 11)
+            pdf.multi_cell(0, 6, linha.replace("### ", ""))
+            pdf.set_font("Helvetica", "", 11)
+        elif linha.strip().startswith("- "):
+            pdf.multi_cell(0, 6, f"  \u2022 {linha.strip()[2:]}")
+        elif linha.strip() == "":
+            pdf.ln(3)
+        else:
+            pdf.multi_cell(0, 6, linha)
+    return bytes(pdf.output())
+
+
+TEMPLATE_DFD = """## DOCUMENTO DE FORMALIZAÇÃO DE DEMANDA (DFD)
+
+### 1. Identificação do Requisitante
+- Órgão/Entidade: {orgao}
+- Setor Requisitante: {setor}
+- Responsável: {responsavel}
+
+### 2. Descrição da Necessidade
+{necessidade}
+
+### 3. Justificativa da Necessidade
+{justificativa}
+
+### 4. Quantidade Estimada
+{quantidade}
+
+### 5. Previsão de Data
+- Data desejada para contratação: {data_prevista}
+
+### 6. Grau de Prioridade
+{prioridade}
+
+### 7. Vinculação ao Plano de Contratações Anual (PCA)
+{vinculacao_pca}
+
+### 8. Base Legal
+- Lei 14.133/2021, Art. 72, §1°
+- IN SEGES/ME nº 58/2022
+
+---
+Documento gerado pelo sistema O Babilaca (IA) — Ferramenta de apoio.
+Confirmar sempre nas fontes oficiais.
+"""
+
+TEMPLATE_TR = """## TERMO DE REFERÊNCIA
+
+### 1. Objeto
+{objeto}
+
+### 2. Justificativa da Contratação
+{justificativa}
+
+### 3. Descrição Detalhada / Especificações
+{especificacoes}
+
+### 4. Quantidades e Unidades
+{quantidades}
+
+### 5. Valor Estimado
+{valor_estimado}
+
+### 6. Condições de Entrega / Execução
+{condicoes_entrega}
+
+### 7. Prazo de Execução / Vigência
+{prazo}
+
+### 8. Condições de Pagamento
+{pagamento}
+
+### 9. Critério de Julgamento
+{criterio_julgamento}
+
+### 10. Penalidades
+Conforme previsto na Lei 14.133/2021, Arts. 155 a 163.
+
+### 11. Base Legal
+- Lei 14.133/2021
+- IN SEGES/ME nº 65/2021
+
+---
+Documento gerado pelo sistema O Babilaca (IA) — Ferramenta de apoio.
+Confirmar sempre nas fontes oficiais.
+"""
+
+TEMPLATE_JUSTIFICATIVA = """## JUSTIFICATIVA DE CONTRATAÇÃO
+
+### 1. Contextualização
+{contexto}
+
+### 2. Necessidade da Contratação
+{necessidade}
+
+### 3. Análise de Mercado
+{analise_mercado}
+
+### 4. Justificativa do Preço
+{justificativa_preco}
+
+### 5. Modalidade Sugerida
+{modalidade}
+
+### 6. Fundamentação Legal
+{fundamentacao}
+
+### 7. Conclusão
+{conclusao}
+
+---
+Documento gerado pelo sistema O Babilaca (IA) — Ferramenta de apoio.
+Confirmar sempre nas fontes oficiais.
+"""
+
+
+def gerar_mapa_comparativo_pdf(itens: list[dict]) -> bytes:
+    """Gera PDF de mapa comparativo de preços."""
+    pdf = FPDF("L")  # Paisagem
+    pdf.add_page()
+    pdf.set_font("Helvetica", "B", 14)
+    pdf.set_text_color(0, 26, 77)
+    pdf.cell(0, 10, "MAPA COMPARATIVO DE PREÇOS", ln=True, align="C")
+    pdf.ln(2)
+    pdf.set_font("Helvetica", "", 9)
+    pdf.set_text_color(100, 100, 100)
+    pdf.cell(0, 6, f"Gerado em {datetime.now().strftime('%d/%m/%Y %H:%M')}", ln=True, align="R")
+    pdf.ln(4)
+
+    # Cabeçalho da tabela
+    pdf.set_fill_color(0, 26, 77)
+    pdf.set_text_color(255, 255, 255)
+    pdf.set_font("Helvetica", "B", 9)
+    colunas = ["Item", "Descrição", "Forn. 1", "Forn. 2", "Forn. 3", "Média", "Mediana"]
+    larguras = [12, 70, 35, 35, 35, 35, 35]
+    for col, larg in zip(colunas, larguras):
+        pdf.cell(larg, 8, col, border=1, align="C", fill=True)
+    pdf.ln()
+
+    pdf.set_text_color(30, 30, 30)
+    pdf.set_font("Helvetica", "", 9)
+    for i, item in enumerate(itens, 1):
+        precos = [item.get("preco1", 0), item.get("preco2", 0), item.get("preco3", 0)]
+        validos = [p for p in precos if p > 0]
+        media = sum(validos) / len(validos) if validos else 0
+        mediana = sorted(validos)[len(validos) // 2] if validos else 0
+        pdf.cell(12, 7, str(i), border=1, align="C")
+        pdf.cell(70, 7, str(item.get("descricao", ""))[:45], border=1)
+        for p in precos:
+            pdf.cell(35, 7, f"R$ {p:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".") if p else "-", border=1, align="R")
+        pdf.cell(35, 7, f"R$ {media:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".") if media else "-", border=1, align="R")
+        pdf.cell(35, 7, f"R$ {mediana:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".") if mediana else "-", border=1, align="R")
+        pdf.ln()
+
+    pdf.ln(6)
+    pdf.set_font("Helvetica", "I", 8)
+    pdf.set_text_color(120, 120, 120)
+    pdf.cell(0, 5, "Documento gerado pelo sistema O Babilaca (IA) — Ferramenta de apoio. Confirmar sempre nas fontes oficiais.", ln=True)
+    return bytes(pdf.output())
+
+
+# ============================================================
+# ANÁLISE INTELIGENTE
+# ============================================================
+
+def analisar_sobrepreco(precos: list[float], valor_referencia: float) -> dict:
+    """Detecta possível sobrepreço comparando com média/mediana."""
+    if not precos:
+        return {"analise": "Dados insuficientes para análise."}
+    media = sum(precos) / len(precos)
+    mediana = sorted(precos)[len(precos) // 2]
+    desvio_media = ((valor_referencia - media) / media * 100) if media else 0
+    desvio_mediana = ((valor_referencia - mediana) / mediana * 100) if mediana else 0
+    if desvio_mediana > 30:
+        risco = "🔴 ALTO"
+        msg = "Valor significativamente acima da mediana de mercado."
+    elif desvio_mediana > 15:
+        risco = "🟡 MÉDIO"
+        msg = "Valor acima da mediana. Recomenda-se justificativa detalhada."
+    elif desvio_mediana > 0:
+        risco = "🟢 BAIXO"
+        msg = "Valor ligeiramente acima da mediana, dentro da faixa aceitável."
+    else:
+        risco = "🟢 OK"
+        msg = "Valor igual ou abaixo da mediana de mercado."
+    return {
+        "risco": risco,
+        "mensagem": msg,
+        "media": media,
+        "mediana": mediana,
+        "desvio_media_pct": round(desvio_media, 2),
+        "desvio_mediana_pct": round(desvio_mediana, 2),
+        "valor_referencia": valor_referencia,
+    }
+
+
+def classificar_risco_juridico(descricao_cenario: str) -> str:
+    """Usa IA para classificar o risco jurídico de um cenário."""
+    prompt_risco = (
+        "Analise o cenário de contratação pública abaixo e classifique o risco jurídico "
+        "em BAIXO, MÉDIO ou ALTO. Justifique com base na Lei 14.133/2021 e jurisprudência do TCU.\n\n"
+        f"CENÁRIO: {descricao_cenario}"
+    )
+    ctx = buscar_base_juridica(descricao_cenario)
+    system = _build_system_prompt(ctx)
+    return chamar_ia([{"role": "user", "content": prompt_risco}], system)
+
+
+# ============================================================
+# SISTEMA DE ALERTAS
+# ============================================================
+
+def verificar_alertas(palavras_chave: list[str] | None = None) -> list[dict]:
+    """Verifica alertas proativos consultando APIs."""
+    alertas = []
+    # 1. Novas licitações
+    if palavras_chave:
+        for kw in palavras_chave[:3]:
+            res = buscar_licitacoes(kw)
+            if res.get("sucesso"):
+                dados = res["dados"]
+                qtd = len(dados) if isinstance(dados, list) else len(dados.get("data", [])) if isinstance(dados, dict) else 0
+                if qtd > 0:
+                    alertas.append({
+                        "tipo": "info",
+                        "titulo": f"Novas licitações: '{kw}'",
+                        "descricao": f"Encontradas {qtd} licitação(ões) nos últimos 90 dias.",
+                        "data": datetime.now().isoformat(),
+                    })
+    # 2. Alerta padrão de legislação
+    alertas.append({
+        "tipo": "info",
+        "titulo": "Atualização legislativa",
+        "descricao": (
+            "Verifique regularmente o Portal Nacional de Contratações Públicas (PNCP) "
+            "e o DOU para atualizações na regulamentação da Lei 14.133/2021."
+        ),
+        "data": datetime.now().isoformat(),
+    })
+    return alertas
+
+
+# ============================================================
+# SISTEMA DE MEMÓRIA
+# ============================================================
+
+def carregar_memoria() -> dict:
+    if os.path.exists(MEMORIA_PATH):
+        try:
+            with open(MEMORIA_PATH, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            pass
+    return {"preferencias": {}, "respostas_salvas": [], "alertas_palavras": []}
+
+
+def salvar_memoria(dados: dict):
+    try:
+        with open(MEMORIA_PATH, "w", encoding="utf-8") as f:
+            json.dump(dados, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
+
+
+def salvar_resposta(pergunta: str, resposta: str):
+    mem = carregar_memoria()
+    mem["respostas_salvas"].append({
+        "pergunta": pergunta,
+        "resposta": resposta,
+        "data": datetime.now().isoformat(),
+    })
+    salvar_memoria(mem)
+
+
+# ============================================================
+# HEADER
+# ============================================================
+st.markdown("""
+<div class="babilaca-header">
+    <h1>🧠 O Babilaca (IA)</h1>
+    <p>Assistente Inteligente para Licitações e Contratações Públicas — Lei 14.133/2021</p>
+</div>
+<div class="disclaimer-box">
+    ⚠️ Ferramenta de apoio. Confirmar sempre nas fontes oficiais.
+</div>
+""", unsafe_allow_html=True)
+
+# ============================================================
+# ABAS PRINCIPAIS
+# ============================================================
+tab_chat, tab_docs, tab_consultas, tab_alertas, tab_config = st.tabs([
+    "💬 Chat IA",
+    "📄 Documentos",
+    "🔍 Consultas (APIs)",
+    "🔔 Alertas",
+    "⚙️ Configurações",
+])
+
+# ============================================================
+# TAB 1 — CHAT IA
+# ============================================================
+with tab_chat:
+    st.markdown("### 💬 Converse com o Babilaca")
+    st.caption(
+        "Pergunte sobre legislação, licitações, fornecedores, preços ou peça para gerar documentos. "
+        "O sistema busca automaticamente dados em APIs públicas quando necessário."
+    )
+
+    # Upload de arquivo no chat
+    with st.expander("📎 Enviar arquivo para contexto (PDF, Excel)", expanded=False):
+        arquivo_chat = st.file_uploader(
+            "Selecione um arquivo",
+            type=["pdf", "xlsx", "xls", "csv"],
+            key="chat_upload",
+        )
+        texto_arquivo = ""
+        if arquivo_chat:
+            if arquivo_chat.name.endswith(".pdf"):
+                texto_arquivo = extrair_texto_pdf(arquivo_chat)
+                st.success(f"PDF processado: {len(texto_arquivo)} caracteres extraídos.")
+            elif arquivo_chat.name.endswith((".xlsx", ".xls")):
+                texto_arquivo, _ = extrair_dados_excel(arquivo_chat)
+                st.success("Planilha processada.")
+            elif arquivo_chat.name.endswith(".csv"):
+                try:
+                    df_csv = pd.read_csv(arquivo_chat)
+                    texto_arquivo = f"CSV com {len(df_csv)} linhas.\nColunas: {', '.join(df_csv.columns)}\n{df_csv.head(10).to_string()}"
+                    st.success("CSV processado.")
+                except Exception as e:
+                    texto_arquivo = f"[Erro ao ler CSV: {e}]"
+
+    # Histórico de mensagens
+    for msg in st.session_state["babilaca_messages"]:
+        with st.chat_message(msg["role"]):
+            st.markdown(msg["content"])
+
+    # Input do usuário
+    if prompt := st.chat_input("Digite sua pergunta sobre licitações, legislação ou contratações..."):
+        # Adicionar mensagem do usuário
+        st.session_state["babilaca_messages"].append({"role": "user", "content": prompt})
+        with st.chat_message("user"):
+            st.markdown(prompt)
+
+        with st.chat_message("assistant"):
+            with st.spinner("🧠 Pensando..."):
+                # 1. Buscar contexto jurídico
+                contexto = buscar_base_juridica(prompt)
+
+                # 2. Analisar intenção e chamar APIs
+                acoes = analisar_intencao(prompt)
+                dados_api = ""
+                if acoes:
+                    dados_api = executar_apis(prompt, acoes)
+
+                # 3. Contexto de arquivo (se houver)
+                if texto_arquivo:
+                    dados_api += f"\n\n[ARQUIVO ENVIADO PELO USUÁRIO]\n{texto_arquivo[:3000]}"
+
+                # 4. Montar system prompt
+                system = _build_system_prompt(contexto, dados_api)
+
+                # 5. Preparar histórico (últimas 20 mensagens)
+                historico = [
+                    {"role": m["role"], "content": m["content"]}
+                    for m in st.session_state["babilaca_messages"][-20:]
+                ]
+
+                # 6. Chamar IA
+                resposta = chamar_ia(historico, system)
+
+            st.markdown(resposta)
+
+            # Botão salvar resposta
+            col_save, col_clear = st.columns([1, 1])
+            with col_save:
+                if st.button("💾 Salvar resposta", key=f"save_{len(st.session_state['babilaca_messages'])}"):
+                    salvar_resposta(prompt, resposta)
+                    st.toast("Resposta salva na memória!")
+
+        st.session_state["babilaca_messages"].append({"role": "assistant", "content": resposta})
+
+    # Botão limpar chat
+    with st.sidebar:
+        st.markdown("### 🧠 O Babilaca")
+        if st.button("🗑️ Limpar conversa", use_container_width=True):
+            st.session_state["babilaca_messages"] = []
+            st.rerun()
+        st.markdown("---")
+        st.caption(f"Modelo: {st.session_state['babilaca_modelo']}")
+        st.caption(f"Mensagens: {len(st.session_state['babilaca_messages'])}")
+
+# ============================================================
+# TAB 2 — DOCUMENTOS
+# ============================================================
+with tab_docs:
+    st.markdown("### 📄 Geração de Documentos Administrativos")
+
+    col_doc1, col_doc2 = st.columns(2)
+    with col_doc1:
+        st.markdown("""
+        <div class="doc-card">
+            <h4>📋 DFD</h4>
+            <p>Documento de Formalização de Demanda — IN 58/2022</p>
+        </div>
+        """, unsafe_allow_html=True)
+        st.markdown("""
+        <div class="doc-card">
+            <h4>📑 Termo de Referência</h4>
+            <p>Documento com especificações para contratação — Lei 14.133, Art. 6°</p>
+        </div>
+        """, unsafe_allow_html=True)
+    with col_doc2:
+        st.markdown("""
+        <div class="doc-card">
+            <h4>📝 Justificativa</h4>
+            <p>Justificativa de contratação com base legal</p>
+        </div>
+        """, unsafe_allow_html=True)
+        st.markdown("""
+        <div class="doc-card">
+            <h4>📊 Mapa Comparativo</h4>
+            <p>Comparativo de preços entre fornecedores</p>
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown("---")
+    tipo_doc = st.selectbox(
+        "Selecione o tipo de documento",
+        ["DFD — Documento de Formalização de Demanda",
+         "Termo de Referência",
+         "Justificativa de Contratação",
+         "Mapa Comparativo de Preços"],
+    )
+
+    # ---- DFD ----
+    if "DFD" in tipo_doc:
+        st.markdown("#### 📋 Gerar DFD")
+        modo_dfd = st.radio("Modo de preenchimento", ["Manual", "Assistido por IA"], horizontal=True, key="modo_dfd")
+
+        if modo_dfd == "Manual":
+            with st.form("form_dfd"):
+                c1, c2 = st.columns(2)
+                with c1:
+                    orgao = st.text_input("Órgão/Entidade")
+                    setor = st.text_input("Setor Requisitante")
+                    responsavel = st.text_input("Responsável")
+                with c2:
+                    data_prevista = st.date_input("Data prevista")
+                    prioridade = st.selectbox("Prioridade", ["Alta", "Média", "Baixa"])
+                necessidade = st.text_area("Descrição da necessidade", height=100)
+                justificativa = st.text_area("Justificativa", height=100)
+                quantidade = st.text_input("Quantidade estimada")
+                vinculacao = st.text_input("Vinculação ao PCA (se houver)")
+                submit_dfd = st.form_submit_button("📄 Gerar DFD", use_container_width=True)
+
+            if submit_dfd:
+                corpo = TEMPLATE_DFD.format(
+                    orgao=orgao, setor=setor, responsavel=responsavel,
+                    necessidade=necessidade, justificativa=justificativa,
+                    quantidade=quantidade, data_prevista=data_prevista.strftime("%d/%m/%Y"),
+                    prioridade=prioridade, vinculacao_pca=vinculacao or "Não informado",
+                )
+                st.markdown(corpo)
+                pdf_bytes = gerar_pdf_documento("DOCUMENTO DE FORMALIZAÇÃO DE DEMANDA (DFD)", corpo)
+                st.download_button("⬇️ Baixar DFD em PDF", pdf_bytes, "dfd.pdf", "application/pdf")
+        else:
+            desc_ia = st.text_area(
+                "Descreva brevemente a necessidade de contratação e o Babilaca preencherá o DFD:",
+                height=120,
+                key="dfd_ia_input",
+            )
+            if st.button("🤖 Gerar DFD com IA", key="btn_dfd_ia"):
+                if desc_ia:
+                    with st.spinner("Gerando DFD com IA..."):
+                        prompt_dfd = (
+                            f"Gere um Documento de Formalização de Demanda (DFD) completo, "
+                            f"seguindo a IN SEGES/ME nº 58/2022, para a seguinte necessidade:\n\n"
+                            f"{desc_ia}\n\n"
+                            f"Use o formato com seções: Identificação, Necessidade, Justificativa, "
+                            f"Quantidade, Previsão de Data, Prioridade, Vinculação ao PCA."
+                        )
+                        ctx = buscar_base_juridica("DFD formalização demanda planejamento")
+                        system = _build_system_prompt(ctx)
+                        resultado = chamar_ia([{"role": "user", "content": prompt_dfd}], system)
+                    st.markdown(resultado)
+                    pdf_bytes = gerar_pdf_documento("DOCUMENTO DE FORMALIZAÇÃO DE DEMANDA (DFD)", resultado)
+                    st.download_button("⬇️ Baixar DFD em PDF", pdf_bytes, "dfd_ia.pdf", "application/pdf")
+                else:
+                    st.warning("Descreva a necessidade antes de gerar.")
+
+    # ---- TERMO DE REFERÊNCIA ----
+    elif "Termo de Referência" in tipo_doc:
+        st.markdown("#### 📑 Gerar Termo de Referência")
+        modo_tr = st.radio("Modo de preenchimento", ["Manual", "Assistido por IA"], horizontal=True, key="modo_tr")
+
+        if modo_tr == "Manual":
+            with st.form("form_tr"):
+                objeto = st.text_area("Objeto da contratação", height=80)
+                justificativa = st.text_area("Justificativa", height=80)
+                especificacoes = st.text_area("Especificações técnicas", height=100)
+                quantidades = st.text_input("Quantidades e unidades")
+                valor_estimado = st.text_input("Valor estimado (R$)")
+                condicoes = st.text_area("Condições de entrega/execução", height=60)
+                prazo = st.text_input("Prazo de execução/vigência")
+                pagamento = st.text_input("Condições de pagamento")
+                criterio = st.selectbox("Critério de julgamento",
+                    ["Menor preço", "Melhor técnica", "Técnica e preço", "Maior desconto", "Maior retorno econômico"])
+                submit_tr = st.form_submit_button("📄 Gerar Termo de Referência", use_container_width=True)
+
+            if submit_tr:
+                corpo = TEMPLATE_TR.format(
+                    objeto=objeto, justificativa=justificativa, especificacoes=especificacoes,
+                    quantidades=quantidades, valor_estimado=valor_estimado,
+                    condicoes_entrega=condicoes, prazo=prazo, pagamento=pagamento,
+                    criterio_julgamento=criterio,
+                )
+                st.markdown(corpo)
+                pdf_bytes = gerar_pdf_documento("TERMO DE REFERÊNCIA", corpo)
+                st.download_button("⬇️ Baixar TR em PDF", pdf_bytes, "termo_referencia.pdf", "application/pdf")
+        else:
+            desc_tr = st.text_area(
+                "Descreva o que precisa contratar e o Babilaca elaborará o Termo de Referência:",
+                height=120,
+                key="tr_ia_input",
+            )
+            arquivo_tr = st.file_uploader("Ou envie um arquivo com especificações (PDF/Excel)", type=["pdf", "xlsx"], key="tr_upload")
+            if st.button("🤖 Gerar TR com IA", key="btn_tr_ia"):
+                ctx_extra = ""
+                if arquivo_tr:
+                    if arquivo_tr.name.endswith(".pdf"):
+                        ctx_extra = extrair_texto_pdf(arquivo_tr)
+                    else:
+                        ctx_extra, _ = extrair_dados_excel(arquivo_tr)
+                if desc_tr or ctx_extra:
+                    with st.spinner("Gerando Termo de Referência..."):
+                        prompt_tr = (
+                            f"Gere um Termo de Referência completo conforme a Lei 14.133/2021 "
+                            f"para a seguinte contratação:\n\n{desc_tr}\n\n"
+                        )
+                        if ctx_extra:
+                            prompt_tr += f"Dados adicionais do arquivo:\n{ctx_extra[:3000]}\n\n"
+                        prompt_tr += (
+                            "Inclua: Objeto, Justificativa, Especificações, Quantidades, "
+                            "Valor Estimado, Condições de Entrega, Prazo, Pagamento, "
+                            "Critério de Julgamento, Penalidades, Base Legal."
+                        )
+                        ctx = buscar_base_juridica("termo de referência contratação especificação")
+                        system = _build_system_prompt(ctx)
+                        resultado = chamar_ia([{"role": "user", "content": prompt_tr}], system)
+                    st.markdown(resultado)
+                    pdf_bytes = gerar_pdf_documento("TERMO DE REFERÊNCIA", resultado)
+                    st.download_button("⬇️ Baixar TR em PDF", pdf_bytes, "tr_ia.pdf", "application/pdf")
+                else:
+                    st.warning("Forneça uma descrição ou envie um arquivo.")
+
+    # ---- JUSTIFICATIVA ----
+    elif "Justificativa" in tipo_doc:
+        st.markdown("#### 📝 Gerar Justificativa de Contratação")
+        modo_just = st.radio("Modo", ["Manual", "Assistido por IA"], horizontal=True, key="modo_just")
+
+        if modo_just == "Manual":
+            with st.form("form_just"):
+                contexto = st.text_area("Contextualização", height=80)
+                necessidade = st.text_area("Necessidade da contratação", height=80)
+                analise = st.text_area("Análise de mercado", height=80)
+                just_preco = st.text_area("Justificativa do preço", height=60)
+                modalidade = st.selectbox("Modalidade sugerida",
+                    ["Pregão Eletrônico", "Concorrência", "Dispensa de Licitação",
+                     "Inexigibilidade", "Adesão a Ata de Registro de Preços"])
+                fundamentacao = st.text_area("Fundamentação legal", height=60)
+                conclusao = st.text_area("Conclusão", height=60)
+                submit_j = st.form_submit_button("📄 Gerar Justificativa", use_container_width=True)
+
+            if submit_j:
+                corpo = TEMPLATE_JUSTIFICATIVA.format(
+                    contexto=contexto, necessidade=necessidade, analise_mercado=analise,
+                    justificativa_preco=just_preco, modalidade=modalidade,
+                    fundamentacao=fundamentacao, conclusao=conclusao,
+                )
+                st.markdown(corpo)
+                pdf_bytes = gerar_pdf_documento("JUSTIFICATIVA DE CONTRATAÇÃO", corpo)
+                st.download_button("⬇️ Baixar Justificativa em PDF", pdf_bytes, "justificativa.pdf", "application/pdf")
+        else:
+            desc_just = st.text_area(
+                "Descreva a contratação que precisa justificar:",
+                height=120,
+                key="just_ia_input",
+            )
+            if st.button("🤖 Gerar Justificativa com IA", key="btn_just_ia"):
+                if desc_just:
+                    with st.spinner("Gerando justificativa..."):
+                        prompt_just = (
+                            f"Gere uma Justificativa de Contratação completa baseada na Lei 14.133/2021 "
+                            f"para o seguinte cenário:\n\n{desc_just}\n\n"
+                            f"Inclua: Contextualização, Necessidade, Análise de Mercado, "
+                            f"Justificativa de Preço, Modalidade Sugerida, Fundamentação Legal, Conclusão."
+                        )
+                        ctx = buscar_base_juridica("justificativa contratação dispensa modalidade")
+                        system = _build_system_prompt(ctx)
+                        resultado = chamar_ia([{"role": "user", "content": prompt_just}], system)
+                    st.markdown(resultado)
+                    pdf_bytes = gerar_pdf_documento("JUSTIFICATIVA DE CONTRATAÇÃO", resultado)
+                    st.download_button("⬇️ Baixar em PDF", pdf_bytes, "justificativa_ia.pdf", "application/pdf")
+                else:
+                    st.warning("Descreva o cenário.")
+
+    # ---- MAPA COMPARATIVO ----
+    elif "Mapa Comparativo" in tipo_doc:
+        st.markdown("#### 📊 Mapa Comparativo de Preços")
+        modo_mapa = st.radio("Modo", ["Manual", "Via Arquivo"], horizontal=True, key="modo_mapa")
+
+        if modo_mapa == "Manual":
+            n_itens = st.number_input("Número de itens", min_value=1, max_value=50, value=3, key="n_itens_mapa")
+            itens_mapa = []
+            for i in range(int(n_itens)):
+                st.markdown(f"**Item {i + 1}**")
+                c1, c2, c3, c4 = st.columns(4)
+                with c1:
+                    desc = st.text_input(f"Descrição", key=f"mapa_desc_{i}")
+                with c2:
+                    p1 = st.number_input(f"Fornecedor 1 (R$)", min_value=0.0, format="%.2f", key=f"mapa_p1_{i}")
+                with c3:
+                    p2 = st.number_input(f"Fornecedor 2 (R$)", min_value=0.0, format="%.2f", key=f"mapa_p2_{i}")
+                with c4:
+                    p3 = st.number_input(f"Fornecedor 3 (R$)", min_value=0.0, format="%.2f", key=f"mapa_p3_{i}")
+                itens_mapa.append({"descricao": desc, "preco1": p1, "preco2": p2, "preco3": p3})
+
+            if st.button("📊 Gerar Mapa Comparativo", key="btn_mapa"):
+                pdf_bytes = gerar_mapa_comparativo_pdf(itens_mapa)
+                st.download_button("⬇️ Baixar Mapa em PDF", pdf_bytes, "mapa_comparativo.pdf", "application/pdf")
+
+                # Mostrar tabela na tela
+                rows = []
+                for i, item in enumerate(itens_mapa, 1):
+                    precos = [item["preco1"], item["preco2"], item["preco3"]]
+                    validos = [p for p in precos if p > 0]
+                    rows.append({
+                        "Item": i,
+                        "Descrição": item["descricao"],
+                        "Forn. 1": f"R$ {item['preco1']:,.2f}",
+                        "Forn. 2": f"R$ {item['preco2']:,.2f}",
+                        "Forn. 3": f"R$ {item['preco3']:,.2f}",
+                        "Média": f"R$ {sum(validos)/len(validos):,.2f}" if validos else "-",
+                    })
+                st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+        else:
+            arq_mapa = st.file_uploader("Envie planilha com itens e preços", type=["xlsx", "xls", "csv"], key="mapa_upload")
+            if arq_mapa:
+                try:
+                    if arq_mapa.name.endswith(".csv"):
+                        df_m = pd.read_csv(arq_mapa)
+                    else:
+                        df_m = pd.read_excel(arq_mapa)
+                    st.dataframe(df_m, use_container_width=True)
+                    st.info("Revise os dados acima. O sistema tentará identificar colunas de descrição e preços.")
+                    if st.button("📊 Gerar Mapa a partir da planilha", key="btn_mapa_arq"):
+                        itens_arq = []
+                        desc_col = None
+                        for c in df_m.columns:
+                            if any(k in c.lower() for k in ["desc", "item", "produto", "material", "objeto"]):
+                                desc_col = c
+                                break
+                        if not desc_col:
+                            desc_col = df_m.columns[0]
+                        preco_cols = [c for c in df_m.columns if any(k in c.lower() for k in ["preco", "preço", "valor", "forn", "cota"])]
+                        if not preco_cols:
+                            preco_cols = [c for c in df_m.columns if df_m[c].dtype in ["float64", "int64"]]
+                        for _, row in df_m.iterrows():
+                            item = {"descricao": str(row[desc_col])}
+                            for j, pc in enumerate(preco_cols[:3], 1):
+                                try:
+                                    item[f"preco{j}"] = float(row[pc])
+                                except (ValueError, TypeError):
+                                    item[f"preco{j}"] = 0
+                            for j in range(len(preco_cols) + 1, 4):
+                                item[f"preco{j}"] = 0
+                            itens_arq.append(item)
+                        if itens_arq:
+                            pdf_bytes = gerar_mapa_comparativo_pdf(itens_arq)
+                            st.download_button("⬇️ Baixar Mapa em PDF", pdf_bytes, "mapa_comparativo.pdf", "application/pdf")
+                except Exception as e:
+                    st.error(f"Erro ao processar arquivo: {e}")
+
+# ============================================================
+# TAB 3 — CONSULTAS (APIs)
+# ============================================================
+with tab_consultas:
+    st.markdown("### 🔍 Consultas em APIs Públicas")
+
+    tipo_consulta = st.selectbox(
+        "Tipo de consulta",
+        ["Buscar Licitações (PNCP)", "Buscar Atas de Registro de Preços",
+         "Consultar Fornecedor (CNPJ)", "Buscar Preços de Mercado",
+         "Análise de Sobrepreço", "Classificação de Risco Jurídico"],
+    )
+
+    # ---- Licitações ----
+    if "Licitações" in tipo_consulta:
+        st.markdown("#### 🏛️ Buscar Licitações no PNCP")
+        kw_lic = st.text_input("Palavra-chave", key="kw_lic")
+        if st.button("🔍 Buscar", key="btn_lic"):
+            if kw_lic:
+                with st.spinner("Consultando PNCP..."):
+                    res = buscar_licitacoes(kw_lic)
+                if res.get("sucesso"):
+                    st.success(f"Fonte: {res['fonte']}")
+                    dados = res["dados"]
+                    if isinstance(dados, dict):
+                        dados_lista = dados.get("data", dados.get("resultado", []))
+                    elif isinstance(dados, list):
+                        dados_lista = dados
+                    else:
+                        dados_lista = []
+                    if dados_lista:
+                        st.json(dados_lista[:5])
+                    else:
+                        st.info("Nenhum resultado encontrado para o período.")
+                else:
+                    st.error(f"Erro: {res.get('erro')}")
+            else:
+                st.warning("Digite uma palavra-chave.")
+
+    # ---- Atas ----
+    elif "Atas" in tipo_consulta:
+        st.markdown("#### 📋 Buscar Atas de Registro de Preços")
+        desc_ata = st.text_input("Descrição do item", key="desc_ata")
+        cod_ata = st.text_input("Código do item no catálogo (opcional)", key="cod_ata")
+        if st.button("🔍 Buscar Atas", key="btn_ata"):
+            with st.spinner("Consultando ComprasGov..."):
+                res = buscar_atas(item_codigo=cod_ata, descricao=desc_ata)
+            if res.get("sucesso"):
+                st.success(f"Fonte: {res['fonte']}")
+                dados = res["dados"]
+                if isinstance(dados, dict):
+                    dados_lista = dados.get("resultado", dados.get("data", []))
+                elif isinstance(dados, list):
+                    dados_lista = dados
+                else:
+                    dados_lista = []
+                if dados_lista:
+                    try:
+                        df_atas = pd.json_normalize(dados_lista[:20])
+                        st.dataframe(df_atas, use_container_width=True)
+                    except Exception:
+                        st.json(dados_lista[:5])
+                else:
+                    st.info("Nenhuma ata encontrada.")
+            else:
+                st.error(f"Erro: {res.get('erro')}")
+
+    # ---- Fornecedor ----
+    elif "Fornecedor" in tipo_consulta:
+        st.markdown("#### 🏢 Consultar Fornecedor por CNPJ")
+        cnpj_input = st.text_input("CNPJ", placeholder="00.000.000/0000-00", key="cnpj_cons")
+        if st.button("🔍 Consultar", key="btn_cnpj"):
+            if cnpj_input:
+                with st.spinner("Consultando..."):
+                    res = consultar_fornecedor(cnpj_input)
+                if res.get("sucesso"):
+                    st.success(f"Fonte: {res['fonte']}")
+                    dados = res["dados"]
+                    # Exibir informações principais
+                    nome = dados.get("razao_social") or dados.get("razaoSocial") or dados.get("nome") or "N/I"
+                    fantasia = dados.get("nome_fantasia") or dados.get("nomeFantasia") or ""
+                    situacao = dados.get("situacao_cadastral") or dados.get("descricaoSituacaoCadastral") or ""
+                    st.markdown(f"**{nome}**")
+                    if fantasia:
+                        st.markdown(f"Nome fantasia: {fantasia}")
+                    st.markdown(f"Situação: {situacao}")
+                    with st.expander("Ver dados completos"):
+                        st.json(dados)
+                else:
+                    st.error(res.get("erro", "Erro na consulta."))
+            else:
+                st.warning("Digite um CNPJ.")
+
+    # ---- Preços de Mercado ----
+    elif "Preços" in tipo_consulta:
+        st.markdown("#### 💰 Buscar Preços de Mercado")
+        desc_preco = st.text_input("Descrição do item", key="desc_preco")
+        if st.button("🔍 Buscar Preços", key="btn_preco"):
+            if desc_preco:
+                with st.spinner("Buscando preços..."):
+                    res = buscar_precos_mercado(desc_preco)
+                if res.get("sucesso"):
+                    st.success(f"Fonte: {res['fonte']} — {res['quantidade']} preço(s) encontrado(s)")
+                    c1, c2, c3, c4 = st.columns(4)
+                    with c1:
+                        st.markdown(f"""<div class="stat-card"><div class="valor">R$ {res['menor']:,.2f}</div><div class="label">Menor</div></div>""", unsafe_allow_html=True)
+                    with c2:
+                        st.markdown(f"""<div class="stat-card"><div class="valor">R$ {res['media']:,.2f}</div><div class="label">Média</div></div>""", unsafe_allow_html=True)
+                    with c3:
+                        st.markdown(f"""<div class="stat-card"><div class="valor">R$ {res['mediana']:,.2f}</div><div class="label">Mediana</div></div>""", unsafe_allow_html=True)
+                    with c4:
+                        st.markdown(f"""<div class="stat-card"><div class="valor">R$ {res['maior']:,.2f}</div><div class="label">Maior</div></div>""", unsafe_allow_html=True)
+                    if res.get("precos"):
+                        st.bar_chart(pd.DataFrame({"Preços (R$)": res["precos"]}))
+                else:
+                    st.warning(res.get("erro", "Nenhum preço encontrado."))
+            else:
+                st.warning("Digite a descrição do item.")
+
+    # ---- Análise de Sobrepreço ----
+    elif "Sobrepreço" in tipo_consulta:
+        st.markdown("#### 🔎 Análise de Sobrepreço")
+        st.caption("Compare o valor proposto com preços de mercado para identificar possível sobrepreço.")
+        c1, c2 = st.columns(2)
+        with c1:
+            valor_ref = st.number_input("Valor proposto (R$)", min_value=0.0, format="%.2f", key="val_ref")
+        with c2:
+            desc_item_sp = st.text_input("Descrição do item para comparação", key="desc_sp")
+        if st.button("🔎 Analisar Sobrepreço", key="btn_sp"):
+            if valor_ref > 0 and desc_item_sp:
+                with st.spinner("Buscando preços de mercado..."):
+                    res = buscar_precos_mercado(desc_item_sp)
+                if res.get("sucesso") and res.get("precos"):
+                    analise = analisar_sobrepreco(res["precos"], valor_ref)
+                    st.markdown(f"### Resultado: {analise['risco']}")
+                    st.markdown(f"**{analise['mensagem']}**")
+                    c1, c2, c3 = st.columns(3)
+                    with c1:
+                        st.metric("Média de mercado", f"R$ {analise['media']:,.2f}")
+                    with c2:
+                        st.metric("Mediana de mercado", f"R$ {analise['mediana']:,.2f}")
+                    with c3:
+                        st.metric("Desvio da mediana", f"{analise['desvio_mediana_pct']}%")
+                else:
+                    st.warning("Não foi possível encontrar preços de mercado para comparação.")
+            else:
+                st.warning("Preencha o valor e a descrição do item.")
+
+    # ---- Risco Jurídico ----
+    elif "Risco" in tipo_consulta:
+        st.markdown("#### ⚖️ Classificação de Risco Jurídico")
+        cenario = st.text_area(
+            "Descreva o cenário de contratação para análise de risco:",
+            height=120,
+            key="cenario_risco",
+        )
+        if st.button("⚖️ Analisar Risco", key="btn_risco"):
+            if cenario:
+                with st.spinner("Analisando risco jurídico..."):
+                    resultado = classificar_risco_juridico(cenario)
+                st.markdown(resultado)
+            else:
+                st.warning("Descreva o cenário.")
+
+# ============================================================
+# TAB 4 — ALERTAS
+# ============================================================
+with tab_alertas:
+    st.markdown("### 🔔 Alertas Proativos")
+    st.caption(
+        "Configure palavras-chave de interesse e verifique alertas sobre novas licitações, "
+        "atualizações legislativas e movimentações relevantes."
+    )
+
+    mem = carregar_memoria()
+    palavras_alertas = mem.get("alertas_palavras", [])
+
+    with st.form("form_alertas"):
+        novas_palavras = st.text_input(
+            "Palavras-chave de interesse (separadas por vírgula)",
+            value=", ".join(palavras_alertas),
+        )
+        submit_alertas = st.form_submit_button("💾 Salvar e Verificar Alertas", use_container_width=True)
+
+    if submit_alertas:
+        lista = [p.strip() for p in novas_palavras.split(",") if p.strip()]
+        mem["alertas_palavras"] = lista
+        salvar_memoria(mem)
+        st.success("Palavras-chave salvas!")
+
+        with st.spinner("Verificando alertas..."):
+            alertas = verificar_alertas(lista)
+
+        st.session_state["babilaca_alertas"] = alertas
+
+    # Exibir alertas
+    alertas_display = st.session_state.get("babilaca_alertas", [])
+    if alertas_display:
+        for alerta in alertas_display:
+            tipo = alerta.get("tipo", "info")
+            css_class = {
+                "high": "alert-high", "medium": "alert-medium",
+                "low": "alert-low", "info": "alert-info",
+            }.get(tipo, "alert-info")
+            icone = {"high": "🔴", "medium": "🟡", "low": "🟢", "info": "ℹ️"}.get(tipo, "ℹ️")
+            st.markdown(f"""
+            <div class="alert-card {css_class}">
+                <strong>{icone} {alerta['titulo']}</strong><br>
+                {alerta['descricao']}<br>
+                <small>{alerta.get('data', '')[:10]}</small>
+            </div>
+            """, unsafe_allow_html=True)
+    else:
+        st.info("Nenhum alerta ainda. Configure palavras-chave e clique em verificar.")
+
+    st.markdown("---")
+    st.markdown("#### 📋 Checklist de Conformidade")
+    st.caption("Verifique se seu processo possui todos os documentos obrigatórios.")
+    checklist = [
+        "Documento de Formalização de Demanda (DFD)",
+        "Estudo Técnico Preliminar (ETP)",
+        "Termo de Referência (TR)",
+        "Pesquisa de Preços (mínimo 3 fontes)",
+        "Justificativa da modalidade de contratação",
+        "Análise de riscos",
+        "Parecer jurídico",
+        "Publicação no PNCP",
+    ]
+    for item in checklist:
+        st.checkbox(item, key=f"check_{hashlib.md5(item.encode()).hexdigest()[:8]}")
+
+# ============================================================
+# TAB 5 — CONFIGURAÇÕES
+# ============================================================
+with tab_config:
+    st.markdown("### ⚙️ Configurações")
+
+    with st.form("form_config"):
+        st.markdown("#### 🔑 API OpenRouter")
+        api_key_input = st.text_input(
+            "Chave de API",
+            value=st.session_state["babilaca_api_key"],
+            type="password",
+        )
+
+        st.markdown("#### 🤖 Modelo de IA")
+        modelo_nome = st.selectbox(
+            "Modelo",
+            list(MODELOS_DISPONIVEIS.keys()),
+            index=list(MODELOS_DISPONIVEIS.values()).index(st.session_state["babilaca_modelo"])
+            if st.session_state["babilaca_modelo"] in MODELOS_DISPONIVEIS.values()
+            else 0,
+        )
+
+        submit_config = st.form_submit_button("💾 Salvar Configurações", use_container_width=True)
+
+    if submit_config:
+        st.session_state["babilaca_api_key"] = api_key_input.strip()
+        st.session_state["babilaca_modelo"] = MODELOS_DISPONIVEIS[modelo_nome]
+        mem = carregar_memoria()
+        mem["preferencias"]["modelo"] = MODELOS_DISPONIVEIS[modelo_nome]
+        salvar_memoria(mem)
+        st.success("Configurações salvas!")
+
+    st.markdown("---")
+    st.markdown("#### 💾 Respostas Salvas")
+    mem = carregar_memoria()
+    salvas = mem.get("respostas_salvas", [])
+    if salvas:
+        for i, s in enumerate(reversed(salvas[-10:])):
+            with st.expander(f"📌 {s['pergunta'][:80]}... — {s.get('data','')[:10]}"):
+                st.markdown(s["resposta"])
+                if st.button("🗑️ Remover", key=f"rm_salva_{i}"):
+                    idx = len(salvas) - 1 - i
+                    salvas.pop(idx)
+                    mem["respostas_salvas"] = salvas
+                    salvar_memoria(mem)
+                    st.rerun()
+    else:
+        st.info("Nenhuma resposta salva. Use o botão 💾 no chat para salvar.")
+
+    st.markdown("---")
+    st.markdown("#### 🧪 Testar Conexão")
+    if st.button("🔗 Testar API OpenRouter"):
+        with st.spinner("Testando..."):
+            resp = chamar_ia(
+                [{"role": "user", "content": "Diga apenas: 'Conexão OK! Babilaca funcionando.'"}],
+                "Responda de forma muito breve.",
+            )
+        if "⚠️" in resp:
+            st.error(resp)
+        else:
+            st.success(resp)
+
+    st.markdown("---")
+    st.markdown("#### ℹ️ Sobre")
+    st.markdown("""
+    **O Babilaca (IA)** é um assistente inteligente para licitações e contratações públicas.
+
+    **Módulos:**
+    - 💬 **Chat IA** — Perguntas sobre legislação com base em fontes reais
+    - 📄 **Documentos** — Geração automática de DFD, TR, Justificativa, Mapa Comparativo
+    - 🔍 **Consultas** — Integração com PNCP, ComprasGov, OpenCNPJ, BrasilAPI
+    - 🔔 **Alertas** — Monitoramento proativo de licitações e conformidade
+    - ⚙️ **Configurações** — Modelo de IA, chave de API, respostas salvas
+
+    **Base Legal:** Lei 14.133/2021, IN 65/2021, IN 58/2022, IN 73/2022, Acórdãos TCU.
+
+    **APIs integradas:**
+    - Portal Nacional de Contratações Públicas (PNCP)
+    - Dados Abertos ComprasGov (Atas, Fornecedores)
+    - OpenCNPJ / BrasilAPI (Dados cadastrais)
+
+    ---
+    ⚠️ *Ferramenta de apoio. Confirmar sempre nas fontes oficiais.*
+    """)
