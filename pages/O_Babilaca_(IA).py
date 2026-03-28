@@ -651,7 +651,7 @@ def chamar_ia(
                 "Authorization": f"Bearer {api_key}",
                 "Content-Type": "application/json",
                 "HTTP-Referer": "https://atacotada.streamlit.app",
-                "X-Title": "AtaCotada – O Babilaca",
+                "X-Title": "AtaCotada - O Babilaca",
             },
             json=payload,
             timeout=60,
