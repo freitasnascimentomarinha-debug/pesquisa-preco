@@ -1573,20 +1573,18 @@ with tab_chat:
         custo_medio = gasto_total / req_total if req_total > 0 else 0
         st.markdown(f"""
         <div style="background:rgba(10,22,40,0.7);border:1px solid #1e3a5f;border-radius:8px;padding:0.4rem 1rem;margin-bottom:0.6rem;display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
-            <span style="color:#d4af37;font-weight:bold;font-size:0.82rem;">Uso OpenRouter</span>
+            <span style="color:#d4af37;font-weight:bold;font-size:0.82rem;">Selecione seu Modelo Treinado para Licita\u00e7\u00f5es</span>
             <span style="color:{cor_gasto};font-size:0.85rem;font-weight:bold;">Gasto: ${gasto_total:.4f}</span>
             <span style="color:#94a3b8;font-size:0.75rem;">Hoje: ${gasto_dia:.4f} | Semana: ${gasto_semana:.4f} {free_tag}</span>
             <span style="color:#60a5fa;font-size:0.75rem;font-weight:bold;">Requisicoes: {req_total}</span>
             <span style="color:#ef4444;font-size:0.75rem;font-weight:bold;">Custo medio: US$ {custo_medio:.6f}/req</span>
-            <a href="https://openrouter.ai/settings/credits" target="_blank" style="color:#d4af37;font-size:0.75rem;text-decoration:none;margin-left:auto;">Ver creditos no site</a>
         </div>
         """, unsafe_allow_html=True)
     else:
         st.markdown(f"""
         <div style="background:rgba(10,22,40,0.5);border:1px solid #1e3a5f;border-radius:8px;padding:0.4rem 1rem;margin-bottom:0.6rem;display:flex;align-items:center;gap:0.8rem;">
-            <span style="color:#94a3b8;font-size:0.8rem;">Uso OpenRouter: nao foi possivel consultar</span>
+            <span style="color:#94a3b8;font-size:0.8rem;">Selecione seu Modelo Treinado para Licita\u00e7\u00f5es</span>
             <span style="color:#60a5fa;font-size:0.8rem;font-weight:bold;">Requisicoes: {req_total}</span>
-            <a href="https://openrouter.ai/settings/credits" target="_blank" style="color:#d4af37;font-size:0.8rem;text-decoration:none;margin-left:auto;">Ver creditos no site</a>
         </div>
         """, unsafe_allow_html=True)
 
