@@ -169,11 +169,11 @@ MODELOS_DISPONIVEIS = {
     "OpenAI GPT-4.1 Mini": "openai/gpt-4.1-mini",
     "DeepSeek V3.2": "deepseek/deepseek-v3.2",
     "Anthropic Claude 3.5 Haiku": "anthropic/claude-3.5-haiku",
-    "Meta Llama 4 Maverick": "meta-llama/llama-4-maverick",
+    "Meta Llama 4 Scout": "meta-llama/llama-4-scout",
     "Qwen3 235B": "qwen/qwen3-235b-a22b",
-    # --- Grátis (⚠️ sujeitos a limite de uso) ---
+    # --- Grátis (⚠️ sujeitos a limite/disponibilidade) ---
     "⚠️ Gemini 2.5 Flash (grátis)": "google/gemini-2.5-flash:free",
-    "⚠️ Llama 4 Maverick (grátis)": "meta-llama/llama-4-maverick:free",
+    "⚠️ DeepSeek V3 (grátis)": "deepseek/deepseek-chat:free",
     "⚠️ Mistral Small 3.1 (grátis)": "mistralai/mistral-small-3.1-24b-instruct:free",
     "⚠️ Qwen3 30B (grátis)": "qwen/qwen3-30b-a3b:free",
 }
@@ -499,38 +499,105 @@ def chamar_ia(
     api_key = st.session_state.get("babilaca_api_key", "")
     if not api_key:
         return "⚠️ Chave de API não configurada. Acesse a aba **Configurações**."
-    model = modelo or st.session_state.get("babilaca_modelo", "google/gemini-2.0-flash-001")
-    payload = {
-        "model": model,
-        "messages": [{"role": "system", "content": system_prompt}] + mensagens,
-        "temperature": temperatura,
-        "max_tokens": 4096,
+    model = modelo or st.session_state.get("babilaca_modelo", "google/gemini-2.5-flash")
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+        "HTTP-Referer": "https://atacotada.streamlit.app",
+        "X-Title": "AtaCotada - O Babilaca",
     }
-    try:
-        resp = requests.post(
-            OPENROUTER_URL,
-            headers={
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json",
-                "HTTP-Referer": "https://atacotada.streamlit.app",
-                "X-Title": "AtaCotada - O Babilaca",
-            },
-            json=payload,
-            timeout=60,
-        )
-        if resp.status_code == 200:
-            data = resp.json()
-            return data["choices"][0]["message"]["content"]
-        return f"⚠️ Erro na API (HTTP {resp.status_code}): {resp.text[:300]}"
-    except requests.Timeout:
-        return "⚠️ Tempo limite da requisição excedido. Tente novamente."
-    except Exception as e:
-        return f"⚠️ Erro ao chamar a IA: {e}"
+    msgs = [{"role": "system", "content": system_prompt}] + mensagens
+
+    # Tenta com 4096 tokens; se créditos insuficientes (402), reduz automaticamente
+    for max_tk in (4096, 2048, 1024):
+        payload = {
+            "model": model,
+            "messages": msgs,
+            "temperature": temperatura,
+            "max_tokens": max_tk,
+        }
+        try:
+            resp = requests.post(
+                OPENROUTER_URL, headers=headers, json=payload, timeout=60,
+            )
+            if resp.status_code == 200:
+                data = resp.json()
+                return data["choices"][0]["message"]["content"]
+
+            # --- Tratamento de erros conhecidos ---
+            if resp.status_code == 402:
+                # Créditos insuficientes — tentar com menos tokens
+                try:
+                    err = resp.json().get("error", {})
+                    meta = err.get("metadata", {})
+                except Exception:
+                    err, meta = {}, {}
+                if max_tk > 1024:
+                    continue  # retry com menos tokens
+                return (
+                    "⚠️ **Créditos insuficientes** na conta OpenRouter.\n\n"
+                    "O modelo selecionado é pago e sua conta não tem saldo suficiente. "
+                    "Opções:\n"
+                    "- Troque para um modelo **grátis** (marcados com ⚠️ no seletor)\n"
+                    "- Adicione créditos em https://openrouter.ai/settings/credits"
+                )
+
+            if resp.status_code == 404:
+                return (
+                    f"⚠️ **Modelo indisponível**: `{model}`\n\n"
+                    "Esse modelo foi removido ou está temporariamente fora do ar no OpenRouter. "
+                    "Troque para outro modelo no seletor acima e tente novamente."
+                )
+
+            if resp.status_code == 429:
+                return (
+                    "⚠️ **Limite de requisições atingido**. "
+                    "Aguarde alguns segundos e tente novamente, ou troque para outro modelo."
+                )
+
+            return f"⚠️ Erro na API (HTTP {resp.status_code}): {resp.text[:300]}"
+
+        except requests.Timeout:
+            return "⚠️ Tempo limite da requisição excedido. Tente novamente."
+        except Exception as e:
+            return f"⚠️ Erro ao chamar a IA: {e}"
+
+    return "⚠️ Não foi possível obter resposta da IA. Verifique sua conexão e créditos."
 
 
 # ============================================================
 # ROTEAMENTO DE INTENÇÃO
 # ============================================================
+
+# ---- Buscar modelos disponíveis no OpenRouter em tempo real ----
+@st.cache_data(ttl=300, show_spinner=False)
+def buscar_modelos_openrouter() -> dict:
+    """Consulta a API do OpenRouter e retorna modelos grátis + pagos baratos disponíveis."""
+    try:
+        resp = requests.get("https://openrouter.ai/api/v1/models", timeout=15)
+        if resp.status_code != 200:
+            return {}
+        modelos = resp.json().get("data", [])
+        gratis = {}
+        baratos = {}
+        for m in modelos:
+            mid = m.get("id", "")
+            nome = m.get("name", mid)
+            pricing = m.get("pricing", {})
+            prompt_price = float(pricing.get("prompt", "999") or "999")
+            # Modelos grátis: custo 0
+            if prompt_price == 0:
+                gratis[f"🆓 {nome}"] = mid
+            # Modelos pagos baratos: até $1/M tokens
+            elif prompt_price <= 0.000001:
+                custo_1m = prompt_price * 1_000_000
+                baratos[f"💰 {nome} (${custo_1m:.2f}/M tok)"] = mid
+        # Limitar a 12 de cada para não poluir
+        gratis_top = dict(list(sorted(gratis.items()))[:12])
+        baratos_top = dict(list(sorted(baratos.items(), key=lambda x: x[0]))[:10])
+        return {**gratis_top, **baratos_top}
+    except Exception:
+        return {}
 
 def extrair_cnpj(texto: str) -> str | None:
     m = re.search(r"\d{2}\.?\d{3}\.?\d{3}/?\d{4}-?\d{2}", texto)
@@ -1465,24 +1532,40 @@ tab_chat, tab_docs, tab_checklist = st.tabs([
 with tab_chat:
     st.markdown("### 💬 Converse com o Babilaca")
 
-    # Barra de ferramentas: Modelo | Limpar conversa | Anexar arquivo
-    tb_col1, tb_col2, tb_col3 = st.columns([3, 1.3, 1.3])
+    # Barra de ferramentas: Modelo | Buscar modelos | Limpar conversa | Anexar arquivo
+    tb_col1, tb_col2, tb_col3, tb_col4 = st.columns([3, 1.2, 1.2, 1.2])
+
+    # Mesclar modelos fixos + modelos buscados da API (se houver)
+    modelos_atuais = dict(MODELOS_DISPONIVEIS)
+    if "modelos_openrouter" in st.session_state and st.session_state["modelos_openrouter"]:
+        modelos_atuais.update(st.session_state["modelos_openrouter"])
+
     with tb_col1:
         modelo_nome = st.selectbox(
             "Modelo de IA",
-            list(MODELOS_DISPONIVEIS.keys()),
-            index=list(MODELOS_DISPONIVEIS.values()).index(st.session_state["babilaca_modelo"])
-            if st.session_state["babilaca_modelo"] in MODELOS_DISPONIVEIS.values()
+            list(modelos_atuais.keys()),
+            index=list(modelos_atuais.values()).index(st.session_state["babilaca_modelo"])
+            if st.session_state["babilaca_modelo"] in modelos_atuais.values()
             else 0,
             key="toolbar_modelo",
             label_visibility="collapsed",
         )
-        st.session_state["babilaca_modelo"] = MODELOS_DISPONIVEIS[modelo_nome]
+        st.session_state["babilaca_modelo"] = modelos_atuais[modelo_nome]
     with tb_col2:
+        if st.button("🔍 Buscar modelos", use_container_width=True, help="Busca modelos grátis e baratos disponíveis agora no OpenRouter"):
+            with st.spinner("Consultando OpenRouter..."):
+                novos = buscar_modelos_openrouter()
+            if novos:
+                st.session_state["modelos_openrouter"] = novos
+                st.success(f"{len(novos)} modelos encontrados!")
+                st.rerun()
+            else:
+                st.warning("Não foi possível buscar modelos. Tente novamente.")
+    with tb_col3:
         if st.button("🗑️ Limpar conversa", use_container_width=True):
             st.session_state["babilaca_messages"] = []
             st.rerun()
-    with tb_col3:
+    with tb_col4:
         arquivo_chat = st.file_uploader(
             "📎 Anexar",
             type=["pdf", "xlsx", "xls", "csv"],
