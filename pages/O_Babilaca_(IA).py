@@ -171,8 +171,8 @@ MODELOS_DISPONIVEIS = {
     "🆓 Mistral Small 3.1 24B (grátis)": "mistralai/mistral-small-3.1-24b-instruct:free",
     "🆓 Qwen3 Coder 480B (grátis)": "qwen/qwen3-coder:free",
     "🆓 Qwen3 Next 80B (grátis)": "qwen/qwen3-next-80b-a3b-instruct:free",
-    "🆓 OpenAI GPT-OSS 120B (grátis)": "openai/gpt-oss-120b:free",
-    "🆓 MiniMax M2.5 (grátis)": "minimax/minimax-m2.5:free",
+    "🆓 Google Gemma 3 12B (grátis)": "google/gemma-3-12b-it:free",
+    "🆓 Nous Hermes 3 405B (grátis)": "nousresearch/hermes-3-llama-3.1-405b:free",
     "🆓 StepFun 3.5 Flash (grátis)": "stepfun/step-3.5-flash:free",
     # ===== PAGOS BARATOS (bom custo-benefício) =====
     "💰 Google Gemini 2.5 Flash ($0.15/M)": "google/gemini-2.5-flash",
@@ -531,6 +531,8 @@ def chamar_ia(
             )
             if resp.status_code == 200:
                 data = resp.json()
+                # Incrementar contador de requisições na sessão
+                st.session_state["_req_count"] = st.session_state.get("_req_count", 0) + 1
                 return data["choices"][0]["message"]["content"]
 
             # --- Tratamento de erros conhecidos ---
@@ -554,8 +556,11 @@ def chamar_ia(
             if resp.status_code == 404:
                 return (
                     f"⚠️ **Modelo indisponível**: `{model}`\n\n"
-                    "Esse modelo foi removido ou está temporariamente fora do ar no OpenRouter. "
-                    "Troque para outro modelo no seletor acima e tente novamente."
+                    "Possíveis causas:\n"
+                    "- Restrições de privacidade/política de dados na sua conta OpenRouter\n"
+                    "- Modelo temporariamente fora do ar\n\n"
+                    "Troque para outro modelo no seletor acima. "
+                    "Se persistir, verifique suas configurações em https://openrouter.ai/settings/privacy"
                 )
 
             if resp.status_code == 429:
@@ -1538,6 +1543,7 @@ with tab_chat:
             st.session_state["_saldo_or"] = None
 
     saldo_info = st.session_state.get("_saldo_or")
+    req_count = st.session_state.get("_req_count", 0)
     if saldo_info:
         gasto_total = saldo_info.get("usage", 0) or 0
         gasto_dia = saldo_info.get("usage_daily", 0) or 0
@@ -1550,13 +1556,16 @@ with tab_chat:
             <span style="color:#d4af37;font-weight:bold;font-size:0.82rem;">Uso OpenRouter</span>
             <span style="color:{cor_gasto};font-size:0.85rem;font-weight:bold;">Gasto: ${gasto_total:.4f}</span>
             <span style="color:#94a3b8;font-size:0.75rem;">Hoje: ${gasto_dia:.4f} | Semana: ${gasto_semana:.4f} {free_tag}</span>
+            <span style="color:#60a5fa;font-size:0.75rem;font-weight:bold;">Requisicoes (sessao): {req_count}</span>
             <a href="https://openrouter.ai/settings/credits" target="_blank" style="color:#d4af37;font-size:0.75rem;text-decoration:none;margin-left:auto;">Ver creditos no site</a>
         </div>
         """, unsafe_allow_html=True)
     else:
-        st.markdown("""
-        <div style="background:rgba(10,22,40,0.5);border:1px solid #1e3a5f;border-radius:8px;padding:0.4rem 1rem;margin-bottom:0.6rem;">
-            <span style="color:#94a3b8;font-size:0.8rem;">Uso OpenRouter: nao foi possivel consultar | <a href="https://openrouter.ai/settings/credits" target="_blank" style="color:#d4af37;text-decoration:none;">Ver creditos no site</a></span>
+        st.markdown(f"""
+        <div style="background:rgba(10,22,40,0.5);border:1px solid #1e3a5f;border-radius:8px;padding:0.4rem 1rem;margin-bottom:0.6rem;display:flex;align-items:center;gap:0.8rem;">
+            <span style="color:#94a3b8;font-size:0.8rem;">Uso OpenRouter: nao foi possivel consultar</span>
+            <span style="color:#60a5fa;font-size:0.8rem;font-weight:bold;">Requisicoes (sessao): {req_count}</span>
+            <a href="https://openrouter.ai/settings/credits" target="_blank" style="color:#d4af37;font-size:0.8rem;text-decoration:none;margin-left:auto;">Ver creditos no site</a>
         </div>
         """, unsafe_allow_html=True)
 
