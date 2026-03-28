@@ -941,6 +941,219 @@ CHECKLIST_MODALIDADES = {
         "Autorização da autoridade competente",
         "Publicação no PNCP",
     ],
+    "IRP — Intenção de Registro de Preços": [
+        "Documento de Formalização de Demanda (DFD)",
+        "Estudo Técnico Preliminar (ETP)",
+        "Mapa de Riscos",
+        "Termo de Referência (TR)",
+        "Publicação da IRP no ComprasGov (Divulgação da Intenção)",
+        "Prazo mínimo de 8 dias úteis para manifestação de outros órgãos",
+        "Consolidação das demandas dos órgãos participantes",
+        "Mapa Consolidado de Quantidades por órgão/entidade",
+        "Pesquisa de Preços (mínimo 3 fontes — IN 65/2021)",
+        "Mapa Comparativo de Preços",
+        "Minuta do Edital (Pregão/Concorrência para SRP)",
+        "Minuta da Ata de Registro de Preços",
+        "Parecer jurídico sobre Edital e Minuta da Ata",
+        "Designação do pregoeiro/comissão de contratação",
+        "Autorização da autoridade competente",
+        "Publicação do Edital no PNCP e DOU",
+        "Ata da sessão pública",
+        "Relatório de adjudicação e homologação",
+        "Ata de Registro de Preços assinada",
+        "Publicação da Ata de Registro de Preços no PNCP",
+    ],
+}
+
+# Informações explicativas de cada modalidade
+INFO_MODALIDADES = {
+    "Dispensa por Cotação Eletrônica": {
+        "descricao": (
+            "A **Dispensa por Cotação Eletrônica** é o procedimento de contratação direta "
+            "realizado por meio de sistema eletrônico (ComprasGov), previsto no **Art. 75, §3°, "
+            "da Lei 14.133/2021**. Substitui a antiga dispensa presencial, trazendo mais "
+            "transparência e competitividade."
+        ),
+        "quando_aplicar": (
+            "- **Bens e serviços comuns** com valor até **R$ 59.906,02** (Art. 75, II — valor atualizado pelo Decreto 12.343/2024);\n"
+            "- **Serviços de engenharia** com valor até **R$ 119.812,07** (Art. 75, I);\n"
+            "- Sempre que a dispensa se enquadrar nos incisos I ou II do Art. 75."
+        ),
+        "limites": (
+            "| Tipo | Limite (atualizado) |\n"
+            "|------|---------------------|\n"
+            "| Bens e serviços comuns | R$ 59.906,02 |\n"
+            "| Serviços de engenharia/obras | R$ 119.812,07 |\n\n"
+            "*Valores atualizados pelo Decreto 12.343/2024. Atualização anual pelo IPCA.*"
+        ),
+        "como_montar": (
+            "1. Elaborar DFD e TR com especificação clara do objeto;\n"
+            "2. Realizar pesquisa de preços (IN 65/2021 — mín. 3 fontes);\n"
+            "3. Publicar Aviso de Dispensa Eletrônica no PNCP (prazo mín. 3 dias úteis);\n"
+            "4. Abrir sessão no ComprasGov para recebimento de propostas;\n"
+            "5. Avaliar propostas e habilitação do vencedor;\n"
+            "6. Adjudicar, obter parecer jurídico e autorizar;\n"
+            "7. Emitir nota de empenho e publicar resultado no PNCP."
+        ),
+    },
+    "Pregão Eletrônico (PE)": {
+        "descricao": (
+            "O **Pregão Eletrônico** é a modalidade obrigatória para aquisição de **bens e "
+            "serviços comuns** (Art. 6°, XLI e Art. 28, I, Lei 14.133/2021). Caracteriza-se pela "
+            "inversão de fases (proposta antes da habilitação) e lances em tempo real."
+        ),
+        "quando_aplicar": (
+            "- Aquisição de **bens comuns** (qualquer valor acima do limite de dispensa);\n"
+            "- Contratação de **serviços comuns** (inclusive de engenharia, quando aplicável);\n"
+            "- Sempre que o objeto puder ser definido por especificações usuais de mercado."
+        ),
+        "limites": (
+            "**Não possui limite máximo de valor.** O Pregão Eletrônico pode ser utilizado para "
+            "qualquer valor, desde que o objeto seja bem ou serviço comum.\n\n"
+            "*Limite mínimo implícito:* acima dos valores de dispensa (R$ 59.906,02 para bens/serviços)."
+        ),
+        "como_montar": (
+            "1. Elaborar DFD, ETP e Mapa de Riscos;\n"
+            "2. Elaborar Termo de Referência detalhado;\n"
+            "3. Realizar pesquisa de preços (IN 65/2021);\n"
+            "4. Elaborar minuta do Edital e obter parecer jurídico;\n"
+            "5. Designar pregoeiro e equipe de apoio;\n"
+            "6. Publicar Edital no PNCP e DOU (prazo mín. 8 dias úteis);\n"
+            "7. Realizar sessão pública com lances no ComprasGov;\n"
+            "8. Habilitar vencedor, adjudicar e homologar;\n"
+            "9. Publicar resultado no PNCP."
+        ),
+    },
+    "TJDL — Dispensa de Licitação": {
+        "descricao": (
+            "O **Termo de Justificativa de Dispensa de Licitação (TJDL)** é usado quando a "
+            "administração precisa contratar **sem licitar**, em hipóteses taxativamente "
+            "previstas no **Art. 75 da Lei 14.133/2021**, como valor baixo, emergência, "
+            "ou situações específicas."
+        ),
+        "quando_aplicar": (
+            "- Contratações de **baixo valor** (Art. 75, I e II) sem cotação eletrônica;\n"
+            "- **Emergência ou calamidade** (Art. 75, VIII) — prazo máx. 1 ano;\n"
+            "- **Guerra ou grave perturbação da ordem** (Art. 75, VII);\n"
+            "- Aquisição de **materiais das Forças Armadas** (Art. 75, IX);\n"
+            "- Demais hipóteses dos incisos III a XVI do Art. 75."
+        ),
+        "limites": (
+            "| Hipótese | Limite |\n"
+            "|----------|--------|\n"
+            "| Obras/serviços de engenharia (Art. 75, I) | R$ 119.812,07 |\n"
+            "| Bens/serviços comuns (Art. 75, II) | R$ 59.906,02 |\n"
+            "| Emergência (Art. 75, VIII) | Sem limite de valor (prazo máx. 1 ano) |\n\n"
+            "*Obs: No TJDL, a contratação é feita diretamente com fornecedor escolhido, sem cotação eletrônica.*"
+        ),
+        "como_montar": (
+            "1. Elaborar DFD com justificativa da necessidade;\n"
+            "2. Elaborar TJDL com enquadramento legal (inciso específico do Art. 75);\n"
+            "3. Justificar razão da escolha do fornecedor e do preço;\n"
+            "4. Realizar pesquisa de preços (IN 65/2021);\n"
+            "5. Obter proposta formal e documentação do fornecedor;\n"
+            "6. Obter parecer jurídico;\n"
+            "7. Autorização da autoridade competente;\n"
+            "8. Emitir nota de empenho e publicar no PNCP."
+        ),
+    },
+    "TJIL — Inexigibilidade de Licitação": {
+        "descricao": (
+            "O **Termo de Justificativa de Inexigibilidade de Licitação (TJIL)** é utilizado "
+            "quando há **inviabilidade de competição**, conforme **Art. 74 da Lei 14.133/2021**. "
+            "Não se trata de escolher não licitar — a licitação é impossível."
+        ),
+        "quando_aplicar": (
+            "- **Fornecedor exclusivo** comprovado (Art. 74, I);\n"
+            "- Contratação de profissional de **notória especialização** (Art. 74, III);\n"
+            "- Contratação de **artista consagrado** (Art. 74, II);\n"
+            "- **Credenciamento** quando convém à administração contratar todos (Art. 74, IV);\n"
+            "- Serviços de **treinamento** com profissional/empresa de notória especialização."
+        ),
+        "limites": (
+            "**Não possui limite de valor.** A inexigibilidade pode ser utilizada para qualquer valor, "
+            "desde que comprovada a inviabilidade de competição.\n\n"
+            "*Atenção: a justificativa de preço é obrigatória mesmo sem limite, conforme Art. 72, IV.*"
+        ),
+        "como_montar": (
+            "1. Elaborar DFD com descrição detalhada da necessidade;\n"
+            "2. Elaborar TJIL demonstrando a inviabilidade de competição;\n"
+            "3. Comprovar exclusividade (atestado) ou notória especialização;\n"
+            "4. Justificar escolha do fornecedor e compatibilidade do preço;\n"
+            "5. Obter proposta formal e habilitação do fornecedor;\n"
+            "6. Obter parecer jurídico;\n"
+            "7. Autorização da autoridade competente;\n"
+            "8. Emitir nota de empenho e publicar no PNCP."
+        ),
+    },
+    "Adesão a Ata de Registro de Preços (Carona)": {
+        "descricao": (
+            "A **Adesão a Ata de Registro de Preços (Carona)** permite que um órgão ou entidade "
+            "que **não participou** da licitação original adira a uma Ata vigente de outro "
+            "órgão, conforme **Art. 86 da Lei 14.133/2021**."
+        ),
+        "quando_aplicar": (
+            "- Quando existe **Ata de Registro de Preços vigente** de outro órgão com o objeto desejado;\n"
+            "- Quando a adesão for **mais vantajosa** que realizar novo processo;\n"
+            "- Quando o órgão gerenciador e o fornecedor **concordarem** com a adesão;\n"
+            "- Respeitado o limite de até **50% dos quantitativos** registrados na Ata (Art. 86, §4°)."
+        ),
+        "limites": (
+            "| Regra | Limite |\n"
+            "|-------|--------|\n"
+            "| Quantitativo máximo por adesão | 50% do quantitativo registrado |\n"
+            "| Quantitativo total de adesões | Até o dobro do quantitativo original |\n\n"
+            "*O preço deve ser compatível com o praticado no mercado (pesquisa obrigatória).*"
+        ),
+        "como_montar": (
+            "1. Elaborar DFD e ETP justificando a adesão;\n"
+            "2. Demonstrar vantajosidade em relação a novo processo;\n"
+            "3. Realizar pesquisa de preços para comprovar compatibilidade;\n"
+            "4. Obter cópia da Ata e do Edital original;\n"
+            "5. Solicitar autorização ao órgão gerenciador;\n"
+            "6. Obter concordância do fornecedor;\n"
+            "7. Verificar habilitação e regularidade fiscal do fornecedor;\n"
+            "8. Obter parecer jurídico e autorização da autoridade;\n"
+            "9. Publicar no PNCP."
+        ),
+    },
+    "IRP — Intenção de Registro de Preços": {
+        "descricao": (
+            "A **Intenção de Registro de Preços (IRP)** é o procedimento obrigatório pelo qual "
+            "o órgão gerenciador **divulga sua intenção** de realizar licitação para Sistema de "
+            "Registro de Preços (SRP), permitindo que outros órgãos participem, conforme "
+            "**Art. 86, §1° da Lei 14.133/2021** e **Decreto 11.462/2023**."
+        ),
+        "quando_aplicar": (
+            "- Sempre que a administração for realizar **licitação para SRP** (obrigatório);\n"
+            "- Quando houver necessidade de **consolidar demandas** de múltiplos órgãos;\n"
+            "- Quando a contratação envolver **entregas parceladas** ou **demanda incerta**;\n"
+            "- Para aquisições **frequentes** de bens/serviços comuns."
+        ),
+        "limites": (
+            "**Não possui limite financeiro próprio.** A IRP é uma etapa preparatória — o limite "
+            "de valor dependerá da modalidade da licitação (Pregão ou Concorrência).\n\n"
+            "| Regra | Prazo/Limite |\n"
+            "|-------|-------------|\n"
+            "| Prazo para manifestação de outros órgãos | Mínimo 8 dias úteis |\n"
+            "| Vigência da Ata resultante | Até 1 ano, prorrogável por mais 1 ano |\n"
+            "| Publicação obrigatória | ComprasGov e PNCP |"
+        ),
+        "como_montar": (
+            "1. Elaborar DFD, ETP e Mapa de Riscos;\n"
+            "2. Elaborar Termo de Referência com especificações e quantitativos;\n"
+            "3. **Publicar a IRP no ComprasGov** com prazo mín. de 8 dias úteis;\n"
+            "4. Receber e consolidar as demandas dos órgãos participantes;\n"
+            "5. Elaborar mapa consolidado de quantidades;\n"
+            "6. Realizar pesquisa de preços (IN 65/2021);\n"
+            "7. Elaborar minuta do Edital e da Ata de Registro de Preços;\n"
+            "8. Obter parecer jurídico sobre Edital e Ata;\n"
+            "9. Publicar Edital no PNCP e DOU;\n"
+            "10. Realizar sessão pública (Pregão ou Concorrência);\n"
+            "11. Adjudicar, homologar e assinar a Ata;\n"
+            "12. Publicar Ata de Registro de Preços no PNCP."
+        ),
+    },
 }
 
 
@@ -1603,6 +1816,15 @@ with tab_checklist:
         list(CHECKLIST_MODALIDADES.keys()),
         key="checklist_modalidade",
     )
+
+    # Expander explicativo da modalidade
+    info = INFO_MODALIDADES.get(modalidade_sel, {})
+    if info:
+        with st.expander(f"ℹ️ O que é: {modalidade_sel}", expanded=False):
+            st.markdown(f"**📖 Descrição**\n\n{info['descricao']}")
+            st.markdown(f"**📌 Quando se aplica**\n\n{info['quando_aplicar']}")
+            st.markdown(f"**💰 Limites financeiros**\n\n{info['limites']}")
+            st.markdown(f"**📋 Como montar o processo (Lei 14.133/2021)**\n\n{info['como_montar']}")
 
     itens_checklist = CHECKLIST_MODALIDADES[modalidade_sel]
     st.markdown(f"**{len(itens_checklist)} documentos necessários:**")
