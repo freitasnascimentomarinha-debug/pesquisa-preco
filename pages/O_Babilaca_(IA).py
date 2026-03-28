@@ -829,10 +829,21 @@ def analisar_sobrepreco(precos: list[float], valor_referencia: float) -> dict:
 
 
 def classificar_risco_juridico(descricao_cenario: str) -> str:
-    """Usa IA para classificar o risco jurídico de um cenário."""
+    """Usa IA para classificar o risco jurídico com mapa de riscos."""
     prompt_risco = (
-        "Analise o cenário de contratação pública abaixo e classifique o risco jurídico "
-        "em BAIXO, MÉDIO ou ALTO. Justifique com base na Lei 14.133/2021 e jurisprudência do TCU.\n\n"
+        "Analise o cenário de contratação pública abaixo e produza:\n\n"
+        "1. **CLASSIFICAÇÃO GERAL**: Risco BAIXO, MÉDIO ou ALTO com justificativa.\n\n"
+        "2. **MAPA DE RISCOS** — Para CADA categoria abaixo, classifique Probabilidade "
+        "(Baixa / Média / Alta) e Impacto (Baixo / Médio / Alto), e descreva brevemente o risco:\n"
+        "   - Risco de Nulidade do Processo\n"
+        "   - Risco de Responsabilização do Gestor\n"
+        "   - Risco de Impugnação / Recurso\n"
+        "   - Risco de Prejuízo ao Erário\n"
+        "   - Risco Reputacional\n\n"
+        "Use formato de tabela Markdown para o mapa de riscos com colunas: "
+        "Categoria | Probabilidade | Impacto | Nível | Descrição\n\n"
+        "3. **RECOMENDAÇÕES** de mitigação para os riscos identificados.\n\n"
+        "Fundamente toda a análise na Lei 14.133/2021 e jurisprudência do TCU.\n\n"
         f"CENÁRIO: {descricao_cenario}"
     )
     ctx = buscar_base_juridica(descricao_cenario)
@@ -875,40 +886,38 @@ CHECKLIST_MODALIDADES = {
         "Relatório de adjudicação e homologação",
         "Comprovante de publicação do resultado no PNCP",
     ],
-    "Tomada de Preços por Julgamento por Item de Licitação (TJIL)": [
+    "TJDL — Dispensa de Licitação": [
         "Documento de Formalização de Demanda (DFD)",
-        "Estudo Técnico Preliminar (ETP)",
-        "Mapa de Riscos",
-        "Termo de Referência ou Projeto Básico",
+        "Termo de Justificativa de Dispensa de Licitação (TJDL)",
+        "Enquadramento legal da dispensa (Art. 75, Lei 14.133/2021)",
+        "Razão da escolha do fornecedor (Art. 72, III)",
+        "Justificativa do preço (Art. 72, IV)",
         "Pesquisa de Preços (mínimo 3 fontes — IN 65/2021)",
         "Mapa Comparativo de Preços",
-        "Justificativa do critério de julgamento por item",
-        "Minuta do Edital",
-        "Parecer jurídico sobre o Edital",
-        "Designação da comissão de contratação",
+        "Proposta formal do fornecedor",
+        "Documentação de habilitação do fornecedor",
+        "Comprovante de regularidade fiscal e trabalhista",
+        "Parecer jurídico (Art. 72, III, Lei 14.133/2021)",
         "Autorização da autoridade competente",
-        "Publicação do Edital no PNCP e DOU",
-        "Ata de julgamento das propostas",
-        "Ata de habilitação",
-        "Relatório de adjudicação e homologação",
+        "Nota de Empenho",
+        "Publicação no PNCP (Art. 94, §1°)",
     ],
-    "Tomada de Preços por Julgamento por Demanda de Licitação (TJDL)": [
+    "TJIL — Inexigibilidade de Licitação": [
         "Documento de Formalização de Demanda (DFD)",
-        "Estudo Técnico Preliminar (ETP)",
-        "Mapa de Riscos",
-        "Termo de Referência ou Projeto Básico",
-        "Pesquisa de Preços (mínimo 3 fontes — IN 65/2021)",
-        "Mapa Comparativo de Preços",
-        "Justificativa do critério de julgamento global/lote",
-        "Justificativa da inviabilidade do parcelamento (se aplicável)",
-        "Minuta do Edital",
-        "Parecer jurídico sobre o Edital",
-        "Designação da comissão de contratação",
+        "Termo de Justificativa de Inexigibilidade de Licitação (TJIL)",
+        "Enquadramento legal da inexigibilidade (Art. 74, Lei 14.133/2021)",
+        "Comprovação de inviabilidade de competição",
+        "Razão da escolha do fornecedor com justificativa de exclusividade ou notória especialização",
+        "Justificativa do preço (compatibilidade com mercado)",
+        "Pesquisa de Preços comprovando compatibilidade",
+        "Proposta formal do fornecedor",
+        "Atestado de exclusividade ou comprovação de notória especialização (quando aplicável)",
+        "Documentação de habilitação do fornecedor",
+        "Comprovante de regularidade fiscal e trabalhista",
+        "Parecer jurídico (Art. 72, III, Lei 14.133/2021)",
         "Autorização da autoridade competente",
-        "Publicação do Edital no PNCP e DOU",
-        "Ata de julgamento das propostas",
-        "Ata de habilitação",
-        "Relatório de adjudicação e homologação",
+        "Nota de Empenho",
+        "Publicação no PNCP (Art. 94, §1°)",
     ],
     "Adesão a Ata de Registro de Preços (Carona)": [
         "Documento de Formalização de Demanda (DFD)",
@@ -1275,7 +1284,8 @@ with tab_docs:
         ["DFD — Documento de Formalização de Demanda",
          "Termo de Referência",
          "Justificativa de Contratação",
-         "Mapa Comparativo de Preços"],
+         "Mapa Comparativo de Preços",
+         "Classificação de Risco Jurídico"],
     )
 
     # ---- DFD ----
@@ -1528,20 +1538,51 @@ with tab_docs:
                     st.error(f"Erro ao processar arquivo: {e}")
 
     # ---- Classificação de Risco Jurídico ----
-    st.markdown("---")
-    st.markdown("#### ⚖️ Classificação de Risco Jurídico")
-    cenario = st.text_area(
-        "Descreva o cenário de contratação para análise de risco:",
-        height=120,
-        key="cenario_risco",
-    )
-    if st.button("⚖️ Analisar Risco", key="btn_risco"):
-        if cenario:
-            with st.spinner("Analisando risco jurídico..."):
-                resultado = classificar_risco_juridico(cenario)
-            st.markdown(resultado)
-        else:
-            st.warning("Descreva o cenário.")
+    elif "Risco" in tipo_doc:
+        st.markdown("#### ⚖️ Classificação de Risco Jurídico")
+        st.markdown(
+            "Descreva o cenário de contratação e a IA irá gerar uma **classificação de risco** "
+            "com **mapa de riscos** (probabilidade × impacto) e **recomendações de mitigação**."
+        )
+        cenario = st.text_area(
+            "Descreva o cenário de contratação para análise de risco:",
+            height=150,
+            key="cenario_risco",
+            placeholder="Ex: Contratação direta de software de gestão por dispensa de licitação, valor estimado R$ 70.000...",
+        )
+        if st.button("⚖️ Analisar Risco Jurídico", key="btn_risco", use_container_width=True):
+            if cenario:
+                with st.spinner("Analisando risco jurídico e gerando mapa de riscos..."):
+                    resultado = classificar_risco_juridico(cenario)
+                st.markdown("---")
+                st.markdown(resultado)
+                # Legenda visual da matriz de risco
+                st.markdown("---")
+                st.markdown("##### 🗺️ Legenda — Matriz de Risco")
+                legenda_html = """
+                <table style="border-collapse:collapse;width:100%;text-align:center;font-size:13px;">
+                <tr><td style="width:20%;border:1px solid #555;"></td>
+                    <td style="border:1px solid #555;font-weight:bold;padding:6px;">Impacto Baixo</td>
+                    <td style="border:1px solid #555;font-weight:bold;padding:6px;">Impacto Médio</td>
+                    <td style="border:1px solid #555;font-weight:bold;padding:6px;">Impacto Alto</td></tr>
+                <tr><td style="border:1px solid #555;font-weight:bold;padding:6px;">Prob. Alta</td>
+                    <td style="border:1px solid #555;background:#fff3cd;padding:6px;">⚠️ Médio</td>
+                    <td style="border:1px solid #555;background:#f8d7da;padding:6px;">🔴 Alto</td>
+                    <td style="border:1px solid #555;background:#f5222d;color:#fff;padding:6px;">🔴 Crítico</td></tr>
+                <tr><td style="border:1px solid #555;font-weight:bold;padding:6px;">Prob. Média</td>
+                    <td style="border:1px solid #555;background:#d4edda;padding:6px;">🟢 Baixo</td>
+                    <td style="border:1px solid #555;background:#fff3cd;padding:6px;">⚠️ Médio</td>
+                    <td style="border:1px solid #555;background:#f8d7da;padding:6px;">🔴 Alto</td></tr>
+                <tr><td style="border:1px solid #555;font-weight:bold;padding:6px;">Prob. Baixa</td>
+                    <td style="border:1px solid #555;background:#d4edda;padding:6px;">🟢 Baixo</td>
+                    <td style="border:1px solid #555;background:#d4edda;padding:6px;">🟢 Baixo</td>
+                    <td style="border:1px solid #555;background:#fff3cd;padding:6px;">⚠️ Médio</td></tr>
+                </table>
+                """
+                st.markdown(legenda_html, unsafe_allow_html=True)
+                st.caption("A tabela acima é uma referência visual. O mapa detalhado por categoria está na análise da IA.")
+            else:
+                st.warning("Descreva o cenário de contratação.")
 
 # ============================================================
 # TAB 3 — CHECKLIST DE PROCESSO
