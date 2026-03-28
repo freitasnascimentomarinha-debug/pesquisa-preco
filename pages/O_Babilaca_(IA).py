@@ -963,7 +963,7 @@ st.markdown("""
 # ============================================================
 tab_chat, tab_docs, tab_consultas = st.tabs([
     "💬 Chat IA",
-    "📄 Documentos",
+    "📄 Gerar Documentos com IA",
     "🔍 Consultas (APIs)",
 ])
 
@@ -1019,11 +1019,8 @@ with tab_chat:
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
 
-# Input do usuário (fora das tabs — fixo no rodapé da página)
-prompt = st.chat_input("Digite sua pergunta sobre licitações, legislação ou contratações...")
-
-with tab_chat:
-    if prompt:
+    # Input do usuário
+    if prompt := st.chat_input("Digite sua pergunta sobre licitações, legislação ou contratações..."):
         # Adicionar mensagem do usuário
         st.session_state["babilaca_messages"].append({"role": "user", "content": prompt})
         with st.chat_message("user"):
@@ -1069,36 +1066,8 @@ with tab_chat:
 # TAB 2 — DOCUMENTOS
 # ============================================================
 with tab_docs:
-    st.markdown("### 📄 Geração de Documentos Administrativos")
-
-    col_doc1, col_doc2 = st.columns(2)
-    with col_doc1:
-        st.markdown("""
-        <div class="doc-card">
-            <h4>📋 DFD</h4>
-            <p>Documento de Formalização de Demanda — IN 58/2022</p>
-        </div>
-        """, unsafe_allow_html=True)
-        st.markdown("""
-        <div class="doc-card">
-            <h4>📑 Termo de Referência</h4>
-            <p>Documento com especificações para contratação — Lei 14.133, Art. 6°</p>
-        </div>
-        """, unsafe_allow_html=True)
-    with col_doc2:
-        st.markdown("""
-        <div class="doc-card">
-            <h4>📝 Justificativa</h4>
-            <p>Justificativa de contratação com base legal</p>
-        </div>
-        """, unsafe_allow_html=True)
-        st.markdown("""
-        <div class="doc-card">
-            <h4>📊 Mapa Comparativo</h4>
-            <p>Comparativo de preços entre fornecedores</p>
-        </div>
-        """, unsafe_allow_html=True)
-
+    st.markdown("### 📄 Gerar Documentos com IA")
+    st.markdown("Gere documentos administrativos para facilitar a montagem do processo de licitação.")
     st.markdown("---")
     tipo_doc = st.selectbox(
         "Selecione o tipo de documento",
@@ -1111,7 +1080,7 @@ with tab_docs:
     # ---- DFD ----
     if "DFD" in tipo_doc:
         st.markdown("#### 📋 Gerar DFD")
-        modo_dfd = st.radio("Modo de preenchimento", ["Manual", "Assistido por IA"], horizontal=True, key="modo_dfd")
+        modo_dfd = st.radio("Modo de preenchimento", ["Manual", "Assistido por IA"], horizontal=True, key="modo_dfd", index=1)
 
         if modo_dfd == "Manual":
             with st.form("form_dfd"):
@@ -1167,7 +1136,7 @@ with tab_docs:
     # ---- TERMO DE REFERÊNCIA ----
     elif "Termo de Referência" in tipo_doc:
         st.markdown("#### 📑 Gerar Termo de Referência")
-        modo_tr = st.radio("Modo de preenchimento", ["Manual", "Assistido por IA"], horizontal=True, key="modo_tr")
+        modo_tr = st.radio("Modo de preenchimento", ["Manual", "Assistido por IA"], horizontal=True, key="modo_tr", index=1)
 
         if modo_tr == "Manual":
             with st.form("form_tr"):
@@ -1232,7 +1201,7 @@ with tab_docs:
     # ---- JUSTIFICATIVA ----
     elif "Justificativa" in tipo_doc:
         st.markdown("#### 📝 Gerar Justificativa de Contratação")
-        modo_just = st.radio("Modo", ["Manual", "Assistido por IA"], horizontal=True, key="modo_just")
+        modo_just = st.radio("Modo", ["Manual", "Assistido por IA"], horizontal=True, key="modo_just", index=1)
 
         if modo_just == "Manual":
             with st.form("form_just"):
