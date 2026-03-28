@@ -144,6 +144,15 @@ st.markdown("""
     .stat-card .label { color: #94a3b8; font-size: 0.8rem; }
 
     div[data-testid="stChatMessage"] { background: rgba(10,22,40,0.6) !important; border-radius: 10px; }
+
+    /* Auto-scroll chat to bottom */
+    .stChatFloatingInputContainer { position: sticky; bottom: 0; z-index: 100; }
+    section[data-testid="stChatMessageContainer"] {
+        max-height: 65vh;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -628,22 +637,42 @@ def gerar_pdf_documento(titulo: str, corpo: str) -> bytes:
     pdf.set_font("Helvetica", "", 11)
     pdf.set_text_color(30, 30, 30)
     for linha in corpo.split("\n"):
+        # Remove markdown bold/italic markers para o PDF
+        linha_limpa = re.sub(r"\*{1,3}(.+?)\*{1,3}", r"\1", linha)
+        linha_limpa = _sanitize_for_pdf(linha_limpa)
         if linha.startswith("## "):
             pdf.ln(4)
             pdf.set_font("Helvetica", "B", 13)
-            pdf.multi_cell(0, 7, linha.replace("## ", ""))
+            pdf.multi_cell(0, 7, _sanitize_for_pdf(linha.replace("## ", "")))
             pdf.set_font("Helvetica", "", 11)
         elif linha.startswith("### "):
             pdf.ln(2)
             pdf.set_font("Helvetica", "B", 11)
-            pdf.multi_cell(0, 6, linha.replace("### ", ""))
+            pdf.multi_cell(0, 6, _sanitize_for_pdf(linha.replace("### ", "")))
             pdf.set_font("Helvetica", "", 11)
         elif linha.strip().startswith("- "):
-            pdf.multi_cell(0, 6, f"  \u2022 {linha.strip()[2:]}")
+            texto_bullet = re.sub(r"\*{1,3}(.+?)\*{1,3}", r"\1", linha.strip()[2:])
+            pdf.multi_cell(0, 6, _sanitize_for_pdf(f"  - {texto_bullet}"))
+        elif linha.strip() == "---":
+            pdf.ln(3)
+            pdf.set_draw_color(180, 180, 180)
+            pdf.line(20, pdf.get_y(), 190, pdf.get_y())
+            pdf.ln(3)
         elif linha.strip() == "":
             pdf.ln(3)
         else:
-            pdf.multi_cell(0, 6, linha)
+            pdf.multi_cell(0, 6, linha_limpa)
+
+    # Rodape
+    pdf.ln(8)
+    pdf.set_draw_color(212, 175, 55)
+    pdf.set_line_width(0.5)
+    pdf.line(20, pdf.get_y(), 190, pdf.get_y())
+    pdf.ln(3)
+    pdf.set_font("Helvetica", "I", 7)
+    pdf.set_text_color(150, 150, 150)
+    pdf.cell(0, 5, _sanitize_for_pdf("Gerado por AtaCotada - O Babilaca (IA) - Marinha do Brasil"), ln=True, align="C")
+
     return bytes(pdf.output())
 
 
@@ -751,8 +780,15 @@ Confirmar sempre nas fontes oficiais.
 """
 
 
-def gerar_mapa_comparativo_pdf(itens: list[dict]) -> bytes:
-    """Gera PDF de mapa comparativo de preços."""
+def _fmt_brl(valor: float) -> str:
+    """Formata um valor float em reais BR: R$ 1.234,56"""
+    if not valor:
+        return "-"
+    return f"R$ {valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+def gerar_mapa_comparativo_pdf(itens: list[dict], observacoes: str = "") -> bytes:
+    """Gera PDF de mapa comparativo de preços com quantidade, totais e observações."""
     pdf = FPDF("L")  # Paisagem
     pdf.add_page()
     pdf.set_font("Helvetica", "B", 14)
@@ -767,27 +803,54 @@ def gerar_mapa_comparativo_pdf(itens: list[dict]) -> bytes:
     # Cabeçalho da tabela
     pdf.set_fill_color(0, 26, 77)
     pdf.set_text_color(255, 255, 255)
-    pdf.set_font("Helvetica", "B", 9)
-    colunas = ["Item", "Descrição", "Forn. 1", "Forn. 2", "Forn. 3", "Média", "Mediana"]
-    larguras = [12, 70, 35, 35, 35, 35, 35]
+    pdf.set_font("Helvetica", "B", 8)
+    colunas = ["Item", _sanitize_for_pdf("Descricao"), "Qtd", "Forn. 1", "Forn. 2", "Forn. 3", _sanitize_for_pdf("Media"), "Mediana", "Total Est."]
+    larguras = [10, 55, 14, 32, 32, 32, 30, 30, 32]
     for col, larg in zip(colunas, larguras):
         pdf.cell(larg, 8, col, border=1, align="C", fill=True)
     pdf.ln()
 
     pdf.set_text_color(30, 30, 30)
-    pdf.set_font("Helvetica", "", 9)
+    pdf.set_font("Helvetica", "", 8)
+    total_geral = 0.0
     for i, item in enumerate(itens, 1):
         precos = [item.get("preco1", 0), item.get("preco2", 0), item.get("preco3", 0)]
         validos = [p for p in precos if p > 0]
         media = sum(validos) / len(validos) if validos else 0
         mediana = sorted(validos)[len(validos) // 2] if validos else 0
-        pdf.cell(12, 7, str(i), border=1, align="C")
-        pdf.cell(70, 7, _sanitize_for_pdf(str(item.get("descricao", ""))[:45]), border=1)
+        qtd = item.get("quantidade", 1) or 1
+        total_item = media * qtd
+        total_geral += total_item
+        pdf.cell(10, 7, str(i), border=1, align="C")
+        pdf.cell(55, 7, _sanitize_for_pdf(str(item.get("descricao", ""))[:38]), border=1)
+        pdf.cell(14, 7, str(int(qtd)), border=1, align="C")
         for p in precos:
-            pdf.cell(35, 7, f"R$ {p:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".") if p else "-", border=1, align="R")
-        pdf.cell(35, 7, f"R$ {media:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".") if media else "-", border=1, align="R")
-        pdf.cell(35, 7, f"R$ {mediana:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".") if mediana else "-", border=1, align="R")
+            pdf.cell(32, 7, _fmt_brl(p), border=1, align="R")
+        pdf.cell(30, 7, _fmt_brl(media), border=1, align="R")
+        pdf.cell(30, 7, _fmt_brl(mediana), border=1, align="R")
+        pdf.cell(32, 7, _fmt_brl(total_item), border=1, align="R")
         pdf.ln()
+
+    # Linha de total geral
+    pdf.set_font("Helvetica", "B", 9)
+    pdf.set_fill_color(240, 245, 255)
+    largura_antes = sum(larguras[:-1])
+    pdf.cell(largura_antes, 8, "TOTAL GERAL", border=1, align="R", fill=True)
+    pdf.cell(larguras[-1], 8, _fmt_brl(total_geral), border=1, align="R", fill=True)
+    pdf.ln()
+
+    # Observações
+    if observacoes and observacoes.strip():
+        pdf.ln(6)
+        pdf.set_font("Helvetica", "B", 10)
+        pdf.set_text_color(0, 26, 77)
+        pdf.cell(0, 7, _sanitize_for_pdf("OBSERVACOES"), ln=True)
+        pdf.set_draw_color(212, 175, 55)
+        pdf.line(pdf.l_margin, pdf.get_y(), pdf.w - pdf.r_margin, pdf.get_y())
+        pdf.ln(3)
+        pdf.set_font("Helvetica", "", 9)
+        pdf.set_text_color(30, 30, 30)
+        pdf.multi_cell(0, 6, _sanitize_for_pdf(observacoes.strip()))
 
     pdf.ln(6)
     pdf.set_font("Helvetica", "I", 8)
@@ -1448,6 +1511,21 @@ with tab_chat:
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
 
+    # Auto-scroll para manter sempre no final da conversa
+    if st.session_state["babilaca_messages"]:
+        st.markdown(
+            """<div id="chat-anchor"></div>
+            <script>
+            (function() {
+                const anchor = window.parent.document.getElementById('chat-anchor');
+                if (anchor) anchor.scrollIntoView({behavior: 'smooth', block: 'end'});
+                const chatContainer = window.parent.document.querySelector('section[data-testid="stChatMessageContainer"]');
+                if (chatContainer) chatContainer.scrollTop = chatContainer.scrollHeight;
+            })();
+            </script>""",
+            unsafe_allow_html=True,
+        )
+
     # Input do usuário
     if prompt := st.chat_input("Digite sua pergunta sobre licitações, legislação ou contratações..."):
         # Adicionar mensagem do usuário
@@ -1490,6 +1568,17 @@ with tab_chat:
                 st.toast("Resposta salva!")
 
         st.session_state["babilaca_messages"].append({"role": "assistant", "content": resposta})
+        # Auto-scroll para o final da conversa
+        st.markdown(
+            """<script>
+            const chatContainer = window.parent.document.querySelector('section[data-testid="stChatMessageContainer"]');
+            if (chatContainer) { chatContainer.scrollTop = chatContainer.scrollHeight; }
+            // Fallback: scroll the main container
+            const main = window.parent.document.querySelector('.main');
+            if (main) { main.scrollTop = main.scrollHeight; }
+            </script>""",
+            unsafe_allow_html=True,
+        )
 
 # ============================================================
 # TAB 2 — DOCUMENTOS
@@ -1689,70 +1778,115 @@ with tab_docs:
             itens_mapa = []
             for i in range(int(n_itens)):
                 st.markdown(f"**Item {i + 1}**")
-                c1, c2, c3, c4 = st.columns(4)
+                c1, c2, c3, c4, c5 = st.columns([3, 1, 1.5, 1.5, 1.5])
                 with c1:
-                    desc = st.text_input(f"Descrição", key=f"mapa_desc_{i}")
+                    desc = st.text_input("Descrição", key=f"mapa_desc_{i}")
                 with c2:
-                    p1 = st.number_input(f"Fornecedor 1 (R$)", min_value=0.0, format="%.2f", key=f"mapa_p1_{i}")
+                    qtd = st.number_input("Qtd", min_value=1, value=1, key=f"mapa_qtd_{i}")
                 with c3:
-                    p2 = st.number_input(f"Fornecedor 2 (R$)", min_value=0.0, format="%.2f", key=f"mapa_p2_{i}")
+                    p1 = st.number_input("Fornecedor 1 (R$)", min_value=0.0, format="%.2f", key=f"mapa_p1_{i}")
                 with c4:
-                    p3 = st.number_input(f"Fornecedor 3 (R$)", min_value=0.0, format="%.2f", key=f"mapa_p3_{i}")
-                itens_mapa.append({"descricao": desc, "preco1": p1, "preco2": p2, "preco3": p3})
+                    p2 = st.number_input("Fornecedor 2 (R$)", min_value=0.0, format="%.2f", key=f"mapa_p2_{i}")
+                with c5:
+                    p3 = st.number_input("Fornecedor 3 (R$)", min_value=0.0, format="%.2f", key=f"mapa_p3_{i}")
+                itens_mapa.append({"descricao": desc, "quantidade": qtd, "preco1": p1, "preco2": p2, "preco3": p3})
+
+            obs_mapa = st.text_area(
+                "Observações (aparecerá abaixo da tabela no PDF)",
+                height=80,
+                key="mapa_obs",
+                placeholder="Ex: Preços coletados em março/2026. Frete incluso...",
+            )
 
             if st.button("📊 Gerar Mapa Comparativo", key="btn_mapa"):
-                pdf_bytes = gerar_mapa_comparativo_pdf(itens_mapa)
+                pdf_bytes = gerar_mapa_comparativo_pdf(itens_mapa, observacoes=obs_mapa)
                 st.download_button("⬇️ Baixar Mapa em PDF", pdf_bytes, "mapa_comparativo.pdf", "application/pdf")
 
                 # Mostrar tabela na tela
                 rows = []
+                total_geral = 0.0
                 for i, item in enumerate(itens_mapa, 1):
                     precos = [item["preco1"], item["preco2"], item["preco3"]]
                     validos = [p for p in precos if p > 0]
+                    media = sum(validos) / len(validos) if validos else 0
+                    q = item.get("quantidade", 1) or 1
+                    total_item = media * q
+                    total_geral += total_item
                     rows.append({
                         "Item": i,
                         "Descrição": item["descricao"],
+                        "Qtd": int(q),
                         "Forn. 1": f"R$ {item['preco1']:,.2f}",
                         "Forn. 2": f"R$ {item['preco2']:,.2f}",
                         "Forn. 3": f"R$ {item['preco3']:,.2f}",
-                        "Média": f"R$ {sum(validos)/len(validos):,.2f}" if validos else "-",
+                        "Média": f"R$ {media:,.2f}" if validos else "-",
+                        "Total Est.": f"R$ {total_item:,.2f}" if total_item else "-",
                     })
-                st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
+                df_mapa = pd.DataFrame(rows)
+                st.dataframe(df_mapa, use_container_width=True, hide_index=True)
+                st.markdown(f"**Total Geral Estimado: R$ {total_geral:,.2f}**")
+                if obs_mapa and obs_mapa.strip():
+                    st.info(f"**Observações:** {obs_mapa}")
         else:
-            arq_mapa = st.file_uploader("Envie planilha com itens e preços", type=["xlsx", "xls", "csv"], key="mapa_upload")
+            arq_mapa = st.file_uploader("Envie planilha ou PDF com itens e preços", type=["xlsx", "xls", "csv", "pdf"], key="mapa_upload")
+            obs_mapa_arq = st.text_area(
+                "Observações (aparecerá abaixo da tabela no PDF)",
+                height=80,
+                key="mapa_obs_arq",
+                placeholder="Ex: Preços coletados em março/2026. Frete incluso...",
+            )
             if arq_mapa:
                 try:
-                    if arq_mapa.name.endswith(".csv"):
+                    if arq_mapa.name.lower().endswith(".pdf"):
+                        texto_pdf = extrair_texto_pdf(arq_mapa)
+                        st.text_area("Conteúdo extraído do PDF", texto_pdf[:3000], height=200, disabled=True)
+                        st.info("PDF carregado. Use o modo Manual para preencher os dados com base no conteúdo extraído.")
+                    elif arq_mapa.name.endswith(".csv"):
                         df_m = pd.read_csv(arq_mapa)
                     else:
                         df_m = pd.read_excel(arq_mapa)
-                    st.dataframe(df_m, use_container_width=True)
-                    st.info("Revise os dados acima. O sistema tentará identificar colunas de descrição e preços.")
-                    if st.button("📊 Gerar Mapa a partir da planilha", key="btn_mapa_arq"):
-                        itens_arq = []
-                        desc_col = None
-                        for c in df_m.columns:
-                            if any(k in c.lower() for k in ["desc", "item", "produto", "material", "objeto"]):
-                                desc_col = c
-                                break
-                        if not desc_col:
-                            desc_col = df_m.columns[0]
-                        preco_cols = [c for c in df_m.columns if any(k in c.lower() for k in ["preco", "preço", "valor", "forn", "cota"])]
-                        if not preco_cols:
-                            preco_cols = [c for c in df_m.columns if df_m[c].dtype in ["float64", "int64"]]
-                        for _, row in df_m.iterrows():
-                            item = {"descricao": str(row[desc_col])}
-                            for j, pc in enumerate(preco_cols[:3], 1):
-                                try:
-                                    item[f"preco{j}"] = float(row[pc])
-                                except (ValueError, TypeError):
+
+                    if not arq_mapa.name.lower().endswith(".pdf"):
+                        st.dataframe(df_m, use_container_width=True)
+                        st.info("Revise os dados acima. O sistema tentará identificar colunas de descrição e preços.")
+                        if st.button("📊 Gerar Mapa a partir da planilha", key="btn_mapa_arq"):
+                            itens_arq = []
+                            desc_col = None
+                            for c in df_m.columns:
+                                if any(k in c.lower() for k in ["desc", "item", "produto", "material", "objeto"]):
+                                    desc_col = c
+                                    break
+                            if not desc_col:
+                                desc_col = df_m.columns[0]
+                            preco_cols = [c for c in df_m.columns if any(k in c.lower() for k in ["preco", "preço", "valor", "forn", "cota"])]
+                            if not preco_cols:
+                                preco_cols = [c for c in df_m.columns if df_m[c].dtype in ["float64", "int64"]]
+                            # Tentar encontrar coluna de quantidade
+                            qtd_col = None
+                            for c in df_m.columns:
+                                if any(k in c.lower() for k in ["qtd", "quant", "quantidade", "qty"]):
+                                    qtd_col = c
+                                    break
+                            for _, row in df_m.iterrows():
+                                item = {"descricao": str(row[desc_col])}
+                                if qtd_col:
+                                    try:
+                                        item["quantidade"] = int(float(row[qtd_col]))
+                                    except (ValueError, TypeError):
+                                        item["quantidade"] = 1
+                                else:
+                                    item["quantidade"] = 1
+                                for j, pc in enumerate(preco_cols[:3], 1):
+                                    try:
+                                        item[f"preco{j}"] = float(row[pc])
+                                    except (ValueError, TypeError):
+                                        item[f"preco{j}"] = 0
+                                for j in range(len(preco_cols) + 1, 4):
                                     item[f"preco{j}"] = 0
-                            for j in range(len(preco_cols) + 1, 4):
-                                item[f"preco{j}"] = 0
-                            itens_arq.append(item)
-                        if itens_arq:
-                            pdf_bytes = gerar_mapa_comparativo_pdf(itens_arq)
-                            st.download_button("⬇️ Baixar Mapa em PDF", pdf_bytes, "mapa_comparativo.pdf", "application/pdf")
+                                itens_arq.append(item)
+                            if itens_arq:
+                                pdf_bytes = gerar_mapa_comparativo_pdf(itens_arq, observacoes=obs_mapa_arq)
+                                st.download_button("⬇️ Baixar Mapa em PDF", pdf_bytes, "mapa_comparativo.pdf", "application/pdf")
                 except Exception as e:
                     st.error(f"Erro ao processar arquivo: {e}")
 
@@ -1779,27 +1913,41 @@ with tab_docs:
                 st.markdown("---")
                 st.markdown("##### 🗺️ Legenda — Matriz de Risco")
                 legenda_html = """
-                <table style="border-collapse:collapse;width:100%;text-align:center;font-size:13px;">
-                <tr><td style="width:20%;border:1px solid #555;"></td>
-                    <td style="border:1px solid #555;font-weight:bold;padding:6px;">Impacto Baixo</td>
-                    <td style="border:1px solid #555;font-weight:bold;padding:6px;">Impacto Médio</td>
-                    <td style="border:1px solid #555;font-weight:bold;padding:6px;">Impacto Alto</td></tr>
-                <tr><td style="border:1px solid #555;font-weight:bold;padding:6px;">Prob. Alta</td>
-                    <td style="border:1px solid #555;background:#fff3cd;padding:6px;">⚠️ Médio</td>
-                    <td style="border:1px solid #555;background:#f8d7da;padding:6px;">🔴 Alto</td>
-                    <td style="border:1px solid #555;background:#f5222d;color:#fff;padding:6px;">🔴 Crítico</td></tr>
-                <tr><td style="border:1px solid #555;font-weight:bold;padding:6px;">Prob. Média</td>
-                    <td style="border:1px solid #555;background:#d4edda;padding:6px;">🟢 Baixo</td>
-                    <td style="border:1px solid #555;background:#fff3cd;padding:6px;">⚠️ Médio</td>
-                    <td style="border:1px solid #555;background:#f8d7da;padding:6px;">🔴 Alto</td></tr>
-                <tr><td style="border:1px solid #555;font-weight:bold;padding:6px;">Prob. Baixa</td>
-                    <td style="border:1px solid #555;background:#d4edda;padding:6px;">🟢 Baixo</td>
-                    <td style="border:1px solid #555;background:#d4edda;padding:6px;">🟢 Baixo</td>
-                    <td style="border:1px solid #555;background:#fff3cd;padding:6px;">⚠️ Médio</td></tr>
+                <div style="margin-top:0.5rem;">
+                <table style="border-collapse:collapse;width:100%;max-width:600px;margin:0 auto;text-align:center;font-size:13px;color:#e0e0e0;">
+                <thead>
+                <tr style="background:#001a4d;">
+                    <th style="border:1px solid #d4af37;padding:8px 10px;color:#d4af37;">Probabilidade \\ Impacto</th>
+                    <th style="border:1px solid #d4af37;padding:8px 10px;color:#d4af37;">Baixo</th>
+                    <th style="border:1px solid #d4af37;padding:8px 10px;color:#d4af37;">Medio</th>
+                    <th style="border:1px solid #d4af37;padding:8px 10px;color:#d4af37;">Alto</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr>
+                    <td style="border:1px solid #445;padding:8px;font-weight:bold;background:#0a1628;color:#cbd5e1;">Alta</td>
+                    <td style="border:1px solid #445;padding:8px;background:rgba(245,158,11,0.25);color:#f59e0b;font-weight:600;">Medio</td>
+                    <td style="border:1px solid #445;padding:8px;background:rgba(220,38,38,0.25);color:#ef4444;font-weight:600;">Alto</td>
+                    <td style="border:1px solid #445;padding:8px;background:rgba(220,38,38,0.45);color:#ff6b6b;font-weight:bold;">Critico</td>
+                </tr>
+                <tr>
+                    <td style="border:1px solid #445;padding:8px;font-weight:bold;background:#0a1628;color:#cbd5e1;">Media</td>
+                    <td style="border:1px solid #445;padding:8px;background:rgba(34,197,94,0.2);color:#22c55e;font-weight:600;">Baixo</td>
+                    <td style="border:1px solid #445;padding:8px;background:rgba(245,158,11,0.25);color:#f59e0b;font-weight:600;">Medio</td>
+                    <td style="border:1px solid #445;padding:8px;background:rgba(220,38,38,0.25);color:#ef4444;font-weight:600;">Alto</td>
+                </tr>
+                <tr>
+                    <td style="border:1px solid #445;padding:8px;font-weight:bold;background:#0a1628;color:#cbd5e1;">Baixa</td>
+                    <td style="border:1px solid #445;padding:8px;background:rgba(34,197,94,0.2);color:#22c55e;font-weight:600;">Baixo</td>
+                    <td style="border:1px solid #445;padding:8px;background:rgba(34,197,94,0.2);color:#22c55e;font-weight:600;">Baixo</td>
+                    <td style="border:1px solid #445;padding:8px;background:rgba(245,158,11,0.25);color:#f59e0b;font-weight:600;">Medio</td>
+                </tr>
+                </tbody>
                 </table>
+                </div>
                 """
                 st.markdown(legenda_html, unsafe_allow_html=True)
-                st.caption("A tabela acima é uma referência visual. O mapa detalhado por categoria está na análise da IA.")
+                st.caption("A tabela acima e uma referencia visual. O mapa detalhado por categoria esta na analise da IA.")
             else:
                 st.warning("Descreva o cenário de contratação.")
 
