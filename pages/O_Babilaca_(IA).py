@@ -296,125 +296,649 @@ BASE_JURIDICA = [
     },
     # --- Instruções Normativas ---
     {
-        "fonte": "IN SEGES/ME nº 65/2021",
-        "artigo": "Arts. 1° a 10",
-        "titulo": "Pesquisa de preços para contratações",
+        "fonte": "IN SEGES/ME n. 65/2021",
+        "artigo": "Arts. 1 a 10",
+        "titulo": "Pesquisa de precos para contratacoes",
         "conteudo": (
-            "Estabelece procedimentos para pesquisa de preços: "
-            "I – Painel de Preços ou banco de preços em saúde (parâmetro preferencial); "
-            "II – Aquisições e contratações similares de outros entes públicos; "
-            "III – Dados de pesquisa publicada em mídia especializada, sítios eletrônicos "
-            "especializados ou de domínio amplo; "
-            "IV – Pesquisa direta com fornecedores. "
-            "Deve-se utilizar no mínimo 3 preços. "
-            "Devem ser desconsiderados preços inexequíveis ou excessivamente elevados."
+            "Estabelece procedimentos para pesquisa de precos: "
+            "I - Painel de Precos ou banco de precos em saude (parametro preferencial); "
+            "II - Aquisicoes e contratacoes similares de outros entes publicos; "
+            "III - Dados de pesquisa publicada em midia especializada, sitios eletronicos "
+            "especializados ou de dominio amplo; "
+            "IV - Pesquisa direta com fornecedores. "
+            "Deve-se utilizar no minimo 3 precos. "
+            "Devem ser desconsiderados precos inexequiveis ou excessivamente elevados."
         ),
         "link": "https://www.gov.br/compras/pt-br/acesso-a-informacao/legislacao/instrucoes-normativas/instrucao-normativa-no-65-de-7-de-julho-de-2021",
         "palavras_chave": [
-            "pesquisa de preços", "IN 65", "painel de preços", "cotação",
-            "fornecedor", "parâmetro", "mínimo", "preço inexequível",
+            "pesquisa de precos", "IN 65", "painel de precos", "cotacao",
+            "fornecedor", "parametro", "minimo", "preco inexequivel",
         ],
     },
     {
-        "fonte": "IN SEGES/ME nº 58/2022",
-        "artigo": "Planejamento da contratação",
-        "titulo": "Planejamento das contratações",
+        "fonte": "IN SEGES/ME n. 65/2021",
+        "artigo": "Art. 2",
+        "titulo": "Parametros de pesquisa de precos - ordem de prioridade",
         "conteudo": (
-            "Disciplina o planejamento das contratações, o Plano de Contratações Anual "
-            "(PCA) e o Documento de Formalização de Demanda (DFD). "
+            "A pesquisa de precos para fins de determinacao do preco estimado em "
+            "processo licitatorio deve observar os seguintes parametros, nesta ordem: "
+            "I - composicao de custos unitarios menores ou iguais a mediana do Painel de Precos; "
+            "II - contratacoes similares feitas pela Administracao Publica (ultimos 12 meses); "
+            "III - dados de pesquisa publicada em midia especializada, "
+            "sitios eletronicos especializados ou de dominio amplo; "
+            "IV - pesquisa direta com no minimo 3 fornecedores. "
+            "Excepcionalmente, mediante justificativa, sera admitido preco estimado "
+            "com base em menos de 3 precos."
+        ),
+        "link": "https://www.gov.br/compras/pt-br/acesso-a-informacao/legislacao/instrucoes-normativas/instrucao-normativa-no-65-de-7-de-julho-de-2021",
+        "palavras_chave": [
+            "parametro", "prioridade", "painel", "mediana", "12 meses",
+            "3 fornecedores", "cotacao", "preco estimado", "IN 65",
+        ],
+    },
+    {
+        "fonte": "IN SEGES/ME n. 65/2021",
+        "artigo": "Art. 5",
+        "titulo": "Metodologia de calculo do preco estimado",
+        "conteudo": (
+            "O preco estimado sera obtido pela media, mediana ou menor valor dos precos "
+            "obtidos na pesquisa, mediante justificativa da metodologia adotada. "
+            "Devem ser desconsiderados valores inexequiveis (inferiores a 75% da mediana) "
+            "e excessivos (superiores a 225% da mediana). "
+            "A pesquisa deve ser documentada com registro de fontes, datas e metodologia."
+        ),
+        "link": "https://www.gov.br/compras/pt-br/acesso-a-informacao/legislacao/instrucoes-normativas/instrucao-normativa-no-65-de-7-de-julho-de-2021",
+        "palavras_chave": [
+            "media", "mediana", "menor valor", "metodologia", "inexequivel",
+            "75%", "225%", "excessivo", "IN 65", "calculo",
+        ],
+    },
+    {
+        "fonte": "IN SEGES/ME n. 65/2021",
+        "artigo": "Art. 6",
+        "titulo": "Pesquisa de precos para contratacao direta",
+        "conteudo": (
+            "Na contratacao direta por dispensa ou inexigibilidade, a estimativa de "
+            "preco deve ser realizada quando possivel com os parametros do Art. 2. "
+            "Quando inviavel, e aceitavel a justificativa de preco com base em "
+            "nota fiscal, proposta do fornecedor ou tabela oficial de precos."
+        ),
+        "link": "https://www.gov.br/compras/pt-br/acesso-a-informacao/legislacao/instrucoes-normativas/instrucao-normativa-no-65-de-7-de-julho-de-2021",
+        "palavras_chave": [
+            "contratacao direta", "dispensa", "inexigibilidade", "nota fiscal",
+            "proposta", "justificativa de preco", "IN 65",
+        ],
+    },
+    {
+        "fonte": "IN SEGES/ME n. 58/2022",
+        "artigo": "Arts. 1 a 30",
+        "titulo": "Planejamento das contratacoes - PCA e DFD",
+        "conteudo": (
+            "Disciplina o planejamento das contratacoes, o Plano de Contratacoes Anual "
+            "(PCA) e o Documento de Formalizacao de Demanda (DFD). "
             "O DFD deve conter: justificativa da necessidade, quantidade estimada, "
-            "previsão de data, grau de prioridade e indicação do requisitante. "
-            "O Estudo Técnico Preliminar (ETP) deve analisar a viabilidade, "
-            "os riscos e as alternativas de contratação."
+            "previsao de data, grau de prioridade e indicacao do requisitante. "
+            "O Estudo Tecnico Preliminar (ETP) deve analisar a viabilidade, "
+            "os riscos e as alternativas de contratacao."
         ),
         "link": "https://www.gov.br/compras/pt-br/acesso-a-informacao/legislacao/instrucoes-normativas/instrucao-normativa-seges-me-no-58-de-8-de-agosto-de-2022",
         "palavras_chave": [
             "planejamento", "PCA", "DFD", "demanda", "ETP",
-            "estudo técnico", "viabilidade", "prioridade", "IN 58",
+            "estudo tecnico", "viabilidade", "prioridade", "IN 58",
         ],
     },
     {
-        "fonte": "IN SEGES/ME nº 73/2022",
-        "artigo": "Sanções e cadastro",
-        "titulo": "Procedimentos para aplicação de sanções",
+        "fonte": "IN SEGES/ME n. 58/2022",
+        "artigo": "Arts. 7 a 12",
+        "titulo": "Estudo Tecnico Preliminar (ETP)",
         "conteudo": (
-            "Regulamenta o procedimento administrativo para aplicação de sanções, "
-            "o registro no SICAF, e o cadastro de fornecedores impedidos e inidôneos. "
-            "Define prazos, critérios de dosimetria e procedimentos para ampla defesa."
+            "O ETP deve conter: descricao da necessidade, requisitos da contratacao, "
+            "levantamento de mercado, estimativa de quantidades, estimativa de custos, "
+            "descricao da solucao, justificativas para parcelamento ou nao, "
+            "providencias para adequacao do ambiente, analise de riscos, "
+            "posicionamento quanto a viabilidade da contratacao. "
+            "O ETP e elaborado pelo setor tecnico e deve anteceder o Termo de Referencia."
+        ),
+        "link": "https://www.gov.br/compras/pt-br/acesso-a-informacao/legislacao/instrucoes-normativas/instrucao-normativa-seges-me-no-58-de-8-de-agosto-de-2022",
+        "palavras_chave": [
+            "ETP", "estudo tecnico preliminar", "viabilidade", "solucao",
+            "requisitos", "risco", "parcelamento", "IN 58",
+        ],
+    },
+    {
+        "fonte": "IN SEGES/ME n. 58/2022",
+        "artigo": "Arts. 13 a 18",
+        "titulo": "Termo de Referencia e Projeto Basico",
+        "conteudo": (
+            "O Termo de Referencia deve conter: descricao do objeto, fundamentacao, "
+            "descricao da solucao, requisitos da contratacao, modelo de execucao, "
+            "modelo de gestao, criterios de medicao e pagamento, forma e criterios "
+            "de selecao do fornecedor, adequacao orcamentaria. "
+            "E obrigatorio para licitacoes de bens e servicos comuns."
+        ),
+        "link": "https://www.gov.br/compras/pt-br/acesso-a-informacao/legislacao/instrucoes-normativas/instrucao-normativa-seges-me-no-58-de-8-de-agosto-de-2022",
+        "palavras_chave": [
+            "termo de referencia", "projeto basico", "objeto", "execucao",
+            "gestao", "medicao", "pagamento", "IN 58",
+        ],
+    },
+    {
+        "fonte": "IN SEGES/ME n. 73/2022",
+        "artigo": "Arts. 1 a 25",
+        "titulo": "Procedimentos para aplicacao de sancoes",
+        "conteudo": (
+            "Regulamenta o procedimento administrativo para aplicacao de sancoes "
+            "a licitantes e contratados no ambito da administracao publica federal: "
+            "o registro no SICAF, e o cadastro de fornecedores impedidos e inidoneos. "
+            "Define prazos de defesa (15 dias uteis), criterios de dosimetria "
+            "(gravidade, dano, reincidencia, boa-fe), procedimentos para ampla defesa "
+            "e contraditorio. As sancoes devem ser proporcionais a infração."
         ),
         "link": "https://www.gov.br/compras/pt-br/acesso-a-informacao/legislacao/instrucoes-normativas",
         "palavras_chave": [
-            "sanção", "SICAF", "cadastro", "impedido", "inidôneo",
-            "dosimetria", "defesa", "IN 73",
+            "sancao", "SICAF", "cadastro", "impedido", "inidoneo",
+            "dosimetria", "defesa", "IN 73", "penalidade", "infração",
         ],
     },
-    # --- Acórdãos TCU ---
     {
-        "fonte": "TCU — Acórdão 1.793/2011-Plenário",
-        "artigo": "",
-        "titulo": "Pesquisa de preços ampla",
+        "fonte": "IN SEGES/ME n. 67/2021",
+        "artigo": "Arts. 1 a 15",
+        "titulo": "Sistema de Registro de Precos (SRP) e adesao (carona)",
         "conteudo": (
-            "O TCU firmou entendimento de que a pesquisa de preços deve contemplar "
-            "diversas fontes, incluindo contratações públicas anteriores, mídia "
-            "especializada e pesquisa direta com fornecedores, para que o preço "
-            "estimado reflita adequadamente os valores de mercado."
+            "Regulamenta o Sistema de Registro de Precos. A adesao a ata (carona) "
+            "e permitida desde que: a ata esteja vigente; haja justificativa de "
+            "vantajosidade; haja anuencia do orgao gerenciador e do fornecedor; "
+            "nao ultrapasse o limite de 50% dos quantitativos registrados (orgaos federais) "
+            "ou o limite individual previsto na ata. "
+            "O orgao nao participante deve demonstrar que os precos sao compativeis "
+            "com o mercado e que a adesao e mais vantajosa que nova licitacao."
         ),
-        "link": "https://pesquisa.apps.tcu.gov.br/",
+        "link": "https://www.gov.br/compras/pt-br/acesso-a-informacao/legislacao/instrucoes-normativas",
         "palavras_chave": [
-            "TCU", "pesquisa de preços", "fontes", "mercado", "acórdão",
+            "SRP", "registro de precos", "adesao", "carona", "ata",
+            "gerenciador", "50%", "vantajosidade", "IN 67",
         ],
     },
     {
-        "fonte": "TCU — Acórdão 2.170/2007-Plenário",
-        "artigo": "",
-        "titulo": "Sobrepreço e superfaturamento",
+        "fonte": "IN SEGES/ME n. 81/2022",
+        "artigo": "Arts. 1 a 10",
+        "titulo": "Dispensa eletronica de licitacao",
         "conteudo": (
-            "O TCU considera sobrepreço quando o preço contratado supera o preço "
-            "de referência (mediana de mercado). Superfaturamento ocorre quando há "
-            "medição ou pagamento indevido. Ambos configuram dano ao erário e "
-            "podem ensejar aplicação de sanções."
+            "Regulamenta a dispensa de licitacao na forma eletronica. "
+            "A dispensa eletronica deve ser realizada no sistema Compras.gov.br. "
+            "Prazo minimo de 3 dias uteis para envio de propostas. "
+            "Aplicavel para contratacoes de valor ate os limites do Art. 75 da Lei 14.133. "
+            "Deve haver ampla divulgacao e garantir competitividade. "
+            "O fornecedor com menor preco sera convocado para negociacao."
         ),
-        "link": "https://pesquisa.apps.tcu.gov.br/",
+        "link": "https://www.gov.br/compras/pt-br/acesso-a-informacao/legislacao/instrucoes-normativas",
         "palavras_chave": [
-            "sobrepreço", "superfaturamento", "dano ao erário", "mediana",
-            "TCU", "referência",
+            "dispensa eletronica", "compras.gov.br", "3 dias uteis",
+            "menor preco", "IN 81", "dispensa", "eletronica", "limite",
         ],
     },
     {
-        "fonte": "TCU — Acórdão 2.861/2008-Plenário",
+        "fonte": "IN SEGES/ME n. 91/2022",
+        "artigo": "Arts. 1 a 12",
+        "titulo": "Contratacao de servicos terceirizados",
+        "conteudo": (
+            "Regulamenta a contratacao de servicos continuos com mao de obra dedicada. "
+            "Exige conta-deposito vinculada para provisoes trabalhistas, "
+            "planilha de custos e formacao de precos detalhada, "
+            "repactuacao anual baseada em convencao coletiva de trabalho. "
+            "O fiscal deve verificar regularidade fiscal e trabalhista mensal."
+        ),
+        "link": "https://www.gov.br/compras/pt-br/acesso-a-informacao/legislacao/instrucoes-normativas",
+        "palavras_chave": [
+            "terceirizacao", "mao de obra", "continuos", "planilha de custos",
+            "repactuacao", "convencao coletiva", "fiscal", "IN 91",
+        ],
+    },
+    {
+        "fonte": "IN SEGES/ME n. 94/2022",
+        "artigo": "Arts. 1 a 8",
+        "titulo": "Contratacao de solucoes de TIC",
+        "conteudo": (
+            "Regulamenta a contratacao de solucoes de Tecnologia da Informacao e "
+            "Comunicacao (TIC). Exige ETP-Digital elaborado no sistema, "
+            "alinhamento com o PDTIC, analise de viabilidade tecnica, "
+            "e sustentacao por contrato de manutencao e suporte. "
+            "A licitacao deve ser por pregao eletronico para bens e servicos comuns de TIC."
+        ),
+        "link": "https://www.gov.br/compras/pt-br/acesso-a-informacao/legislacao/instrucoes-normativas",
+        "palavras_chave": [
+            "TIC", "tecnologia da informacao", "TI", "PDTIC", "ETP digital",
+            "software", "hardware", "IN 94", "computador", "sistema",
+        ],
+    },
+    # --- Acordaos TCU (expandido) ---
+    {
+        "fonte": "TCU - Acordao 1.793/2011-Plenario",
         "artigo": "",
-        "titulo": "Fracionamento de despesa",
+        "titulo": "Pesquisa de precos ampla e diversificada",
+        "conteudo": (
+            "O TCU firmou entendimento de que a pesquisa de precos deve contemplar "
+            "diversas fontes, incluindo contratacoes publicas anteriores, midia "
+            "especializada e pesquisa direta com fornecedores, para que o preco "
+            "estimado reflita adequadamente os valores de mercado. "
+            "A utilizacao de apenas uma fonte e insuficiente e configura falha "
+            "no planejamento. Recomenda-se cesta de precos com no minimo 3 fontes."
+        ),
+        "link": "https://pesquisa.apps.tcu.gov.br/#/documento/acordao-completo/1793%252F2011/%2520/DTRELEVANCIA%2520desc%252C%2520NUMACORDAOINT%2520desc/0/",
+        "palavras_chave": [
+            "TCU", "pesquisa de precos", "fontes", "mercado", "acordao",
+            "cesta de precos", "1793", "diversificada",
+        ],
+    },
+    {
+        "fonte": "TCU - Acordao 2.170/2007-Plenario",
+        "artigo": "",
+        "titulo": "Sobrepreco e superfaturamento - conceitos e distincoes",
+        "conteudo": (
+            "O TCU considera sobrepreco quando o preco contratado supera o preco "
+            "de referencia (mediana de mercado). Superfaturamento ocorre quando ha "
+            "medicao ou pagamento indevido de servicos nao executados, quantidades "
+            "superiores ou qualidade inferior. Ambos configuram dano ao erario e "
+            "podem ensejar aplicacao de multa, inabilitacao e ressarcimento. "
+            "O preco de referencia deve ser a mediana dos precos coletados."
+        ),
+        "link": "https://pesquisa.apps.tcu.gov.br/#/documento/acordao-completo/2170%252F2007/%2520/DTRELEVANCIA%2520desc/0/",
+        "palavras_chave": [
+            "sobrepreco", "superfaturamento", "dano ao erario", "mediana",
+            "TCU", "referencia", "2170", "multa",
+        ],
+    },
+    {
+        "fonte": "TCU - Acordao 2.861/2008-Plenario",
+        "artigo": "",
+        "titulo": "Fracionamento de despesa e fuga de modalidade",
         "conteudo": (
             "O TCU entende que o fracionamento de despesa com vistas a fugir da "
-            "modalidade licitatória adequada configura irregularidade grave. "
-            "O planejamento deve considerar todas as necessidades do exercício."
+            "modalidade licitatoria adequada configura irregularidade grave. "
+            "O planejamento deve considerar todas as necessidades do exercicio. "
+            "Contratos de mesmo objeto celebrados no mesmo exercicio que somados "
+            "ultrapassam o limite da modalidade utilizada configuram fracionamento. "
+            "Cabe ao gestor demonstrar que nao havia como prever as necessidades."
         ),
-        "link": "https://pesquisa.apps.tcu.gov.br/",
+        "link": "https://pesquisa.apps.tcu.gov.br/#/documento/acordao-completo/2861%252F2008/%2520/DTRELEVANCIA%2520desc/0/",
         "palavras_chave": [
             "fracionamento", "despesa", "modalidade", "irregular",
-            "planejamento", "TCU",
+            "planejamento", "TCU", "2861", "limite",
         ],
     },
     {
-        "fonte": "TCU — Acórdão 1.224/2020-Plenário",
+        "fonte": "TCU - Acordao 1.224/2020-Plenario",
         "artigo": "",
-        "titulo": "Contratação direta — Justificativa do preço",
+        "titulo": "Contratacao direta - Justificativa de preco obrigatoria",
         "conteudo": (
-            "Nas contratações diretas (dispensa e inexigibilidade), é indispensável "
-            "a justificativa detalhada do preço, demonstrando que o valor é compatível "
-            "com o mercado. A ausência de justificativa de preço é irregularidade grave."
+            "Nas contratacoes diretas (dispensa e inexigibilidade), e indispensavel "
+            "a justificativa detalhada do preco, demonstrando que o valor e compativel "
+            "com o mercado. A ausencia de justificativa de preco e irregularidade grave. "
+            "Deve-se apresentar pelo menos 3 cotacoes ou demonstrar que ha tabela "
+            "oficial, nota fiscal recente ou contratacoes similares que embasam o valor."
         ),
-        "link": "https://pesquisa.apps.tcu.gov.br/",
+        "link": "https://pesquisa.apps.tcu.gov.br/#/documento/acordao-completo/1224%252F2020/%2520/DTRELEVANCIA%2520desc/0/",
         "palavras_chave": [
-            "contratação direta", "dispensa", "inexigibilidade",
-            "justificativa de preço", "mercado", "TCU",
+            "contratacao direta", "dispensa", "inexigibilidade",
+            "justificativa de preco", "mercado", "TCU", "1224",
+        ],
+    },
+    {
+        "fonte": "TCU - Acordao 2.637/2015-Plenario",
+        "artigo": "",
+        "titulo": "Termo de Referencia deficiente e direcionamento",
+        "conteudo": (
+            "O TCU determina que o Termo de Referencia deve ser elaborado com "
+            "especificacoes claras, suficientes e nao restritivas a competicao. "
+            "Indicacao de marca sem justificativa tecnica configura direcionamento. "
+            "Especificacoes vagas prejudicam o julgamento e comprometem a contratacao. "
+            "E responsabilidade do setor requisitante e do setor tecnico a adequada "
+            "descricao do objeto."
+        ),
+        "link": "https://pesquisa.apps.tcu.gov.br/#/documento/acordao-completo/2637%252F2015/%2520/DTRELEVANCIA%2520desc/0/",
+        "palavras_chave": [
+            "termo de referencia", "especificacao", "marca", "direcionamento",
+            "restricao", "competicao", "TCU", "2637",
+        ],
+    },
+    {
+        "fonte": "TCU - Acordao 1.214/2013-Plenario",
+        "artigo": "",
+        "titulo": "Obrigatoriedade de publicacao no PNCP e transparencia",
+        "conteudo": (
+            "O TCU reafirma que todos os atos do processo licitatorio devem ser "
+            "publicados nos meios oficiais, incluindo DOU e PNCP, para garantir "
+            "transparencia e controle social. A falta de publicidade pode "
+            "configurar cerceamento de competicao e nulidade do certame."
+        ),
+        "link": "https://pesquisa.apps.tcu.gov.br/#/documento/acordao-completo/1214%252F2013/%2520/DTRELEVANCIA%2520desc/0/",
+        "palavras_chave": [
+            "publicacao", "PNCP", "DOU", "transparencia", "publicidade",
+            "competicao", "nulidade", "TCU", "1214",
+        ],
+    },
+    {
+        "fonte": "TCU - Acordao 1.390/2004-Plenario",
+        "artigo": "",
+        "titulo": "Parcelamento do objeto licitatorio",
+        "conteudo": (
+            "O TCU entende que o parcelamento do objeto e a regra, devendo ser adotado "
+            "sempre que tecnica e economicamente viavel, visando ampliar a competitividade. "
+            "A nao adocao do parcelamento exige justificativa fundamentada "
+            "demonstrando inviabilidade tecnica ou prejuizo economico ao conjunto. "
+            "O parcelamento nao se confunde com fracionamento de despesa."
+        ),
+        "link": "https://pesquisa.apps.tcu.gov.br/#/documento/acordao-completo/1390%252F2004/%2520/DTRELEVANCIA%2520desc/0/",
+        "palavras_chave": [
+            "parcelamento", "objeto", "competitividade", "viavel",
+            "justificativa", "lote", "TCU", "1390",
+        ],
+    },
+    {
+        "fonte": "TCU - Acordao 2.622/2015-Plenario",
+        "artigo": "",
+        "titulo": "Registro de precos - Adesao (carona) - Limites e requisitos",
+        "conteudo": (
+            "O TCU esclarece os requisitos para adesao a ata de registro de precos: "
+            "necessidade de justificativa da vantajosidade, compatibilidade do preco "
+            "com o mercado, anuencia do orgao gerenciador e do fornecedor, "
+            "respeito aos limites quantitativos. "
+            "A adesao nao pode ser utilizada para burlar a obrigacao de licitar. "
+            "O orgao deve demonstrar que o preco registrado continua vantajoso."
+        ),
+        "link": "https://pesquisa.apps.tcu.gov.br/#/documento/acordao-completo/2622%252F2015/%2520/DTRELEVANCIA%2520desc/0/",
+        "palavras_chave": [
+            "adesao", "carona", "registro de precos", "ata", "gerenciador",
+            "vantajosidade", "limite", "TCU", "2622",
+        ],
+    },
+    {
+        "fonte": "TCU - Acordao 2.328/2018-Plenario",
+        "artigo": "",
+        "titulo": "Gestao e fiscalizacao contratual - obrigatoriedade",
+        "conteudo": (
+            "O TCU determina que a Administracao deve designar formalmente "
+            "fiscal e gestor do contrato, com capacidade tecnica para acompanhar "
+            "a execucao. A ausencia de fiscalizacao adequada e a falta de "
+            "atesto tecnico das medicoes configuram irregularidade. "
+            "O fiscal deve registrar ocorrencias, notificar a contratada "
+            "e comunicar ao gestor qualquer inadimplencia."
+        ),
+        "link": "https://pesquisa.apps.tcu.gov.br/#/documento/acordao-completo/2328%252F2018/%2520/DTRELEVANCIA%2520desc/0/",
+        "palavras_chave": [
+            "fiscal", "gestor", "contrato", "fiscalizacao", "medicao",
+            "inadimplencia", "atesto", "TCU", "2328",
+        ],
+    },
+    {
+        "fonte": "TCU - Acordao 1.613/2015-Plenario",
+        "artigo": "",
+        "titulo": "Pregao eletronico obrigatorio para bens e servicos comuns",
+        "conteudo": (
+            "O TCU reitera que o pregao, preferencialmente eletronico, e obrigatorio "
+            "para aquisicao de bens e servicos comuns. A utilizacao de outra modalidade "
+            "sem justificativa configura irregularidade. "
+            "Servico comum e aquele cujos padroes de desempenho e qualidade "
+            "podem ser objetivamente definidos no edital. "
+            "A concorrencia so e admitida quando demonstrada a inviabilidade do pregao."
+        ),
+        "link": "https://pesquisa.apps.tcu.gov.br/#/documento/acordao-completo/1613%252F2015/%2520/DTRELEVANCIA%2520desc/0/",
+        "palavras_chave": [
+            "pregao", "eletronico", "obrigatorio", "bens comuns",
+            "servicos comuns", "concorrencia", "modalidade", "TCU", "1613",
+        ],
+    },
+    {
+        "fonte": "TCU - Acordao 1.188/2010-Plenario",
+        "artigo": "",
+        "titulo": "Inexigibilidade - inviabilidade de competicao",
+        "conteudo": (
+            "O TCU exige que a inexigibilidade seja fundamentada em documentacao "
+            "que comprove a inviabilidade de competicao: atestado de exclusividade "
+            "emitido por entidade competente, comprovacao de notoria especializacao, "
+            "ou demonstracao tecnica de que so aquele fornecedor atende. "
+            "Atestado de exclusividade emitido pelo proprio fabricante nao e aceito; "
+            "deve ser emitido por sindicatos, federacoes ou associacoes de classe."
+        ),
+        "link": "https://pesquisa.apps.tcu.gov.br/#/documento/acordao-completo/1188%252F2010/%2520/DTRELEVANCIA%2520desc/0/",
+        "palavras_chave": [
+            "inexigibilidade", "exclusividade", "inviabilidade", "competicao",
+            "atestado", "notoria especializacao", "TCU", "1188",
+        ],
+    },
+    {
+        "fonte": "TCU - Acordao 2.992/2020-Plenario",
+        "artigo": "",
+        "titulo": "Contratacao emergencial - requisitos e limites",
+        "conteudo": (
+            "O TCU reconhece a possibilidade de contratacao emergencial, mas exige: "
+            "situacao de emergencia devidamente caracterizada e comprovada; "
+            "contratacao restrita ao periodo estritamente necessario (ate 1 ano); "
+            "justificativa de que a emergencia nao decorreu de falta de planejamento; "
+            "pesquisa de precos compativel com o mercado. "
+            "Emergencia fabricada por dessidia configura responsabilidade do gestor."
+        ),
+        "link": "https://pesquisa.apps.tcu.gov.br/#/documento/acordao-completo/2992%252F2020/%2520/DTRELEVANCIA%2520desc/0/",
+        "palavras_chave": [
+            "emergencia", "urgencia", "contratacao emergencial", "prazo",
+            "dessidia", "planejamento", "TCU", "2992",
+        ],
+    },
+    {
+        "fonte": "TCU - Acordao 5.301/2015-1a Camara",
+        "artigo": "",
+        "titulo": "Pesquisa de precos insuficiente - 1 cotacao",
+        "conteudo": (
+            "O TCU considerou irregular a pesquisa de precos baseada em unica cotacao. "
+            "A Administracao deve buscar ampla pesquisa de mercado, "
+            "utilizando no minimo 3 fontes diferentes de precos conforme a IN 65/2021. "
+            "Quando nao for possivel obter 3 fontes, deve-se justificar formalmente "
+            "a impossibilidade e registrar as tentativas frustradas."
+        ),
+        "link": "https://pesquisa.apps.tcu.gov.br/#/documento/acordao-completo/5301%252F2015/%2520/DTRELEVANCIA%2520desc/0/",
+        "palavras_chave": [
+            "pesquisa de precos", "cotacao", "unica", "insuficiente",
+            "3 fontes", "minimo", "TCU", "5301", "IN 65",
+        ],
+    },
+    {
+        "fonte": "TCU - Acordao 2.106/2021-Plenario",
+        "artigo": "",
+        "titulo": "Estudo Tecnico Preliminar (ETP) obrigatorio",
+        "conteudo": (
+            "O TCU reiterou a obrigatoriedade do ETP como elemento fundamental "
+            "da fase preparatoria. O ETP deve conter alternativas analisadas, "
+            "justificativa da solucao escolhida, analise de riscos e demonstracao "
+            "de viabilidade. A contratacao sem ETP ou com ETP deficiente "
+            "compromete a legalidade do processo. O ETP deve ser anterior "
+            "ao Termo de Referencia."
+        ),
+        "link": "https://pesquisa.apps.tcu.gov.br/#/documento/acordao-completo/2106%252F2021/%2520/DTRELEVANCIA%2520desc/0/",
+        "palavras_chave": [
+            "ETP", "estudo tecnico preliminar", "fase preparatoria",
+            "viabilidade", "risco", "alternativas", "TCU", "2106",
+        ],
+    },
+    {
+        "fonte": "TCU - Acordao 1.056/2017-Plenario",
+        "artigo": "",
+        "titulo": "Terceirizacao - limites e irregularidades",
+        "conteudo": (
+            "O TCU aponta que a terceirizacao e permitida para atividades acessorias "
+            "e instrumentais, sendo vedada para atividades-fim (atividades substantivas). "
+            "A contratada deve possuir qualificacao tecnica e economica. "
+            "A Administracao deve evitar relacao direta de subordinacao com os "
+            "trabalhadores terceirizados, sob pena de configurar vinculo irregular."
+        ),
+        "link": "https://pesquisa.apps.tcu.gov.br/#/documento/acordao-completo/1056%252F2017/%2520/DTRELEVANCIA%2520desc/0/",
+        "palavras_chave": [
+            "terceirizacao", "atividade-fim", "subordinacao", "vinculo",
+            "trabalhadores", "acessoria", "TCU", "1056",
+        ],
+    },
+    {
+        "fonte": "TCU - Acordao 2.816/2014-Plenario",
+        "artigo": "",
+        "titulo": "Sustentabilidade nas contratacoes publicas",
+        "conteudo": (
+            "O TCU recomenda que a Administracao incorpore criterios de "
+            "sustentabilidade ambiental nas licitacoes, conforme Art. 11, IV "
+            "da Lei 14.133/2021 e Decreto 7.746/2012. "
+            "Criterios sustentaveis nao devem restringir a competitividade "
+            "injustificadamente. Devem ser proporcionais e vinculados ao objeto."
+        ),
+        "link": "https://pesquisa.apps.tcu.gov.br/#/documento/acordao-completo/2816%252F2014/%2520/DTRELEVANCIA%2520desc/0/",
+        "palavras_chave": [
+            "sustentabilidade", "ambiental", "verde", "criterios sustentaveis",
+            "meio ambiente", "TCU", "2816",
+        ],
+    },
+    {
+        "fonte": "TCU - Acordao 2.743/2015-Plenario",
+        "artigo": "",
+        "titulo": "Aplicacao de sancoes - proporcionalidade e motivacao",
+        "conteudo": (
+            "O TCU entende que a aplicacao de sancoes deve observar proporcionalidade "
+            "e razoabilidade. Deve-se considerar: natureza e gravidade da infração, "
+            "dano causado, circunstancias agravantes e atenuantes, "
+            "antecedentes do fornecedor. A sancao deve ser formalmente motivada "
+            "e precedida de processo com ampla defesa. "
+            "Sancao desproporcional pode ser anulada."
+        ),
+        "link": "https://pesquisa.apps.tcu.gov.br/#/documento/acordao-completo/2743%252F2015/%2520/DTRELEVANCIA%2520desc/0/",
+        "palavras_chave": [
+            "sancao", "penalidade", "proporcionalidade", "motivacao",
+            "multa", "ampla defesa", "TCU", "2743",
+        ],
+    },
+    {
+        "fonte": "TCU - Acordao 1.297/2015-Plenario",
+        "artigo": "",
+        "titulo": "Contratacao de TI - planejamento obrigatorio",
+        "conteudo": (
+            "O TCU determina que contratacoes de TI devem ser precedidas de "
+            "planejamento especifico: alinhamento ao PDTIC, ETP com analise de "
+            "alternativas (incluindo solucoes de software livre), "
+            "justificativa de escolha da solucao, analise de riscos tecnologicos. "
+            "Renovacoes de licencas sem analise de alternativas configuram irregularidade."
+        ),
+        "link": "https://pesquisa.apps.tcu.gov.br/#/documento/acordao-completo/1297%252F2015/%2520/DTRELEVANCIA%2520desc/0/",
+        "palavras_chave": [
+            "TI", "tecnologia da informacao", "PDTIC", "software",
+            "licenca", "planejamento", "TCU", "1297",
+        ],
+    },
+    {
+        "fonte": "TCU - Acordao 963/2020-Plenario",
+        "artigo": "",
+        "titulo": "Gerenciamento de riscos obrigatorio no planejamento",
+        "conteudo": (
+            "O TCU orienta que o gerenciamento de riscos deve ser parte integrante "
+            "da fase preparatoria de toda contratacao, conforme Art. 18, X "
+            "da Lei 14.133/2021. Deve-se identificar os riscos, avaliar "
+            "probabilidade e impacto, definir respostas e responsaveis. "
+            "A ausencia de mapa de riscos compromete a legalidade da contratacao."
+        ),
+        "link": "https://pesquisa.apps.tcu.gov.br/#/documento/acordao-completo/963%252F2020/%2520/DTRELEVANCIA%2520desc/0/",
+        "palavras_chave": [
+            "risco", "gerenciamento", "mapa de riscos", "planejamento",
+            "probabilidade", "impacto", "matriz", "TCU", "963",
+        ],
+    },
+    {
+        "fonte": "TCU - Acordao 827/2019-Plenario",
+        "artigo": "",
+        "titulo": "Aditivos contratuais - limite de 25%",
+        "conteudo": (
+            "O TCU reitera que os acrescimos contratuais estao limitados a 25% "
+            "do valor do contrato (50% para reforma). O percentual incide sobre o "
+            "valor original e nao sobre o valor ja aditado. Acrescimos e supressoes "
+            "devem ser calculados separadamente. Aditivos que desnaturem o objeto "
+            "original sao irregulares. A necessidade de acrescimo acima do limite "
+            "exige nova licitacao."
+        ),
+        "link": "https://pesquisa.apps.tcu.gov.br/#/documento/acordao-completo/827%252F2019/%2520/DTRELEVANCIA%2520desc/0/",
+        "palavras_chave": [
+            "aditivo", "acrescimo", "25%", "50%", "contrato", "limite",
+            "reforma", "supressao", "TCU", "827",
+        ],
+    },
+    {
+        "fonte": "TCU - Acordao 3.190/2019-Plenario",
+        "artigo": "",
+        "titulo": "Habilitacao - exigencias proporcionais ao objeto",
+        "conteudo": (
+            "O TCU alerta que exigencias de habilitacao devem ser estritamente "
+            "proporcionais ao objeto. Exigencias excessivas ou desproporcionais "
+            "restringem a competicao e configuram direcionamento. "
+            "Atestados de capacidade tecnica devem ter relacao direta com "
+            "as parcelas de maior relevancia do objeto licitado."
+        ),
+        "link": "https://pesquisa.apps.tcu.gov.br/#/documento/acordao-completo/3190%252F2019/%2520/DTRELEVANCIA%2520desc/0/",
+        "palavras_chave": [
+            "habilitacao", "exigencia", "proporcional", "competicao",
+            "atestado", "capacidade tecnica", "TCU", "3190",
+        ],
+    },
+    {
+        "fonte": "TCU - Acordao 1.842/2013-Plenario",
+        "artigo": "",
+        "titulo": "Orcamento sigiloso - possibilidade e limites",
+        "conteudo": (
+            "O TCU reconhece a possibilidade de orcamento sigiloso em licitacoes "
+            "(Art. 24 da Lei 14.133), desde que haja justificativa adequada. "
+            "O sigilo visa impedir conluio entre licitantes. "
+            "O orcamento deve ser tornado publico imediatamente apos o encerramento "
+            "da fase de lances. O sigilo nao exime a Administracao de realizar "
+            "pesquisa de precos adequada."
+        ),
+        "link": "https://pesquisa.apps.tcu.gov.br/#/documento/acordao-completo/1842%252F2013/%2520/DTRELEVANCIA%2520desc/0/",
+        "palavras_chave": [
+            "orcamento sigiloso", "sigilo", "conluio", "lances",
+            "publicidade", "preco estimado", "TCU", "1842",
+        ],
+    },
+    {
+        "fonte": "TCU - Acordao 2.471/2008-Plenario",
+        "artigo": "",
+        "titulo": "Economia de escala e consolidacao de demandas",
+        "conteudo": (
+            "O TCU recomenda que os orgaos publicos busquem economia de escala "
+            "por meio da consolidacao de demandas, atas de registro de precos "
+            "compartilhadas e planejamento integrado de compras. "
+            "A compra pulverizada sem justificativa desperdiça recursos e "
+            "perde poder de barganha."
+        ),
+        "link": "https://pesquisa.apps.tcu.gov.br/#/documento/acordao-completo/2471%252F2008/%2520/DTRELEVANCIA%2520desc/0/",
+        "palavras_chave": [
+            "economia de escala", "consolidacao", "demanda", "planejamento",
+            "compras", "registro de precos", "TCU", "2471",
+        ],
+    },
+    {
+        "fonte": "TCU - Acordao 1.545/2016-Plenario",
+        "artigo": "",
+        "titulo": "Reequilibrio economico-financeiro de contratos",
+        "conteudo": (
+            "O TCU esclarece que o reequilibrio economico-financeiro exige: "
+            "comprovacao de alea extraordinaria e extracontratual, "
+            "posterior a proposta e imprevisivel; nexo causal entre fato e desequilibrio; "
+            "demonstracao contabil do impacto. Reajuste periodico "
+            "nao se confunde com reequilibrio. O mero aumento de custos "
+            "previsivel nao justifica reequilibrio."
+        ),
+        "link": "https://pesquisa.apps.tcu.gov.br/#/documento/acordao-completo/1545%252F2016/%2520/DTRELEVANCIA%2520desc/0/",
+        "palavras_chave": [
+            "reequilibrio", "economico-financeiro", "reajuste", "revisao",
+            "alea", "contrato", "desequilibrio", "TCU", "1545",
         ],
     },
 ]
 
 
-def buscar_base_juridica(pergunta: str, top_n: int = 5) -> list[dict]:
-    """Busca os trechos mais relevantes da base jurídica para a pergunta."""
+def buscar_base_juridica(pergunta: str, top_n: int = 12) -> list[dict]:
+    """Busca os trechos mais relevantes da base jurídica para a pergunta.
+    Retorna uma mistura equilibrada de Leis, INs e Acórdãos TCU."""
     tokens = set(re.findall(r"\w+", pergunta.lower()))
     scored = []
     for item in BASE_JURIDICA:
@@ -425,7 +949,27 @@ def buscar_base_juridica(pergunta: str, top_n: int = 5) -> list[dict]:
         if score > 0:
             scored.append((score, item))
     scored.sort(key=lambda x: x[0], reverse=True)
-    return [s[1] for s in scored[:top_n]]
+    # Garantir mix equilibrado: leis + INs + acórdãos
+    leis = [s for s in scored if "Lei 14.133" in s[1]["fonte"]]
+    ins = [s for s in scored if "IN " in s[1]["fonte"]]
+    acordaos = [s for s in scored if "TCU" in s[1]["fonte"] or "Acordao" in s[1]["fonte"]]
+    resultado = []
+    # Pegar os melhores de cada categoria, proporcionalmente
+    max_lei = max(3, top_n // 3)
+    max_in = max(3, top_n // 3)
+    max_tcu = max(4, top_n // 3 + top_n % 3)
+    resultado.extend(leis[:max_lei])
+    resultado.extend(ins[:max_in])
+    resultado.extend(acordaos[:max_tcu])
+    # Completar com restantes se faltou
+    ids_usados = {id(s) for s in resultado}
+    for s in scored:
+        if len(resultado) >= top_n:
+            break
+        if id(s) not in ids_usados:
+            resultado.append(s)
+    resultado.sort(key=lambda x: x[0], reverse=True)
+    return [s[1] for s in resultado[:top_n]]
 
 
 # ============================================================
@@ -592,17 +1136,28 @@ def extrair_dados_excel(arquivo) -> tuple[str, pd.DataFrame | None]:
 # COMUNICAÇÃO COM IA (OPENROUTER)
 # ============================================================
 
-SYSTEM_PROMPT = """Você é **O Babilaca**, um assistente jurídico inteligente especializado em licitações e contratações públicas brasileiras, com foco na Lei 14.133/2021.
+SYSTEM_PROMPT = """Você é **O Babilaca**, um assistente jurídico inteligente especializado em licitações e contratações públicas brasileiras, com foco na Lei 14.133/2021, Instruções Normativas (SEGES/ME) e jurisprudência do TCU.
 
 REGRAS OBRIGATÓRIAS:
 1. Baseie-se SEMPRE em fontes reais e verificáveis.
-2. Cite artigos de lei, instruções normativas e acórdãos quando aplicável.
-3. Forneça links oficiais sempre que possível.
-4. NUNCA invente informações, citações ou números de artigos.
-5. Se não souber, diga claramente.
-6. Responda sempre em português brasileiro.
-7. Destaque trechos relevantes da legislação com **negrito** ou > citação.
-8. Quando utilizar dados de APIs, indique a fonte.
+2. **SEMPRE cite Acórdãos do TCU** que reforcem ou complementem o entendimento legal. Mesmo que o usuário pergunte apenas sobre a lei, busque acórdãos que consolidem o entendimento.
+3. **SEMPRE cite Instruções Normativas (INs)** quando o tema envolver procedimentos operacionais (pesquisa de preços → IN 65; planejamento → IN 58; sanções → IN 73; SRP → IN 67; dispensa eletrônica → IN 81; terceirização → IN 91; TIC → IN 94).
+4. Para cada tópico, estruture a resposta em 3 camadas:
+   - **Base legal**: artigo da Lei 14.133/2021
+   - **Regulamentação**: IN aplicável com artigo específico
+   - **Jurisprudência TCU**: Acórdão(s) relevante(s) com número e ano
+5. Forneça links oficiais para TODAS as fontes citadas.
+6. NUNCA invente informações, citações ou números de artigos/acórdãos.
+7. Se não souber ou não tiver a fonte no contexto, diga claramente.
+8. Responda sempre em português brasileiro.
+9. Destaque trechos relevantes com **negrito** e use > citação para trechos literais.
+10. Quando utilizar dados de APIs, indique a fonte.
+11. No final da resposta, inclua uma seção "📚 **Fontes consultadas**" listando todas as referências utilizadas com links.
+
+FORMATO DE CITAÇÃO:
+- Lei: "Conforme o Art. XX da Lei 14.133/2021..."
+- IN: "De acordo com o Art. XX da IN SEGES/ME nº XX/XXXX..."
+- TCU: "Nesse sentido, o TCU no Acórdão X.XXX/XXXX-Plenário firmou entendimento de que..."
 
 AVISO: Você é uma ferramenta de apoio. Recomende sempre que o usuário confirme nas fontes oficiais.
 
@@ -723,8 +1278,38 @@ def executar_apis(msg: str, acoes: list[str]) -> str:
 # GERAÇÃO DE DOCUMENTOS
 # ============================================================
 
+def _sanitize_for_pdf(text: str) -> str:
+    """Remove/substitui caracteres que não são suportados pela fonte Helvetica (Latin-1)."""
+    replacements = {
+        "\u2013": "-", "\u2014": "-", "\u2015": "-",  # en-dash, em-dash
+        "\u2018": "'", "\u2019": "'",  # aspas simples curvas
+        "\u201c": '"', "\u201d": '"',  # aspas duplas curvas
+        "\u2022": "-",  # bullet
+        "\u2026": "...",  # ellipsis
+        "\u00a0": " ",  # non-breaking space
+        "\u200b": "",  # zero-width space
+        "\u2010": "-", "\u2011": "-",  # hyphens
+        "\u2212": "-",  # minus sign
+        "\u2264": "<=", "\u2265": ">=",  # comparison
+        "\u00b0": "o",  # degree -> o (nº)
+    }
+    for old, new in replacements.items():
+        text = text.replace(old, new)
+    # Remove emojis and other non-Latin-1 characters
+    cleaned = []
+    for ch in text:
+        try:
+            ch.encode("latin-1")
+            cleaned.append(ch)
+        except UnicodeEncodeError:
+            cleaned.append(" ")
+    return "".join(cleaned)
+
+
 def gerar_pdf_documento(titulo: str, corpo: str) -> bytes:
     """Gera um PDF simples com título e corpo."""
+    titulo = _sanitize_for_pdf(titulo)
+    corpo = _sanitize_for_pdf(corpo)
     pdf = FPDF()
     pdf.add_page()
     pdf.set_auto_page_break(auto=True, margin=20)
@@ -874,7 +1459,7 @@ def gerar_mapa_comparativo_pdf(itens: list[dict]) -> bytes:
     pdf.add_page()
     pdf.set_font("Helvetica", "B", 14)
     pdf.set_text_color(0, 26, 77)
-    pdf.cell(0, 10, "MAPA COMPARATIVO DE PREÇOS", ln=True, align="C")
+    pdf.cell(0, 10, _sanitize_for_pdf("MAPA COMPARATIVO DE PRECOS"), ln=True, align="C")
     pdf.ln(2)
     pdf.set_font("Helvetica", "", 9)
     pdf.set_text_color(100, 100, 100)
@@ -899,7 +1484,7 @@ def gerar_mapa_comparativo_pdf(itens: list[dict]) -> bytes:
         media = sum(validos) / len(validos) if validos else 0
         mediana = sorted(validos)[len(validos) // 2] if validos else 0
         pdf.cell(12, 7, str(i), border=1, align="C")
-        pdf.cell(70, 7, str(item.get("descricao", ""))[:45], border=1)
+        pdf.cell(70, 7, _sanitize_for_pdf(str(item.get("descricao", ""))[:45]), border=1)
         for p in precos:
             pdf.cell(35, 7, f"R$ {p:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".") if p else "-", border=1, align="R")
         pdf.cell(35, 7, f"R$ {media:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".") if media else "-", border=1, align="R")
@@ -909,7 +1494,7 @@ def gerar_mapa_comparativo_pdf(itens: list[dict]) -> bytes:
     pdf.ln(6)
     pdf.set_font("Helvetica", "I", 8)
     pdf.set_text_color(120, 120, 120)
-    pdf.cell(0, 5, "Documento gerado pelo sistema O Babilaca (IA) — Ferramenta de apoio. Confirmar sempre nas fontes oficiais.", ln=True)
+    pdf.cell(0, 5, _sanitize_for_pdf("Documento gerado pelo sistema O Babilaca (IA) - Ferramenta de apoio. Confirmar sempre nas fontes oficiais."), ln=True)
     return bytes(pdf.output())
 
 
