@@ -941,27 +941,21 @@ CHECKLIST_MODALIDADES = {
         "Autorização da autoridade competente",
         "Publicação no PNCP",
     ],
-    "IRP — Intenção de Registro de Preços": [
+    "Participação em IRP (Intenção de Registro de Preços)": [
         "Documento de Formalização de Demanda (DFD)",
         "Estudo Técnico Preliminar (ETP)",
-        "Mapa de Riscos",
-        "Termo de Referência (TR)",
-        "Publicação da IRP no ComprasGov (Divulgação da Intenção)",
-        "Prazo mínimo de 8 dias úteis para manifestação de outros órgãos",
-        "Consolidação das demandas dos órgãos participantes",
-        "Mapa Consolidado de Quantidades por órgão/entidade",
+        "Termo de Referência (TR) com especificações e quantitativos do órgão",
         "Pesquisa de Preços (mínimo 3 fontes — IN 65/2021)",
-        "Mapa Comparativo de Preços",
-        "Minuta do Edital (Pregão/Concorrência para SRP)",
-        "Minuta da Ata de Registro de Preços",
-        "Parecer jurídico sobre Edital e Minuta da Ata",
-        "Designação do pregoeiro/comissão de contratação",
-        "Autorização da autoridade competente",
-        "Publicação do Edital no PNCP e DOU",
-        "Ata da sessão pública",
-        "Relatório de adjudicação e homologação",
-        "Ata de Registro de Preços assinada",
-        "Publicação da Ata de Registro de Preços no PNCP",
+        "Justificativa da necessidade de participação na IRP",
+        "Ofício de manifestação de interesse ao órgão gerenciador",
+        "Comprovante de registro da participação no ComprasGov (dentro do prazo de 8 dias úteis)",
+        "Planilha de quantitativos e especificações enviada ao gerenciador",
+        "Confirmação de aceite pelo órgão gerenciador",
+        "Autorização da autoridade competente para participar",
+        "Parecer jurídico (quando exigido pelo órgão)",
+        "Acompanhamento da sessão pública (registro de participante)",
+        "Cópia da Ata de Registro de Preços assinada",
+        "Nota de Empenho (quando da efetiva contratação)",
     ],
 }
 
@@ -1117,41 +1111,43 @@ INFO_MODALIDADES = {
             "9. Publicar no PNCP."
         ),
     },
-    "IRP — Intenção de Registro de Preços": {
+    "Participação em IRP (Intenção de Registro de Preços)": {
         "descricao": (
-            "A **Intenção de Registro de Preços (IRP)** é o procedimento obrigatório pelo qual "
-            "o órgão gerenciador **divulga sua intenção** de realizar licitação para Sistema de "
-            "Registro de Preços (SRP), permitindo que outros órgãos participem, conforme "
-            "**Art. 86, §1° da Lei 14.133/2021** e **Decreto 11.462/2023**."
+            "A **Participação em IRP** ocorre quando seu órgão identifica uma **Intenção de "
+            "Registro de Preços** publicada por outro órgão (gerenciador) e decide aderir como "
+            "**órgão participante**, informando seus quantitativos para serem incluídos na "
+            "licitação, conforme **Art. 86, §1° da Lei 14.133/2021** e **Decreto 11.462/2023**. "
+            "Diferente da Adesão (Carona), aqui o órgão participa **antes** da licitação."
         ),
         "quando_aplicar": (
-            "- Sempre que a administração for realizar **licitação para SRP** (obrigatório);\n"
-            "- Quando houver necessidade de **consolidar demandas** de múltiplos órgãos;\n"
-            "- Quando a contratação envolver **entregas parceladas** ou **demanda incerta**;\n"
-            "- Para aquisições **frequentes** de bens/serviços comuns."
+            "- Quando o órgão identifica uma **IRP publicada no ComprasGov** com objeto compatível;\n"
+            "- Quando há **demanda real** pelo bem ou serviço registrado;\n"
+            "- Quando a participação é mais vantajosa que conduzir licitação própria;\n"
+            "- Para **planejar aquisições futuras** com preços já registrados;\n"
+            "- O prazo para manifestar interesse é de **mínimo 8 dias úteis** após publicação da IRP."
         ),
         "limites": (
-            "**Não possui limite financeiro próprio.** A IRP é uma etapa preparatória — o limite "
-            "de valor dependerá da modalidade da licitação (Pregão ou Concorrência).\n\n"
-            "| Regra | Prazo/Limite |\n"
-            "|-------|-------------|\n"
-            "| Prazo para manifestação de outros órgãos | Mínimo 8 dias úteis |\n"
-            "| Vigência da Ata resultante | Até 1 ano, prorrogável por mais 1 ano |\n"
-            "| Publicação obrigatória | ComprasGov e PNCP |"
+            "**Não possui limite financeiro próprio.** O valor depende do quantitativo informado "
+            "e dos preços que forem registrados na Ata.\n\n"
+            "| Regra | Detalhe |\n"
+            "|-------|--------|\n"
+            "| Prazo para manifestar interesse | Mínimo 8 dias úteis (Art. 86, §1°) |\n"
+            "| Quantitativo | Definido pelo órgão participante conforme sua demanda |\n"
+            "| Vigência da Ata | Até 1 ano, prorrogável por mais 1 ano (Art. 84, III) |\n"
+            "| Obrigação de contratar | Não obrigatória para participante (facultativa) |\n\n"
+            "*Vantagem: o órgão participante tem prioridade sobre órgãos não participantes (carona).*"
         ),
         "como_montar": (
-            "1. Elaborar DFD, ETP e Mapa de Riscos;\n"
-            "2. Elaborar Termo de Referência com especificações e quantitativos;\n"
-            "3. **Publicar a IRP no ComprasGov** com prazo mín. de 8 dias úteis;\n"
-            "4. Receber e consolidar as demandas dos órgãos participantes;\n"
-            "5. Elaborar mapa consolidado de quantidades;\n"
-            "6. Realizar pesquisa de preços (IN 65/2021);\n"
-            "7. Elaborar minuta do Edital e da Ata de Registro de Preços;\n"
-            "8. Obter parecer jurídico sobre Edital e Ata;\n"
-            "9. Publicar Edital no PNCP e DOU;\n"
-            "10. Realizar sessão pública (Pregão ou Concorrência);\n"
-            "11. Adjudicar, homologar e assinar a Ata;\n"
-            "12. Publicar Ata de Registro de Preços no PNCP."
+            "1. Monitorar as IRPs publicadas no **ComprasGov** que atendam à necessidade;\n"
+            "2. Elaborar **DFD** justificando a demanda e a participação na IRP;\n"
+            "3. Elaborar **ETP** e **TR** com especificações e quantitativos do órgão;\n"
+            "4. Realizar pesquisa de preços para comprovar compatibilidade;\n"
+            "5. Registrar manifestação de interesse no ComprasGov **dentro do prazo de 8 dias úteis**;\n"
+            "6. Enviar planilha de quantitativos e especificações ao órgão gerenciador;\n"
+            "7. Obter autorização da autoridade competente;\n"
+            "8. Acompanhar a sessão pública da licitação;\n"
+            "9. Após homologação, receber cópia da Ata de Registro de Preços;\n"
+            "10. Quando necessitar, emitir nota de empenho para efetivar a contratação."
         ),
     },
 }
