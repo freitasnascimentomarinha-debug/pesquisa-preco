@@ -11,6 +11,7 @@ import os
 import re
 import io
 import hashlib
+import base64
 from datetime import datetime, timedelta
 from fpdf import FPDF
 
@@ -102,11 +103,16 @@ OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 MEMORIA_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "babilaca_memoria.json")
 
 MODELOS_DISPONIVEIS = {
-    "Google Gemini 2.0 Flash": "google/gemini-2.0-flash-001",
-    "Google Gemini 2.5 Flash (Preview)": "google/gemini-2.5-flash-preview",
-    "DeepSeek Chat V3": "deepseek/deepseek-chat-v3-0324",
-    "Meta Llama 3.1 70B": "meta-llama/llama-3.1-70b-instruct",
-    "OpenAI GPT-4o Mini": "openai/gpt-4o-mini",
+    "Google Gemini 2.5 Flash": "google/gemini-2.5-flash",
+    "Google Gemini 2.5 Pro": "google/gemini-2.5-pro",
+    "OpenAI GPT-4.1": "openai/gpt-4.1",
+    "OpenAI GPT-4.1 Mini": "openai/gpt-4.1-mini",
+    "Anthropic Claude Sonnet 4": "anthropic/claude-sonnet-4",
+    "DeepSeek V3.2": "deepseek/deepseek-v3.2",
+    "DeepSeek R1": "deepseek/deepseek-r1-0528",
+    "Meta Llama 4 Maverick": "meta-llama/llama-4-maverick",
+    "Qwen3 235B": "qwen/qwen3-235b-a22b",
+    "Meta Llama 3.3 70B (gratis)": "meta-llama/llama-3.3-70b-instruct:free",
 }
 
 # ============================================================
@@ -118,7 +124,7 @@ _defaults = {
         "OPENROUTER_API_KEY",
         "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",
     ),
-    "babilaca_modelo": "google/gemini-2.0-flash-001",
+    "babilaca_modelo": "google/gemini-2.5-flash",
     "babilaca_alertas": [],
     "babilaca_docs_gerados": [],
     "babilaca_preferencias": {},
@@ -202,18 +208,21 @@ BASE_JURIDICA = [
     },
     {
         "fonte": "Lei 14.133/2021",
-        "artigo": "Art. 72",
-        "titulo": "Fase preparatória — Planejamento",
+        "artigo": "Art. 17 e Art. 18",
+        "titulo": "Fases da licitação e fase preparatória",
         "conteudo": (
-            "O processo de contratação terá as seguintes fases: "
+            "Art. 17: O processo de licitação observará as seguintes fases, em sequência: "
             "I – preparatória; II – de divulgação do edital de licitação; "
-            "III – de apresentação de propostas e lances; IV – de julgamento; "
-            "V – de habilitação; VI – recursal; VII – de homologação. "
-            "A fase preparatória compreende o estudo técnico preliminar, "
-            "o gerenciamento de riscos, o termo de referência ou projeto básico, "
-            "e o orçamento estimado."
+            "III – de apresentação de propostas e lances, quando for o caso; "
+            "IV – de julgamento; V – de habilitação; VI – recursal; "
+            "VII – de homologação. "
+            "Art. 18: A fase preparatória do processo licitatório é caracterizada "
+            "pelo planejamento e deve compatibilizar-se com o plano de contratações anual. "
+            "Compreende: formalização da demanda, estudo técnico preliminar (ETP), "
+            "análise de riscos, termo de referência ou projeto básico, "
+            "e orçamento estimado."
         ),
-        "link": "https://www.planalto.gov.br/ccivil_03/_ato2019-2022/2021/lei/l14133.htm#art72",
+        "link": "https://www.planalto.gov.br/ccivil_03/_ato2019-2022/2021/lei/l14133.htm#art17",
         "palavras_chave": [
             "fase", "preparatória", "edital", "proposta", "lance",
             "julgamento", "habilitação", "recurso", "homologação",
@@ -1138,23 +1147,34 @@ def extrair_dados_excel(arquivo) -> tuple[str, pd.DataFrame | None]:
 
 SYSTEM_PROMPT = """Você é **O Babilaca**, um assistente jurídico inteligente especializado em licitações e contratações públicas brasileiras, com foco na Lei 14.133/2021, Instruções Normativas (SEGES/ME) e jurisprudência do TCU.
 
-REGRAS OBRIGATÓRIAS:
-1. Baseie-se SEMPRE em fontes reais e verificáveis.
-2. **SEMPRE cite Acórdãos do TCU** que reforcem ou complementem o entendimento legal. Mesmo que o usuário pergunte apenas sobre a lei, busque acórdãos que consolidem o entendimento.
-3. **SEMPRE cite Instruções Normativas (INs)** quando o tema envolver procedimentos operacionais (pesquisa de preços → IN 65; planejamento → IN 58; sanções → IN 73; SRP → IN 67; dispensa eletrônica → IN 81; terceirização → IN 91; TIC → IN 94).
-4. Para cada tópico, estruture a resposta em 3 camadas:
-   - **Base legal**: artigo da Lei 14.133/2021
-   - **Regulamentação**: IN aplicável com artigo específico
-   - **Jurisprudência TCU**: Acórdão(s) relevante(s) com número e ano
-5. Forneça links oficiais para TODAS as fontes citadas.
-6. NUNCA invente informações, citações ou números de artigos/acórdãos.
-7. Se não souber ou não tiver a fonte no contexto, diga claramente.
-8. Responda sempre em português brasileiro.
-9. Destaque trechos relevantes com **negrito** e use > citação para trechos literais.
-10. Quando utilizar dados de APIs, indique a fonte.
-11. No final da resposta, inclua uma seção "📚 **Fontes consultadas**" listando todas as referências utilizadas com links.
+═══════════════════════════════════════════════════════════
+REGRA FUNDAMENTAL — CITAÇÕES SOMENTE DO CONTEXTO FORNECIDO
+═══════════════════════════════════════════════════════════
+Você receberá abaixo um bloco chamado CONTEXTO JURÍDICO VERIFICADO contendo artigos de lei, instruções normativas e acórdãos do TCU. Estas são as ÚNICAS fontes que você pode citar com números específicos.
 
-FORMATO DE CITAÇÃO:
+• CITE SOMENTE artigos, INs e acórdãos que estejam EXPLICITAMENTE listados no CONTEXTO JURÍDICO VERIFICADO abaixo.
+• NUNCA invente, deduza ou complete números de artigos, INs ou acórdãos a partir de sua memória ou treinamento.
+• Se o contexto fornecido contém "Art. 17" da Lei 14.133, cite "Art. 17". Se NÃO contém, NÃO cite.
+• Se nenhuma fonte do contexto for relevante para a pergunta, diga: "Não disponho de referência verificada sobre esse ponto específico. Consulte o texto integral da Lei 14.133/2021 ou a jurisprudência do TCU."
+• É PROIBIDO citar qualquer Acórdão TCU cujo número não apareça literalmente no contexto.
+• É PROIBIDO citar qualquer IN cujo número não apareça literalmente no contexto.
+• É PROIBIDO citar artigos da Lei 14.133 cujo número não apareça literalmente no contexto.
+
+REGRAS DE QUALIDADE:
+1. Estruture a resposta de forma clara, usando as fontes disponíveis no contexto.
+2. Se o contexto contiver fontes de diferentes categorias (Lei, IN, TCU), organize em camadas:
+   - **Base legal**: artigo da Lei 14.133/2021 (se disponível no contexto)
+   - **Regulamentação**: IN aplicável (se disponível no contexto)
+   - **Jurisprudência TCU**: Acórdão relevante (se disponível no contexto)
+3. Se uma camada não tiver fonte no contexto, omita-a — NÃO a preencha com informações inventadas.
+4. Forneça os links que acompanham cada fonte no contexto (campo 🔗).
+5. Responda sempre em português brasileiro.
+6. Destaque trechos relevantes com **negrito** e use > citação para trechos literais.
+7. Quando utilizar dados de APIs, indique a fonte.
+8. No final da resposta, inclua uma seção "📚 **Fontes consultadas**" listando APENAS as fontes do contexto que você efetivamente utilizou, com seus links.
+9. Para temas genéricos onde você pode responder com conhecimento geral (ex: conceitos, boas práticas), faça-o — mas NÃO atribua números específicos de artigos/acórdãos/INs que não estejam no contexto.
+
+FORMATO DE CITAÇÃO (somente com fontes do contexto):
 - Lei: "Conforme o Art. XX da Lei 14.133/2021..."
 - IN: "De acordo com o Art. XX da IN SEGES/ME nº XX/XXXX..."
 - TCU: "Nesse sentido, o TCU no Acórdão X.XXX/XXXX-Plenário firmou entendimento de que..."
@@ -1168,16 +1188,28 @@ AVISO: Você é uma ferramenta de apoio. Recomende sempre que o usuário confirm
 
 def _build_system_prompt(contexto_items: list[dict], dados_api: str = "") -> str:
     if contexto_items:
-        partes = ["CONTEXTO JURÍDICO DISPONÍVEL:"]
-        for item in contexto_items:
+        partes = [
+            "═══════════════════════════════════════════════",
+            "CONTEXTO JURÍDICO VERIFICADO",
+            "(Cite SOMENTE as fontes listadas abaixo)",
+            "═══════════════════════════════════════════════",
+        ]
+        for i, item in enumerate(contexto_items, 1):
+            fonte = item['fonte']
+            artigo = item.get('artigo', '')
+            titulo = item['titulo']
+            ref = f"{fonte} — {artigo}" if artigo else fonte
             partes.append(
-                f"**{item['fonte']} — {item.get('artigo','')} {item['titulo']}**\n"
-                f"{item['conteudo']}\n"
-                f"🔗 {item['link']}"
+                f"[FONTE {i}] {ref}\n"
+                f"Título: {titulo}\n"
+                f"Conteúdo: {item['conteudo']}\n"
+                f"🔗 Link: {item['link']}"
             )
+        partes.append("═══════════════════════════════════════════════")
+        partes.append(f"Total de fontes disponíveis: {len(contexto_items)}. NÃO cite nenhuma fonte fora desta lista.")
         ctx = "\n\n".join(partes)
     else:
-        ctx = ""
+        ctx = "(Nenhuma fonte jurídica disponível no contexto. Responda com conhecimento geral, SEM citar números específicos de artigos, INs ou acórdãos.)"
     api_section = f"DADOS DE APIs:\n{dados_api}" if dados_api else ""
     return SYSTEM_PROMPT.format(contexto_juridico=ctx, dados_api=api_section)
 
@@ -1612,6 +1644,45 @@ def salvar_resposta(pergunta: str, resposta: str):
 
 
 # ============================================================
+# SIDEBAR — Navegação customizada (padrão do projeto)
+# ============================================================
+_acanto_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "Projeto Adesões", "acanto.png")
+if os.path.exists(_acanto_path):
+    with open(_acanto_path, "rb") as _f:
+        _acanto_b64 = base64.b64encode(_f.read()).decode()
+else:
+    _acanto_b64 = None
+
+with st.sidebar:
+    if _acanto_b64:
+        st.markdown(f'<div style="text-align:center;padding:1rem 0 0.5rem 0;"><img src="data:image/png;base64,{_acanto_b64}" style="max-width:70%;height:auto;"></div>', unsafe_allow_html=True)
+    st.markdown("## MENU")
+    st.markdown("---")
+    st.page_link("streamlit_app.py", label="Cotação", icon="⚓")
+    st.page_link("pages/Adesões.py", label="Adesões", icon="🤝")
+    st.page_link("pages/Notas_Fiscais.py", label="Notas Fiscais", icon="📄")
+    st.page_link("pages/Banco_de_Fornecedores.py", label="Fornecedores", icon="🏢")
+    st.page_link("pages/Consulta.py", label="Consulta CNPJ", icon="💻")
+    st.page_link("pages/Web_Scraping.py", label="Web Scraping", icon="🕷️")
+    st.page_link("pages/O_Babilaca_(IA).py", label="O Babilaca (IA)", icon="🧠")
+    st.markdown("---")
+    st.markdown("## LINKS ÚTEIS")
+    st.markdown("""
+    <div style="margin-bottom: 1rem;">
+        <a href="https://freitasnascimentomarinha-debug.github.io/ShootMail/" target="_blank" style="color: #cbd5e1; text-decoration: none; font-size: 0.9rem; display: flex; align-items: center; gap: 0.5rem;">
+            📧 Disparador de Emails
+        </a>
+    </div>
+    <div style="margin-bottom: 1rem;">
+        <a href="https://detetive-obtencao.vercel.app/" target="_blank" style="color: #cbd5e1; text-decoration: none; font-size: 0.9rem; display: flex; align-items: center; gap: 0.5rem;">
+            🚨 Detetive Obtenção
+        </a>
+    </div>
+    """, unsafe_allow_html=True)
+    st.markdown('<div style="text-align:center;color:#d4af37;font-size:10px;font-weight:600;padding:0.3rem 0;white-space:nowrap;">Centro de Operações do Abastecimento</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sidebar-footer">Marinha do Brasil<br>AtaCotada v1.0</div>', unsafe_allow_html=True)
+
+# ============================================================
 # HEADER
 # ============================================================
 st.markdown("""
@@ -1627,12 +1698,10 @@ st.markdown("""
 # ============================================================
 # ABAS PRINCIPAIS
 # ============================================================
-tab_chat, tab_docs, tab_consultas, tab_alertas, tab_config = st.tabs([
+tab_chat, tab_docs, tab_consultas = st.tabs([
     "💬 Chat IA",
     "📄 Documentos",
     "🔍 Consultas (APIs)",
-    "🔔 Alertas",
-    "⚙️ Configurações",
 ])
 
 # ============================================================
@@ -1640,33 +1709,76 @@ tab_chat, tab_docs, tab_consultas, tab_alertas, tab_config = st.tabs([
 # ============================================================
 with tab_chat:
     st.markdown("### 💬 Converse com o Babilaca")
-    st.caption(
-        "Pergunte sobre legislação, licitações, fornecedores, preços ou peça para gerar documentos. "
-        "O sistema busca automaticamente dados em APIs públicas quando necessário."
-    )
 
-    # Upload de arquivo no chat
-    with st.expander("📎 Enviar arquivo para contexto (PDF, Excel)", expanded=False):
+    # Barra de ferramentas: Modelo | Limpar conversa | Anexar arquivo | Base de conhecimento
+    tb_col1, tb_col2, tb_col3, tb_col4 = st.columns([3, 1.3, 1.3, 1.3])
+    with tb_col1:
+        modelo_nome = st.selectbox(
+            "Modelo de IA",
+            list(MODELOS_DISPONIVEIS.keys()),
+            index=list(MODELOS_DISPONIVEIS.values()).index(st.session_state["babilaca_modelo"])
+            if st.session_state["babilaca_modelo"] in MODELOS_DISPONIVEIS.values()
+            else 0,
+            key="toolbar_modelo",
+            label_visibility="collapsed",
+        )
+        st.session_state["babilaca_modelo"] = MODELOS_DISPONIVEIS[modelo_nome]
+    with tb_col2:
+        if st.button("🗑️ Limpar conversa", use_container_width=True):
+            st.session_state["babilaca_messages"] = []
+            st.rerun()
+    with tb_col3:
         arquivo_chat = st.file_uploader(
-            "Selecione um arquivo",
+            "📎 Anexar",
             type=["pdf", "xlsx", "xls", "csv"],
             key="chat_upload",
+            label_visibility="collapsed",
         )
-        texto_arquivo = ""
-        if arquivo_chat:
-            if arquivo_chat.name.endswith(".pdf"):
-                texto_arquivo = extrair_texto_pdf(arquivo_chat)
-                st.success(f"PDF processado: {len(texto_arquivo)} caracteres extraídos.")
-            elif arquivo_chat.name.endswith((".xlsx", ".xls")):
-                texto_arquivo, _ = extrair_dados_excel(arquivo_chat)
-                st.success("Planilha processada.")
-            elif arquivo_chat.name.endswith(".csv"):
-                try:
-                    df_csv = pd.read_csv(arquivo_chat)
-                    texto_arquivo = f"CSV com {len(df_csv)} linhas.\nColunas: {', '.join(df_csv.columns)}\n{df_csv.head(10).to_string()}"
-                    st.success("CSV processado.")
-                except Exception as e:
-                    texto_arquivo = f"[Erro ao ler CSV: {e}]"
+    with tb_col4:
+        with st.popover("📚 Base de Conhecimento", use_container_width=True):
+            # Organizar fontes por categoria
+            _leis = []
+            _ins = []
+            _acordaos = []
+            for _item in BASE_JURIDICA:
+                _f = _item["fonte"]
+                _a = _item.get("artigo", "")
+                _t = _item["titulo"]
+                _lk = _item["link"]
+                _label = f"{_f} — {_a}" if _a else _f
+                if "Lei 14.133" in _f:
+                    _leis.append((_label, _t, _lk))
+                elif "IN " in _f:
+                    _ins.append((_label, _t, _lk))
+                elif "TCU" in _f:
+                    _acordaos.append((_label, _t, _lk))
+            st.markdown(f"**{len(BASE_JURIDICA)} fontes verificadas**")
+            st.markdown("---")
+            st.markdown(f"##### ⚖️ Lei 14.133/2021 ({len(_leis)} artigos)")
+            for _lb, _tt, _lk in _leis:
+                st.markdown(f"- [{_lb}]({_lk}) — {_tt}")
+            st.markdown(f"##### 📋 Instruções Normativas ({len(_ins)} dispositivos)")
+            for _lb, _tt, _lk in _ins:
+                st.markdown(f"- [{_lb}]({_lk}) — {_tt}")
+            st.markdown(f"##### 🏛️ Acórdãos TCU ({len(_acordaos)} acórdãos)")
+            for _lb, _tt, _lk in _acordaos:
+                st.markdown(f"- [{_lb}]({_lk}) — {_tt}")
+
+    texto_arquivo = ""
+    if arquivo_chat:
+        if arquivo_chat.name.endswith(".pdf"):
+            texto_arquivo = extrair_texto_pdf(arquivo_chat)
+            st.success(f"PDF processado: {len(texto_arquivo)} caracteres extraídos.")
+        elif arquivo_chat.name.endswith((".xlsx", ".xls")):
+            texto_arquivo, _ = extrair_dados_excel(arquivo_chat)
+            st.success("Planilha processada.")
+        elif arquivo_chat.name.endswith(".csv"):
+            try:
+                df_csv = pd.read_csv(arquivo_chat)
+                texto_arquivo = f"CSV com {len(df_csv)} linhas.\nColunas: {', '.join(df_csv.columns)}\n{df_csv.head(10).to_string()}"
+                st.success("CSV processado.")
+            except Exception as e:
+                texto_arquivo = f"[Erro ao ler CSV: {e}]"
 
     # Histórico de mensagens
     for msg in st.session_state["babilaca_messages"]:
@@ -1710,23 +1822,11 @@ with tab_chat:
             st.markdown(resposta)
 
             # Botão salvar resposta
-            col_save, col_clear = st.columns([1, 1])
-            with col_save:
-                if st.button("💾 Salvar resposta", key=f"save_{len(st.session_state['babilaca_messages'])}"):
-                    salvar_resposta(prompt, resposta)
-                    st.toast("Resposta salva na memória!")
+            if st.button("💾 Salvar resposta", key=f"save_{len(st.session_state['babilaca_messages'])}"):
+                salvar_resposta(prompt, resposta)
+                st.toast("Resposta salva na memória!")
 
         st.session_state["babilaca_messages"].append({"role": "assistant", "content": resposta})
-
-    # Botão limpar chat
-    with st.sidebar:
-        st.markdown("### 🧠 O Babilaca")
-        if st.button("🗑️ Limpar conversa", use_container_width=True):
-            st.session_state["babilaca_messages"] = []
-            st.rerun()
-        st.markdown("---")
-        st.caption(f"Modelo: {st.session_state['babilaca_modelo']}")
-        st.caption(f"Mensagens: {len(st.session_state['babilaca_messages'])}")
 
 # ============================================================
 # TAB 2 — DOCUMENTOS
@@ -2184,57 +2284,7 @@ with tab_consultas:
             else:
                 st.warning("Descreva o cenário.")
 
-# ============================================================
-# TAB 4 — ALERTAS
-# ============================================================
-with tab_alertas:
-    st.markdown("### 🔔 Alertas Proativos")
-    st.caption(
-        "Configure palavras-chave de interesse e verifique alertas sobre novas licitações, "
-        "atualizações legislativas e movimentações relevantes."
-    )
-
-    mem = carregar_memoria()
-    palavras_alertas = mem.get("alertas_palavras", [])
-
-    with st.form("form_alertas"):
-        novas_palavras = st.text_input(
-            "Palavras-chave de interesse (separadas por vírgula)",
-            value=", ".join(palavras_alertas),
-        )
-        submit_alertas = st.form_submit_button("💾 Salvar e Verificar Alertas", use_container_width=True)
-
-    if submit_alertas:
-        lista = [p.strip() for p in novas_palavras.split(",") if p.strip()]
-        mem["alertas_palavras"] = lista
-        salvar_memoria(mem)
-        st.success("Palavras-chave salvas!")
-
-        with st.spinner("Verificando alertas..."):
-            alertas = verificar_alertas(lista)
-
-        st.session_state["babilaca_alertas"] = alertas
-
-    # Exibir alertas
-    alertas_display = st.session_state.get("babilaca_alertas", [])
-    if alertas_display:
-        for alerta in alertas_display:
-            tipo = alerta.get("tipo", "info")
-            css_class = {
-                "high": "alert-high", "medium": "alert-medium",
-                "low": "alert-low", "info": "alert-info",
-            }.get(tipo, "alert-info")
-            icone = {"high": "🔴", "medium": "🟡", "low": "🟢", "info": "ℹ️"}.get(tipo, "ℹ️")
-            st.markdown(f"""
-            <div class="alert-card {css_class}">
-                <strong>{icone} {alerta['titulo']}</strong><br>
-                {alerta['descricao']}<br>
-                <small>{alerta.get('data', '')[:10]}</small>
-            </div>
-            """, unsafe_allow_html=True)
-    else:
-        st.info("Nenhum alerta ainda. Configure palavras-chave e clique em verificar.")
-
+    # ---- Checklist de Conformidade ----
     st.markdown("---")
     st.markdown("#### 📋 Checklist de Conformidade")
     st.caption("Verifique se seu processo possui todos os documentos obrigatórios.")
@@ -2250,89 +2300,3 @@ with tab_alertas:
     ]
     for item in checklist:
         st.checkbox(item, key=f"check_{hashlib.md5(item.encode()).hexdigest()[:8]}")
-
-# ============================================================
-# TAB 5 — CONFIGURAÇÕES
-# ============================================================
-with tab_config:
-    st.markdown("### ⚙️ Configurações")
-
-    with st.form("form_config"):
-        st.markdown("#### 🔑 API OpenRouter")
-        api_key_input = st.text_input(
-            "Chave de API",
-            value=st.session_state["babilaca_api_key"],
-            type="password",
-        )
-
-        st.markdown("#### 🤖 Modelo de IA")
-        modelo_nome = st.selectbox(
-            "Modelo",
-            list(MODELOS_DISPONIVEIS.keys()),
-            index=list(MODELOS_DISPONIVEIS.values()).index(st.session_state["babilaca_modelo"])
-            if st.session_state["babilaca_modelo"] in MODELOS_DISPONIVEIS.values()
-            else 0,
-        )
-
-        submit_config = st.form_submit_button("💾 Salvar Configurações", use_container_width=True)
-
-    if submit_config:
-        st.session_state["babilaca_api_key"] = api_key_input.strip()
-        st.session_state["babilaca_modelo"] = MODELOS_DISPONIVEIS[modelo_nome]
-        mem = carregar_memoria()
-        mem["preferencias"]["modelo"] = MODELOS_DISPONIVEIS[modelo_nome]
-        salvar_memoria(mem)
-        st.success("Configurações salvas!")
-
-    st.markdown("---")
-    st.markdown("#### 💾 Respostas Salvas")
-    mem = carregar_memoria()
-    salvas = mem.get("respostas_salvas", [])
-    if salvas:
-        for i, s in enumerate(reversed(salvas[-10:])):
-            with st.expander(f"📌 {s['pergunta'][:80]}... — {s.get('data','')[:10]}"):
-                st.markdown(s["resposta"])
-                if st.button("🗑️ Remover", key=f"rm_salva_{i}"):
-                    idx = len(salvas) - 1 - i
-                    salvas.pop(idx)
-                    mem["respostas_salvas"] = salvas
-                    salvar_memoria(mem)
-                    st.rerun()
-    else:
-        st.info("Nenhuma resposta salva. Use o botão 💾 no chat para salvar.")
-
-    st.markdown("---")
-    st.markdown("#### 🧪 Testar Conexão")
-    if st.button("🔗 Testar API OpenRouter"):
-        with st.spinner("Testando..."):
-            resp = chamar_ia(
-                [{"role": "user", "content": "Diga apenas: 'Conexão OK! Babilaca funcionando.'"}],
-                "Responda de forma muito breve.",
-            )
-        if "⚠️" in resp:
-            st.error(resp)
-        else:
-            st.success(resp)
-
-    st.markdown("---")
-    st.markdown("#### ℹ️ Sobre")
-    st.markdown("""
-    **O Babilaca (IA)** é um assistente inteligente para licitações e contratações públicas.
-
-    **Módulos:**
-    - 💬 **Chat IA** — Perguntas sobre legislação com base em fontes reais
-    - 📄 **Documentos** — Geração automática de DFD, TR, Justificativa, Mapa Comparativo
-    - 🔍 **Consultas** — Integração com PNCP, ComprasGov, OpenCNPJ, BrasilAPI
-    - 🔔 **Alertas** — Monitoramento proativo de licitações e conformidade
-    - ⚙️ **Configurações** — Modelo de IA, chave de API, respostas salvas
-
-    **Base Legal:** Lei 14.133/2021, IN 65/2021, IN 58/2022, IN 73/2022, Acórdãos TCU.
-
-    **APIs integradas:**
-    - Portal Nacional de Contratações Públicas (PNCP)
-    - Dados Abertos ComprasGov (Atas, Fornecedores)
-    - OpenCNPJ / BrasilAPI (Dados cadastrais)
-
-    ---
-    ⚠️ *Ferramenta de apoio. Confirmar sempre nas fontes oficiais.*
-    """)
