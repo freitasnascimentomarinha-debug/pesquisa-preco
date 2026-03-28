@@ -855,19 +855,26 @@ def classificar_risco_juridico(descricao_cenario: str) -> str:
 # CHECKLIST POR MODALIDADE
 # ============================================================
 CHECKLIST_MODALIDADES = {
-    "Dispensa de Licitação": [
+    "Dispensa por Cotação Eletrônica": [
         "Documento de Formalização de Demanda (DFD)",
-        "Estudo Técnico Preliminar (ETP)",
+        "Estudo Técnico Preliminar (ETP) — quando aplicável",
         "Termo de Referência (TR)",
+        "Enquadramento legal da dispensa (Art. 75, I ou II, Lei 14.133/2021)",
         "Pesquisa de Preços (mínimo 3 fontes — IN 65/2021)",
         "Mapa Comparativo de Preços",
         "Justificativa para contratação direta",
-        "Razão da escolha do fornecedor",
+        "Aviso de Dispensa Eletrônica publicado no PNCP (Art. 75, §3°)",
+        "Comprovante de abertura no sistema de cotação eletrônica (ComprasGov)",
+        "Propostas recebidas no sistema eletrônico",
+        "Ata / Relatório da sessão de dispensa eletrônica",
+        "Razão da escolha do fornecedor vencedor",
         "Justificativa do preço",
-        "Comprovante de regularidade fiscal e trabalhista do fornecedor",
+        "Documentação de habilitação do fornecedor",
+        "Comprovante de regularidade fiscal e trabalhista",
         "Parecer jurídico (Art. 72, Lei 14.133/2021)",
         "Autorização da autoridade competente",
-        "Publicação no PNCP",
+        "Nota de Empenho",
+        "Publicação do resultado no PNCP",
     ],
     "Pregão Eletrônico (PE)": [
         "Documento de Formalização de Demanda (DFD)",
