@@ -154,19 +154,19 @@ OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 MEMORIA_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "babilaca_memoria.json")
 
 MODELOS_DISPONIVEIS = {
-    # --- Gratuitos ---
-    "Google Gemini 2.5 Flash (grátis)": "google/gemini-2.5-flash:free",
-    "Meta Llama 4 Maverick (grátis)": "meta-llama/llama-4-maverick:free",
-    "Mistral Small 3.1 24B (grátis)": "mistralai/mistral-small-3.1-24b-instruct:free",
-    "Qwen3 30B (grátis)": "qwen/qwen3-30b-a3b:free",
-    # --- Custo-benefício ---
-    "Perplexity Sonar": "perplexity/sonar",
+    # --- Custo-benefício (pagos, estáveis) ---
     "Google Gemini 2.5 Flash": "google/gemini-2.5-flash",
+    "Perplexity Sonar": "perplexity/sonar",
     "OpenAI GPT-4.1 Mini": "openai/gpt-4.1-mini",
-    "Anthropic Claude 3.5 Haiku": "anthropic/claude-3.5-haiku",
     "DeepSeek V3.2": "deepseek/deepseek-v3.2",
+    "Anthropic Claude 3.5 Haiku": "anthropic/claude-3.5-haiku",
     "Meta Llama 4 Maverick": "meta-llama/llama-4-maverick",
     "Qwen3 235B": "qwen/qwen3-235b-a22b",
+    # --- Grátis (⚠️ sujeitos a limite de uso) ---
+    "⚠️ Gemini 2.5 Flash (grátis)": "google/gemini-2.5-flash:free",
+    "⚠️ Llama 4 Maverick (grátis)": "meta-llama/llama-4-maverick:free",
+    "⚠️ Mistral Small 3.1 (grátis)": "mistralai/mistral-small-3.1-24b-instruct:free",
+    "⚠️ Qwen3 30B (grátis)": "qwen/qwen3-30b-a3b:free",
 }
 
 # ============================================================
