@@ -240,15 +240,15 @@ def _incrementar_req_count(api_key: str = "") -> int:
 
 MODELOS_DISPONIVEIS = {
     # ===== PAGOS (ordenados por popularidade) =====
-    "💰 OpenAI GPT-4o Mini": "openai/gpt-4o-mini",
-    "💰 DeepSeek V3.2": "deepseek/deepseek-v3.2",
-    "💰 Google Gemini 2.5 Flash Lite": "google/gemini-2.5-flash-lite",
-    "💰 Meta Llama 3.1 8B Instruct": "meta-llama/llama-3.1-8b-instruct",
-    "💰 Mistral Nemo": "mistralai/mistral-nemo",
-    "💰 OpenAI GPT-OSS 120B": "openai/gpt-oss-120b",
-    "💰 OpenAI GPT-OSS 20B": "openai/gpt-oss-20b",
-    "💰 Qwen 3.5 Flash": "qwen/qwen3.5-flash-02-23",
-    "💰 Xiaomi MiMo V2 Flash": "xiaomi/mimo-v2-flash",
+    "💰 OpenAI GPT-4o Mini — $0.15/1M in | $0.60/1M out": "openai/gpt-4o-mini",
+    "💰 DeepSeek V3.2 — $0.14/1M in | $0.28/1M out": "deepseek/deepseek-v3.2",
+    "💰 Gemini 2.5 Flash Lite — $0.02/1M in | $0.10/1M out": "google/gemini-2.5-flash-lite",
+    "💰 Llama 3.1 8B — $0.02/1M in | $0.05/1M out": "meta-llama/llama-3.1-8b-instruct",
+    "💰 Mistral Nemo — $0.03/1M in | $0.03/1M out": "mistralai/mistral-nemo",
+    "💰 OpenAI GPT-OSS 120B — $0.20/1M in | $0.60/1M out": "openai/gpt-oss-120b",
+    "💰 OpenAI GPT-OSS 20B — $0.06/1M in | $0.18/1M out": "openai/gpt-oss-20b",
+    "💰 Qwen 3.5 Flash — $0.05/1M in | $0.30/1M out": "qwen/qwen3.5-flash-02-23",
+    "💰 Xiaomi MiMo V2 Flash — $0.04/1M in | $0.11/1M out": "xiaomi/mimo-v2-flash",
     # ===== GRÁTIS (ordenados por popularidade) =====
     "🆓 NVIDIA Nemotron Super 120B (grátis)": "nvidia/nemotron-3-super-120b-a12b:free",
     "🆓 StepFun 3.5 Flash (grátis)": "stepfun/step-3.5-flash:free",
@@ -270,6 +270,10 @@ _defaults = {
     "babilaca_docs_gerados": [],
     "babilaca_preferencias": {},
     "babilaca_respostas_salvas": [],
+    "babilaca_sessao_reqs": 0,
+    "babilaca_sessao_custo": 0.0,
+    "babilaca_sessao_tokens_in": 0,
+    "babilaca_sessao_tokens_out": 0,
 }
 for k, v in _defaults.items():
     if k not in st.session_state:
@@ -634,6 +638,16 @@ def chamar_ia(
                 data = resp.json()
                 # Incrementar contador persistente de requisições
                 _incrementar_req_count(api_key)
+                # Rastrear uso da sessão (tokens e custo)
+                usage = data.get("usage", {})
+                st.session_state["babilaca_sessao_reqs"] = st.session_state.get("babilaca_sessao_reqs", 0) + 1
+                st.session_state["babilaca_sessao_tokens_in"] = st.session_state.get("babilaca_sessao_tokens_in", 0) + (usage.get("prompt_tokens", 0) or 0)
+                st.session_state["babilaca_sessao_tokens_out"] = st.session_state.get("babilaca_sessao_tokens_out", 0) + (usage.get("completion_tokens", 0) or 0)
+                custo_req = float(data.get("usage", {}).get("total_cost", 0) or 0)
+                if not custo_req:
+                    # Estimar custo se a API não retornar
+                    custo_req = ((usage.get("prompt_tokens", 0) or 0) * 0.15 + (usage.get("completion_tokens", 0) or 0) * 0.60) / 1_000_000
+                st.session_state["babilaca_sessao_custo"] = st.session_state.get("babilaca_sessao_custo", 0.0) + custo_req
                 return data["choices"][0]["message"]["content"]
 
             # --- Tratamento de erros conhecidos ---
@@ -1203,6 +1217,20 @@ CHECKLIST_MODALIDADES = {
         "Cópia da Ata de Registro de Preços assinada",
         "Nota de Empenho (quando da efetiva contratação)",
     ],
+    "Renovação de Ata por Mais 1 Ano": [
+        "Ata de Registro de Preços vigente (dentro do prazo de validade)",
+        "Ofício de solicitação de prorrogação ao órgão gerenciador",
+        "Manifestação de concordância do órgão gerenciador",
+        "Concordância expressa do(s) fornecedor(es) beneficiário(s)",
+        "Pesquisa de Preços atualizada comprovando vantajosidade",
+        "Comprovação de que os preços registrados permanecem compatíveis com o mercado",
+        "Justificativa técnica da necessidade de prorrogação",
+        "Comprovante de regularidade fiscal e trabalhista atualizado do fornecedor",
+        "Parecer jurídico sobre a prorrogação (Art. 84, §3°, Lei 14.133/2021)",
+        "Autorização da autoridade competente",
+        "Termo Aditivo ou Apostilamento de prorrogação da Ata",
+        "Publicação da prorrogação no PNCP",
+    ],
 }
 
 # Informações explicativas de cada modalidade
@@ -1394,6 +1422,42 @@ INFO_MODALIDADES = {
             "8. Acompanhar a sessão pública da licitação;\n"
             "9. Após homologação, receber cópia da Ata de Registro de Preços;\n"
             "10. Quando necessitar, emitir nota de empenho para efetivar a contratação."
+        ),
+    },
+    "Renovação de Ata por Mais 1 Ano": {
+        "descricao": (
+            "A **Renovação (prorrogação) de Ata de Registro de Preços** permite estender a "
+            "vigência da Ata por mais **1 (um) ano**, conforme **Art. 84, §3° da Lei 14.133/2021**. "
+            "A prorrogação depende de concordância do fornecedor e comprovação de que os preços "
+            "continuam vantajosos em relação ao mercado."
+        ),
+        "quando_aplicar": (
+            "- Quando a **Ata de Registro de Preços** está próxima do vencimento (vigência original de 1 ano);\n"
+            "- Quando os **preços registrados continuam compatíveis** com o mercado;\n"
+            "- Quando há **interesse da Administração** em manter o registro;\n"
+            "- Quando o **fornecedor concorda** com a prorrogação nas mesmas condições;\n"
+            "- Prorrogação permitida por **no máximo 1 ano** além da vigência original (Art. 84, §3°)."
+        ),
+        "limites": (
+            "| Regra | Detalhe |\n"
+            "|-------|--------|\n"
+            "| Vigência original da Ata | Até 1 ano |\n"
+            "| Prorrogação máxima | Mais 1 ano (total máximo: 2 anos) |\n"
+            "| Condição obrigatória | Pesquisa demonstrando vantajosidade dos preços |\n"
+            "| Concordância do fornecedor | Obrigatória |\n\n"
+            "*A prorrogação não é automática — requer análise de vantajosidade e formalização.*"
+        ),
+        "como_montar": (
+            "1. Verificar se a Ata ainda está dentro do prazo de vigência;\n"
+            "2. Realizar **pesquisa de preços atualizada** para comprovar vantajosidade;\n"
+            "3. Solicitar **concordância formal do fornecedor** para prorrogação;\n"
+            "4. Verificar **regularidade fiscal e trabalhista** atualizada do fornecedor;\n"
+            "5. Elaborar **justificativa técnica** da necessidade de prorrogação;\n"
+            "6. Consultar o **órgão gerenciador** da Ata (se não for o próprio órgão);\n"
+            "7. Obter **parecer jurídico** sobre a prorrogação;\n"
+            "8. Obter **autorização da autoridade competente**;\n"
+            "9. Formalizar via **Termo Aditivo** ou **Apostilamento**;\n"
+            "10. **Publicar** a prorrogação no PNCP."
         ),
     },
 }
@@ -1645,9 +1709,18 @@ tab_chat, tab_docs, tab_checklist = st.tabs([
 with tab_chat:
     st.markdown("### 💬 Converse com o Babilaca")
 
-    st.markdown("""
+    # Contador de sessão
+    _s_reqs = st.session_state.get("babilaca_sessao_reqs", 0)
+    _s_custo = st.session_state.get("babilaca_sessao_custo", 0.0)
+    _s_tk_in = st.session_state.get("babilaca_sessao_tokens_in", 0)
+    _s_tk_out = st.session_state.get("babilaca_sessao_tokens_out", 0)
+    _cor_custo = "#22c55e" if _s_custo < 0.01 else "#f59e0b" if _s_custo < 0.10 else "#ef4444"
+    st.markdown(f"""
     <div style="background:rgba(10,22,40,0.7);border:1px solid #1e3a5f;border-radius:8px;padding:0.4rem 1rem;margin-bottom:0.6rem;display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
         <span style="color:#d4af37;font-weight:bold;font-size:0.82rem;">Selecione seu Modelo Treinado para Licitações</span>
+        <span style="color:#60a5fa;font-size:0.75rem;font-weight:bold;">Sessão: {_s_reqs} req</span>
+        <span style="color:{_cor_custo};font-size:0.75rem;font-weight:bold;">Gasto: ${_s_custo:.6f}</span>
+        <span style="color:#94a3b8;font-size:0.72rem;">Tokens: {_s_tk_in:,} in | {_s_tk_out:,} out</span>
     </div>
     """, unsafe_allow_html=True)
 
