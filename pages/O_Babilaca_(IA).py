@@ -1988,6 +1988,8 @@ with tab_docs:
          "Termo de Referência",
          "Justificativa de Contratação",
          "Mapa Comparativo de Preços",
+         "Cronograma Físico-Financeiro",
+         "Memória de Cálculo",
          "Classificação de Risco Jurídico"],
     )
 
@@ -2284,6 +2286,416 @@ with tab_docs:
                                 st.download_button("⬇️ Baixar Mapa em PDF", pdf_bytes, "mapa_comparativo.pdf", "application/pdf")
                 except Exception as e:
                     st.error(f"Erro ao processar arquivo: {e}")
+
+    # ---- CRONOGRAMA FÍSICO-FINANCEIRO ----
+    elif "Cronograma" in tipo_doc:
+        st.markdown("#### 📅 Cronograma Físico-Financeiro")
+        st.markdown(
+            "Gere um cronograma detalhado de execução e desembolso financeiro para obras, "
+            "serviços de engenharia ou contratos de grande porte, conforme **Art. 25, §1° e "
+            "Art. 46, Lei 14.133/2021**."
+        )
+        modo_crono = st.radio("Modo de preenchimento", ["Manual", "Assistido por IA"], horizontal=True, key="modo_crono", index=1)
+
+        if modo_crono == "Manual":
+            with st.form("form_cronograma"):
+                st.markdown("**Dados Gerais**")
+                c1, c2 = st.columns(2)
+                with c1:
+                    crono_objeto = st.text_area("Objeto da contratação", height=60, key="crono_obj")
+                    crono_contrato = st.text_input("Nº do Contrato / Processo", key="crono_contrato")
+                    crono_contratada = st.text_input("Empresa contratada", key="crono_contratada")
+                with c2:
+                    crono_valor_global = st.number_input("Valor Global do Contrato (R$)", min_value=0.0, format="%.2f", key="crono_valor")
+                    crono_inicio = st.date_input("Data de início prevista", key="crono_inicio")
+                    crono_prazo_meses = st.number_input("Prazo total (meses)", min_value=1, max_value=120, value=12, key="crono_prazo")
+
+                st.markdown("---")
+                st.markdown("**Etapas / Fases de Execução**")
+                n_etapas = st.number_input("Número de etapas", min_value=1, max_value=30, value=4, key="crono_n_etapas")
+                etapas = []
+                for i in range(int(n_etapas)):
+                    st.markdown(f"**Etapa {i + 1}**")
+                    ec1, ec2, ec3, ec4 = st.columns([3, 1.5, 1.5, 1.5])
+                    with ec1:
+                        et_desc = st.text_input("Descrição da etapa", key=f"crono_et_desc_{i}")
+                    with ec2:
+                        et_inicio_mes = st.number_input("Mês início", min_value=1, max_value=120, value=i + 1, key=f"crono_et_ini_{i}")
+                    with ec3:
+                        et_fim_mes = st.number_input("Mês fim", min_value=1, max_value=120, value=i + 3, key=f"crono_et_fim_{i}")
+                    with ec4:
+                        et_valor = st.number_input("Valor (R$)", min_value=0.0, format="%.2f", key=f"crono_et_val_{i}")
+                    etapas.append({"descricao": et_desc, "mes_inicio": et_inicio_mes, "mes_fim": et_fim_mes, "valor": et_valor})
+
+                crono_obs = st.text_area("Observações", height=60, key="crono_obs_manual")
+                submit_crono = st.form_submit_button("📅 Gerar Cronograma", use_container_width=True)
+
+            if submit_crono:
+                # Montar documento
+                corpo_crono = f"""## CRONOGRAMA FÍSICO-FINANCEIRO
+
+### 1. Dados Gerais
+- **Objeto:** {crono_objeto}
+- **Nº Contrato/Processo:** {crono_contrato}
+- **Empresa Contratada:** {crono_contratada}
+- **Valor Global:** {_fmt_brl(crono_valor_global)}
+- **Data de Início:** {crono_inicio.strftime('%d/%m/%Y')}
+- **Prazo de Execução:** {crono_prazo_meses} meses
+
+### 2. Detalhamento das Etapas
+
+| # | Etapa | Mês Início | Mês Fim | Duração | Valor (R$) | % do Total |
+|---|-------|-----------|---------|---------|-----------|-----------|
+"""
+                soma_etapas = sum(e["valor"] for e in etapas)
+                for j, e in enumerate(etapas, 1):
+                    dur = max(1, e["mes_fim"] - e["mes_inicio"] + 1)
+                    pct = (e["valor"] / crono_valor_global * 100) if crono_valor_global > 0 else 0
+                    corpo_crono += f"| {j} | {e['descricao']} | {e['mes_inicio']}° | {e['mes_fim']}° | {dur} meses | {_fmt_brl(e['valor'])} | {pct:.1f}% |\n"
+
+                corpo_crono += f"\n**Total das Etapas:** {_fmt_brl(soma_etapas)}"
+                if crono_valor_global > 0:
+                    corpo_crono += f" ({soma_etapas / crono_valor_global * 100:.1f}% do valor global)"
+
+                # Cronograma de desembolso mensal
+                corpo_crono += "\n\n### 3. Cronograma de Desembolso Mensal\n\n"
+                corpo_crono += "| Mês | Etapas Ativas | Desembolso Estimado (R$) | Acumulado (R$) |\n"
+                corpo_crono += "|-----|--------------|------------------------|----------------|\n"
+                acumulado = 0.0
+                for mes in range(1, int(crono_prazo_meses) + 1):
+                    desembolso_mes = 0.0
+                    ativos = []
+                    for e in etapas:
+                        if e["mes_inicio"] <= mes <= e["mes_fim"]:
+                            dur = max(1, e["mes_fim"] - e["mes_inicio"] + 1)
+                            desembolso_mes += e["valor"] / dur
+                            ativos.append(e["descricao"][:30])
+                    acumulado += desembolso_mes
+                    nomes = ", ".join(ativos) if ativos else "—"
+                    corpo_crono += f"| {mes}° | {nomes} | {_fmt_brl(desembolso_mes)} | {_fmt_brl(acumulado)} |\n"
+
+                corpo_crono += f"""
+### 4. Base Legal
+- Lei 14.133/2021, Art. 25, §1° e Art. 46
+- IN SEGES/ME nº 58/2022
+
+### 5. Observações
+{crono_obs or 'Sem observações.'}
+
+---
+Documento gerado pelo sistema O Babilaca (IA) — Ferramenta de apoio.
+Confirmar sempre nas fontes oficiais.
+"""
+                st.markdown(corpo_crono)
+                pdf_bytes = gerar_pdf_documento("CRONOGRAMA FÍSICO-FINANCEIRO", corpo_crono)
+                st.download_button("⬇️ Baixar Cronograma em PDF", pdf_bytes, "cronograma_fisico_financeiro.pdf", "application/pdf")
+
+        else:  # Assistido por IA
+            st.markdown(
+                "Descreva o projeto/contrato abaixo e a IA gerará um cronograma físico-financeiro "
+                "completo com etapas, prazos, valores e curva de desembolso."
+            )
+            desc_crono = st.text_area(
+                "Descreva o objeto, valor estimado, prazo e principais etapas:",
+                height=150,
+                key="crono_ia_input",
+                placeholder=(
+                    "Ex: Obra de reforma do prédio administrativo, valor estimado R$ 800.000,00, "
+                    "prazo de 12 meses. Inclui demolição, estrutura, instalações elétricas e hidráulicas, "
+                    "acabamento e limpeza final."
+                ),
+            )
+            arquivo_crono = st.file_uploader("Ou envie projeto básico/planilha orçamentária (PDF/Excel)", type=["pdf", "xlsx"], key="crono_upload")
+            if st.button("🤖 Gerar Cronograma com IA", key="btn_crono_ia"):
+                ctx_extra = ""
+                if arquivo_crono:
+                    if arquivo_crono.name.endswith(".pdf"):
+                        ctx_extra = extrair_texto_pdf(arquivo_crono)
+                    else:
+                        ctx_extra, _ = extrair_dados_excel(arquivo_crono)
+                if desc_crono or ctx_extra:
+                    with st.spinner("Gerando Cronograma Físico-Financeiro com IA..."):
+                        prompt_crono = (
+                            "Gere um **Cronograma Físico-Financeiro** completo e detalhado para o seguinte projeto/contrato, "
+                            "conforme exigido pela Lei 14.133/2021 (Art. 25, §1° e Art. 46).\n\n"
+                            f"**Descrição do projeto:**\n{desc_crono}\n\n"
+                        )
+                        if ctx_extra:
+                            prompt_crono += f"**Dados do arquivo anexado:**\n{ctx_extra[:4000]}\n\n"
+                        prompt_crono += (
+                            "O documento deve conter OBRIGATORIAMENTE:\n\n"
+                            "1. **DADOS GERAIS**: objeto, valor global estimado, prazo total, empresa (quando informada)\n\n"
+                            "2. **DETALHAMENTO DAS ETAPAS** em tabela com: Nº, Descrição da Etapa/Fase, "
+                            "Mês de Início, Mês de Término, Duração, Valor da Etapa (R$), Percentual do Total (%)\n\n"
+                            "3. **CRONOGRAMA DE DESEMBOLSO MENSAL** em tabela com: Mês, Etapas Ativas, "
+                            "Desembolso no Mês (R$), Acumulado (R$), Percentual Acumulado (%)\n\n"
+                            "4. **CURVA S** descritiva: explique a evolução dos desembolsos ao longo do tempo "
+                            "(se há concentração no início, meio ou fim)\n\n"
+                            "5. **MARCOS CRÍTICOS**: liste os marcos de medição/pagamento mais importantes\n\n"
+                            "6. **CONDIÇÕES DE PAGAMENTO**: vincule os pagamentos à medição das etapas efetivamente executadas\n\n"
+                            "7. **BASE LEGAL**: Art. 25 §1° e Art. 46 da Lei 14.133/2021\n\n"
+                            "8. **RESSALVAS**: indique que os valores e prazos são estimativos e sujeitos a ajustes\n\n"
+                            "Use valores realistas e proporcionais. Formate tabelas em Markdown. "
+                            "Todos os valores devem estar em Reais (R$)."
+                        )
+                        ctx = buscar_base_juridica("cronograma execução pagamento medição prazo contrato obra")
+                        system = _build_system_prompt(ctx)
+                        resultado = chamar_ia([{"role": "user", "content": prompt_crono}], system)
+                    st.markdown(resultado)
+                    pdf_bytes = gerar_pdf_documento("CRONOGRAMA FÍSICO-FINANCEIRO", resultado)
+                    st.download_button("⬇️ Baixar Cronograma em PDF", pdf_bytes, "cronograma_ia.pdf", "application/pdf")
+                else:
+                    st.warning("Descreva o projeto ou envie um arquivo.")
+
+    # ---- MEMÓRIA DE CÁLCULO ----
+    elif "Memória de Cálculo" in tipo_doc:
+        st.markdown("#### 🧮 Memória de Cálculo")
+        st.markdown(
+            "Gere uma memória de cálculo detalhada para fundamentar o **valor estimado** da contratação, "
+            "conforme **Art. 23 da Lei 14.133/2021** e **IN SEGES/ME nº 65/2021**. "
+            "Documento essencial para demonstrar como se chegou ao preço de referência."
+        )
+        modo_mc = st.radio("Modo de preenchimento", ["Manual", "Assistido por IA"], horizontal=True, key="modo_mc", index=1)
+
+        if modo_mc == "Manual":
+            with st.form("form_memoria_calculo"):
+                st.markdown("**Dados Gerais**")
+                mc_c1, mc_c2 = st.columns(2)
+                with mc_c1:
+                    mc_objeto = st.text_area("Objeto da contratação", height=60, key="mc_obj")
+                    mc_processo = st.text_input("Nº do Processo", key="mc_processo")
+                with mc_c2:
+                    mc_metodologia = st.selectbox("Metodologia de pesquisa (IN 65/2021)", [
+                        "Painel de Preços / ComprasGov",
+                        "Contratações similares de outros entes (PNCP)",
+                        "Pesquisa direta com fornecedores (mín. 3 cotações)",
+                        "Pesquisa em sites especializados / catálogos",
+                        "Combinação de fontes (recomendado)",
+                    ], key="mc_metodo")
+                    mc_criterio = st.selectbox("Critério de formação do preço de referência", [
+                        "Média aritmética dos preços válidos",
+                        "Mediana dos preços válidos",
+                        "Menor preço obtido",
+                        "Média saneada (excluídos outliers)",
+                    ], key="mc_criterio")
+
+                st.markdown("---")
+                st.markdown("**Itens e Cotações**")
+                mc_n_itens = st.number_input("Número de itens", min_value=1, max_value=50, value=3, key="mc_n_itens")
+                itens_mc = []
+                for i in range(int(mc_n_itens)):
+                    st.markdown(f"**Item {i + 1}**")
+                    ic1, ic2, ic3 = st.columns([3, 1, 1])
+                    with ic1:
+                        mc_desc = st.text_input("Descrição do item", key=f"mc_desc_{i}")
+                    with ic2:
+                        mc_und = st.text_input("Unidade", value="UN", key=f"mc_und_{i}")
+                    with ic3:
+                        mc_qtd = st.number_input("Qtd", min_value=1, value=1, key=f"mc_qtd_{i}")
+
+                    st.markdown("Cotações obtidas:")
+                    fc1, fc2, fc3, fc4, fc5 = st.columns(5)
+                    with fc1:
+                        mc_f1 = st.number_input("Fonte 1 (R$)", min_value=0.0, format="%.2f", key=f"mc_f1_{i}")
+                        mc_f1_nome = st.text_input("Nome Fonte 1", key=f"mc_f1n_{i}", placeholder="Ex: Ata PE 10/2025")
+                    with fc2:
+                        mc_f2 = st.number_input("Fonte 2 (R$)", min_value=0.0, format="%.2f", key=f"mc_f2_{i}")
+                        mc_f2_nome = st.text_input("Nome Fonte 2", key=f"mc_f2n_{i}", placeholder="Ex: Cotação Empresa X")
+                    with fc3:
+                        mc_f3 = st.number_input("Fonte 3 (R$)", min_value=0.0, format="%.2f", key=f"mc_f3_{i}")
+                        mc_f3_nome = st.text_input("Nome Fonte 3", key=f"mc_f3n_{i}", placeholder="Ex: Painel de Preços")
+                    with fc4:
+                        mc_f4 = st.number_input("Fonte 4 (R$)", min_value=0.0, format="%.2f", key=f"mc_f4_{i}")
+                        mc_f4_nome = st.text_input("Nome Fonte 4", key=f"mc_f4n_{i}", placeholder="(Opcional)")
+                    with fc5:
+                        mc_f5 = st.number_input("Fonte 5 (R$)", min_value=0.0, format="%.2f", key=f"mc_f5_{i}")
+                        mc_f5_nome = st.text_input("Nome Fonte 5", key=f"mc_f5n_{i}", placeholder="(Opcional)")
+
+                    itens_mc.append({
+                        "descricao": mc_desc, "unidade": mc_und, "quantidade": mc_qtd,
+                        "fontes": [
+                            {"nome": mc_f1_nome, "valor": mc_f1},
+                            {"nome": mc_f2_nome, "valor": mc_f2},
+                            {"nome": mc_f3_nome, "valor": mc_f3},
+                            {"nome": mc_f4_nome, "valor": mc_f4},
+                            {"nome": mc_f5_nome, "valor": mc_f5},
+                        ],
+                    })
+
+                mc_obs = st.text_area("Observações e justificativas adicionais", height=80, key="mc_obs")
+                submit_mc = st.form_submit_button("🧮 Gerar Memória de Cálculo", use_container_width=True)
+
+            if submit_mc:
+                import statistics
+                corpo_mc = f"""## MEMÓRIA DE CÁLCULO — ESTIMATIVA DE PREÇOS
+
+### 1. Dados Gerais
+- **Objeto:** {mc_objeto}
+- **Nº Processo:** {mc_processo}
+- **Metodologia:** {mc_metodologia}
+- **Critério de formação do preço:** {mc_criterio}
+
+### 2. Fontes de Pesquisa Utilizadas
+Conforme Art. 23, §1° da Lei 14.133/2021 e IN SEGES/ME nº 65/2021, a pesquisa de preços
+utilizou as seguintes fontes, priorizando a ordem estabelecida no Art. 5° da IN 65/2021:
+
+"""
+                # Coletar todas as fontes únicas dos itens
+                fontes_unicas = set()
+                for item in itens_mc:
+                    for f in item["fontes"]:
+                        if f["nome"] and f["valor"] > 0:
+                            fontes_unicas.add(f["nome"])
+                for idx_f, fn in enumerate(sorted(fontes_unicas), 1):
+                    corpo_mc += f"- **Fonte {idx_f}:** {fn}\n"
+
+                corpo_mc += "\n### 3. Detalhamento por Item\n\n"
+
+                valor_total_global = 0.0
+                for j, item in enumerate(itens_mc, 1):
+                    fontes_validas = [f for f in item["fontes"] if f["valor"] > 0]
+                    precos = [f["valor"] for f in fontes_validas]
+
+                    corpo_mc += f"---\n#### Item {j}: {item['descricao']}\n"
+                    corpo_mc += f"- **Unidade:** {item['unidade']} | **Quantidade:** {item['quantidade']}\n\n"
+
+                    # Tabela de cotações
+                    corpo_mc += "| Fonte | Valor Unitário (R$) |\n"
+                    corpo_mc += "|-------|--------------------|\n"
+                    for f in fontes_validas:
+                        corpo_mc += f"| {f['nome']} | {_fmt_brl(f['valor'])} |\n"
+
+                    if precos:
+                        media = sum(precos) / len(precos)
+                        mediana = statistics.median(precos)
+                        menor = min(precos)
+                        maior = max(precos)
+                        coef_var = (statistics.stdev(precos) / media * 100) if len(precos) > 1 else 0
+
+                        # Determinar preço de referência conforme critério
+                        if "Mediana" in mc_criterio:
+                            preco_ref = mediana
+                        elif "Menor" in mc_criterio:
+                            preco_ref = menor
+                        elif "saneada" in mc_criterio.lower():
+                            # Excluir valores fora de 1 desvio padrão
+                            if len(precos) > 2:
+                                dp = statistics.stdev(precos)
+                                saneados = [p for p in precos if abs(p - media) <= dp]
+                                preco_ref = sum(saneados) / len(saneados) if saneados else media
+                            else:
+                                preco_ref = media
+                        else:
+                            preco_ref = media
+
+                        total_item = preco_ref * item["quantidade"]
+                        valor_total_global += total_item
+
+                        corpo_mc += f"\n**Análise Estatística:**\n"
+                        corpo_mc += f"- Menor preço: {_fmt_brl(menor)}\n"
+                        corpo_mc += f"- Maior preço: {_fmt_brl(maior)}\n"
+                        corpo_mc += f"- Média aritmética: {_fmt_brl(media)}\n"
+                        corpo_mc += f"- Mediana: {_fmt_brl(mediana)}\n"
+                        if len(precos) > 1:
+                            corpo_mc += f"- Coeficiente de variação: {coef_var:.1f}%"
+                            if coef_var > 25:
+                                corpo_mc += " ⚠️ *Dispersão alta — recomenda-se justificativa*"
+                            corpo_mc += "\n"
+                        corpo_mc += f"\n**▶ Preço de Referência Unitário ({mc_criterio}):** {_fmt_brl(preco_ref)}\n"
+                        corpo_mc += f"**▶ Valor Total do Item ({item['quantidade']} x {_fmt_brl(preco_ref)}):** {_fmt_brl(total_item)}\n\n"
+                    else:
+                        corpo_mc += "\n⚠️ *Nenhuma cotação informada para este item.*\n\n"
+
+                corpo_mc += f"""---
+### 4. Resumo — Valor Total Estimado
+
+| Critério | Valor |
+|----------|-------|
+| **Valor Total Estimado Global** | **{_fmt_brl(valor_total_global)}** |
+| Metodologia aplicada | {mc_metodologia} |
+| Critério de formação | {mc_criterio} |
+| Nº de fontes utilizadas | {len(fontes_unicas)} |
+
+### 5. Conformidade Legal
+- **Art. 23, Lei 14.133/2021** — Valor estimado compatível com mercado
+- **IN SEGES/ME nº 65/2021, Arts. 5° a 7°** — Parâmetros e ordem de fontes
+- **Acórdão 1.793/2011 — TCU Plenário** — Pesquisa ampla e diversificada
+
+### 6. Observações
+{mc_obs or 'Sem observações adicionais.'}
+
+---
+Documento gerado pelo sistema O Babilaca (IA) — Ferramenta de apoio.
+Confirmar sempre nas fontes oficiais.
+"""
+                st.markdown(corpo_mc)
+                pdf_bytes = gerar_pdf_documento("MEMÓRIA DE CÁLCULO", corpo_mc)
+                st.download_button("⬇️ Baixar Memória de Cálculo em PDF", pdf_bytes, "memoria_calculo.pdf", "application/pdf")
+
+        else:  # Assistido por IA
+            st.markdown(
+                "Descreva os itens a contratar, fontes de pesquisa e valores obtidos. "
+                "A IA gerará uma memória de cálculo completa com análise estatística, "
+                "justificativa e fundamentação legal."
+            )
+            desc_mc = st.text_area(
+                "Descreva os itens, quantidades, valores pesquisados e fontes utilizadas:",
+                height=180,
+                key="mc_ia_input",
+                placeholder=(
+                    "Ex: Preciso de memória de cálculo para aquisição de 50 notebooks Dell Latitude 5540.\n"
+                    "Fontes pesquisadas:\n"
+                    "- Ata PE 15/2025 UASG 160XXX: R$ 5.200,00/un\n"
+                    "- Painel de Preços (ComprasGov): R$ 5.450,00/un\n"
+                    "- Cotação Fornecedor ABC: R$ 5.100,00/un\n"
+                    "- Site Magazine Luiza: R$ 5.800,00/un"
+                ),
+            )
+            arquivo_mc = st.file_uploader("Ou envie planilha de cotações / pesquisa de preços (PDF/Excel)", type=["pdf", "xlsx"], key="mc_upload")
+            if st.button("🤖 Gerar Memória de Cálculo com IA", key="btn_mc_ia"):
+                ctx_extra = ""
+                if arquivo_mc:
+                    if arquivo_mc.name.endswith(".pdf"):
+                        ctx_extra = extrair_texto_pdf(arquivo_mc)
+                    else:
+                        ctx_extra, _ = extrair_dados_excel(arquivo_mc)
+                if desc_mc or ctx_extra:
+                    with st.spinner("Gerando Memória de Cálculo com IA..."):
+                        prompt_mc = (
+                            "Gere uma **Memória de Cálculo** completa e detalhada para fundamentar o valor estimado "
+                            "da contratação abaixo, conforme Art. 23 da Lei 14.133/2021 e IN SEGES/ME nº 65/2021.\n\n"
+                            f"**Descrição / Dados fornecidos:**\n{desc_mc}\n\n"
+                        )
+                        if ctx_extra:
+                            prompt_mc += f"**Dados do arquivo anexado:**\n{ctx_extra[:4000]}\n\n"
+                        prompt_mc += (
+                            "O documento deve conter OBRIGATORIAMENTE:\n\n"
+                            "1. **DADOS GERAIS**: objeto, processo (se informado), metodologia de pesquisa\n\n"
+                            "2. **FONTES DE PESQUISA**: listar todas as fontes utilizadas, seguindo a ordem "
+                            "de prioridade da IN 65/2021 Art. 5°: I-Painel de Preços, II-Contratações similares, "
+                            "III-Sites especializados, IV-Pesquisa direta com fornecedores\n\n"
+                            "3. **DETALHAMENTO POR ITEM** com tabela de cotações contendo: Fonte, CNPJ/Identificação "
+                            "(quando disponível), Valor Unitário, Data da Cotação\n\n"
+                            "4. **ANÁLISE ESTATÍSTICA POR ITEM**: média aritmética, mediana, menor preço, maior preço, "
+                            "desvio padrão, coeficiente de variação. Se CV > 25%, alertar sobre dispersão alta\n\n"
+                            "5. **TRATAMENTO DE OUTLIERS**: se houver preços com dispersão excessiva (>25%), "
+                            "aplicar média saneada excluindo valores fora de 1 desvio padrão, justificando a exclusão\n\n"
+                            "6. **PREÇO DE REFERÊNCIA**: indicar o critério adotado (média, mediana ou menor), "
+                            "calcular o valor unitário e o valor total por item e global\n\n"
+                            "7. **QUADRO RESUMO** com tabela: Item, Qtd, Unidade, Preço Ref. Unitário, Valor Total\n\n"
+                            "8. **CONFORMIDADE LEGAL**: citar Art. 23 Lei 14.133, IN 65/2021, e jurisprudência "
+                            "relevante (Acórdão 1.793/2011-TCU caso esteja no contexto)\n\n"
+                            "9. **CONCLUSÃO**: valor total estimado e declaração de compatibilidade com mercado\n\n"
+                            "Use tabelas Markdown, valores em Reais (R$) formatados, e cálculos demonstrados passo a passo."
+                        )
+                        ctx = buscar_base_juridica("pesquisa preços estimativa orçamento cotação memória cálculo IN 65")
+                        system = _build_system_prompt(ctx)
+                        resultado = chamar_ia([{"role": "user", "content": prompt_mc}], system)
+                    st.markdown(resultado)
+                    pdf_bytes = gerar_pdf_documento("MEMÓRIA DE CÁLCULO", resultado)
+                    st.download_button("⬇️ Baixar Memória de Cálculo em PDF", pdf_bytes, "memoria_calculo_ia.pdf", "application/pdf")
+                else:
+                    st.warning("Descreva os itens/valores ou envie um arquivo.")
 
     # ---- Classificação de Risco Jurídico ----
     elif "Risco" in tipo_doc:
