@@ -254,9 +254,6 @@ MODELOS_DISPONIVEIS = {
     "🆓 StepFun 3.5 Flash (grátis)": "stepfun/step-3.5-flash:free",
     "🆓 Arcee Trinity Large (grátis)": "arcee-ai/trinity-large-preview:free",
     "🆓 Z-AI GLM 4.5 Air (grátis)": "z-ai/glm-4.5-air:free",
-    # ===== EMBEDDINGS =====
-    "🔗 Qwen3 Embedding 8B": "qwen/qwen3-embedding-8b",
-    "🔗 OpenAI Text Embedding 3 Small": "openai/text-embedding-3-small",
 }
 
 # ============================================================
@@ -1648,41 +1645,11 @@ tab_chat, tab_docs, tab_checklist = st.tabs([
 with tab_chat:
     st.markdown("### 💬 Converse com o Babilaca")
 
-    # --- Consultar uso OpenRouter automaticamente ao carregar ---
-    if "_saldo_or" not in st.session_state:
-        try:
-            st.session_state["_saldo_or"] = consultar_saldo_openrouter()
-        except Exception:
-            st.session_state["_saldo_or"] = None
-
-    saldo_info = st.session_state.get("_saldo_or")
-    req_total = _ler_req_count()
-    api_key_atual = st.session_state.get("babilaca_api_key", "")
-    req_chave = _ler_req_count_chave(api_key_atual) if api_key_atual else 0
-    if saldo_info:
-        gasto_total = saldo_info.get("usage", 0) or 0
-        gasto_dia = saldo_info.get("usage_daily", 0) or 0
-        gasto_semana = saldo_info.get("usage_weekly", 0) or 0
-        is_free = saldo_info.get("is_free_tier", False)
-        free_tag = ' <span style="color:#22c55e;font-weight:600;">FREE TIER</span>' if is_free else ""
-        cor_gasto = "#22c55e" if gasto_total < 1 else "#f59e0b" if gasto_total < 3 else "#ef4444"
-        custo_medio = gasto_total / req_total if req_total > 0 else 0
-        st.markdown(f"""
-        <div style="background:rgba(10,22,40,0.7);border:1px solid #1e3a5f;border-radius:8px;padding:0.4rem 1rem;margin-bottom:0.6rem;display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
-            <span style="color:#d4af37;font-weight:bold;font-size:0.82rem;">Selecione seu Modelo Treinado para Licita\u00e7\u00f5es</span>
-            <span style="color:{cor_gasto};font-size:0.85rem;font-weight:bold;">Gasto: ${gasto_total:.4f}</span>
-            <span style="color:#94a3b8;font-size:0.75rem;">Hoje: ${gasto_dia:.4f} | Semana: ${gasto_semana:.4f} {free_tag}</span>
-            <span style="color:#60a5fa;font-size:0.75rem;font-weight:bold;">Req. totais: {req_total} | Esta chave: {req_chave}</span>
-            <span style="color:#ef4444;font-size:0.75rem;font-weight:bold;">Custo medio: US$ {custo_medio:.6f}/req</span>
-        </div>
-        """, unsafe_allow_html=True)
-    else:
-        st.markdown(f"""
-        <div style="background:rgba(10,22,40,0.5);border:1px solid #1e3a5f;border-radius:8px;padding:0.4rem 1rem;margin-bottom:0.6rem;display:flex;align-items:center;gap:0.8rem;">
-            <span style="color:#94a3b8;font-size:0.8rem;">Selecione seu Modelo Treinado para Licita\u00e7\u00f5es</span>
-            <span style="color:#60a5fa;font-size:0.8rem;font-weight:bold;">Req. totais: {req_total} | Esta chave: {req_chave}</span>
-        </div>
-        """, unsafe_allow_html=True)
+    st.markdown("""
+    <div style="background:rgba(10,22,40,0.7);border:1px solid #1e3a5f;border-radius:8px;padding:0.4rem 1rem;margin-bottom:0.6rem;display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
+        <span style="color:#d4af37;font-weight:bold;font-size:0.82rem;">Selecione seu Modelo Treinado para Licitações</span>
+    </div>
+    """, unsafe_allow_html=True)
 
     # Barra de ferramentas: Modelo | Limpar conversa | Anexar arquivo
     tb_col1, tb_col2, tb_col3 = st.columns([3, 1.3, 1.3])
@@ -1736,9 +1703,13 @@ with tab_chat:
         texto_arquivo = st.session_state.get("_arquivo_texto", "")
 
     # Histórico de mensagens
-    for msg in st.session_state["babilaca_messages"]:
+    for idx, msg in enumerate(st.session_state["babilaca_messages"]):
         with st.chat_message(msg["role"]):
             st.markdown(msg["content"])
+            if msg["role"] == "user":
+                if st.button("🔄 Reenviar", key=f"resend_{idx}"):
+                    st.session_state["_reenviar_prompt"] = msg["content"]
+                    st.rerun()
 
     # Auto-scroll para manter sempre no final da conversa
     if st.session_state["babilaca_messages"]:
@@ -1755,8 +1726,11 @@ with tab_chat:
             unsafe_allow_html=True,
         )
 
+    # Processar reenvio de mensagem (botão 🔄)
+    _reenviar = st.session_state.pop("_reenviar_prompt", None)
+
     # Input do usuário
-    if prompt := st.chat_input("Digite sua pergunta sobre licitações, legislação ou contratações..."):
+    if prompt := (_reenviar or st.chat_input("Digite sua pergunta sobre licitações, legislação ou contratações...")):
         # Adicionar mensagem do usuário
         st.session_state["babilaca_messages"].append({"role": "user", "content": prompt})
         with st.chat_message("user"):
@@ -1797,13 +1771,6 @@ with tab_chat:
                 st.toast("Resposta salva!")
 
         st.session_state["babilaca_messages"].append({"role": "assistant", "content": resposta})
-        # Atualizar saldo após resposta
-        try:
-            saldo_atualizado = consultar_saldo_openrouter()
-            if saldo_atualizado:
-                st.session_state["_saldo_or"] = saldo_atualizado
-        except Exception:
-            pass
         # Auto-scroll para o final da conversa
         st.markdown(
             """<script>
