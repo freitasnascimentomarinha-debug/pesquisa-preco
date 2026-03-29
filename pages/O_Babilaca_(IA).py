@@ -239,28 +239,24 @@ def _incrementar_req_count(api_key: str = "") -> int:
     return data["total"]
 
 MODELOS_DISPONIVEIS = {
-    # ===== GRÁTIS (custo $0) =====
-    "🆓 Google Gemma 3 27B (grátis)": "google/gemma-3-27b-it:free",
-    "🆓 Meta Llama 3.3 70B (grátis)": "meta-llama/llama-3.3-70b-instruct:free",
-    "🆓 NVIDIA Nemotron Super 120B (grátis)": "nvidia/nemotron-3-super-120b-a12b:free",
-    "🆓 NVIDIA Nemotron Nano 9B (grátis)": "nvidia/nemotron-nano-9b-v2:free",
-    "🆓 Mistral Small 3.1 24B (grátis)": "mistralai/mistral-small-3.1-24b-instruct:free",
-    "🆓 Qwen3 Coder 480B (grátis)": "qwen/qwen3-coder:free",
-    "🆓 Qwen3 Next 80B (grátis)": "qwen/qwen3-next-80b-a3b-instruct:free",
-    "🆓 Google Gemma 3 12B (grátis)": "google/gemma-3-12b-it:free",
-    "🆓 Nous Hermes 3 405B (grátis)": "nousresearch/hermes-3-llama-3.1-405b:free",
-    "🆓 StepFun 3.5 Flash (grátis)": "stepfun/step-3.5-flash:free",
-    # ===== PAGOS BARATOS (bom custo-benefício) =====
-    "💰 Google Gemini 2.5 Flash ($0.15/M)": "google/gemini-2.5-flash",
-    "💰 OpenAI GPT-4.1 Nano ($0.10/M)": "openai/gpt-4.1-nano",
-    "💰 OpenAI GPT-4.1 Mini ($0.40/M)": "openai/gpt-4.1-mini",
-    "💰 Perplexity Sonar": "perplexity/sonar",
+    # ===== PAGOS (ordenados por popularidade) =====
+    "💰 OpenAI GPT-4o Mini": "openai/gpt-4o-mini",
     "💰 DeepSeek V3.2": "deepseek/deepseek-v3.2",
-    "💰 NVIDIA Nemotron Super 49B ($0.10/M)": "nvidia/llama-3.3-nemotron-super-49b-v1.5",
-    "💰 Meta Llama 4 Scout ($0.08/M)": "meta-llama/llama-4-scout",
-    "💰 Mistral Small 3.2 24B ($0.08/M)": "mistralai/mistral-small-3.2-24b-instruct",
-    "💰 Google Gemini 2.0 Flash ($0.10/M)": "google/gemini-2.0-flash-001",
-    "💰 Anthropic Claude 3.5 Haiku": "anthropic/claude-3.5-haiku",
+    "💰 Google Gemini 2.5 Flash Lite": "google/gemini-2.5-flash-lite",
+    "💰 Meta Llama 3.1 8B Instruct": "meta-llama/llama-3.1-8b-instruct",
+    "💰 Mistral Nemo": "mistralai/mistral-nemo",
+    "💰 OpenAI GPT-OSS 120B": "openai/gpt-oss-120b",
+    "💰 OpenAI GPT-OSS 20B": "openai/gpt-oss-20b",
+    "💰 Qwen 3.5 Flash": "qwen/qwen3.5-flash-02-23",
+    "💰 Xiaomi MiMo V2 Flash": "xiaomi/mimo-v2-flash",
+    # ===== GRÁTIS (ordenados por popularidade) =====
+    "🆓 NVIDIA Nemotron Super 120B (grátis)": "nvidia/nemotron-3-super-120b-a12b:free",
+    "🆓 StepFun 3.5 Flash (grátis)": "stepfun/step-3.5-flash:free",
+    "🆓 Arcee Trinity Large (grátis)": "arcee-ai/trinity-large-preview:free",
+    "🆓 Z-AI GLM 4.5 Air (grátis)": "z-ai/glm-4.5-air:free",
+    # ===== EMBEDDINGS =====
+    "🔗 Qwen3 Embedding 8B": "qwen/qwen3-embedding-8b",
+    "🔗 OpenAI Text Embedding 3 Small": "openai/text-embedding-3-small",
 }
 
 # ============================================================
@@ -272,7 +268,7 @@ _defaults = {
         "OPENROUTER_API_KEY",
         "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",
     ),
-    "babilaca_modelo": "google/gemini-2.5-flash",
+    "babilaca_modelo": "openai/gpt-4o-mini",
     "babilaca_alertas": [],
     "babilaca_docs_gerados": [],
     "babilaca_preferencias": {},
@@ -616,7 +612,7 @@ def chamar_ia(
     api_key = st.session_state.get("babilaca_api_key", "")
     if not api_key:
         return "⚠️ Chave de API não configurada. Acesse a aba **Configurações**."
-    model = modelo or st.session_state.get("babilaca_modelo", "google/gemini-2.5-flash")
+    model = modelo or st.session_state.get("babilaca_modelo", "openai/gpt-4o-mini")
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
@@ -669,6 +665,15 @@ def chamar_ia(
                     "- Modelo temporariamente fora do ar\n\n"
                     "Troque para outro modelo no seletor acima. "
                     "Se persistir, verifique suas configurações em https://openrouter.ai/settings/privacy"
+                )
+
+            if resp.status_code == 403:
+                return (
+                    "⚠️ **Limite diário atingido** para o modelo pago selecionado.\n\n"
+                    "Sua chave de API alcançou o limite de uso do dia. "
+                    "Por favor, selecione um **modelo gratuito** no seletor acima "
+                    "(marcados com ⚠️) para continuar utilizando o Babilaca hoje.\n\n"
+                    "Você também pode gerenciar seus limites em https://openrouter.ai/settings/keys"
                 )
 
             if resp.status_code == 429:
