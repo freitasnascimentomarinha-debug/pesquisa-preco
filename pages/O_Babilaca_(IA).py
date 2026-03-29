@@ -1231,6 +1231,35 @@ CHECKLIST_MODALIDADES = {
         "Termo Aditivo ou Apostilamento de prorrogação da Ata",
         "Publicação da prorrogação no PNCP",
     ],
+    "Termo Aditivo": [
+        "Contrato administrativo vigente",
+        "Justificativa técnica e/ou econômica para a alteração contratual",
+        "Identificação da hipótese legal (Art. 124 ou Art. 125, Lei 14.133/2021)",
+        "Documentação comprobatória da necessidade (planilhas, laudos, pareceres técnicos)",
+        "Pesquisa de preços atualizada (quando houver acréscimo ou supressão de valores)",
+        "Concordância formal do contratado (quando exigida)",
+        "Comprovante de regularidade fiscal e trabalhista atualizado do contratado",
+        "Demonstrativo do impacto financeiro (acréscimos/supressões dentro dos limites legais)",
+        "Parecer jurídico sobre a legalidade do aditamento (Art. 53, Lei 14.133/2021)",
+        "Autorização da autoridade competente",
+        "Minuta do Termo Aditivo assinada pelas partes",
+        "Publicação do extrato do Termo Aditivo no PNCP (Art. 94, Lei 14.133/2021)",
+        "Atualização do registro no sistema de gestão de contratos",
+    ],
+    "Apostilamento": [
+        "Contrato administrativo vigente",
+        "Identificação do tipo de apostilamento (reajuste, repactuação ou alteração não substancial)",
+        "Documento comprobatório do índice de reajuste (IPCA, INPC, IGP-M ou índice setorial previsto no contrato)",
+        "Memória de cálculo do reajuste ou repactuação",
+        "Planilha demonstrando os novos valores unitários e globais",
+        "Comprovação de que o reajuste está previsto no contrato original e/ou edital",
+        "Comprovante de que decorreu o período mínimo de 1 ano para reajuste (Art. 135, Lei 14.133/2021)",
+        "Parecer jurídico (quando exigido pelo órgão)",
+        "Autorização da autoridade competente",
+        "Registro do apostilamento no verso/margem do contrato ou em documento apartado",
+        "Publicação do apostilamento no PNCP",
+        "Atualização dos valores no sistema de gestão de contratos",
+    ],
 }
 
 # Informações explicativas de cada modalidade
@@ -1458,6 +1487,96 @@ INFO_MODALIDADES = {
             "8. Obter **autorização da autoridade competente**;\n"
             "9. Formalizar via **Termo Aditivo** ou **Apostilamento**;\n"
             "10. **Publicar** a prorrogação no PNCP."
+        ),
+    },
+    "Termo Aditivo": {
+        "descricao": (
+            "O **Termo Aditivo** é o instrumento formal utilizado para **modificar cláusulas contratuais** "
+            "originalmente pactuadas, conforme **Arts. 124 a 136 da Lei 14.133/2021**. Diferente do "
+            "apostilamento, o Termo Aditivo exige **acordo bilateral** (assinatura de ambas as partes) "
+            "e é obrigatório quando a alteração afeta o equilíbrio econômico-financeiro ou modifica "
+            "condições substanciais do contrato."
+        ),
+        "quando_aplicar": (
+            "**Casos em que ocorre o Termo Aditivo (Art. 124, Lei 14.133/2021):**\n\n"
+            "- **Acréscimo ou supressão** de quantitativos (até 25% do valor inicial, ou 50% para reforma — Art. 125);\n"
+            "- **Prorrogação de prazo** de vigência ou execução do contrato;\n"
+            "- **Alteração do objeto** por necessidade superveniente (modificação do projeto, especificações);\n"
+            "- **Reequilíbrio econômico-financeiro** por fatos imprevisíveis (Art. 124, II, d);\n"
+            "- **Substituição de garantia** contratual;\n"
+            "- **Alteração da forma de pagamento** (nunca antecipando sem contraprestação);\n"
+            "- **Inclusão ou exclusão de obrigações** das partes;\n"
+            "- **Alteração do regime de execução** (quando justificado tecnicamente);\n"
+            "- Qualquer modificação que altere **cláusulas essenciais** do contrato."
+        ),
+        "limites": (
+            "| Regra | Limite |\n"
+            "|-------|--------|\n"
+            "| Acréscimo (bens/serviços/obras) | Até 25% do valor inicial atualizado (Art. 125) |\n"
+            "| Acréscimo (reforma de edifício/equipamento) | Até 50% do valor inicial (Art. 125, §1°) |\n"
+            "| Supressão | Até 25% do valor inicial atualizado |\n"
+            "| Supressão acima de 25% | Apenas por acordo entre as partes (Art. 125, §2°) |\n"
+            "| Prorrogação (serviços contínuos) | Até 5 anos, prorrogável por mais 5 (Art. 107) |\n"
+            "| Prorrogação (outros contratos) | Conforme prazo máximo do Art. 105/106 |\n\n"
+            "*O Termo Aditivo não pode descaracterizar o objeto original do contrato nem do edital que o originou.*"
+        ),
+        "como_montar": (
+            "1. Identificar a **necessidade da alteração** e a hipótese legal (Art. 124 ou 125);\n"
+            "2. Elaborar **justificativa técnica e/ou econômica** detalhada;\n"
+            "3. Quando envolver valores, realizar **pesquisa de preços** atualizada;\n"
+            "4. Verificar se a alteração está **dentro dos limites legais** (25% ou 50%);\n"
+            "5. Obter **concordância formal do contratado** (quando necessário);\n"
+            "6. Verificar **regularidade fiscal e trabalhista** do contratado;\n"
+            "7. Elaborar **demonstrativo do impacto financeiro**;\n"
+            "8. Obter **parecer jurídico** (Art. 53, Lei 14.133/2021);\n"
+            "9. Obter **autorização da autoridade competente**;\n"
+            "10. Elaborar e assinar a **minuta do Termo Aditivo** (ambas as partes);\n"
+            "11. Publicar o **extrato do Termo Aditivo no PNCP** (Art. 94);\n"
+            "12. Atualizar o registro no **sistema de gestão de contratos**."
+        ),
+    },
+    "Apostilamento": {
+        "descricao": (
+            "O **Apostilamento** é o registro administrativo **unilateral** de alterações contratuais "
+            "que **não modificam cláusulas essenciais** do contrato, conforme **Art. 136 da Lei 14.133/2021**. "
+            "É mais simples que o Termo Aditivo — não exige assinatura do contratado nem parecer jurídico "
+            "obrigatório. Utilizado principalmente para **reajustes de preços** previstos no contrato e "
+            "**compensações/penalizações** financeiras previstas."
+        ),
+        "quando_aplicar": (
+            "**Casos em que ocorre o Apostilamento (Art. 136, Lei 14.133/2021):**\n\n"
+            "- **Reajuste de preços** previsto no contrato (por índice — IPCA, INPC, IGP-M ou setorial);\n"
+            "- **Repactuação** de contratos de serviços contínuos com dedicação exclusiva de mão de obra;\n"
+            "- **Compensações ou penalizações financeiras** por condições de pagamento;\n"
+            "- **Empenho de dotações orçamentárias** complementares até o limite do contrato;\n"
+            "- Alterações que **não modifiquem** o objeto, as condições de execução nem o equilíbrio contratual;\n\n"
+            "**NÃO cabe apostilamento quando:**\n"
+            "- Houver alteração de **cláusula essencial** (prazo, objeto, condições de execução);\n"
+            "- For necessário **acréscimo ou supressão** de quantitativos;\n"
+            "- A alteração exigir **concordância do contratado** → usar Termo Aditivo."
+        ),
+        "limites": (
+            "| Regra | Detalhe |\n"
+            "|-------|--------|\n"
+            "| Natureza | Ato **unilateral** da Administração |\n"
+            "| Assinatura do contratado | **Não necessária** |\n"
+            "| Parecer jurídico | Não obrigatório (recomendável em repactuações complexas) |\n"
+            "| Prazo mínimo para reajuste | 1 ano a partir da data-base (Art. 135) |\n"
+            "| Índice de reajuste | O previsto no contrato/edital |\n"
+            "| Forma de registro | Anotação no verso/margem do contrato ou documento apartado |\n\n"
+            "*O apostilamento é mais ágil que o Termo Aditivo, mas limitado a alterações não substanciais.*"
+        ),
+        "como_montar": (
+            "1. Identificar o **tipo de apostilamento** (reajuste por índice, repactuação, etc.);\n"
+            "2. Verificar se o **reajuste está previsto** no contrato/edital e qual o **índice aplicável**;\n"
+            "3. Confirmar que transcorreu o **período mínimo de 1 ano** da data-base (Art. 135);\n"
+            "4. Elaborar **memória de cálculo** detalhada com o índice acumulado;\n"
+            "5. Elaborar **planilha** com os novos valores unitários e globais;\n"
+            "6. Obter **parecer jurídico** quando exigido pelo órgão ou em casos complexos;\n"
+            "7. Obter **autorização da autoridade competente**;\n"
+            "8. Registrar o apostilamento no **verso/margem do contrato** ou em documento apartado;\n"
+            "9. **Publicar** o apostilamento no PNCP;\n"
+            "10. **Atualizar** os valores no sistema de gestão de contratos e empenho."
         ),
     },
 }
