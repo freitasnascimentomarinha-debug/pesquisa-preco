@@ -1816,10 +1816,11 @@ st.markdown("""
 # ============================================================
 # ABAS PRINCIPAIS
 # ============================================================
-tab_chat, tab_docs, tab_checklist = st.tabs([
+tab_chat, tab_docs, tab_checklist, tab_ipca = st.tabs([
     "💬 Chat IA",
     "📄 Gerar Documentos com IA",
     "📋 Checklist de Processo",
+    "📊 Cálculo IPCA",
 ])
 
 # ============================================================
@@ -2810,4 +2811,348 @@ with tab_checklist:
             f"checklist_{modalidade_sel.replace(' ', '_').lower()}.pdf",
             "application/pdf",
             key="dl_checklist_pdf",
+        )
+
+# ============================================================
+# TAB 4 — CÁLCULO IPCA
+# ============================================================
+
+@st.cache_data(ttl=86400, show_spinner=False)
+def _buscar_ipca_bcb():
+    """Busca série histórica completa do IPCA (série 433) no BCB."""
+    url = "https://api.bcb.gov.br/dados/serie/bcdata.sgs.433/dados?formato=json"
+    resp = requests.get(url, timeout=30)
+    resp.raise_for_status()
+    dados = resp.json()
+    registros = []
+    for r in dados:
+        partes = r["data"].split("/")
+        dt = datetime(int(partes[2]), int(partes[1]), int(partes[0]))
+        registros.append({"data": dt, "valor": float(r["valor"])})
+    return registros
+
+
+def _calcular_ipca_acumulado(ipca_dados, data_inicio, data_fim):
+    """Calcula o fator acumulado do IPCA entre duas datas (mês/ano)."""
+    inicio_mes = datetime(data_inicio.year, data_inicio.month, 1)
+    fim_mes = datetime(data_fim.year, data_fim.month, 1)
+    fator = 1.0
+    meses_usados = []
+    for r in ipca_dados:
+        if r["data"] >= inicio_mes and r["data"] <= fim_mes:
+            fator *= (1 + r["valor"] / 100)
+            meses_usados.append(r)
+    percentual = (fator - 1) * 100
+    return fator, percentual, meses_usados
+
+
+def _gerar_pdf_ipca(itens_resultado, meses_detalhes, data_calc):
+    """Gera relatório PDF detalhado do cálculo IPCA."""
+    pdf = FPDF()
+    pdf.add_page()
+    pdf.set_auto_page_break(auto=True, margin=25)
+
+    # === CABEÇALHO ===
+    pdf.set_fill_color(0, 26, 77)
+    pdf.rect(0, 0, 210, 50, "F")
+    pdf.set_draw_color(212, 175, 55)
+    pdf.set_line_width(1.2)
+    pdf.line(0, 50, 210, 50)
+
+    pdf.set_y(8)
+    pdf.set_font("Helvetica", "B", 10)
+    pdf.set_text_color(212, 175, 55)
+    pdf.cell(0, 5, "MARINHA DO BRASIL", ln=True, align="C")
+    pdf.set_font("Helvetica", "", 8)
+    pdf.set_text_color(200, 200, 220)
+    pdf.cell(0, 4, "Centro de Operacoes do Abastecimento", ln=True, align="C")
+    pdf.ln(3)
+
+    pdf.set_font("Helvetica", "B", 16)
+    pdf.set_text_color(255, 255, 255)
+    pdf.cell(0, 9, _sanitize_for_pdf("RELATORIO DE CORRECAO PELO IPCA"), ln=True, align="C")
+    pdf.ln(1)
+
+    # === FAIXA DOURADA ===
+    pdf.set_fill_color(212, 175, 55)
+    pdf.rect(0, 52, 210, 14, "F")
+    pdf.set_y(54)
+    pdf.set_font("Helvetica", "B", 13)
+    pdf.set_text_color(0, 26, 77)
+    pdf.cell(0, 9, _sanitize_for_pdf("Indice Nacional de Precos ao Consumidor Amplo"), ln=True, align="C")
+    pdf.ln(6)
+
+    # === METADADOS ===
+    pdf.set_font("Helvetica", "", 9)
+    pdf.set_text_color(80, 80, 80)
+    pdf.cell(0, 5, f"Data/Hora do Calculo: {data_calc.strftime('%d/%m/%Y %H:%M:%S')}", ln=True)
+    pdf.cell(0, 5, "API: Banco Central do Brasil - SGS Serie 433 (IPCA mensal)", ln=True)
+    pdf.cell(0, 5, "URL: https://api.bcb.gov.br/dados/serie/bcdata.sgs.433/dados?formato=json", ln=True)
+    pdf.cell(0, 5, "Fonte: IBGE - Instituto Brasileiro de Geografia e Estatistica", ln=True)
+    pdf.ln(4)
+
+    # === SEPARADOR ===
+    pdf.set_draw_color(212, 175, 55)
+    pdf.set_line_width(0.5)
+    pdf.line(20, pdf.get_y(), 190, pdf.get_y())
+    pdf.ln(6)
+
+    # === TABELA DE RESULTADOS ===
+    pdf.set_font("Helvetica", "B", 12)
+    pdf.set_text_color(0, 26, 77)
+    pdf.cell(0, 8, "ITENS CORRIGIDOS", ln=True, align="C")
+    pdf.ln(3)
+
+    # Cabeçalho tabela
+    col_w = [12, 48, 28, 28, 28, 25, 25]
+    headers = ["#", "Descricao", "Valor Orig.", "Data Orig.", "IPCA Acum.", "Fator", "Valor Corr."]
+    pdf.set_font("Helvetica", "B", 8)
+    pdf.set_fill_color(0, 26, 77)
+    pdf.set_text_color(255, 255, 255)
+    for i, h in enumerate(headers):
+        pdf.cell(col_w[i], 7, h, border=1, fill=True, align="C")
+    pdf.ln()
+
+    # Dados
+    pdf.set_font("Helvetica", "", 8)
+    pdf.set_text_color(30, 30, 30)
+    total_original = 0.0
+    total_corrigido = 0.0
+    for idx, item in enumerate(itens_resultado, 1):
+        total_original += item["valor_original"]
+        total_corrigido += item["valor_corrigido"]
+        fill = idx % 2 == 0
+        if fill:
+            pdf.set_fill_color(240, 245, 255)
+        row = [
+            str(idx),
+            _sanitize_for_pdf(item["descricao"][:30]),
+            f"R$ {item['valor_original']:,.2f}",
+            item["data_original"].strftime("%m/%Y"),
+            f"{item['percentual']:.4f}%",
+            f"{item['fator']:.6f}",
+            f"R$ {item['valor_corrigido']:,.2f}",
+        ]
+        for i, val in enumerate(row):
+            pdf.cell(col_w[i], 6, val, border=1, fill=fill, align="C" if i != 1 else "L")
+        pdf.ln()
+
+    # Totais
+    pdf.set_font("Helvetica", "B", 9)
+    pdf.set_fill_color(212, 175, 55)
+    pdf.set_text_color(0, 26, 77)
+    pdf.cell(sum(col_w[:2]), 7, "TOTAL", border=1, fill=True, align="C")
+    pdf.cell(col_w[2], 7, f"R$ {total_original:,.2f}", border=1, fill=True, align="C")
+    pdf.cell(sum(col_w[3:6]), 7, "", border=1, fill=True)
+    pdf.cell(col_w[6], 7, f"R$ {total_corrigido:,.2f}", border=1, fill=True, align="C")
+    pdf.ln()
+
+    diferenca = total_corrigido - total_original
+    pdf.ln(3)
+    pdf.set_font("Helvetica", "B", 10)
+    pdf.set_text_color(0, 26, 77)
+    pdf.cell(0, 6, f"Diferenca total: R$ {diferenca:,.2f}", ln=True, align="R")
+    pdf.ln(6)
+
+    # === DETALHAMENTO MENSAL ===
+    if meses_detalhes:
+        pdf.set_draw_color(212, 175, 55)
+        pdf.set_line_width(0.5)
+        pdf.line(20, pdf.get_y(), 190, pdf.get_y())
+        pdf.ln(4)
+
+        pdf.set_font("Helvetica", "B", 11)
+        pdf.set_text_color(0, 26, 77)
+        pdf.cell(0, 7, "DETALHAMENTO MENSAL DO IPCA", ln=True, align="C")
+        pdf.ln(3)
+
+        pdf.set_font("Helvetica", "B", 8)
+        pdf.set_fill_color(0, 26, 77)
+        pdf.set_text_color(255, 255, 255)
+        pdf.cell(40, 6, "Mes/Ano", border=1, fill=True, align="C")
+        pdf.cell(40, 6, "IPCA Mensal (%)", border=1, fill=True, align="C")
+        pdf.cell(50, 6, "Fator Acumulado", border=1, fill=True, align="C")
+        pdf.ln()
+
+        pdf.set_font("Helvetica", "", 8)
+        pdf.set_text_color(30, 30, 30)
+        fator_acum = 1.0
+        for i, m in enumerate(meses_detalhes):
+            fator_acum *= (1 + m["valor"] / 100)
+            fill = i % 2 == 0
+            if fill:
+                pdf.set_fill_color(240, 245, 255)
+            pdf.cell(40, 5, m["data"].strftime("%m/%Y"), border=1, fill=fill, align="C")
+            pdf.cell(40, 5, f"{m['valor']:.2f}%", border=1, fill=fill, align="C")
+            pdf.cell(50, 5, f"{fator_acum:.6f}", border=1, fill=fill, align="C")
+            pdf.ln()
+
+    # === RODAPÉ ===
+    pdf.ln(8)
+    pdf.set_draw_color(212, 175, 55)
+    pdf.set_line_width(0.3)
+    pdf.line(20, pdf.get_y(), 190, pdf.get_y())
+    pdf.ln(3)
+    pdf.set_font("Helvetica", "I", 7)
+    pdf.set_text_color(120, 120, 120)
+    pdf.cell(0, 4, "Documento gerado automaticamente pelo sistema O Babilaca (IA)", ln=True, align="C")
+    pdf.cell(0, 4, "Os valores sao meramente indicativos. Confirme sempre nas fontes oficiais.", ln=True, align="C")
+
+    return pdf.output(dest="S").encode("latin-1")
+
+
+with tab_ipca:
+    st.markdown("### 📊 Correção de Valores pelo IPCA")
+    st.markdown(
+        "Informe os itens com seus valores originais e datas de referência. "
+        "O sistema buscará o IPCA acumulado no **Banco Central** e calculará o valor corrigido até o mês mais recente disponível."
+    )
+
+    # Inicializar itens na session_state
+    if "ipca_itens" not in st.session_state:
+        st.session_state["ipca_itens"] = [{"descricao": "", "valor": 0.0, "mes": 1, "ano": 2024}]
+
+    # --- Formulário de entrada ---
+    st.markdown("#### 📝 Itens para Correção")
+
+    itens_ipca = st.session_state["ipca_itens"]
+
+    for i, item in enumerate(itens_ipca):
+        cols = st.columns([4, 2, 1, 1, 0.5])
+        with cols[0]:
+            itens_ipca[i]["descricao"] = st.text_input(
+                "Descrição", value=item["descricao"], key=f"ipca_desc_{i}",
+                placeholder="Ex: Material de expediente"
+            )
+        with cols[1]:
+            itens_ipca[i]["valor"] = st.number_input(
+                "Valor Original (R$)", value=item["valor"], min_value=0.0,
+                format="%.2f", key=f"ipca_val_{i}", step=0.01
+            )
+        with cols[2]:
+            itens_ipca[i]["mes"] = st.selectbox(
+                "Mês", list(range(1, 13)), index=item["mes"] - 1, key=f"ipca_mes_{i}",
+                format_func=lambda x: f"{x:02d}"
+            )
+        with cols[3]:
+            itens_ipca[i]["ano"] = st.number_input(
+                "Ano", value=item["ano"], min_value=1995, max_value=datetime.now().year,
+                step=1, key=f"ipca_ano_{i}"
+            )
+        with cols[4]:
+            st.markdown("<br>", unsafe_allow_html=True)
+            if len(itens_ipca) > 1:
+                if st.button("🗑️", key=f"ipca_rm_{i}", help="Remover item"):
+                    itens_ipca.pop(i)
+                    st.rerun()
+
+    col_add, col_clear = st.columns([1, 1])
+    with col_add:
+        if st.button("➕ Adicionar Item", key="ipca_add_item", use_container_width=True):
+            itens_ipca.append({"descricao": "", "valor": 0.0, "mes": 1, "ano": 2024})
+            st.rerun()
+    with col_clear:
+        if st.button("🧹 Limpar Tudo", key="ipca_clear_all", use_container_width=True):
+            st.session_state["ipca_itens"] = [{"descricao": "", "valor": 0.0, "mes": 1, "ano": 2024}]
+            st.session_state.pop("ipca_resultado", None)
+            st.rerun()
+
+    st.markdown("---")
+
+    # --- Botão calcular ---
+    if st.button("🔢 Calcular Correção IPCA", type="primary", use_container_width=True, key="ipca_calc_btn"):
+        itens_validos = [it for it in itens_ipca if it["descricao"].strip() and it["valor"] > 0]
+        if not itens_validos:
+            st.error("Preencha pelo menos um item com descrição e valor maior que zero.")
+        else:
+            with st.spinner("Buscando dados do IPCA no Banco Central..."):
+                try:
+                    ipca_dados = _buscar_ipca_bcb()
+                    if not ipca_dados:
+                        st.error("Não foi possível obter dados do IPCA. Tente novamente.")
+                    else:
+                        ultimo_mes = ipca_dados[-1]["data"]
+                        data_calc = datetime.now()
+                        resultados = []
+                        todos_meses = []
+                        for it in itens_validos:
+                            dt_inicio = datetime(it["ano"], it["mes"], 1)
+                            if dt_inicio > ultimo_mes:
+                                st.warning(
+                                    f"Item '{it['descricao']}': data {it['mes']:02d}/{it['ano']} "
+                                    f"posterior ao último IPCA disponível ({ultimo_mes.strftime('%m/%Y')}). Ignorado."
+                                )
+                                continue
+                            fator, percentual, meses = _calcular_ipca_acumulado(ipca_dados, dt_inicio, ultimo_mes)
+                            valor_corrigido = it["valor"] * fator
+                            resultados.append({
+                                "descricao": it["descricao"],
+                                "valor_original": it["valor"],
+                                "data_original": dt_inicio,
+                                "fator": fator,
+                                "percentual": percentual,
+                                "valor_corrigido": valor_corrigido,
+                            })
+                            if not todos_meses:
+                                todos_meses = meses
+
+                        if resultados:
+                            st.session_state["ipca_resultado"] = {
+                                "itens": resultados,
+                                "meses": todos_meses,
+                                "data_calc": data_calc,
+                                "ultimo_ipca": ultimo_mes,
+                            }
+                except Exception as e:
+                    st.error(f"Erro ao consultar API do BCB: {e}")
+
+    # --- Exibição dos resultados ---
+    if "ipca_resultado" in st.session_state:
+        res = st.session_state["ipca_resultado"]
+        itens_res = res["itens"]
+        data_calc = res["data_calc"]
+        ultimo_ipca = res["ultimo_ipca"]
+
+        st.markdown("---")
+        st.markdown("#### 📈 Resultado da Correção")
+        st.caption(
+            f"IPCA acumulado até **{ultimo_ipca.strftime('%m/%Y')}** · "
+            f"Calculado em {data_calc.strftime('%d/%m/%Y às %H:%M:%S')} · "
+            f"Fonte: BCB/IBGE (Série 433)"
+        )
+
+        # Tabela de resultados
+        df_res = pd.DataFrame([
+            {
+                "Descrição": it["descricao"],
+                "Valor Original": f"R$ {it['valor_original']:,.2f}",
+                "Data Ref.": it["data_original"].strftime("%m/%Y"),
+                "IPCA Acum. (%)": f"{it['percentual']:.4f}%",
+                "Fator": f"{it['fator']:.6f}",
+                "Valor Corrigido": f"R$ {it['valor_corrigido']:,.2f}",
+            }
+            for it in itens_res
+        ])
+        st.dataframe(df_res, use_container_width=True, hide_index=True)
+
+        # Totais
+        total_orig = sum(it["valor_original"] for it in itens_res)
+        total_corr = sum(it["valor_corrigido"] for it in itens_res)
+        diff = total_corr - total_orig
+
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Total Original", f"R$ {total_orig:,.2f}")
+        c2.metric("Total Corrigido", f"R$ {total_corr:,.2f}")
+        c3.metric("Diferença", f"R$ {diff:,.2f}", delta=f"{(diff/total_orig*100) if total_orig else 0:.2f}%")
+
+        # PDF
+        st.markdown("---")
+        pdf_ipca = _gerar_pdf_ipca(itens_res, res["meses"], data_calc)
+        st.download_button(
+            "📥 Baixar Relatório Detalhado (PDF)",
+            pdf_ipca,
+            f"relatorio_ipca_{data_calc.strftime('%Y%m%d_%H%M%S')}.pdf",
+            "application/pdf",
+            use_container_width=True,
+            key="dl_ipca_pdf",
         )
