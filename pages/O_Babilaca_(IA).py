@@ -265,9 +265,27 @@ MODELOS_DISPONIVEIS = {
 # ============================================================
 # INICIALIZAÇÃO DO SESSION STATE
 # ============================================================
+def _get_api_key():
+    """Tenta obter a chave do OpenRouter de múltiplas fontes."""
+    # 1. Variável de ambiente / .env
+    key = os.environ.get("OPENROUTER_API_KEY", "")
+    if key:
+        return key
+    # 2. st.secrets (Streamlit Cloud) — top level ou dentro de [openrouter]
+    try:
+        key = st.secrets.get("OPENROUTER_API_KEY", "")
+        if key:
+            return key
+        key = st.secrets.get("openrouter", {}).get("OPENROUTER_API_KEY", "")
+        if key:
+            return key
+    except Exception:
+        pass
+    return ""
+
 _defaults = {
     "babilaca_messages": [],
-    "babilaca_api_key": os.environ.get("OPENROUTER_API_KEY", ""),
+    "babilaca_api_key": _get_api_key(),
     "babilaca_modelo": "openai/gpt-4o-mini",
     "babilaca_alertas": [],
     "babilaca_docs_gerados": [],
