@@ -16,6 +16,12 @@ from datetime import datetime, timedelta
 from fpdf import FPDF
 
 try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass  # em produção (Streamlit Cloud), usa variáveis de ambiente direto
+
+try:
     import PyPDF2
     PDF_SUPPORT = True
 except ImportError:
@@ -261,10 +267,7 @@ MODELOS_DISPONIVEIS = {
 # ============================================================
 _defaults = {
     "babilaca_messages": [],
-    "babilaca_api_key": os.environ.get(
-        "OPENROUTER_API_KEY",
-        "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",
-    ),
+    "babilaca_api_key": os.environ.get("OPENROUTER_API_KEY", ""),
     "babilaca_modelo": "openai/gpt-4o-mini",
     "babilaca_alertas": [],
     "babilaca_docs_gerados": [],

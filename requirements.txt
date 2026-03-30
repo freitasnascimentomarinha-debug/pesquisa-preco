@@ -12,3 +12,4 @@ ddgs
 lxml
 playwright
 PyPDF2
+python-dotenv
