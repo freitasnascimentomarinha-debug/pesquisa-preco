@@ -13,3 +13,4 @@ lxml
 playwright
 PyPDF2
 python-dotenv
+xlrd

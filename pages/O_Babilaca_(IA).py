@@ -312,6 +312,13 @@ _mod = _ilu.module_from_spec(_spec)
 _spec.loader.exec_module(_mod)
 BASE_JURIDICA = _mod.BASE_JURIDICA
 
+# --- Base RAG expandida (INs, Decreto 10.024, Acórdãos TCU) ---
+_RAG_JSON_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "rag_knowledge_base.json")
+RAG_KNOWLEDGE_BASE = []
+if os.path.isfile(_RAG_JSON_PATH):
+    with open(_RAG_JSON_PATH, "r", encoding="utf-8") as _f:
+        RAG_KNOWLEDGE_BASE = json.load(_f)
+
 # --- Texto integral da Lei 14.133/2021 (parser automático) ---
 _spec_lei = _ilu.spec_from_file_location(
     "lei_parser",
@@ -331,10 +338,10 @@ def _score_item(item: dict, tokens: set[str]) -> float:
     return score
 
 
-def buscar_base_juridica(pergunta: str, top_n: int = 12) -> list[dict]:
+def buscar_base_juridica(pergunta: str, top_n: int = 15) -> list[dict]:
     """Busca os trechos mais relevantes da base jurídica para a pergunta.
-    Retorna uma mistura equilibrada de Leis, INs, Legislação Complementar e Acórdãos TCU.
-    Agora inclui texto integral da Lei 14.133/2021 como fonte complementar."""
+    Retorna uma mistura equilibrada de Leis, INs, Decretos, Legislação Complementar e Acórdãos TCU.
+    Fontes: base curada + texto integral Lei 14.133 + RAG (INs, Decreto 10.024, Acórdãos TCU)."""
     tokens = set(re.findall(r"\w+", pergunta.lower()))
 
     # 1) Pontuar itens da base curada (INs, acórdãos, resumos manuais)
@@ -349,37 +356,40 @@ def buscar_base_juridica(pergunta: str, top_n: int = 12) -> list[dict]:
         item["artigo"] for item in BASE_JURIDICA if "Lei 14.133" in item.get("fonte", "")
     }
     for item in ARTIGOS_LEI_INTEGRAL:
-        # Evitar duplicar artigos que já estão na base curada
         if item["artigo"] in artigos_ids_curados:
             continue
         score = _score_item(item, tokens)
         if score > 0:
             scored.append((score, item))
 
+    # 3) Pontuar itens da base RAG expandida (INs, Decreto 10.024, Acórdãos TCU)
+    for item in RAG_KNOWLEDGE_BASE:
+        score = _score_item(item, tokens)
+        if score > 0:
+            scored.append((score, item))
+
     scored.sort(key=lambda x: x[0], reverse=True)
 
-    # Garantir mix equilibrado: leis + legislação complementar + INs + acórdãos
+    # Garantir mix equilibrado: leis + decretos + INs + acórdãos
     leis = [s for s in scored if "Lei 14.133" in s[1]["fonte"]]
-    outras_leis = [
-        s for s in scored
-        if s[1]["fonte"] not in ("",)
-        and "Lei 14.133" not in s[1]["fonte"]
-        and "IN " not in s[1]["fonte"]
-        and "TCU" not in s[1]["fonte"]
-        and "Acord" not in s[1]["fonte"]
-    ]
+    decretos = [s for s in scored if "Decreto" in s[1]["fonte"]]
     ins = [s for s in scored if "IN " in s[1]["fonte"]]
     acordaos = [s for s in scored if "TCU" in s[1]["fonte"] or "Acord" in s[1]["fonte"]]
+    outras = [
+        s for s in scored
+        if s not in leis and s not in decretos and s not in ins and s not in acordaos
+    ]
     resultado = []
-    # Pegar os melhores de cada categoria, proporcionalmente
-    max_lei = max(3, top_n // 3)  # mais espaço para leis (texto integral)
-    max_outras = max(2, top_n // 5)
+    max_lei = max(3, top_n // 4)
+    max_decreto = max(2, top_n // 5)
     max_in = max(2, top_n // 5)
-    max_tcu = max(3, top_n - max_lei - max_outras - max_in)
+    max_tcu = max(3, top_n // 4)
+    max_outras = top_n - max_lei - max_decreto - max_in - max_tcu
     resultado.extend(leis[:max_lei])
-    resultado.extend(outras_leis[:max_outras])
+    resultado.extend(decretos[:max_decreto])
     resultado.extend(ins[:max_in])
     resultado.extend(acordaos[:max_tcu])
+    resultado.extend(outras[:max(1, max_outras)])
     # Completar com restantes se faltou
     ids_usados = {id(s) for s in resultado}
     for s in scored:
@@ -555,7 +565,7 @@ def extrair_dados_excel(arquivo) -> tuple[str, pd.DataFrame | None]:
 # COMUNICAÇÃO COM IA (OPENROUTER)
 # ============================================================
 
-SYSTEM_PROMPT = """Você é **O Babilaca**, um assistente jurídico inteligente especializado em licitações e contratações públicas brasileiras, com foco na Lei 14.133/2021, Instruções Normativas (SEGES/ME) e jurisprudência do TCU.
+SYSTEM_PROMPT = """Você é **O Babilaca**, um assistente jurídico inteligente especializado em licitações e contratações públicas brasileiras, com foco na Lei 14.133/2021, Decreto 10.024/2019 (Pregão Eletrônico), Instruções Normativas (SEGES/ME nº 5/2017, 58/2022, 65/2021, 67/2021) e jurisprudência do TCU.
 
 ═══════════════════════════════════════════════════════════
 REGRA FUNDAMENTAL — CITAÇÕES SOMENTE DO CONTEXTO FORNECIDO
@@ -572,9 +582,9 @@ Você receberá abaixo um bloco chamado CONTEXTO JURÍDICO VERIFICADO contendo a
 
 REGRAS DE QUALIDADE:
 1. Estruture a resposta de forma clara, usando as fontes disponíveis no contexto.
-2. Se o contexto contiver fontes de diferentes categorias (Lei, IN, TCU), organize em camadas:
+2. Se o contexto contiver fontes de diferentes categorias (Lei, Decreto, IN, TCU), organize em camadas:
    - **Base legal**: artigo da Lei 14.133/2021 (se disponível no contexto)
-   - **Regulamentação**: IN aplicável (se disponível no contexto)
+   - **Regulamentação**: Decreto 10.024/2019 ou IN aplicável (se disponível no contexto)
    - **Jurisprudência TCU**: Acórdão relevante (se disponível no contexto)
 3. Se uma camada não tiver fonte no contexto, omita-a — NÃO a preencha com informações inventadas.
 4. Forneça os links que acompanham cada fonte no contexto (campo 🔗).
