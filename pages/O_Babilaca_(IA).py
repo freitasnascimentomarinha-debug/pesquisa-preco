@@ -17,7 +17,7 @@ from fpdf import FPDF
 
 try:
     from dotenv import load_dotenv
-    load_dotenv()
+    load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), ".env"))
 except ImportError:
     pass  # em produção (Streamlit Cloud), usa variáveis de ambiente direto
 
