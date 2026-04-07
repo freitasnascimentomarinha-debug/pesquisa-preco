@@ -256,6 +256,8 @@ MODELOS_DISPONIVEIS = {
     "💰 Qwen 3.5 Flash — $0.05/1M in | $0.30/1M out": "qwen/qwen3.5-flash-02-23",
     "💰 Xiaomi MiMo V2 Flash — $0.04/1M in | $0.11/1M out": "xiaomi/mimo-v2-flash",
     # ===== GRÁTIS (ordenados por popularidade) =====
+    "🆓 Google Gemma 4 26B A4B (grátis)": "google/gemma-4-26b-a4b-it:free",
+    "🆓 Qwen 3.6 Plus (grátis)": "qwen/qwen3.6-plus:free",
     "🆓 NVIDIA Nemotron Super 120B (grátis)": "nvidia/nemotron-3-super-120b-a12b:free",
     "🆓 StepFun 3.5 Flash (grátis)": "stepfun/step-3.5-flash:free",
     "🆓 Arcee Trinity Large (grátis)": "arcee-ai/trinity-large-preview:free",
