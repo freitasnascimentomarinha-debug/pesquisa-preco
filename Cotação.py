@@ -1,3 +1,5 @@
+import base64
+import os
 import streamlit as st
 import requests
 import pandas as pd
@@ -341,6 +343,44 @@ st.markdown("""
         }
     </style>
 """, unsafe_allow_html=True)
+
+# ===== SIDEBAR - Navegação customizada =====
+_acanto_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Projeto Adesões", "acanto.png")
+if os.path.exists(_acanto_path):
+    with open(_acanto_path, "rb") as _f:
+        _acanto_b64 = base64.b64encode(_f.read()).decode()
+else:
+    _acanto_b64 = None
+
+with st.sidebar:
+    if _acanto_b64:
+        st.markdown(f'<div style="text-align:center;padding:1rem 0 0.5rem 0;"><img src="data:image/png;base64,{_acanto_b64}" style="max-width:70%;height:auto;"></div>', unsafe_allow_html=True)
+    st.markdown("## MENU")
+    st.markdown("---")
+    st.page_link("Cotação.py", label="Cotação", icon="⚓")
+    st.page_link("pages/Detalhes_Compra.py", label="Detalhes Compra", icon="🔍")
+    st.page_link("pages/Adesões.py", label="Adesões", icon="🤝")
+    st.page_link("pages/Notas_Fiscais.py", label="Notas Fiscais", icon="📄")
+    st.page_link("pages/Banco_de_Fornecedores.py", label="Fornecedores", icon="🏢")
+    st.page_link("pages/Consulta.py", label="Consulta CNPJ", icon="💻")
+    st.page_link("pages/Web_Scraping.py", label="Web Scraping", icon="🕷️")
+    st.page_link("pages/O_Babilaca_(IA).py", label="O Babilaca (IA)", icon="🧠")
+    st.markdown("---")
+    st.markdown("## LINKS ÚTEIS")
+    st.markdown("""
+    <div style="margin-bottom: 1rem;">
+        <a href="https://freitasnascimentomarinha-debug.github.io/ShootMail/" target="_blank" style="color: #cbd5e1; text-decoration: none; font-size: 0.9rem; display: flex; align-items: center; gap: 0.5rem;">
+            📧 Disparador de Emails
+        </a>
+    </div>
+    <div style="margin-bottom: 1rem;">
+        <a href="https://detetive-obtencao.vercel.app/" target="_blank" style="color: #cbd5e1; text-decoration: none; font-size: 0.9rem; display: flex; align-items: center; gap: 0.5rem;">
+            🚨 Detetive Obtenção
+        </a>
+    </div>
+    """, unsafe_allow_html=True)
+    st.markdown('<div style="text-align:center;color:#d4af37;font-size:10px;font-weight:600;padding:0.3rem 0;white-space:nowrap;">Centro de Operações do Abastecimento</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sidebar-footer">Marinha do Brasil<br>AtaCotada v1.0</div>', unsafe_allow_html=True)
 
 # Função para formatar preço em reais
 def formatar_preco_reais(valor):

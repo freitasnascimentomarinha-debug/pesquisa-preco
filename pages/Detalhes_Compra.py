@@ -139,8 +139,8 @@ with st.sidebar:
     st.markdown("## MENU")
     st.markdown("---")
     st.page_link("streamlit_app.py", label="Cotação", icon="⚓")
-    st.page_link("pages/Adesões.py", label="Adesões", icon="🤝")
     st.page_link("pages/Detalhes_Compra.py", label="Detalhes Compra", icon="🔍")
+    st.page_link("pages/Adesões.py", label="Adesões", icon="🤝")
     st.page_link("pages/Notas_Fiscais.py", label="Notas Fiscais", icon="📄")
     st.page_link("pages/Banco_de_Fornecedores.py", label="Fornecedores", icon="🏢")
     st.page_link("pages/Consulta.py", label="Consulta CNPJ", icon="💻")
@@ -513,6 +513,54 @@ with col_id:
         help="Se informado, filtra os resultados por esse ID específico.",
     )
 
+# ── Filtros avançados ─────────────────────────────────────────────────────
+with st.expander("🔧 Filtros Avançados", expanded=False):
+    col_modal, col_obj = st.columns([1, 2])
+
+    with col_modal:
+        filtro_modalidade = st.multiselect(
+            "Modalidade / Tipo",
+            options=[
+                "ARP (Ata de Registro de Preços)",
+                "Pregão",
+                "Dispensa",
+                "Inexigibilidade",
+                "Concorrência",
+                "Tomada de Preços",
+                "Convite",
+                "Leilão",
+                "Diálogo Competitivo",
+            ],
+            default=[],
+            help="Filtre por modalidade/tipo de compra. Deixe vazio para exibir todos.",
+        )
+
+    with col_obj:
+        filtro_objeto = st.text_input(
+            "Objeto (palavra-chave)",
+            value="",
+            placeholder="Ex: material de limpeza, notebook",
+            help="Filtre contratos/ARPs cujo objeto contenha esta palavra-chave.",
+        )
+
+    col_forn, col_proc = st.columns(2)
+
+    with col_forn:
+        filtro_fornecedor = st.text_input(
+            "Fornecedor (nome ou CNPJ)",
+            value="",
+            placeholder="Ex: Empresa XYZ ou 12345678000199",
+            help="Filtre por nome ou CNPJ do fornecedor.",
+        )
+
+    with col_proc:
+        filtro_processo = st.text_input(
+            "Número do Processo",
+            value="",
+            placeholder="Ex: 63379.001234/2025",
+            help="Filtre pelo número do processo administrativo.",
+        )
+
 consultar = st.button("🔍 Consultar", type="primary", use_container_width=True)
 
 # ── Preencher da Cotação (se veio por session_state) ──────────────────────
@@ -556,6 +604,70 @@ if consultar:
 
         if id_filtro and arps:
             arps = [a for a in arps if a.get("idCompra", "") == id_filtro]
+
+        # ── Filtros avançados aplicados nos resultados ────────────────────
+        _modalidade_map = {
+            "ARP (Ata de Registro de Preços)": ["arp", "srp", "registro de preço", "registro de precos"],
+            "Pregão": ["pregão", "pregao"],
+            "Dispensa": ["dispensa"],
+            "Inexigibilidade": ["inexigibilidade"],
+            "Concorrência": ["concorrência", "concorrencia"],
+            "Tomada de Preços": ["tomada de preço", "tomada de preco"],
+            "Convite": ["convite"],
+            "Leilão": ["leilão", "leilao"],
+            "Diálogo Competitivo": ["diálogo competitivo", "dialogo competitivo"],
+        }
+
+        def _match_modalidade(registro, filtros_selecionados):
+            """Verifica se o registro corresponde a alguma das modalidades selecionadas."""
+            if not filtros_selecionados:
+                return True
+            modalidade = (registro.get("nomeModalidadeCompra", "") or "").lower()
+            objeto = (registro.get("objeto", "") or "").lower()
+            texto = modalidade + " " + objeto
+            for filtro in filtros_selecionados:
+                termos = _modalidade_map.get(filtro, [])
+                for termo in termos:
+                    if termo in texto:
+                        return True
+            return False
+
+        def _match_texto(registro, campo, filtro_valor):
+            """Verifica se o campo do registro contém o texto de filtro."""
+            if not filtro_valor:
+                return True
+            valor = (registro.get(campo, "") or "").lower()
+            return filtro_valor.lower() in valor
+
+        def _match_fornecedor(registro, filtro_valor):
+            """Verifica nome ou CNPJ do fornecedor."""
+            if not filtro_valor:
+                return True
+            fv = filtro_valor.lower()
+            nome = (registro.get("nomeRazaoSocialFornecedor", "") or "").lower()
+            cnpj = (registro.get("niFornecedor", "") or "").lower()
+            return fv in nome or fv in cnpj
+
+        # Aplicar filtros nos contratos
+        if contratos and (filtro_modalidade or filtro_objeto or filtro_fornecedor or filtro_processo):
+            contratos = [
+                c for c in contratos
+                if _match_modalidade(c, filtro_modalidade)
+                and _match_texto(c, "objeto", filtro_objeto)
+                and _match_fornecedor(c, filtro_fornecedor)
+                and _match_texto(c, "processo", filtro_processo)
+            ]
+
+        # Aplicar filtros nas ARPs
+        if arps and (filtro_modalidade or filtro_objeto or filtro_fornecedor or filtro_processo):
+            # Para ARPs, se "ARP" está nos filtros de modalidade, sempre incluir
+            _arp_selecionada = any("ARP" in f for f in filtro_modalidade) if filtro_modalidade else False
+            # Se só ARP está selecionada, manter todas ARPs (filtrar os outros campos)
+            arps = [
+                a for a in arps
+                if (_arp_selecionada or _match_modalidade(a, filtro_modalidade) or not filtro_modalidade)
+                and _match_fornecedor(a, filtro_fornecedor)
+            ]
 
         # ── Métricas ──────────────────────────────────────────────────────
         c1, c2, c3 = st.columns(3)
