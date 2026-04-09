@@ -397,7 +397,7 @@ def render_links_externos(id_compra: str, cnpj: str = "", ano: str = "", seq: st
     links_html = ""
     if id_compra:
         cnet = build_comprasnet_link(id_compra)
-        links_html += f'<p>🔗 <a href="{cnet}" target="_blank">Abrir no ComprasNet</a></p>'
+        links_html += f'<p>🔗 <a href="{cnet}" target="_blank">Abrir no ComprasNet</a> <small style="color:#999">(nem toda compra está disponível no ComprasNet legado)</small></p>'
     if cnpj and ano and seq:
         portal = build_pncp_portal_link(cnpj, ano, seq)
         links_html += f'<p>🔗 <a href="{portal}" target="_blank">Abrir no PNCP</a></p>'
@@ -576,15 +576,15 @@ with st.expander("🔧 Filtros Avançados", expanded=False):
     col_vig_ini, col_vig_fim = st.columns(2)
     with col_vig_ini:
         filtro_vigencia_inicio = st.date_input(
-            "Vigência a partir de",
+            "Período — Data Inicial",
             value=None,
-            help="Exibir apenas registros com vigência iniciando a partir desta data.",
+            help="Início da janela de busca. Retorna compras executadas ou pregões vigentes que tenham intersecção com este período.",
         )
     with col_vig_fim:
         filtro_vigencia_fim = st.date_input(
-            "Vigência até",
+            "Período — Data Final",
             value=None,
-            help="Exibir apenas registros com vigência terminando até esta data.",
+            help="Fim da janela de busca. Retorna compras executadas ou pregões vigentes que tenham intersecção com este período.",
         )
 
 consultar = st.button("🔍 Consultar", type="primary", use_container_width=True)
@@ -616,9 +616,23 @@ if consultar:
             unsafe_allow_html=True,
         )
 
+        # ── Determinar anos a consultar ────────────────────────────────
+        anos_query = {ano}
+        if filtro_vigencia_inicio:
+            anos_query.add(filtro_vigencia_inicio.year)
+        if filtro_vigencia_fim:
+            anos_query.add(filtro_vigencia_fim.year)
+
         # ── 1. Buscar Contratos ───────────────────────────────────────────
         with st.spinner("Buscando contratos no ComprasGov..."):
-            contratos = buscar_contratos_uasg(uasg, ano)
+            contratos = []
+            _ids_contrato = set()
+            for _ano_q in sorted(anos_query):
+                for c in buscar_contratos_uasg(uasg, _ano_q):
+                    _key = c.get("idCompra", "") + c.get("numeroContrato", "")
+                    if _key not in _ids_contrato:
+                        _ids_contrato.add(_key)
+                        contratos.append(c)
 
         # Filtrar por idCompra se informado
         if id_filtro and contratos:
@@ -626,7 +640,14 @@ if consultar:
 
         # ── 2. Buscar ARPs (SRP) ──────────────────────────────────────────
         with st.spinner("Buscando Atas de Registro de Preço (SRP)..."):
-            arps = buscar_arp_uasg(uasg, ano)
+            arps = []
+            _ids_arp = set()
+            for _ano_q in sorted(anos_query):
+                for a in buscar_arp_uasg(uasg, _ano_q):
+                    _key = a.get("idCompra", "") + a.get("numeroAtaRegistroPreco", "")
+                    if _key not in _ids_arp:
+                        _ids_arp.add(_key)
+                        arps.append(a)
 
         if id_filtro and arps:
             arps = [a for a in arps if a.get("idCompra", "") == id_filtro]
@@ -675,15 +696,20 @@ if consultar:
             return fv in nome or fv in cnpj
 
         def _match_vigencia(registro, vig_ini, vig_fim):
-            """Verifica se o registro está dentro do período de vigência informado."""
+            """Verifica se a vigência do registro tem intersecção com a janela [vig_ini, vig_fim].
+
+            Retorna True se qualquer parte da vigência do registro cair dentro do período.
+            - Compras executadas dentro do período: vigência começou dentro da janela.
+            - Pregões vigentes no período: vigência se sobrepõe à janela.
+            """
             if not vig_ini and not vig_fim:
                 return True
-            from datetime import date
             # Contratos usam dataVigenciaInicial/dataVigenciaFinal
             # ARPs usam dataVigenciaInicio/dataVigenciaFim
             data_ini_str = (
                 registro.get("dataVigenciaInicial")
                 or registro.get("dataVigenciaInicio")
+                or registro.get("dataResultadoCompra")
                 or ""
             )
             data_fim_str = (
@@ -700,6 +726,10 @@ if consultar:
             except (ValueError, TypeError):
                 data_fim = None
 
+            # Sem nenhuma data no registro → não filtra (inclui)
+            if not data_ini and not data_fim:
+                return True
+            # Intersecção de intervalos: exclui se não houver sobreposição
             if vig_ini and data_fim and data_fim < vig_ini:
                 return False
             if vig_fim and data_ini and data_ini > vig_fim:
