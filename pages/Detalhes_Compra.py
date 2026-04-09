@@ -21,10 +21,11 @@ DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "Proje
 
 # ── Constantes API ─────────────────────────────────────────────────────────
 COMPRASGOV_BASE = "https://dadosabertos.compras.gov.br"
-PNCP_API_BASE = "https://pncp.gov.br/pncp-api/v1"
-PNCP_PORTAL_BASE = "https://pncp.gov.br/app/compras"
+PNCP_API_BASE = "https://pncp.gov.br/api/consulta/v1"
+PNCP_API_BASE_LEGACY = "https://pncp.gov.br/pncp-api/v1"
+PNCP_PORTAL_BASE = "https://pncp.gov.br/app/editais"
 COMPRASNET_BASE = "https://cnetmobile.estaleiro.serpro.gov.br/comprasnet-web/public/landing"
-REQUEST_TIMEOUT = 25
+REQUEST_TIMEOUT = 30
 MAX_RETRIES = 2
 
 # ── Config Streamlit ───────────────────────────────────────────────────────
@@ -184,24 +185,49 @@ st.markdown("""
 # ═══════════════════════════════════════════════════════════════════════════
 
 def _api_get(url: str, timeout: int = REQUEST_TIMEOUT) -> Optional[Any]:
-    """GET com retry e tratamento de erros."""
-    for attempt in range(MAX_RETRIES + 1):
-        try:
-            r = requests.get(url, timeout=timeout, headers={"User-Agent": "Mozilla/5.0"}, verify=True)
-            if r.status_code == 404:
-                return None
-            r.raise_for_status()
-            return r.json()
-        except requests.exceptions.Timeout:
-            if attempt < MAX_RETRIES:
-                time.sleep(1)
-                continue
-            return None
-        except requests.exceptions.RequestException:
-            if attempt < MAX_RETRIES:
-                time.sleep(1)
-                continue
-            return None
+    """GET com retry e tratamento de erros. Lida com migração de API PNCP."""
+    urls_to_try = [url]
+    # Se é URL da nova API, tenta legacy como fallback e vice-versa
+    if PNCP_API_BASE in url:
+        urls_to_try.append(url.replace(PNCP_API_BASE, PNCP_API_BASE_LEGACY))
+    elif PNCP_API_BASE_LEGACY in url:
+        urls_to_try.insert(0, url.replace(PNCP_API_BASE_LEGACY, PNCP_API_BASE))
+
+    for try_url in urls_to_try:
+        for attempt in range(MAX_RETRIES + 1):
+            try:
+                r = requests.get(try_url, timeout=timeout, headers={"User-Agent": "Mozilla/5.0"}, verify=True)
+                if r.status_code == 404:
+                    return None
+                if r.status_code == 301:
+                    # API migrou — tentar extrair nova URL do corpo da resposta
+                    try:
+                        body = r.json()
+                        msg = body.get("message", "")
+                        m = re.search(r"https?://[^\s]+", msg)
+                        if m:
+                            new_base = m.group(0).rstrip("/")
+                            # Reconstruir URL com o novo base
+                            new_url = url.replace(PNCP_API_BASE_LEGACY, new_base.rsplit("/orgaos", 1)[0])
+                            if new_url == url:
+                                new_url = url.replace(PNCP_API_BASE, new_base.rsplit("/orgaos", 1)[0])
+                            if new_url != url:
+                                return _api_get(new_url, timeout)
+                    except Exception:
+                        pass
+                    break  # Não tentar retry para 301
+                r.raise_for_status()
+                return r.json()
+            except requests.exceptions.Timeout:
+                if attempt < MAX_RETRIES:
+                    time.sleep(1)
+                    continue
+                break  # Tentar próxima URL
+            except requests.exceptions.RequestException:
+                if attempt < MAX_RETRIES:
+                    time.sleep(1)
+                    continue
+                break  # Tentar próxima URL
     return None
 
 
@@ -561,6 +587,20 @@ with st.expander("🔧 Filtros Avançados", expanded=False):
             help="Filtre pelo número do processo administrativo.",
         )
 
+    col_vig_ini, col_vig_fim = st.columns(2)
+    with col_vig_ini:
+        filtro_vigencia_inicio = st.date_input(
+            "Vigência a partir de",
+            value=None,
+            help="Exibir apenas registros com vigência iniciando a partir desta data.",
+        )
+    with col_vig_fim:
+        filtro_vigencia_fim = st.date_input(
+            "Vigência até",
+            value=None,
+            help="Exibir apenas registros com vigência terminando até esta data.",
+        )
+
 consultar = st.button("🔍 Consultar", type="primary", use_container_width=True)
 
 # ── Preencher da Cotação (se veio por session_state) ──────────────────────
@@ -648,18 +688,51 @@ if consultar:
             cnpj = (registro.get("niFornecedor", "") or "").lower()
             return fv in nome or fv in cnpj
 
+        def _match_vigencia(registro, vig_ini, vig_fim):
+            """Verifica se o registro está dentro do período de vigência informado."""
+            if not vig_ini and not vig_fim:
+                return True
+            from datetime import date
+            # Contratos usam dataVigenciaInicial/dataVigenciaFinal
+            # ARPs usam dataVigenciaInicio/dataVigenciaFim
+            data_ini_str = (
+                registro.get("dataVigenciaInicial")
+                or registro.get("dataVigenciaInicio")
+                or ""
+            )
+            data_fim_str = (
+                registro.get("dataVigenciaFinal")
+                or registro.get("dataVigenciaFim")
+                or ""
+            )
+            try:
+                data_ini = datetime.strptime(data_ini_str[:10], "%Y-%m-%d").date() if data_ini_str else None
+            except (ValueError, TypeError):
+                data_ini = None
+            try:
+                data_fim = datetime.strptime(data_fim_str[:10], "%Y-%m-%d").date() if data_fim_str else None
+            except (ValueError, TypeError):
+                data_fim = None
+
+            if vig_ini and data_fim and data_fim < vig_ini:
+                return False
+            if vig_fim and data_ini and data_ini > vig_fim:
+                return False
+            return True
+
         # Aplicar filtros nos contratos
-        if contratos and (filtro_modalidade or filtro_objeto or filtro_fornecedor or filtro_processo):
+        if contratos and (filtro_modalidade or filtro_objeto or filtro_fornecedor or filtro_processo or filtro_vigencia_inicio or filtro_vigencia_fim):
             contratos = [
                 c for c in contratos
                 if _match_modalidade(c, filtro_modalidade)
                 and _match_texto(c, "objeto", filtro_objeto)
                 and _match_fornecedor(c, filtro_fornecedor)
                 and _match_texto(c, "processo", filtro_processo)
+                and _match_vigencia(c, filtro_vigencia_inicio, filtro_vigencia_fim)
             ]
 
         # Aplicar filtros nas ARPs
-        if arps and (filtro_modalidade or filtro_objeto or filtro_fornecedor or filtro_processo):
+        if arps and (filtro_modalidade or filtro_objeto or filtro_fornecedor or filtro_processo or filtro_vigencia_inicio or filtro_vigencia_fim):
             # Para ARPs, se "ARP" está nos filtros de modalidade, sempre incluir
             _arp_selecionada = any("ARP" in f for f in filtro_modalidade) if filtro_modalidade else False
             # Se só ARP está selecionada, manter todas ARPs (filtrar os outros campos)
@@ -667,6 +740,7 @@ if consultar:
                 a for a in arps
                 if (_arp_selecionada or _match_modalidade(a, filtro_modalidade) or not filtro_modalidade)
                 and _match_fornecedor(a, filtro_fornecedor)
+                and _match_vigencia(a, filtro_vigencia_inicio, filtro_vigencia_fim)
             ]
 
         # ── Métricas ──────────────────────────────────────────────────────
@@ -763,38 +837,42 @@ if consultar:
                     if docs_compra:
                         render_documentos(docs_compra, "Documentos da Compra/Licitação")
 
-                # Docs da ata
-                if ctrl_ata:
-                    m_ata = re.match(r"(\d{14})-(\d+)-(\d+)/(\d{4})", ctrl_ata)
-                    if m_ata:
-                        cnpj_ata = m_ata.group(1)
-                        seq_ata = m_ata.group(3)
-                        ano_ata = m_ata.group(4)
-                        # Para ata, o format é orgao/compras/anoCompra/seqCompra/atas/seqAta/arquivos
-                        if parsed_compra:
-                            with st.spinner(f"Buscando documentos da Ata..."):
-                                docs_ata = buscar_documentos_ata_pncp(cnpj_a, ano_a, seq_a, str(int(seq_ata)))
-                            if docs_ata:
-                                render_documentos(docs_ata, "Documentos da Ata")
-
-                # Buscar atas via PNCP se temos a compra
+                # Buscar atas via PNCP e seus documentos
                 if parsed_compra:
-                    with st.spinner("Buscando atas no PNCP..."):
+                    with st.spinner("Buscando atas e documentos no PNCP..."):
                         atas_pncp = buscar_atas_pncp(cnpj_a, ano_a, seq_a)
+
                     if atas_pncp:
-                        with st.expander(f"📄 Atas no PNCP ({len(atas_pncp)})", expanded=False):
+                        with st.expander(f"📜 Atas de Registro de Preço no PNCP ({len(atas_pncp)})", expanded=True):
                             for at in atas_pncp:
                                 seq_at_pncp = at.get("sequencialAta", "")
                                 vigencia_ini = (at.get("dataVigenciaInicio", "") or "")[:10]
                                 vigencia_fim = (at.get("dataVigenciaFim", "") or "")[:10]
+                                situacao_ata = at.get("situacao", "")
+                                forn_ata = at.get("nomeRazaoSocialFornecedor", "")
+                                ni_forn_ata = at.get("niFornecedor", "")
                                 st.markdown(
                                     f"**Ata seq {seq_at_pncp}** — "
                                     f"Vigência: {vigencia_ini} a {vigencia_fim}"
+                                    + (f" | Situação: {situacao_ata}" if situacao_ata else "")
+                                    + (f"  \nFornecedor: {forn_ata} ({ni_forn_ata})" if forn_ata else "")
                                 )
                                 # Docs desta ata PNCP
                                 docs_at = buscar_documentos_ata_pncp(cnpj_a, ano_a, seq_a, str(seq_at_pncp))
                                 if docs_at:
-                                    render_documentos(docs_at, f"Documentos Ata {seq_at_pncp}")
+                                    render_documentos(docs_at, f"Documentos da Ata {seq_at_pncp}")
+                                else:
+                                    st.caption("Nenhum documento disponível para esta ata.")
+                                st.markdown("---")
+                    elif ctrl_ata:
+                        # Fallback: tentar buscar docs da ata pelo ctrl_ata diretamente
+                        m_ata = re.match(r"(\d{14})-(\d+)-(\d+)/(\d{4})", ctrl_ata)
+                        if m_ata and parsed_compra:
+                            seq_ata = m_ata.group(3)
+                            with st.spinner("Buscando documentos da Ata..."):
+                                docs_ata = buscar_documentos_ata_pncp(cnpj_a, ano_a, seq_a, str(int(seq_ata)))
+                            if docs_ata:
+                                render_documentos(docs_ata, "Documentos da Ata")
 
         # ── 5. Busca direta PNCP se nada foi encontrado via ComprasGov ───
         if not contratos and not arps and id_filtro:
