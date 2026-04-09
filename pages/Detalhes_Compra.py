@@ -21,12 +21,12 @@ DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "Proje
 
 # ── Constantes API ─────────────────────────────────────────────────────────
 COMPRASGOV_BASE = "https://dadosabertos.compras.gov.br"
-PNCP_API_BASE = "https://pncp.gov.br/api/consulta/v1"
-PNCP_API_BASE_LEGACY = "https://pncp.gov.br/pncp-api/v1"
+PNCP_API_BASE = "https://pncp.gov.br/pncp-api/v1"
+PNCP_API_BASE_NEW = "https://pncp.gov.br/api/consulta/v1"
 PNCP_PORTAL_BASE = "https://pncp.gov.br/app/editais"
 COMPRASNET_BASE = "https://cnetmobile.estaleiro.serpro.gov.br/comprasnet-web/public/landing"
-REQUEST_TIMEOUT = 30
-MAX_RETRIES = 2
+REQUEST_TIMEOUT = 20
+MAX_RETRIES = 1
 
 # ── Config Streamlit ───────────────────────────────────────────────────────
 st.set_page_config(
@@ -186,48 +186,34 @@ st.markdown("""
 
 def _api_get(url: str, timeout: int = REQUEST_TIMEOUT) -> Optional[Any]:
     """GET com retry e tratamento de erros. Lida com migração de API PNCP."""
-    urls_to_try = [url]
-    # Se é URL da nova API, tenta legacy como fallback e vice-versa
-    if PNCP_API_BASE in url:
-        urls_to_try.append(url.replace(PNCP_API_BASE, PNCP_API_BASE_LEGACY))
-    elif PNCP_API_BASE_LEGACY in url:
-        urls_to_try.insert(0, url.replace(PNCP_API_BASE_LEGACY, PNCP_API_BASE))
-
-    for try_url in urls_to_try:
-        for attempt in range(MAX_RETRIES + 1):
-            try:
-                r = requests.get(try_url, timeout=timeout, headers={"User-Agent": "Mozilla/5.0"}, verify=True)
-                if r.status_code == 404:
-                    return None
-                if r.status_code == 301:
-                    # API migrou — tentar extrair nova URL do corpo da resposta
+    for attempt in range(MAX_RETRIES + 1):
+        try:
+            r = requests.get(url, timeout=timeout, headers={"User-Agent": "Mozilla/5.0"}, verify=True)
+            if r.status_code == 404:
+                return None
+            if r.status_code == 301:
+                # API PNCP migrou — tentar nova URL uma única vez (timeout curto)
+                if PNCP_API_BASE in url:
+                    alt_url = url.replace(PNCP_API_BASE, PNCP_API_BASE_NEW)
                     try:
-                        body = r.json()
-                        msg = body.get("message", "")
-                        m = re.search(r"https?://[^\s]+", msg)
-                        if m:
-                            new_base = m.group(0).rstrip("/")
-                            # Reconstruir URL com o novo base
-                            new_url = url.replace(PNCP_API_BASE_LEGACY, new_base.rsplit("/orgaos", 1)[0])
-                            if new_url == url:
-                                new_url = url.replace(PNCP_API_BASE, new_base.rsplit("/orgaos", 1)[0])
-                            if new_url != url:
-                                return _api_get(new_url, timeout)
+                        r2 = requests.get(alt_url, timeout=12, headers={"User-Agent": "Mozilla/5.0"}, verify=True)
+                        if r2.status_code == 200:
+                            return r2.json()
                     except Exception:
                         pass
-                    break  # Não tentar retry para 301
-                r.raise_for_status()
-                return r.json()
-            except requests.exceptions.Timeout:
-                if attempt < MAX_RETRIES:
-                    time.sleep(1)
-                    continue
-                break  # Tentar próxima URL
-            except requests.exceptions.RequestException:
-                if attempt < MAX_RETRIES:
-                    time.sleep(1)
-                    continue
-                break  # Tentar próxima URL
+                return None
+            r.raise_for_status()
+            return r.json()
+        except requests.exceptions.Timeout:
+            if attempt < MAX_RETRIES:
+                time.sleep(0.5)
+                continue
+            return None
+        except requests.exceptions.RequestException:
+            if attempt < MAX_RETRIES:
+                time.sleep(0.5)
+                continue
+            return None
     return None
 
 
@@ -785,9 +771,12 @@ if consultar:
                 # Buscar docs no PNCP se temos o control number
                 if parsed and ctrl_pncp not in pncp_compras_processadas:
                     pncp_compras_processadas.add(ctrl_pncp)
-                    with st.spinner(f"Buscando documentos PNCP ({ctrl_pncp})..."):
+                    with st.spinner(f"Buscando documentos PNCP..."):
                         docs = buscar_documentos_pncp(cnpj_c, ano_c, seq_c)
                         itens = buscar_itens_pncp(cnpj_c, ano_c, seq_c)
+
+                    if not docs and not itens:
+                        st.caption("⚠️ API PNCP não retornou documentos (pode estar instável).")
 
                     if docs:
                         render_documentos(docs, "Documentos da Compra")
@@ -832,14 +821,14 @@ if consultar:
                 # Docs da compra (se não já processada)
                 if parsed_compra and ctrl_compra not in pncp_compras_processadas:
                     pncp_compras_processadas.add(ctrl_compra)
-                    with st.spinner(f"Buscando documentos PNCP ({ctrl_compra})..."):
+                    with st.spinner("Buscando documentos PNCP..."):
                         docs_compra = buscar_documentos_pncp(cnpj_a, ano_a, seq_a)
                     if docs_compra:
                         render_documentos(docs_compra, "Documentos da Compra/Licitação")
 
                 # Buscar atas via PNCP e seus documentos
                 if parsed_compra:
-                    with st.spinner("Buscando atas e documentos no PNCP..."):
+                    with st.spinner("Buscando atas no PNCP..."):
                         atas_pncp = buscar_atas_pncp(cnpj_a, ano_a, seq_a)
 
                     if atas_pncp:
