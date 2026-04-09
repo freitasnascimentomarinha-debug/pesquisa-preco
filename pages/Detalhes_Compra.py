@@ -420,11 +420,7 @@ def render_contrato(contrato: Dict):
     data_vig_fim = contrato.get("dataVigenciaFinal", "")[:10] if contrato.get("dataVigenciaFinal") else ""
 
     valor_fmt = f"R$ {valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".") if valor else "N/I"
-    # NEs (Notas de Empenho) sempre terminam em 31/12 (fim do exercício fiscal)
-    is_ne = "NE" in numero.upper()
     vigencia = f"{data_vig_ini} a {data_vig_fim}" if data_vig_ini else "N/I"
-    if is_ne and data_vig_fim and data_vig_fim.endswith("12-31"):
-        vigencia += " (exercício fiscal)"
 
     html = f"""<div class="info-card">
         <h4>📋 Contrato: {numero}</h4>
