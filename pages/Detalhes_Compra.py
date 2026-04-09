@@ -420,7 +420,11 @@ def render_contrato(contrato: Dict):
     data_vig_fim = contrato.get("dataVigenciaFinal", "")[:10] if contrato.get("dataVigenciaFinal") else ""
 
     valor_fmt = f"R$ {valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".") if valor else "N/I"
+    # NEs (Notas de Empenho) sempre terminam em 31/12 (fim do exercício fiscal)
+    is_ne = "NE" in numero.upper()
     vigencia = f"{data_vig_ini} a {data_vig_fim}" if data_vig_ini else "N/I"
+    if is_ne and data_vig_fim and data_vig_fim.endswith("12-31"):
+        vigencia += " (exercício fiscal)"
 
     html = f"""<div class="info-card">
         <h4>📋 Contrato: {numero}</h4>
@@ -616,23 +620,9 @@ if consultar:
             unsafe_allow_html=True,
         )
 
-        # ── Determinar anos a consultar ────────────────────────────────
-        anos_query = {ano}
-        if filtro_vigencia_inicio:
-            anos_query.add(filtro_vigencia_inicio.year)
-        if filtro_vigencia_fim:
-            anos_query.add(filtro_vigencia_fim.year)
-
         # ── 1. Buscar Contratos ───────────────────────────────────────────
         with st.spinner("Buscando contratos no ComprasGov..."):
-            contratos = []
-            _ids_contrato = set()
-            for _ano_q in sorted(anos_query):
-                for c in buscar_contratos_uasg(uasg, _ano_q):
-                    _key = c.get("idCompra", "") + c.get("numeroContrato", "")
-                    if _key not in _ids_contrato:
-                        _ids_contrato.add(_key)
-                        contratos.append(c)
+            contratos = buscar_contratos_uasg(uasg, ano)
 
         # Filtrar por idCompra se informado
         if id_filtro and contratos:
@@ -640,14 +630,7 @@ if consultar:
 
         # ── 2. Buscar ARPs (SRP) ──────────────────────────────────────────
         with st.spinner("Buscando Atas de Registro de Preço (SRP)..."):
-            arps = []
-            _ids_arp = set()
-            for _ano_q in sorted(anos_query):
-                for a in buscar_arp_uasg(uasg, _ano_q):
-                    _key = a.get("idCompra", "") + a.get("numeroAtaRegistroPreco", "")
-                    if _key not in _ids_arp:
-                        _ids_arp.add(_key)
-                        arps.append(a)
+            arps = buscar_arp_uasg(uasg, ano)
 
         if id_filtro and arps:
             arps = [a for a in arps if a.get("idCompra", "") == id_filtro]
