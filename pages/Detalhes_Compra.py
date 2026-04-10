@@ -1001,8 +1001,14 @@ with tab_busca:
                     for i, contrato in enumerate(contratos):
                         _obj_compra = contrato.get('objeto', '') or ''
                         _obj_compra_trunc = (_obj_compra[:80] + '…') if len(_obj_compra) > 80 else _obj_compra
+                        _modalidade_compra = contrato.get('nomeModalidadeCompra', '')
+                        _numero_compra = contrato.get('numeroCompra', '')
+                        _licitacao_label = _modalidade_compra
+                        if _numero_compra:
+                            _licitacao_label += f" nº {_numero_compra}"
+                        _licitacao_parte = f" — {_licitacao_label}" if _licitacao_label else ""
                         with st.expander(
-                            f"📋 {contrato.get('numeroContrato', 'N/I')} — "
+                            f"📋 {contrato.get('numeroContrato', 'N/I')}{_licitacao_parte} — "
                             f"{_obj_compra_trunc or contrato.get('nomeRazaoSocialFornecedor', 'N/I')} — "
                             f"{_fmt_valor(contrato.get('valorGlobal', ''))}",
                             expanded=(i == 0),
