@@ -513,16 +513,17 @@ with tab_portal:
                 Acesse o <strong>Gerenciador de Contratos em tempo real</strong> do Compras.gov.br
                 para verificar informações atualizadas de compras.
             </p>
-            <a href="https://contratos.sistema.gov.br/compras" target="_blank"
-               style="display: inline-block; background: #d4af37; color: #001a4d; padding: 0.75rem 2rem;
-                      border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 1.1rem;
-                      margin-top: 0.5rem; border: 2px solid #d4af37;">
-                🔗 Acessar Gerenciador de Contratos ↗
-            </a>
         </div>
         """,
         unsafe_allow_html=True,
     )
+    col_l, col_btn, col_r = st.columns([1, 2, 1])
+    with col_btn:
+        st.link_button(
+            "🔗 Acessar Gerenciador de Contratos",
+            "https://contratos.sistema.gov.br/compras",
+            use_container_width=True,
+        )
 
 # ── Aba Busca por UASG ───────────────────────────────────────────────────
 with tab_busca:
