@@ -500,7 +500,20 @@ def render_item_pncp(item: Dict, idx: int):
 # PÁGINA PRINCIPAL
 # ═══════════════════════════════════════════════════════════════════════════
 
-st.markdown("""
+tab_busca, tab_portal = st.tabs(["🔍 Busca por UASG", "🌐 Portal Contratos.gov"])
+
+# ── Aba Portal Contratos.gov ──────────────────────────────────────────────
+with tab_portal:
+    st.markdown(
+        '<p style="color: #cbd5e1; font-size: .9rem;">Acesse o portal de compras do governo diretamente abaixo.</p>',
+        unsafe_allow_html=True,
+    )
+    st.components.v1.iframe("https://contratos.sistema.gov.br/compras", height=750, scrolling=True)
+
+# ── Aba Busca por UASG ───────────────────────────────────────────────────
+with tab_busca:
+
+    st.markdown("""
 <div style="color: #d4af37; font-size: 20px; font-weight: bold; margin-bottom: .5rem;">
     🔍 Consultar Detalhes de Compras
 </div>
@@ -510,459 +523,459 @@ st.markdown("""
 </p>
 """, unsafe_allow_html=True)
 
-# ── Formulário de busca ───────────────────────────────────────────────────
-col_uasg, col_ano, col_id = st.columns([2, 1, 3])
+    # ── Formulário de busca ───────────────────────────────────────────────────
+    col_uasg, col_ano, col_id = st.columns([2, 1, 3])
 
-with col_uasg:
-    input_uasg = st.text_input(
-        "Código UASG *",
-        value=st.session_state.get("detalhe_uasg", ""),
-        placeholder="Ex: 153050, 771300",
-        help="Código da Unidade Gestora (6 dígitos). Campo obrigatório.",
-    )
-
-with col_ano:
-    input_ano = st.number_input(
-        "Ano",
-        min_value=2020,
-        max_value=2030,
-        value=datetime.now().year,
-        help="Ano de vigência/referência.",
-    )
-
-with col_id:
-    input_id_compra = st.text_input(
-        "ID da Compra (opcional)",
-        value=st.session_state.get("detalhe_id_compra", ""),
-        placeholder="Ex: 15305006000142026",
-        help="Se informado, filtra os resultados por esse ID específico.",
-    )
-
-# ── Filtros avançados ─────────────────────────────────────────────────────
-with st.expander("🔧 Filtros Avançados", expanded=False):
-    col_modal, col_obj = st.columns([1, 2])
-
-    with col_modal:
-        filtro_modalidade = st.multiselect(
-            "Modalidade / Tipo",
-            options=[
-                "ARP (Ata de Registro de Preços)",
-                "Pregão",
-                "Dispensa",
-                "Inexigibilidade",
-                "Concorrência",
-                "Tomada de Preços",
-                "Convite",
-                "Leilão",
-                "Diálogo Competitivo",
-            ],
-            default=[],
-            help="Filtre por modalidade/tipo de compra. Deixe vazio para exibir todos.",
+    with col_uasg:
+        input_uasg = st.text_input(
+            "Código UASG *",
+            value=st.session_state.get("detalhe_uasg", ""),
+            placeholder="Ex: 153050, 771300",
+            help="Código da Unidade Gestora (6 dígitos). Campo obrigatório.",
         )
 
-    with col_obj:
-        filtro_objeto = st.text_input(
-            "Objeto (palavra-chave)",
-            value="",
-            placeholder="Ex: material de limpeza, notebook",
-            help="Filtre contratos/ARPs cujo objeto contenha esta palavra-chave.",
+    with col_ano:
+        input_ano = st.number_input(
+            "Ano",
+            min_value=2020,
+            max_value=2030,
+            value=datetime.now().year,
+            help="Ano de vigência/referência.",
         )
 
-    col_forn, col_proc = st.columns(2)
-
-    with col_forn:
-        filtro_fornecedor = st.text_input(
-            "Fornecedor (nome ou CNPJ)",
-            value="",
-            placeholder="Ex: Empresa XYZ ou 12345678000199",
-            help="Filtre por nome ou CNPJ do fornecedor.",
+    with col_id:
+        input_id_compra = st.text_input(
+            "ID da Compra (opcional)",
+            value=st.session_state.get("detalhe_id_compra", ""),
+            placeholder="Ex: 15305006000142026",
+            help="Se informado, filtra os resultados por esse ID específico.",
         )
 
-    with col_proc:
-        filtro_processo = st.text_input(
-            "Número do Processo",
-            value="",
-            placeholder="Ex: 63379.001234/2025",
-            help="Filtre pelo número do processo administrativo.",
-        )
+    # ── Filtros avançados ─────────────────────────────────────────────────────
+    with st.expander("🔧 Filtros Avançados", expanded=False):
+        col_modal, col_obj = st.columns([1, 2])
 
-    col_vig_ini, col_vig_fim = st.columns(2)
-    with col_vig_ini:
-        filtro_vigencia_inicio = st.date_input(
-            "Período — Data Inicial",
-            value=None,
-            help="Início da janela de busca. Retorna compras executadas ou pregões vigentes que tenham intersecção com este período.",
-        )
-    with col_vig_fim:
-        filtro_vigencia_fim = st.date_input(
-            "Período — Data Final",
-            value=None,
-            help="Fim da janela de busca. Retorna compras executadas ou pregões vigentes que tenham intersecção com este período.",
-        )
-
-consultar = st.button("🔍 Consultar", type="primary", use_container_width=True)
-
-# ── Preencher da Cotação (se veio por session_state) ──────────────────────
-if st.session_state.get("detalhe_uasg") and not input_uasg:
-    input_uasg = st.session_state["detalhe_uasg"]
-if st.session_state.get("detalhe_id_compra") and not input_id_compra:
-    input_id_compra = st.session_state["detalhe_id_compra"]
-
-# ── Execução da busca ─────────────────────────────────────────────────────
-if consultar:
-    if not input_uasg or not input_uasg.strip().isdigit():
-        st.error("❌ Informe um código UASG válido (apenas números).")
-    else:
-        uasg = input_uasg.strip()
-        ano = int(input_ano)
-        id_filtro = input_id_compra.strip() if input_id_compra else ""
-
-        # Info da UASG
-        uasg_index = load_uasg_index()
-        uasg_info = uasg_index.get(uasg, {})
-        nome_uasg = uasg_info.get("nomeUasg", "Não encontrada no cadastro local")
-        uf = uasg_info.get("siglaUf", "")
-
-        st.markdown(
-            f'<div class="info-card"><h4>🏛️ UASG {uasg}</h4>'
-            f'<p><strong>{nome_uasg}</strong>{" — " + uf if uf else ""}</p></div>',
-            unsafe_allow_html=True,
-        )
-
-        # ── 1. Buscar Contratos ───────────────────────────────────────────
-        with st.spinner("Buscando contratos no ComprasGov..."):
-            contratos = buscar_contratos_uasg(uasg, ano)
-
-        # Filtrar por idCompra se informado
-        if id_filtro and contratos:
-            contratos = [c for c in contratos if c.get("idCompra", "") == id_filtro]
-
-        # ── 2. Buscar ARPs (SRP) ──────────────────────────────────────────
-        with st.spinner("Buscando Atas de Registro de Preço (SRP)..."):
-            arps = buscar_arp_uasg(uasg, ano)
-
-        if id_filtro and arps:
-            arps = [a for a in arps if a.get("idCompra", "") == id_filtro]
-
-        # ── Filtros avançados aplicados nos resultados ────────────────────
-        _modalidade_map = {
-            "ARP (Ata de Registro de Preços)": ["arp", "srp", "registro de preço", "registro de precos"],
-            "Pregão": ["pregão", "pregao"],
-            "Dispensa": ["dispensa"],
-            "Inexigibilidade": ["inexigibilidade"],
-            "Concorrência": ["concorrência", "concorrencia"],
-            "Tomada de Preços": ["tomada de preço", "tomada de preco"],
-            "Convite": ["convite"],
-            "Leilão": ["leilão", "leilao"],
-            "Diálogo Competitivo": ["diálogo competitivo", "dialogo competitivo"],
-        }
-
-        def _match_modalidade(registro, filtros_selecionados):
-            """Verifica se o registro corresponde a alguma das modalidades selecionadas."""
-            if not filtros_selecionados:
-                return True
-            modalidade = (registro.get("nomeModalidadeCompra", "") or "").lower()
-            objeto = (registro.get("objeto", "") or "").lower()
-            texto = modalidade + " " + objeto
-            for filtro in filtros_selecionados:
-                termos = _modalidade_map.get(filtro, [])
-                for termo in termos:
-                    if termo in texto:
-                        return True
-            return False
-
-        def _match_texto(registro, campo, filtro_valor):
-            """Verifica se o campo do registro contém o texto de filtro."""
-            if not filtro_valor:
-                return True
-            valor = (registro.get(campo, "") or "").lower()
-            return filtro_valor.lower() in valor
-
-        def _match_fornecedor(registro, filtro_valor):
-            """Verifica nome ou CNPJ do fornecedor."""
-            if not filtro_valor:
-                return True
-            fv = filtro_valor.lower()
-            nome = (registro.get("nomeRazaoSocialFornecedor", "") or "").lower()
-            cnpj = (registro.get("niFornecedor", "") or "").lower()
-            return fv in nome or fv in cnpj
-
-        def _match_vigencia(registro, vig_ini, vig_fim):
-            """Verifica se a vigência do registro tem intersecção com a janela [vig_ini, vig_fim].
-
-            Retorna True se qualquer parte da vigência do registro cair dentro do período.
-            - Compras executadas dentro do período: vigência começou dentro da janela.
-            - Pregões vigentes no período: vigência se sobrepõe à janela.
-            """
-            if not vig_ini and not vig_fim:
-                return True
-            # Contratos usam dataVigenciaInicial/dataVigenciaFinal
-            # ARPs usam dataVigenciaInicio/dataVigenciaFim
-            data_ini_str = (
-                registro.get("dataVigenciaInicial")
-                or registro.get("dataVigenciaInicio")
-                or registro.get("dataResultadoCompra")
-                or ""
+        with col_modal:
+            filtro_modalidade = st.multiselect(
+                "Modalidade / Tipo",
+                options=[
+                    "ARP (Ata de Registro de Preços)",
+                    "Pregão",
+                    "Dispensa",
+                    "Inexigibilidade",
+                    "Concorrência",
+                    "Tomada de Preços",
+                    "Convite",
+                    "Leilão",
+                    "Diálogo Competitivo",
+                ],
+                default=[],
+                help="Filtre por modalidade/tipo de compra. Deixe vazio para exibir todos.",
             )
-            data_fim_str = (
-                registro.get("dataVigenciaFinal")
-                or registro.get("dataVigenciaFim")
-                or ""
-            )
-            try:
-                data_ini = datetime.strptime(data_ini_str[:10], "%Y-%m-%d").date() if data_ini_str else None
-            except (ValueError, TypeError):
-                data_ini = None
-            try:
-                data_fim = datetime.strptime(data_fim_str[:10], "%Y-%m-%d").date() if data_fim_str else None
-            except (ValueError, TypeError):
-                data_fim = None
 
-            # Sem nenhuma data no registro → não filtra (inclui)
-            if not data_ini and not data_fim:
-                return True
-            # Intersecção de intervalos: exclui se não houver sobreposição
-            if vig_ini and data_fim and data_fim < vig_ini:
+        with col_obj:
+            filtro_objeto = st.text_input(
+                "Objeto (palavra-chave)",
+                value="",
+                placeholder="Ex: material de limpeza, notebook",
+                help="Filtre contratos/ARPs cujo objeto contenha esta palavra-chave.",
+            )
+
+        col_forn, col_proc = st.columns(2)
+
+        with col_forn:
+            filtro_fornecedor = st.text_input(
+                "Fornecedor (nome ou CNPJ)",
+                value="",
+                placeholder="Ex: Empresa XYZ ou 12345678000199",
+                help="Filtre por nome ou CNPJ do fornecedor.",
+            )
+
+        with col_proc:
+            filtro_processo = st.text_input(
+                "Número do Processo",
+                value="",
+                placeholder="Ex: 63379.001234/2025",
+                help="Filtre pelo número do processo administrativo.",
+            )
+
+        col_vig_ini, col_vig_fim = st.columns(2)
+        with col_vig_ini:
+            filtro_vigencia_inicio = st.date_input(
+                "Período — Data Inicial",
+                value=None,
+                help="Início da janela de busca. Retorna compras executadas ou pregões vigentes que tenham intersecção com este período.",
+            )
+        with col_vig_fim:
+            filtro_vigencia_fim = st.date_input(
+                "Período — Data Final",
+                value=None,
+                help="Fim da janela de busca. Retorna compras executadas ou pregões vigentes que tenham intersecção com este período.",
+            )
+
+    consultar = st.button("🔍 Consultar", type="primary", use_container_width=True)
+
+    # ── Preencher da Cotação (se veio por session_state) ──────────────────────
+    if st.session_state.get("detalhe_uasg") and not input_uasg:
+        input_uasg = st.session_state["detalhe_uasg"]
+    if st.session_state.get("detalhe_id_compra") and not input_id_compra:
+        input_id_compra = st.session_state["detalhe_id_compra"]
+
+    # ── Execução da busca ─────────────────────────────────────────────────────
+    if consultar:
+        if not input_uasg or not input_uasg.strip().isdigit():
+            st.error("❌ Informe um código UASG válido (apenas números).")
+        else:
+            uasg = input_uasg.strip()
+            ano = int(input_ano)
+            id_filtro = input_id_compra.strip() if input_id_compra else ""
+
+            # Info da UASG
+            uasg_index = load_uasg_index()
+            uasg_info = uasg_index.get(uasg, {})
+            nome_uasg = uasg_info.get("nomeUasg", "Não encontrada no cadastro local")
+            uf = uasg_info.get("siglaUf", "")
+
+            st.markdown(
+                f'<div class="info-card"><h4>🏛️ UASG {uasg}</h4>'
+                f'<p><strong>{nome_uasg}</strong>{" — " + uf if uf else ""}</p></div>',
+                unsafe_allow_html=True,
+            )
+
+            # ── 1. Buscar Contratos ───────────────────────────────────────────
+            with st.spinner("Buscando contratos no ComprasGov..."):
+                contratos = buscar_contratos_uasg(uasg, ano)
+
+            # Filtrar por idCompra se informado
+            if id_filtro and contratos:
+                contratos = [c for c in contratos if c.get("idCompra", "") == id_filtro]
+
+            # ── 2. Buscar ARPs (SRP) ──────────────────────────────────────────
+            with st.spinner("Buscando Atas de Registro de Preço (SRP)..."):
+                arps = buscar_arp_uasg(uasg, ano)
+
+            if id_filtro and arps:
+                arps = [a for a in arps if a.get("idCompra", "") == id_filtro]
+
+            # ── Filtros avançados aplicados nos resultados ────────────────────
+            _modalidade_map = {
+                "ARP (Ata de Registro de Preços)": ["arp", "srp", "registro de preço", "registro de precos"],
+                "Pregão": ["pregão", "pregao"],
+                "Dispensa": ["dispensa"],
+                "Inexigibilidade": ["inexigibilidade"],
+                "Concorrência": ["concorrência", "concorrencia"],
+                "Tomada de Preços": ["tomada de preço", "tomada de preco"],
+                "Convite": ["convite"],
+                "Leilão": ["leilão", "leilao"],
+                "Diálogo Competitivo": ["diálogo competitivo", "dialogo competitivo"],
+            }
+
+            def _match_modalidade(registro, filtros_selecionados):
+                """Verifica se o registro corresponde a alguma das modalidades selecionadas."""
+                if not filtros_selecionados:
+                    return True
+                modalidade = (registro.get("nomeModalidadeCompra", "") or "").lower()
+                objeto = (registro.get("objeto", "") or "").lower()
+                texto = modalidade + " " + objeto
+                for filtro in filtros_selecionados:
+                    termos = _modalidade_map.get(filtro, [])
+                    for termo in termos:
+                        if termo in texto:
+                            return True
                 return False
-            if vig_fim and data_ini and data_ini > vig_fim:
-                return False
-            return True
 
-        # Aplicar filtros nos contratos
-        if contratos and (filtro_modalidade or filtro_objeto or filtro_fornecedor or filtro_processo or filtro_vigencia_inicio or filtro_vigencia_fim):
-            contratos = [
-                c for c in contratos
-                if _match_modalidade(c, filtro_modalidade)
-                and _match_texto(c, "objeto", filtro_objeto)
-                and _match_fornecedor(c, filtro_fornecedor)
-                and _match_texto(c, "processo", filtro_processo)
-                and _match_vigencia(c, filtro_vigencia_inicio, filtro_vigencia_fim)
-            ]
+            def _match_texto(registro, campo, filtro_valor):
+                """Verifica se o campo do registro contém o texto de filtro."""
+                if not filtro_valor:
+                    return True
+                valor = (registro.get(campo, "") or "").lower()
+                return filtro_valor.lower() in valor
 
-        # Aplicar filtros nas ARPs
-        if arps and (filtro_modalidade or filtro_objeto or filtro_fornecedor or filtro_processo or filtro_vigencia_inicio or filtro_vigencia_fim):
-            # Para ARPs, se "ARP" está nos filtros de modalidade, sempre incluir
-            _arp_selecionada = any("ARP" in f for f in filtro_modalidade) if filtro_modalidade else False
-            # Se só ARP está selecionada, manter todas ARPs (filtrar os outros campos)
-            arps = [
-                a for a in arps
-                if (_arp_selecionada or _match_modalidade(a, filtro_modalidade) or not filtro_modalidade)
-                and _match_fornecedor(a, filtro_fornecedor)
-                and _match_vigencia(a, filtro_vigencia_inicio, filtro_vigencia_fim)
-            ]
+            def _match_fornecedor(registro, filtro_valor):
+                """Verifica nome ou CNPJ do fornecedor."""
+                if not filtro_valor:
+                    return True
+                fv = filtro_valor.lower()
+                nome = (registro.get("nomeRazaoSocialFornecedor", "") or "").lower()
+                cnpj = (registro.get("niFornecedor", "") or "").lower()
+                return fv in nome or fv in cnpj
 
-        # ── Métricas ──────────────────────────────────────────────────────
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Contratos", len(contratos))
-        c2.metric("ARPs (SRP)", len(arps))
-        c3.metric("Total Registros", len(contratos) + len(arps))
+            def _match_vigencia(registro, vig_ini, vig_fim):
+                """Verifica se a vigência do registro tem intersecção com a janela [vig_ini, vig_fim].
 
-        if not contratos and not arps:
-            st.warning(
-                "Nenhum registro encontrado. "
-                "As APIs do ComprasGov podem estar instáveis — tente novamente em alguns minutos."
-            )
-            # Gerar links diretos mesmo sem dados da API
-            if id_filtro:
-                st.markdown("---")
-                st.markdown("**Mesmo sem resultados da API, você pode tentar os links diretos:**")
-                render_links_externos(id_filtro)
-
-        # ── Coletar PNCP controls para buscar docs ───────────────────────
-        pncp_compras_processadas = set()
-
-        # ── 3. Exibir Contratos ───────────────────────────────────────────
-        if contratos:
-            st.markdown("---")
-            st.markdown(
-                '<div style="color: #d4af37; font-size: 18px; font-weight: bold; margin: 1rem 0;">'
-                "📋 Contratos</div>",
-                unsafe_allow_html=True,
-            )
-
-            for contrato in contratos:
-                ctrl_pncp, id_compra_c = render_contrato(contrato)
-
-                # Links externos
-                parsed = parse_pncp_control(ctrl_pncp)
-                cnpj_c = parsed[0] if parsed else ""
-                ano_c = parsed[1] if parsed else ""
-                seq_c = parsed[2] if parsed else ""
-                render_links_externos(id_compra_c, cnpj_c, ano_c, seq_c)
-
-                # Buscar docs no PNCP se temos o control number
-                if parsed and ctrl_pncp not in pncp_compras_processadas:
-                    pncp_compras_processadas.add(ctrl_pncp)
-                    with st.spinner(f"Buscando documentos PNCP..."):
-                        docs = buscar_documentos_pncp(cnpj_c, ano_c, seq_c)
-                        itens = buscar_itens_pncp(cnpj_c, ano_c, seq_c)
-
-                    if not docs and not itens:
-                        st.caption("⚠️ API PNCP não retornou documentos (pode estar instável).")
-
-                    if docs:
-                        render_documentos(docs, "Documentos da Compra")
-
-                    if itens:
-                        with st.expander(f"📦 Itens da compra ({len(itens)} itens)", expanded=False):
-                            for it in itens:
-                                num = it.get("numeroItem", 0)
-                                render_item_pncp(it, num)
-                                # Resultado do item (fornecedor vencedor)
-                                if it.get("temResultado"):
-                                    resultados = buscar_resultado_item_pncp(cnpj_c, ano_c, seq_c, num)
-                                    for res in resultados:
-                                        forn_ni = res.get("niFornecedor", "")
-                                        val_hom = res.get("valorTotalHomologado", "")
-                                        val_fmt = (
-                                            f"R$ {val_hom:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-                                            if val_hom else "N/I"
-                                        )
-                                        st.markdown(f"  ↳ Vencedor: {forn_ni} — Valor homologado: {val_fmt}")
-                                st.markdown("---")
-
-        # ── 4. Exibir ARPs (SRP) ──────────────────────────────────────────
-        if arps:
-            st.markdown("---")
-            st.markdown(
-                '<div style="color: #d4af37; font-size: 18px; font-weight: bold; margin: 1rem 0;">'
-                "📜 Atas de Registro de Preço (SRP)</div>",
-                unsafe_allow_html=True,
-            )
-
-            for ata in arps:
-                ctrl_compra, ctrl_ata, id_compra_a = render_arp(ata)
-
-                # Links externos
-                parsed_compra = parse_pncp_control(ctrl_compra)
-                cnpj_a = parsed_compra[0] if parsed_compra else ""
-                ano_a = parsed_compra[1] if parsed_compra else ""
-                seq_a = parsed_compra[2] if parsed_compra else ""
-                render_links_externos(id_compra_a, cnpj_a, ano_a, seq_a)
-
-                # Docs da compra (se não já processada)
-                if parsed_compra and ctrl_compra not in pncp_compras_processadas:
-                    pncp_compras_processadas.add(ctrl_compra)
-                    with st.spinner("Buscando documentos PNCP..."):
-                        docs_compra = buscar_documentos_pncp(cnpj_a, ano_a, seq_a)
-                    if docs_compra:
-                        render_documentos(docs_compra, "Documentos da Compra/Licitação")
-
-                # Buscar atas via PNCP e seus documentos
-                if parsed_compra:
-                    with st.spinner("Buscando atas no PNCP..."):
-                        atas_pncp = buscar_atas_pncp(cnpj_a, ano_a, seq_a)
-
-                    if atas_pncp:
-                        with st.expander(f"📜 Atas de Registro de Preço no PNCP ({len(atas_pncp)})", expanded=True):
-                            for at in atas_pncp:
-                                seq_at_pncp = at.get("sequencialAta", "")
-                                vigencia_ini = (at.get("dataVigenciaInicio", "") or "")[:10]
-                                vigencia_fim = (at.get("dataVigenciaFim", "") or "")[:10]
-                                situacao_ata = at.get("situacao", "")
-                                forn_ata = at.get("nomeRazaoSocialFornecedor", "")
-                                ni_forn_ata = at.get("niFornecedor", "")
-                                st.markdown(
-                                    f"**Ata seq {seq_at_pncp}** — "
-                                    f"Vigência: {vigencia_ini} a {vigencia_fim}"
-                                    + (f" | Situação: {situacao_ata}" if situacao_ata else "")
-                                    + (f"  \nFornecedor: {forn_ata} ({ni_forn_ata})" if forn_ata else "")
-                                )
-                                # Docs desta ata PNCP
-                                docs_at = buscar_documentos_ata_pncp(cnpj_a, ano_a, seq_a, str(seq_at_pncp))
-                                if docs_at:
-                                    render_documentos(docs_at, f"Documentos da Ata {seq_at_pncp}")
-                                else:
-                                    st.caption("Nenhum documento disponível para esta ata.")
-                                st.markdown("---")
-                    elif ctrl_ata:
-                        # Fallback: tentar buscar docs da ata pelo ctrl_ata diretamente
-                        m_ata = re.match(r"(\d{14})-(\d+)-(\d+)/(\d{4})", ctrl_ata)
-                        if m_ata and parsed_compra:
-                            seq_ata = m_ata.group(3)
-                            with st.spinner("Buscando documentos da Ata..."):
-                                docs_ata = buscar_documentos_ata_pncp(cnpj_a, ano_a, seq_a, str(int(seq_ata)))
-                            if docs_ata:
-                                render_documentos(docs_ata, "Documentos da Ata")
-
-        # ── 5. Busca direta PNCP se nada foi encontrado via ComprasGov ───
-        if not contratos and not arps and id_filtro:
-            st.markdown("---")
-            st.markdown(
-                '<div style="color: #d4af37; font-size: 16px; font-weight: bold; margin: 1rem 0;">'
-                "🔎 Busca direta no PNCP (fallback)</div>",
-                unsafe_allow_html=True,
-            )
-            st.info("Tentando localizar a compra diretamente no PNCP via contratações...")
-
-            # Extrair CNPJ do órgão a partir da UASG - tentar via pesquisa-preco
-            # Buscar qualquer item desta UASG para descobrir o CNPJ do órgão
-            with st.spinner("Buscando CNPJ do órgão..."):
-                params_pp = {
-                    "codigoUasg": uasg,
-                    "dataCompraInicio": f"{ano}-01-01",
-                    "dataCompraFim": f"{ano}-12-31",
-                    "pagina": 1,
-                    "tamanhoPagina": 10,
-                }
-                url_pp = f"{COMPRASGOV_BASE}/modulo-pesquisa-preco/1_consultarMaterial?{urlencode(params_pp)}"
-                data_pp = _api_get(url_pp)
-                cnpj_orgao = ""
-                if data_pp and isinstance(data_pp, dict):
-                    for item in data_pp.get("resultado", []):
-                        ni = item.get("niOrgao", "")
-                        if ni and len(ni) == 14:
-                            cnpj_orgao = ni
-                            break
-
-            if not cnpj_orgao:
-                st.warning(
-                    "Não foi possível encontrar o CNPJ do órgão automaticamente. "
-                    "As APIs podem estar instáveis."
+                Retorna True se qualquer parte da vigência do registro cair dentro do período.
+                - Compras executadas dentro do período: vigência começou dentro da janela.
+                - Pregões vigentes no período: vigência se sobrepõe à janela.
+                """
+                if not vig_ini and not vig_fim:
+                    return True
+                # Contratos usam dataVigenciaInicial/dataVigenciaFinal
+                # ARPs usam dataVigenciaInicio/dataVigenciaFim
+                data_ini_str = (
+                    registro.get("dataVigenciaInicial")
+                    or registro.get("dataVigenciaInicio")
+                    or registro.get("dataResultadoCompra")
+                    or ""
                 )
-            else:
-                st.markdown(f"CNPJ do órgão: **{cnpj_orgao}**")
-                # Tentar buscar a compra no PNCP escaneando sequenciais recentes
-                encontrou = False
-                with st.spinner("Escaneando compras recentes no PNCP..."):
-                    for seq_try in range(1, 51):
-                        seq_str = f"{seq_try:06d}"
-                        compra = buscar_compra_pncp(cnpj_orgao, str(ano), seq_str)
-                        if not compra:
-                            continue
-                        link_origem = compra.get("linkSistemaOrigem", "") or ""
-                        uorg = compra.get("unidadeOrgao", {}) or {}
-                        cod_unidade = uorg.get("codigoUnidade", "")
+                data_fim_str = (
+                    registro.get("dataVigenciaFinal")
+                    or registro.get("dataVigenciaFim")
+                    or ""
+                )
+                try:
+                    data_ini = datetime.strptime(data_ini_str[:10], "%Y-%m-%d").date() if data_ini_str else None
+                except (ValueError, TypeError):
+                    data_ini = None
+                try:
+                    data_fim = datetime.strptime(data_fim_str[:10], "%Y-%m-%d").date() if data_fim_str else None
+                except (ValueError, TypeError):
+                    data_fim = None
 
-                        # Match por idCompra no link ou pela UASG
-                        if id_filtro and id_filtro in link_origem:
-                            encontrou = True
-                            st.success(f"Compra encontrada no PNCP! Sequencial: {seq_str}")
-                            obj = compra.get("objetoCompra", "")
-                            modal = compra.get("modalidadeNome", "")
-                            st.markdown(
-                                f'<div class="info-card">'
-                                f"<h4>🏷️ {modal}</h4>"
-                                f"<p><strong>Objeto:</strong> {obj}</p>"
-                                f"<p><strong>UASG:</strong> {cod_unidade}</p>"
-                                f"</div>",
-                                unsafe_allow_html=True,
-                            )
-                            render_links_externos(id_filtro, cnpj_orgao, str(ano), seq_str)
+                # Sem nenhuma data no registro → não filtra (inclui)
+                if not data_ini and not data_fim:
+                    return True
+                # Intersecção de intervalos: exclui se não houver sobreposição
+                if vig_ini and data_fim and data_fim < vig_ini:
+                    return False
+                if vig_fim and data_ini and data_ini > vig_fim:
+                    return False
+                return True
 
-                            docs = buscar_documentos_pncp(cnpj_orgao, str(ano), seq_str)
-                            if docs:
-                                render_documentos(docs)
+            # Aplicar filtros nos contratos
+            if contratos and (filtro_modalidade or filtro_objeto or filtro_fornecedor or filtro_processo or filtro_vigencia_inicio or filtro_vigencia_fim):
+                contratos = [
+                    c for c in contratos
+                    if _match_modalidade(c, filtro_modalidade)
+                    and _match_texto(c, "objeto", filtro_objeto)
+                    and _match_fornecedor(c, filtro_fornecedor)
+                    and _match_texto(c, "processo", filtro_processo)
+                    and _match_vigencia(c, filtro_vigencia_inicio, filtro_vigencia_fim)
+                ]
 
-                            itens = buscar_itens_pncp(cnpj_orgao, str(ano), seq_str)
-                            if itens:
-                                with st.expander(f"📦 Itens ({len(itens)})", expanded=False):
-                                    for it in itens:
-                                        render_item_pncp(it, it.get("numeroItem", 0))
-                            break
+            # Aplicar filtros nas ARPs
+            if arps and (filtro_modalidade or filtro_objeto or filtro_fornecedor or filtro_processo or filtro_vigencia_inicio or filtro_vigencia_fim):
+                # Para ARPs, se "ARP" está nos filtros de modalidade, sempre incluir
+                _arp_selecionada = any("ARP" in f for f in filtro_modalidade) if filtro_modalidade else False
+                # Se só ARP está selecionada, manter todas ARPs (filtrar os outros campos)
+                arps = [
+                    a for a in arps
+                    if (_arp_selecionada or _match_modalidade(a, filtro_modalidade) or not filtro_modalidade)
+                    and _match_fornecedor(a, filtro_fornecedor)
+                    and _match_vigencia(a, filtro_vigencia_inicio, filtro_vigencia_fim)
+                ]
 
-                if not encontrou:
+            # ── Métricas ──────────────────────────────────────────────────────
+            c1, c2, c3 = st.columns(3)
+            c1.metric("Contratos", len(contratos))
+            c2.metric("ARPs (SRP)", len(arps))
+            c3.metric("Total Registros", len(contratos) + len(arps))
+
+            if not contratos and not arps:
+                st.warning(
+                    "Nenhum registro encontrado. "
+                    "As APIs do ComprasGov podem estar instáveis — tente novamente em alguns minutos."
+                )
+                # Gerar links diretos mesmo sem dados da API
+                if id_filtro:
+                    st.markdown("---")
+                    st.markdown("**Mesmo sem resultados da API, você pode tentar os links diretos:**")
+                    render_links_externos(id_filtro)
+
+            # ── Coletar PNCP controls para buscar docs ───────────────────────
+            pncp_compras_processadas = set()
+
+            # ── 3. Exibir Contratos ───────────────────────────────────────────
+            if contratos:
+                st.markdown("---")
+                st.markdown(
+                    '<div style="color: #d4af37; font-size: 18px; font-weight: bold; margin: 1rem 0;">'
+                    "📋 Contratos</div>",
+                    unsafe_allow_html=True,
+                )
+
+                for contrato in contratos:
+                    ctrl_pncp, id_compra_c = render_contrato(contrato)
+
+                    # Links externos
+                    parsed = parse_pncp_control(ctrl_pncp)
+                    cnpj_c = parsed[0] if parsed else ""
+                    ano_c = parsed[1] if parsed else ""
+                    seq_c = parsed[2] if parsed else ""
+                    render_links_externos(id_compra_c, cnpj_c, ano_c, seq_c)
+
+                    # Buscar docs no PNCP se temos o control number
+                    if parsed and ctrl_pncp not in pncp_compras_processadas:
+                        pncp_compras_processadas.add(ctrl_pncp)
+                        with st.spinner(f"Buscando documentos PNCP..."):
+                            docs = buscar_documentos_pncp(cnpj_c, ano_c, seq_c)
+                            itens = buscar_itens_pncp(cnpj_c, ano_c, seq_c)
+
+                        if not docs and not itens:
+                            st.caption("⚠️ API PNCP não retornou documentos (pode estar instável).")
+
+                        if docs:
+                            render_documentos(docs, "Documentos da Compra")
+
+                        if itens:
+                            with st.expander(f"📦 Itens da compra ({len(itens)} itens)", expanded=False):
+                                for it in itens:
+                                    num = it.get("numeroItem", 0)
+                                    render_item_pncp(it, num)
+                                    # Resultado do item (fornecedor vencedor)
+                                    if it.get("temResultado"):
+                                        resultados = buscar_resultado_item_pncp(cnpj_c, ano_c, seq_c, num)
+                                        for res in resultados:
+                                            forn_ni = res.get("niFornecedor", "")
+                                            val_hom = res.get("valorTotalHomologado", "")
+                                            val_fmt = (
+                                                f"R$ {val_hom:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+                                                if val_hom else "N/I"
+                                            )
+                                            st.markdown(f"  ↳ Vencedor: {forn_ni} — Valor homologado: {val_fmt}")
+                                    st.markdown("---")
+
+            # ── 4. Exibir ARPs (SRP) ──────────────────────────────────────────
+            if arps:
+                st.markdown("---")
+                st.markdown(
+                    '<div style="color: #d4af37; font-size: 18px; font-weight: bold; margin: 1rem 0;">'
+                    "📜 Atas de Registro de Preço (SRP)</div>",
+                    unsafe_allow_html=True,
+                )
+
+                for ata in arps:
+                    ctrl_compra, ctrl_ata, id_compra_a = render_arp(ata)
+
+                    # Links externos
+                    parsed_compra = parse_pncp_control(ctrl_compra)
+                    cnpj_a = parsed_compra[0] if parsed_compra else ""
+                    ano_a = parsed_compra[1] if parsed_compra else ""
+                    seq_a = parsed_compra[2] if parsed_compra else ""
+                    render_links_externos(id_compra_a, cnpj_a, ano_a, seq_a)
+
+                    # Docs da compra (se não já processada)
+                    if parsed_compra and ctrl_compra not in pncp_compras_processadas:
+                        pncp_compras_processadas.add(ctrl_compra)
+                        with st.spinner("Buscando documentos PNCP..."):
+                            docs_compra = buscar_documentos_pncp(cnpj_a, ano_a, seq_a)
+                        if docs_compra:
+                            render_documentos(docs_compra, "Documentos da Compra/Licitação")
+
+                    # Buscar atas via PNCP e seus documentos
+                    if parsed_compra:
+                        with st.spinner("Buscando atas no PNCP..."):
+                            atas_pncp = buscar_atas_pncp(cnpj_a, ano_a, seq_a)
+
+                        if atas_pncp:
+                            with st.expander(f"📜 Atas de Registro de Preço no PNCP ({len(atas_pncp)})", expanded=True):
+                                for at in atas_pncp:
+                                    seq_at_pncp = at.get("sequencialAta", "")
+                                    vigencia_ini = (at.get("dataVigenciaInicio", "") or "")[:10]
+                                    vigencia_fim = (at.get("dataVigenciaFim", "") or "")[:10]
+                                    situacao_ata = at.get("situacao", "")
+                                    forn_ata = at.get("nomeRazaoSocialFornecedor", "")
+                                    ni_forn_ata = at.get("niFornecedor", "")
+                                    st.markdown(
+                                        f"**Ata seq {seq_at_pncp}** — "
+                                        f"Vigência: {vigencia_ini} a {vigencia_fim}"
+                                        + (f" | Situação: {situacao_ata}" if situacao_ata else "")
+                                        + (f"  \nFornecedor: {forn_ata} ({ni_forn_ata})" if forn_ata else "")
+                                    )
+                                    # Docs desta ata PNCP
+                                    docs_at = buscar_documentos_ata_pncp(cnpj_a, ano_a, seq_a, str(seq_at_pncp))
+                                    if docs_at:
+                                        render_documentos(docs_at, f"Documentos da Ata {seq_at_pncp}")
+                                    else:
+                                        st.caption("Nenhum documento disponível para esta ata.")
+                                    st.markdown("---")
+                        elif ctrl_ata:
+                            # Fallback: tentar buscar docs da ata pelo ctrl_ata diretamente
+                            m_ata = re.match(r"(\d{14})-(\d+)-(\d+)/(\d{4})", ctrl_ata)
+                            if m_ata and parsed_compra:
+                                seq_ata = m_ata.group(3)
+                                with st.spinner("Buscando documentos da Ata..."):
+                                    docs_ata = buscar_documentos_ata_pncp(cnpj_a, ano_a, seq_a, str(int(seq_ata)))
+                                if docs_ata:
+                                    render_documentos(docs_ata, "Documentos da Ata")
+
+            # ── 5. Busca direta PNCP se nada foi encontrado via ComprasGov ───
+            if not contratos and not arps and id_filtro:
+                st.markdown("---")
+                st.markdown(
+                    '<div style="color: #d4af37; font-size: 16px; font-weight: bold; margin: 1rem 0;">'
+                    "🔎 Busca direta no PNCP (fallback)</div>",
+                    unsafe_allow_html=True,
+                )
+                st.info("Tentando localizar a compra diretamente no PNCP via contratações...")
+
+                # Extrair CNPJ do órgão a partir da UASG - tentar via pesquisa-preco
+                # Buscar qualquer item desta UASG para descobrir o CNPJ do órgão
+                with st.spinner("Buscando CNPJ do órgão..."):
+                    params_pp = {
+                        "codigoUasg": uasg,
+                        "dataCompraInicio": f"{ano}-01-01",
+                        "dataCompraFim": f"{ano}-12-31",
+                        "pagina": 1,
+                        "tamanhoPagina": 10,
+                    }
+                    url_pp = f"{COMPRASGOV_BASE}/modulo-pesquisa-preco/1_consultarMaterial?{urlencode(params_pp)}"
+                    data_pp = _api_get(url_pp)
+                    cnpj_orgao = ""
+                    if data_pp and isinstance(data_pp, dict):
+                        for item in data_pp.get("resultado", []):
+                            ni = item.get("niOrgao", "")
+                            if ni and len(ni) == 14:
+                                cnpj_orgao = ni
+                                break
+
+                if not cnpj_orgao:
                     st.warning(
-                        "Compra não encontrada no PNCP nos primeiros 50 sequenciais. "
-                        "A compra pode ser muito recente ou ainda não publicada no PNCP."
+                        "Não foi possível encontrar o CNPJ do órgão automaticamente. "
+                        "As APIs podem estar instáveis."
                     )
+                else:
+                    st.markdown(f"CNPJ do órgão: **{cnpj_orgao}**")
+                    # Tentar buscar a compra no PNCP escaneando sequenciais recentes
+                    encontrou = False
+                    with st.spinner("Escaneando compras recentes no PNCP..."):
+                        for seq_try in range(1, 51):
+                            seq_str = f"{seq_try:06d}"
+                            compra = buscar_compra_pncp(cnpj_orgao, str(ano), seq_str)
+                            if not compra:
+                                continue
+                            link_origem = compra.get("linkSistemaOrigem", "") or ""
+                            uorg = compra.get("unidadeOrgao", {}) or {}
+                            cod_unidade = uorg.get("codigoUnidade", "")
+
+                            # Match por idCompra no link ou pela UASG
+                            if id_filtro and id_filtro in link_origem:
+                                encontrou = True
+                                st.success(f"Compra encontrada no PNCP! Sequencial: {seq_str}")
+                                obj = compra.get("objetoCompra", "")
+                                modal = compra.get("modalidadeNome", "")
+                                st.markdown(
+                                    f'<div class="info-card">'
+                                    f"<h4>🏷️ {modal}</h4>"
+                                    f"<p><strong>Objeto:</strong> {obj}</p>"
+                                    f"<p><strong>UASG:</strong> {cod_unidade}</p>"
+                                    f"</div>",
+                                    unsafe_allow_html=True,
+                                )
+                                render_links_externos(id_filtro, cnpj_orgao, str(ano), seq_str)
+
+                                docs = buscar_documentos_pncp(cnpj_orgao, str(ano), seq_str)
+                                if docs:
+                                    render_documentos(docs)
+
+                                itens = buscar_itens_pncp(cnpj_orgao, str(ano), seq_str)
+                                if itens:
+                                    with st.expander(f"📦 Itens ({len(itens)})", expanded=False):
+                                        for it in itens:
+                                            render_item_pncp(it, it.get("numeroItem", 0))
+                                break
+
+                    if not encontrou:
+                        st.warning(
+                            "Compra não encontrada no PNCP nos primeiros 50 sequenciais. "
+                            "A compra pode ser muito recente ou ainda não publicada no PNCP."
+                        )
