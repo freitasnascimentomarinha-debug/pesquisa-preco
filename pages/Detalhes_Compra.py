@@ -505,10 +505,23 @@ tab_busca, tab_portal = st.tabs(["🔍 Busca por UASG", "🌐 Portal Contratos.g
 # ── Aba Portal Contratos.gov ──────────────────────────────────────────────
 with tab_portal:
     st.markdown(
-        '<p style="color: #cbd5e1; font-size: .9rem;">Acesse o portal de compras do governo diretamente abaixo.</p>',
+        """
+        <div class="info-card" style="text-align: center; padding: 2rem;">
+            <h3 style="color: #d4af37;">🌐 Portal Contratos.gov.br</h3>
+            <p style="color: #cbd5e1; margin: 1rem 0;">
+                O portal do governo não permite incorporação direta por questões de segurança.<br>
+                Clique no botão abaixo para acessar em uma nova aba.
+            </p>
+            <a href="https://contratos.sistema.gov.br/compras" target="_blank"
+               style="display: inline-block; background: #d4af37; color: #001a4d; padding: 0.75rem 2rem;
+                      border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 1.1rem;
+                      margin-top: 0.5rem;">
+                Abrir Portal Contratos.gov ↗
+            </a>
+        </div>
+        """,
         unsafe_allow_html=True,
     )
-    st.components.v1.iframe("https://contratos.sistema.gov.br/compras", height=750, scrolling=True)
 
 # ── Aba Busca por UASG ───────────────────────────────────────────────────
 with tab_busca:
