@@ -999,9 +999,11 @@ with tab_busca:
                     if not contratos:
                         st.info("Nenhuma compra encontrada para os filtros selecionados.")
                     for i, contrato in enumerate(contratos):
+                        _obj_compra = contrato.get('objeto', '') or ''
+                        _obj_compra_trunc = (_obj_compra[:80] + '…') if len(_obj_compra) > 80 else _obj_compra
                         with st.expander(
                             f"📋 {contrato.get('numeroContrato', 'N/I')} — "
-                            f"{contrato.get('nomeRazaoSocialFornecedor', 'N/I')} — "
+                            f"{_obj_compra_trunc or contrato.get('nomeRazaoSocialFornecedor', 'N/I')} — "
                             f"{_fmt_valor(contrato.get('valorGlobal', ''))}",
                             expanded=(i == 0),
                         ):
@@ -1042,10 +1044,12 @@ with tab_busca:
                         _num_compra = ata.get('numeroCompra', '')
                         _ano_compra = ata.get('anoCompra', '')
                         _ref_compra = f"{_num_compra}/{_ano_compra}" if _ano_compra else _num_compra
+                        _obj_arp = ata.get('objeto', '') or ''
+                        _obj_arp_trunc = (_obj_arp[:80] + '…') if len(_obj_arp) > 80 else _obj_arp
                         _titulo_arp = (
                             f"📜 ARP {ata.get('numeroAtaRegistroPreco', 'N/I')} — "
                             f"{ata.get('nomeModalidadeCompra', '')} nº {_ref_compra} — "
-                            f"{_fmt_valor(ata.get('valorTotal', ''))}"
+                            f"{_obj_arp_trunc or _fmt_valor(ata.get('valorTotal', ''))}"
                         )
                         with st.expander(_titulo_arp, expanded=(i == 0)):
                             ctrl_compra, ctrl_ata, id_compra_a = render_arp(ata)
