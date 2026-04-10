@@ -411,6 +411,8 @@ def render_contrato(contrato: Dict):
     fornecedor = contrato.get("nomeRazaoSocialFornecedor", "N/I")
     cnpj_forn = contrato.get("niFornecedor", "")
     modalidade = contrato.get("nomeModalidadeCompra", "N/I")
+    numero_compra = contrato.get("numeroCompra", "")
+    tipo = contrato.get("nomeTipo", "")
     objeto = contrato.get("objeto", "N/I")
     valor = contrato.get("valorGlobal", "")
     processo = contrato.get("processo", "")
@@ -421,10 +423,15 @@ def render_contrato(contrato: Dict):
 
     valor_fmt = f"R$ {valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".") if valor else "N/I"
     vigencia = f"{data_vig_ini} a {data_vig_fim}" if data_vig_ini else "N/I"
+    # Monta label da licitação: "Pregão 00044/2023" ou apenas "Pregão"
+    licitacao = modalidade
+    if numero_compra:
+        licitacao += f" nº {numero_compra}"
+    tipo_label = f" ({tipo})" if tipo else ""
 
     html = f"""<div class="info-card">
-        <h4>📋 Contrato: {numero}</h4>
-        <p><strong>Modalidade:</strong> {modalidade}</p>
+        <h4>📋 Contrato: {numero}{tipo_label}</h4>
+        <p><strong>Licitação:</strong> {licitacao}</p>
         <p><strong>Fornecedor:</strong> {fornecedor} ({cnpj_forn})</p>
         <p><strong>Objeto:</strong> {objeto}</p>
         <p><strong>Valor Global:</strong> {valor_fmt}</p>
@@ -446,14 +453,20 @@ def render_arp(ata: Dict):
     id_compra = ata.get("idCompra", "")
     ctrl_ata = ata.get("numeroControlePncpAta", "")
     ctrl_compra = ata.get("numeroControlePncpCompra", "")
+    modalidade = ata.get("nomeModalidadeCompra", "")
+    numero_compra = ata.get("numeroCompra", "")
     data_vig_ini = ata.get("dataVigenciaInicio", "")[:10] if ata.get("dataVigenciaInicio") else ""
     data_vig_fim = ata.get("dataVigenciaFim", "")[:10] if ata.get("dataVigenciaFim") else ""
     situacao = ata.get("situacao", "")
 
     vigencia = f"{data_vig_ini} a {data_vig_fim}" if data_vig_ini else "N/I"
+    licitacao = modalidade
+    if numero_compra:
+        licitacao += f" nº {numero_compra}"
 
     html = f"""<div class="info-card">
         <h4>📜 ARP (SRP): {numero_ata}</h4>
+        <p><strong>Licitação:</strong> {licitacao or 'N/I'}</p>
         <p><strong>Fornecedor:</strong> {fornecedor} ({cnpj_forn})</p>
         <p><strong>Vigência:</strong> {vigencia}</p>
         <p><strong>Situação:</strong> {situacao}</p>
