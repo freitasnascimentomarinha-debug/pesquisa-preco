@@ -507,16 +507,17 @@ with tab_portal:
     st.markdown(
         """
         <div class="info-card" style="text-align: center; padding: 2rem;">
-            <h3 style="color: #d4af37;">🌐 Portal Contratos.gov.br</h3>
-            <p style="color: #cbd5e1; margin: 1rem 0;">
-                O portal do governo não permite incorporação direta por questões de segurança.<br>
-                Clique no botão abaixo para acessar em uma nova aba.
+            <h3 style="color: #d4af37;">🌐 Gerenciador de Contratos — Compras.gov.br</h3>
+            <p style="color: #cbd5e1; margin: 1rem 0; font-size: 1rem; line-height: 1.6;">
+                ⚠️ Algumas compras ou Notas de Empenho muito recentes podem não aparecer na pesquisa comum.<br>
+                Acesse o <strong>Gerenciador de Contratos em tempo real</strong> do Compras.gov.br
+                para verificar informações atualizadas de compras.
             </p>
             <a href="https://contratos.sistema.gov.br/compras" target="_blank"
                style="display: inline-block; background: #d4af37; color: #001a4d; padding: 0.75rem 2rem;
                       border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 1.1rem;
-                      margin-top: 0.5rem;">
-                Abrir Portal Contratos.gov ↗
+                      margin-top: 0.5rem; border: 2px solid #d4af37;">
+                🔗 Acessar Gerenciador de Contratos ↗
             </a>
         </div>
         """,
