@@ -956,9 +956,6 @@ with tab_busca:
                     st.markdown("**Mesmo sem resultados da API, você pode tentar os links diretos:**")
                     render_links_externos(id_filtro)
 
-            # ── Coletar PNCP controls para buscar docs ───────────────────────
-            pncp_compras_processadas = set()
-
             # ═══ RESULTADOS ORGANIZADOS EM ABAS ═══════════════════════════════
             if contratos or arps:
                 tab_resumo, tab_contratos, tab_arps, tab_pncp, tab_nfs = st.tabs([
@@ -982,7 +979,13 @@ with tab_busca:
                                 cnpj_c = parsed[0] if parsed else ""
                                 ano_c = parsed[1] if parsed else ""
                                 seq_c = parsed[2] if parsed else ""
-                                render_links_externos(id_compra_c, cnpj_c, ano_c, seq_c)
+                                col_btn1, col_btn2, _ = st.columns([1, 1, 2])
+                                with col_btn1:
+                                    if cnpj_c and ano_c and seq_c:
+                                        st.link_button("🔗 Abrir no PNCP", build_pncp_portal_link(cnpj_c, ano_c, seq_c), use_container_width=True)
+                                with col_btn2:
+                                    if id_compra_c:
+                                        st.link_button("🔗 ComprasNet", build_comprasnet_link(id_compra_c), use_container_width=True)
 
                     if arps:
                         st.markdown("#### 📜 Atas de Registro de Preço (SRP)")
@@ -993,7 +996,13 @@ with tab_busca:
                                 cnpj_a = parsed_compra[0] if parsed_compra else ""
                                 ano_a = parsed_compra[1] if parsed_compra else ""
                                 seq_a = parsed_compra[2] if parsed_compra else ""
-                                render_links_externos(id_compra_a, cnpj_a, ano_a, seq_a)
+                                col_btn1, col_btn2, _ = st.columns([1, 1, 2])
+                                with col_btn1:
+                                    if cnpj_a and ano_a and seq_a:
+                                        st.link_button("🔗 Abrir no PNCP", build_pncp_portal_link(cnpj_a, ano_a, seq_a), use_container_width=True)
+                                with col_btn2:
+                                    if id_compra_a:
+                                        st.link_button("🔗 ComprasNet", build_comprasnet_link(id_compra_a), use_container_width=True)
 
                 # ── ABA CONTRATOS ─────────────────────────────────────────────
                 with tab_contratos:
@@ -1004,7 +1013,7 @@ with tab_busca:
                             f"📋 {contrato.get('numeroContrato', 'N/I')} — "
                             f"{contrato.get('nomeRazaoSocialFornecedor', 'N/I')} — "
                             f"{_fmt_valor(contrato.get('valorGlobal', ''))}",
-                            expanded=(i == 0),
+                            expanded=False,
                         ):
                             ctrl_pncp, id_compra_c = render_contrato(contrato)
                             parsed = parse_pncp_control(ctrl_pncp)
@@ -1013,27 +1022,32 @@ with tab_busca:
                             seq_c = parsed[2] if parsed else ""
                             render_links_externos(id_compra_c, cnpj_c, ano_c, seq_c)
 
-                            if parsed and ctrl_pncp not in pncp_compras_processadas:
-                                pncp_compras_processadas.add(ctrl_pncp)
-                                with st.spinner("Buscando documentos PNCP..."):
-                                    docs = buscar_documentos_pncp(cnpj_c, ano_c, seq_c)
-                                    itens = buscar_itens_pncp(cnpj_c, ano_c, seq_c)
+                            if parsed:
+                                _bk = f"ct_load_{i}"
+                                if st.button("📥 Carregar documentos PNCP", key=_bk) or st.session_state.get(f"_l_{_bk}"):
+                                    st.session_state[f"_l_{_bk}"] = True
+                                    with st.spinner("Buscando documentos PNCP..."):
+                                        docs = buscar_documentos_pncp(cnpj_c, ano_c, seq_c)
+                                        itens = buscar_itens_pncp(cnpj_c, ano_c, seq_c)
 
-                                if docs:
-                                    render_documentos(docs, "Documentos da Compra")
+                                    if docs:
+                                        render_documentos(docs, "Documentos da Compra")
 
-                                if itens:
-                                    with st.expander(f"📦 Itens da compra ({len(itens)} itens)", expanded=False):
-                                        for it in itens:
-                                            num = it.get("numeroItem", 0)
-                                            render_item_pncp(it, num)
-                                            if it.get("temResultado"):
-                                                resultados = buscar_resultado_item_pncp(cnpj_c, ano_c, seq_c, num)
-                                                for res in resultados:
-                                                    forn_ni = res.get("niFornecedor", "")
-                                                    val_hom = res.get("valorTotalHomologado", "")
-                                                    st.markdown(f"  ↳ **Vencedor:** {forn_ni} — Valor homologado: {_fmt_valor(val_hom)}")
-                                            st.markdown("---")
+                                    if itens:
+                                        with st.expander(f"📦 Itens da compra ({len(itens)} itens)", expanded=False):
+                                            for it in itens:
+                                                num = it.get("numeroItem", 0)
+                                                render_item_pncp(it, num)
+                                                if it.get("temResultado"):
+                                                    resultados = buscar_resultado_item_pncp(cnpj_c, ano_c, seq_c, num)
+                                                    for res in resultados:
+                                                        forn_ni = res.get("niFornecedor", "")
+                                                        val_hom = res.get("valorTotalHomologado", "")
+                                                        st.markdown(f"  ↳ **Vencedor:** {forn_ni} — Valor homologado: {_fmt_valor(val_hom)}")
+                                                st.markdown("---")
+
+                                    if not docs and not itens:
+                                        st.caption("Nenhum documento ou item encontrado no PNCP.")
 
                 # ── ABA ARPs ──────────────────────────────────────────────────
                 with tab_arps:
@@ -1044,7 +1058,7 @@ with tab_busca:
                             f"📜 ARP {ata.get('numeroAtaRegistroPreco', 'N/I')} — "
                             f"{ata.get('nomeRazaoSocialFornecedor', 'N/I')} — "
                             f"{ata.get('situacao', '')}",
-                            expanded=(i == 0),
+                            expanded=False,
                         ):
                             ctrl_compra, ctrl_ata, id_compra_a = render_arp(ata)
                             parsed_compra = parse_pncp_control(ctrl_compra)
@@ -1053,48 +1067,50 @@ with tab_busca:
                             seq_a = parsed_compra[2] if parsed_compra else ""
                             render_links_externos(id_compra_a, cnpj_a, ano_a, seq_a)
 
-                            if parsed_compra and ctrl_compra not in pncp_compras_processadas:
-                                pncp_compras_processadas.add(ctrl_compra)
-                                with st.spinner("Buscando documentos PNCP..."):
-                                    docs_compra = buscar_documentos_pncp(cnpj_a, ano_a, seq_a)
-                                if docs_compra:
-                                    render_documentos(docs_compra, "Documentos da Compra/Licitação")
-
-                            # Buscar atas via PNCP e seus documentos
                             if parsed_compra:
-                                with st.spinner("Buscando atas no PNCP..."):
-                                    atas_pncp = buscar_atas_pncp(cnpj_a, ano_a, seq_a)
+                                _bk = f"arp_load_{i}"
+                                if st.button("📥 Carregar documentos PNCP", key=_bk) or st.session_state.get(f"_l_{_bk}"):
+                                    st.session_state[f"_l_{_bk}"] = True
+                                    with st.spinner("Buscando documentos PNCP..."):
+                                        docs_compra = buscar_documentos_pncp(cnpj_a, ano_a, seq_a)
+                                    if docs_compra:
+                                        render_documentos(docs_compra, "Documentos da Compra/Licitação")
 
-                                if atas_pncp:
-                                    st.markdown(f"**📜 Atas no PNCP ({len(atas_pncp)})**")
-                                    for at in atas_pncp:
-                                        seq_at_pncp = at.get("sequencialAta", "")
-                                        vigencia_ini = _fmt_data(at.get("dataVigenciaInicio", ""))
-                                        vigencia_fim = _fmt_data(at.get("dataVigenciaFim", ""))
-                                        situacao_ata = at.get("situacao", "")
-                                        forn_ata = at.get("nomeRazaoSocialFornecedor", "")
-                                        ni_forn_ata = at.get("niFornecedor", "")
+                                    with st.spinner("Buscando atas no PNCP..."):
+                                        atas_pncp = buscar_atas_pncp(cnpj_a, ano_a, seq_a)
 
-                                        with st.container(border=True):
-                                            st.markdown(
-                                                f"**Ata seq {seq_at_pncp}** — "
-                                                f"Vigência: {vigencia_ini} a {vigencia_fim}"
-                                                + (f" | Situação: {situacao_ata}" if situacao_ata else "")
-                                                + (f"  \nFornecedor: {forn_ata} ({ni_forn_ata})" if forn_ata else "")
-                                            )
-                                            docs_at = buscar_documentos_ata_pncp(cnpj_a, ano_a, seq_a, str(seq_at_pncp))
-                                            if docs_at:
-                                                render_documentos(docs_at, f"Documentos da Ata {seq_at_pncp}")
-                                            else:
-                                                st.caption("Nenhum documento disponível para esta ata.")
-                                elif ctrl_ata:
-                                    m_ata = re.match(r"(\d{14})-(\d+)-(\d+)/(\d{4})", ctrl_ata)
-                                    if m_ata and parsed_compra:
-                                        seq_ata = m_ata.group(3)
-                                        with st.spinner("Buscando documentos da Ata..."):
+                                    if atas_pncp:
+                                        st.markdown(f"**📜 Atas no PNCP ({len(atas_pncp)})**")
+                                        for at in atas_pncp:
+                                            seq_at_pncp = at.get("sequencialAta", "")
+                                            vigencia_ini = _fmt_data(at.get("dataVigenciaInicio", ""))
+                                            vigencia_fim = _fmt_data(at.get("dataVigenciaFim", ""))
+                                            situacao_ata = at.get("situacao", "")
+                                            forn_ata = at.get("nomeRazaoSocialFornecedor", "")
+                                            ni_forn_ata = at.get("niFornecedor", "")
+
+                                            with st.container(border=True):
+                                                st.markdown(
+                                                    f"**Ata seq {seq_at_pncp}** — "
+                                                    f"Vigência: {vigencia_ini} a {vigencia_fim}"
+                                                    + (f" | Situação: {situacao_ata}" if situacao_ata else "")
+                                                    + (f"  \nFornecedor: {forn_ata} ({ni_forn_ata})" if forn_ata else "")
+                                                )
+                                                docs_at = buscar_documentos_ata_pncp(cnpj_a, ano_a, seq_a, str(seq_at_pncp))
+                                                if docs_at:
+                                                    render_documentos(docs_at, f"Documentos da Ata {seq_at_pncp}")
+                                                else:
+                                                    st.caption("Nenhum documento disponível para esta ata.")
+                                    elif ctrl_ata:
+                                        m_ata = re.match(r"(\d{14})-(\d+)-(\d+)/(\d{4})", ctrl_ata)
+                                        if m_ata:
+                                            seq_ata = m_ata.group(3)
                                             docs_ata = buscar_documentos_ata_pncp(cnpj_a, ano_a, seq_a, str(int(seq_ata)))
-                                        if docs_ata:
-                                            render_documentos(docs_ata, "Documentos da Ata")
+                                            if docs_ata:
+                                                render_documentos(docs_ata, "Documentos da Ata")
+
+                                    if not docs_compra and not atas_pncp:
+                                        st.caption("Nenhum documento encontrado no PNCP para esta licitação.")
 
                 # ── ABA DADOS PNCP (Contratos PNCP, NFs, Termos, Histórico) ──
                 with tab_pncp:
@@ -1104,72 +1120,77 @@ with tab_busca:
                         "termos aditivos e histórico direto da API PNCP."
                     )
 
-                    # Buscar contratos PNCP para cada compra identificada
-                    ctrl_processados_pncp = set()
+                    # Identificar contratações PNCP disponíveis
+                    _ctrls_pncp = []
+                    _ctrls_seen = set()
                     for registro in contratos + arps:
                         ctrl = registro.get("numeroControlePncpCompra", "")
-                        if not ctrl or ctrl in ctrl_processados_pncp:
-                            continue
-                        ctrl_processados_pncp.add(ctrl)
-                        parsed = parse_pncp_control(ctrl)
-                        if not parsed:
-                            continue
-                        cnpj_p, ano_p, seq_p = parsed
+                        if ctrl and ctrl not in _ctrls_seen:
+                            parsed = parse_pncp_control(ctrl)
+                            if parsed:
+                                _ctrls_pncp.append((ctrl, parsed))
+                                _ctrls_seen.add(ctrl)
 
-                        st.markdown(f"---\n##### Contratação: {ctrl}")
-
-                        # Contratos/Empenhos PNCP
-                        with st.spinner("Buscando contratos/empenhos no PNCP..."):
-                            contratos_pncp = buscar_contratos_pncp_por_contratacao(cnpj_p, ano_p, seq_p)
-
-                        if contratos_pncp:
-                            st.success(f"✅ {len(contratos_pncp)} contrato(s)/empenho(s) encontrado(s) no PNCP")
-                            for ct in contratos_pncp:
-                                with st.expander(
-                                    f"📄 {ct.get('numeroContratoEmpenho', 'N/I')} — "
-                                    f"{ct.get('nomeRazaoSocialFornecedor', '')} — "
-                                    f"{_fmt_valor(ct.get('valorInicial', ''))}",
-                                    expanded=True,
-                                ):
-                                    render_contrato_pncp(ct, cnpj_p)
-                        else:
-                            st.info("Nenhum contrato/empenho encontrado no PNCP para esta contratação.")
-
-                        # Histórico da compra
-                        with st.spinner("Buscando histórico..."):
-                            historico = buscar_historico_compra_pncp(cnpj_p, ano_p, seq_p)
-                        if historico:
-                            with st.expander(f"📅 Histórico da Contratação ({len(historico)} eventos)", expanded=False):
-                                for h in historico:
-                                    data_h = _fmt_data(h.get("logManutencaoDataInclusao", ""))
-                                    tipo_h = h.get("tipoLogManutencaoNome", "")
-                                    categoria_h = h.get("categoriaLogManutencaoNome", "")
-                                    usuario_h = h.get("usuarioNome", "")
-                                    justificativa_h = h.get("justificativa", "") or ""
-                                    doc_tipo = h.get("documentoTipo", "") or ""
-                                    doc_titulo = h.get("documentoTitulo", "") or ""
-                                    item_num = h.get("itemNumero")
-
-                                    linha = f"**{data_h}** — {tipo_h}"
-                                    if categoria_h:
-                                        linha += f" de {categoria_h}"
-                                    if item_num:
-                                        linha += f" (Item {item_num})"
-                                    if doc_tipo:
-                                        linha += f" | Doc: {doc_tipo}"
-                                        if doc_titulo:
-                                            linha += f" — {doc_titulo}"
-                                    if usuario_h:
-                                        linha += f"  \n_por {usuario_h}_"
-                                    if justificativa_h:
-                                        linha += f"  \n> {justificativa_h}"
-                                    st.markdown(linha)
-
-                    if not ctrl_processados_pncp:
+                    if not _ctrls_pncp:
                         st.warning(
                             "Não foi possível identificar o número de controle PNCP nos registros. "
                             "Dados complementares do PNCP não puderam ser consultados."
                         )
+                    else:
+                        st.info(f"📋 {len(_ctrls_pncp)} contratação(ões) identificada(s). Clique para carregar os dados.")
+
+                        if st.button("🔍 Carregar dados PNCP", key="load_pncp_tab") or st.session_state.get("_l_pncp_tab"):
+                            st.session_state["_l_pncp_tab"] = True
+
+                            for ctrl, (cnpj_p, ano_p, seq_p) in _ctrls_pncp:
+                                st.markdown(f"---\n##### Contratação: {ctrl}")
+
+                                # Contratos/Empenhos PNCP
+                                with st.spinner("Buscando contratos/empenhos no PNCP..."):
+                                    contratos_pncp = buscar_contratos_pncp_por_contratacao(cnpj_p, ano_p, seq_p)
+
+                                if contratos_pncp:
+                                    st.success(f"✅ {len(contratos_pncp)} contrato(s)/empenho(s) encontrado(s) no PNCP")
+                                    for ct in contratos_pncp:
+                                        with st.expander(
+                                            f"📄 {ct.get('numeroContratoEmpenho', 'N/I')} — "
+                                            f"{ct.get('nomeRazaoSocialFornecedor', '')} — "
+                                            f"{_fmt_valor(ct.get('valorInicial', ''))}",
+                                            expanded=True,
+                                        ):
+                                            render_contrato_pncp(ct, cnpj_p)
+                                else:
+                                    st.info("Nenhum contrato/empenho encontrado no PNCP para esta contratação.")
+
+                                # Histórico da compra
+                                with st.spinner("Buscando histórico..."):
+                                    historico = buscar_historico_compra_pncp(cnpj_p, ano_p, seq_p)
+                                if historico:
+                                    with st.expander(f"📅 Histórico da Contratação ({len(historico)} eventos)", expanded=False):
+                                        for h in historico:
+                                            data_h = _fmt_data(h.get("logManutencaoDataInclusao", ""))
+                                            tipo_h = h.get("tipoLogManutencaoNome", "")
+                                            categoria_h = h.get("categoriaLogManutencaoNome", "")
+                                            usuario_h = h.get("usuarioNome", "")
+                                            justificativa_h = h.get("justificativa", "") or ""
+                                            doc_tipo = h.get("documentoTipo", "") or ""
+                                            doc_titulo = h.get("documentoTitulo", "") or ""
+                                            item_num = h.get("itemNumero")
+
+                                            linha = f"**{data_h}** — {tipo_h}"
+                                            if categoria_h:
+                                                linha += f" de {categoria_h}"
+                                            if item_num:
+                                                linha += f" (Item {item_num})"
+                                            if doc_tipo:
+                                                linha += f" | Doc: {doc_tipo}"
+                                                if doc_titulo:
+                                                    linha += f" — {doc_titulo}"
+                                            if usuario_h:
+                                                linha += f"  \n_por {usuario_h}_"
+                                            if justificativa_h:
+                                                linha += f"  \n> {justificativa_h}"
+                                            st.markdown(linha)
 
                 # ── ABA NOTAS FISCAIS / COBRANÇA ──────────────────────────────
                 with tab_nfs:
@@ -1179,87 +1200,91 @@ with tab_busca:
                         "vinculados aos contratos/empenhos PNCP desta compra."
                     )
 
-                    # Identificar contratos PNCP (se não buscou ainda)
-                    ctrl_nf_processados = set()
-                    encontrou_nf = False
+                    # Identificar contratações PNCP
+                    _ctrls_nf = []
+                    _ctrls_nf_seen = set()
                     for registro in contratos + arps:
                         ctrl = registro.get("numeroControlePncpCompra", "")
-                        if not ctrl or ctrl in ctrl_nf_processados:
-                            continue
-                        ctrl_nf_processados.add(ctrl)
-                        parsed = parse_pncp_control(ctrl)
-                        if not parsed:
-                            continue
-                        cnpj_nf, ano_nf, seq_nf = parsed
+                        if ctrl and ctrl not in _ctrls_nf_seen:
+                            parsed = parse_pncp_control(ctrl)
+                            if parsed:
+                                _ctrls_nf.append((ctrl, parsed))
+                                _ctrls_nf_seen.add(ctrl)
 
-                        # Buscar contratos PNCP
-                        with st.spinner(f"Buscando contratos/empenhos para {ctrl}..."):
-                            cts_pncp = buscar_contratos_pncp_por_contratacao(cnpj_nf, ano_nf, seq_nf)
-
-                        if not cts_pncp:
-                            continue
-
-                        for ct in cts_pncp:
-                            ano_ct = str(ct.get("anoContrato", ""))
-                            seq_ct = str(ct.get("sequencialContrato", ""))
-                            numero_ct = ct.get("numeroContratoEmpenho", "N/I")
-                            fornecedor_ct = ct.get("nomeRazaoSocialFornecedor", "")
-                            org = ct.get("orgaoEntidade", {})
-                            cnpj_ct = org.get("cnpj", cnpj_nf) if isinstance(org, dict) else cnpj_nf
-
-                            if not ano_ct or not seq_ct:
-                                continue
-
-                            with st.spinner(f"Buscando notas fiscais do contrato {numero_ct}..."):
-                                nfs = buscar_instrumentos_cobranca(cnpj_ct, ano_ct, seq_ct)
-
-                            if nfs:
-                                encontrou_nf = True
-                                st.markdown(f"---\n##### 📄 Contrato/Empenho: {numero_ct}")
-                                if fornecedor_ct:
-                                    st.caption(f"Fornecedor: {fornecedor_ct}")
-                                st.success(f"✅ {len(nfs)} instrumento(s) de cobrança encontrado(s)")
-
-                                for nf in nfs:
-                                    with st.container(border=True):
-                                        tipo_nf = nf.get("tipoInstrumentoCobrancaNome", "N/I")
-                                        numero_nf = nf.get("numero", "N/I")
-                                        valor_liq = nf.get("valorLiquido", "")
-                                        valor_bruto = nf.get("valorBruto", "")
-                                        data_emissao = _fmt_data(nf.get("dataEmissao", nf.get("dataInclusao", "")))
-                                        data_pgto = _fmt_data(nf.get("dataPagamento", ""))
-                                        data_ateste = _fmt_data(nf.get("dataAteste", ""))
-                                        situacao_nf = nf.get("situacao", nf.get("situacaoNome", ""))
-                                        obs_nf = nf.get("observacao", "") or ""
-                                        seq_ic = nf.get("sequencialInstrumentoCobranca", "")
-
-                                        col_nf_info, col_nf_val = st.columns([3, 1])
-                                        with col_nf_info:
-                                            st.markdown(f"**{tipo_nf}** — Nº **{numero_nf}**")
-                                            st.markdown(f"📅 Emissão: **{data_emissao or 'N/I'}**"
-                                                        + (f" | Pagamento: {data_pgto}" if data_pgto else "")
-                                                        + (f" | Ateste: {data_ateste}" if data_ateste else ""))
-                                            if situacao_nf:
-                                                st.caption(f"Situação: {situacao_nf}")
-                                            if obs_nf:
-                                                st.caption(f"Obs: {obs_nf}")
-                                        with col_nf_val:
-                                            st.metric("Valor Líquido", _fmt_valor(valor_liq))
-                                            if valor_bruto:
-                                                st.caption(f"Bruto: {_fmt_valor(valor_bruto)}")
-                            else:
-                                st.info(f"Contrato **{numero_ct}** ({fornecedor_ct}): nenhum instrumento de cobrança registrado.")
-
-                    if not ctrl_nf_processados:
+                    if not _ctrls_nf:
                         st.warning(
                             "Não foi possível identificar o número de controle PNCP nos registros. "
                             "As notas fiscais são vinculadas a contratos no PNCP."
                         )
-                    elif not encontrou_nf:
-                        st.info(
-                            "Nenhuma nota fiscal / instrumento de cobrança encontrado nos contratos PNCP desta compra. "
-                            "Isso pode ocorrer quando os contratos ainda não possuem NFs registradas no sistema."
-                        )
+                    else:
+                        st.info(f"📋 {len(_ctrls_nf)} contratação(ões) identificada(s). Clique para buscar notas fiscais.")
+
+                        if st.button("🔍 Buscar notas fiscais", key="load_nfs_tab") or st.session_state.get("_l_nfs_tab"):
+                            st.session_state["_l_nfs_tab"] = True
+                            encontrou_nf = False
+
+                            for ctrl, (cnpj_nf, ano_nf, seq_nf) in _ctrls_nf:
+                                with st.spinner(f"Buscando contratos/empenhos para {ctrl}..."):
+                                    cts_pncp = buscar_contratos_pncp_por_contratacao(cnpj_nf, ano_nf, seq_nf)
+
+                                if not cts_pncp:
+                                    continue
+
+                                for ct in cts_pncp:
+                                    ano_ct = str(ct.get("anoContrato", ""))
+                                    seq_ct = str(ct.get("sequencialContrato", ""))
+                                    numero_ct = ct.get("numeroContratoEmpenho", "N/I")
+                                    fornecedor_ct = ct.get("nomeRazaoSocialFornecedor", "")
+                                    org = ct.get("orgaoEntidade", {})
+                                    cnpj_ct = org.get("cnpj", cnpj_nf) if isinstance(org, dict) else cnpj_nf
+
+                                    if not ano_ct or not seq_ct:
+                                        continue
+
+                                    with st.spinner(f"Buscando notas fiscais do contrato {numero_ct}..."):
+                                        nfs = buscar_instrumentos_cobranca(cnpj_ct, ano_ct, seq_ct)
+
+                                    if nfs:
+                                        encontrou_nf = True
+                                        st.markdown(f"---\n##### 📄 Contrato/Empenho: {numero_ct}")
+                                        if fornecedor_ct:
+                                            st.caption(f"Fornecedor: {fornecedor_ct}")
+                                        st.success(f"✅ {len(nfs)} instrumento(s) de cobrança encontrado(s)")
+
+                                        for nf in nfs:
+                                            with st.container(border=True):
+                                                tipo_nf = nf.get("tipoInstrumentoCobrancaNome", "N/I")
+                                                numero_nf = nf.get("numero", "N/I")
+                                                valor_liq = nf.get("valorLiquido", "")
+                                                valor_bruto = nf.get("valorBruto", "")
+                                                data_emissao = _fmt_data(nf.get("dataEmissao", nf.get("dataInclusao", "")))
+                                                data_pgto = _fmt_data(nf.get("dataPagamento", ""))
+                                                data_ateste = _fmt_data(nf.get("dataAteste", ""))
+                                                situacao_nf = nf.get("situacao", nf.get("situacaoNome", ""))
+                                                obs_nf = nf.get("observacao", "") or ""
+
+                                                col_nf_info, col_nf_val = st.columns([3, 1])
+                                                with col_nf_info:
+                                                    st.markdown(f"**{tipo_nf}** — Nº **{numero_nf}**")
+                                                    st.markdown(f"📅 Emissão: **{data_emissao or 'N/I'}**"
+                                                                + (f" | Pagamento: {data_pgto}" if data_pgto else "")
+                                                                + (f" | Ateste: {data_ateste}" if data_ateste else ""))
+                                                    if situacao_nf:
+                                                        st.caption(f"Situação: {situacao_nf}")
+                                                    if obs_nf:
+                                                        st.caption(f"Obs: {obs_nf}")
+                                                with col_nf_val:
+                                                    st.metric("Valor Líquido", _fmt_valor(valor_liq))
+                                                    if valor_bruto:
+                                                        st.caption(f"Bruto: {_fmt_valor(valor_bruto)}")
+                                    else:
+                                        st.info(f"Contrato **{numero_ct}** ({fornecedor_ct}): nenhum instrumento de cobrança registrado.")
+
+                            if not encontrou_nf:
+                                st.info(
+                                    "Nenhuma nota fiscal / instrumento de cobrança encontrado nos contratos PNCP desta compra. "
+                                    "Isso pode ocorrer quando os contratos ainda não possuem NFs registradas no sistema."
+                                )
 
             # ── 5. Busca direta PNCP se nada foi encontrado via ComprasGov ───
             if not contratos and not arps and id_filtro:
