@@ -470,6 +470,58 @@ def render_links_externos(id_compra: str, cnpj: str = "", ano: str = "", seq: st
         st.markdown(f'<div class="info-card"><h4>🌐 Links Externos</h4>{links_html}</div>', unsafe_allow_html=True)
 
 
+def render_autoload_trigger(section: str, button_text: str):
+    """Dispara clique automático em botão oculto quando o marcador entra na área visível."""
+    marker_id = f"dc_autoload_{section}_marker"
+    storage_key = f"dc_autoload_{section}_last_click"
+    listener_key = f"__dc_autoload_listener_{section}"
+    js_button_text = json.dumps(button_text)
+    st.markdown(
+        f"""
+        <div id="{marker_id}" style="height:1px;"></div>
+        <script>
+        (function() {{
+            const parentWin = window.parent;
+            const doc = parentWin.document;
+
+            const findButton = () => Array.from(doc.querySelectorAll("button"))
+                .find((btn) => (btn.innerText || "").trim() === {js_button_text});
+
+            const attemptLoad = () => {{
+                const marker = doc.getElementById("{marker_id}");
+                const btn = findButton();
+                if (!marker || !btn) return;
+
+                const wrapper = btn.closest('div[data-testid="stButton"]');
+                if (wrapper) wrapper.style.display = 'none';
+                btn.style.display = 'none';
+
+                const rect = marker.getBoundingClientRect();
+                const nearViewport = rect.top <= (parentWin.innerHeight + 140);
+                if (!nearViewport) return;
+
+                const now = Date.now();
+                const last = Number(parentWin.sessionStorage.getItem("{storage_key}") || 0);
+                if (now - last < 1200) return;
+
+                parentWin.sessionStorage.setItem("{storage_key}", String(now));
+                btn.click();
+            }};
+
+            attemptLoad();
+
+            if (!parentWin["{listener_key}"]) {{
+                parentWin.addEventListener("scroll", attemptLoad, {{ passive: true }});
+                parentWin.addEventListener("resize", attemptLoad);
+                parentWin["{listener_key}"] = true;
+            }}
+        }})();
+        </script>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def _fmt_valor(valor) -> str:
     """Formata valor monetário."""
     if valor is None or valor == "":
@@ -547,7 +599,6 @@ def render_arp(ata: Dict):
     qtd_itens = ata.get("quantidadeItens", "")
     nome_orgao = ata.get("nomeOrgao", ata.get("nomeUnidadeGerenciadora", ""))
     link_ata_pncp = ata.get("linkAtaPNCP", "")
-    link_compra_pncp = ata.get("linkCompraPNCP", "")
 
     vigencia = f"{data_vig_ini} a {data_vig_fim}" if data_vig_ini else "N/I"
     licitacao = modalidade
@@ -576,13 +627,10 @@ def render_arp(ata: Dict):
             st.caption(f"Itens: {qtd_itens}")
 
     # Links diretos
-    col_l1, col_l2, _ = st.columns([1, 1, 2])
+    col_l1, _, _ = st.columns([1, 1, 2])
     with col_l1:
         if link_ata_pncp:
             st.link_button("📄 Ata no PNCP", link_ata_pncp, use_container_width=True)
-    with col_l2:
-        if link_compra_pncp:
-            st.link_button("🔗 Compra no PNCP", link_compra_pncp, use_container_width=True)
 
     return ctrl_compra, ctrl_ata, id_compra
 
@@ -832,7 +880,8 @@ with tab_busca:
             st.session_state.pop("_dc_active", None)
         else:
             st.session_state["_dc_active"] = True
-            st.session_state["_dc_arps_shown"] = 10  # resetar paginação
+            st.session_state["_dc_arps_shown"] = 3
+            st.session_state["_dc_compras_shown"] = 5
             # Limpar flags de docs sob demanda da busca anterior
             for _k in list(st.session_state.keys()):
                 if _k.startswith("_dc_arp_docs_"):
@@ -912,6 +961,13 @@ with tab_busca:
                 valor = (registro.get(campo, "") or "").lower()
                 return filtro_valor.lower() in valor
 
+            def _match_texto_campos(registro, campos, filtro_valor):
+                """Verifica se qualquer campo informado contém o texto de filtro."""
+                if not filtro_valor:
+                    return True
+                texto = " ".join((registro.get(campo, "") or "") for campo in campos).lower()
+                return filtro_valor.lower() in texto
+
             def _match_fornecedor(registro, filtro_valor):
                 """Verifica nome ou CNPJ do fornecedor."""
                 if not filtro_valor:
@@ -967,9 +1023,9 @@ with tab_busca:
                 contratos = [
                     c for c in contratos
                     if _match_modalidade(c, filtro_modalidade)
-                    and _match_texto(c, "objeto", filtro_objeto)
+                    and _match_texto_campos(c, ["objeto"], filtro_objeto)
                     and _match_fornecedor(c, filtro_fornecedor)
-                    and _match_texto(c, "processo", filtro_processo)
+                    and _match_texto_campos(c, ["processo", "numeroProcesso"], filtro_processo)
                     and _match_vigencia(c, filtro_vigencia_inicio, filtro_vigencia_fim)
                 ]
 
@@ -981,7 +1037,9 @@ with tab_busca:
                 arps = [
                     a for a in arps
                     if (_arp_selecionada or _match_modalidade(a, filtro_modalidade) or not filtro_modalidade)
+                    and _match_texto_campos(a, ["objeto", "descricaoItem"], filtro_objeto)
                     and _match_fornecedor(a, filtro_fornecedor)
+                    and _match_texto_campos(a, ["processo", "numeroProcesso", "numeroProcessoCompra"], filtro_processo)
                     and _match_vigencia(a, filtro_vigencia_inicio, filtro_vigencia_fim)
                 ]
 
@@ -1015,8 +1073,19 @@ with tab_busca:
                     if not contratos:
                         st.info("Nenhuma compra encontrada para os filtros selecionados.")
                     else:
+                        _COMPRA_PAGE_SIZE = 5
+                        _compras_shown = min(
+                            st.session_state.get("_dc_compras_shown", _COMPRA_PAGE_SIZE),
+                            len(contratos),
+                        )
                         st.caption(f"📋 Total: {len(contratos)} compra(s) encontrada(s)")
-                        for i, contrato in enumerate(contratos):
+                        if _compras_shown < len(contratos):
+                            st.info(
+                                f"📌 **Exibindo {_compras_shown} de {len(contratos)} compras.** "
+                                f"Ainda há {len(contratos) - _compras_shown} para carregar conforme você rolar a tela."
+                            )
+
+                        for i, contrato in enumerate(contratos[:_compras_shown]):
                             _obj_compra = contrato.get('objeto', '') or ''
                             _obj_compra_trunc = (_obj_compra[:80] + '…') if len(_obj_compra) > 80 else _obj_compra
                             _modalidade_compra = contrato.get('nomeModalidadeCompra', '')
@@ -1059,6 +1128,19 @@ with tab_busca:
                                                         val_hom = res.get("valorTotalHomologado", "")
                                                         st.markdown(f"  ↳ **Vencedor:** {forn_ni} — Valor homologado: {_fmt_valor(val_hom)}")
                                                 st.markdown("---")
+
+                        if _compras_shown < len(contratos):
+                            _load_label_compras = "Carregar mais Compras (auto)"
+                            if st.button(_load_label_compras, key="btn_load_more_compras_auto"):
+                                st.session_state["_dc_compras_shown"] = min(
+                                    _compras_shown + _COMPRA_PAGE_SIZE,
+                                    len(contratos),
+                                )
+                                st.rerun()
+                            render_autoload_trigger("compras", _load_label_compras)
+                        elif len(contratos) > _COMPRA_PAGE_SIZE:
+                            st.caption(f"✅ Todas as {len(contratos)} compras foram carregadas.")
+
                         st.markdown("---")
                         st.caption("💾 Documentos são carregados sob demanda ao expandir cada item.")
 
@@ -1067,7 +1149,7 @@ with tab_busca:
                     if not arps:
                         st.info("Nenhuma ARP (SRP) encontrada para os filtros selecionados.")
                     else:
-                        _ARP_PAGE_SIZE = 3  # Reduzido para melhor fluidez e sensação de carregamento progressivo
+                        _ARP_PAGE_SIZE = 3
                         _arps_shown = min(
                             st.session_state.get("_dc_arps_shown", _ARP_PAGE_SIZE),
                             len(arps),
@@ -1075,7 +1157,7 @@ with tab_busca:
                         if _arps_shown < len(arps):
                             st.info(
                                 f"📌 **Exibindo {_arps_shown} de {len(arps)} ARPs.** "
-                                f"({len(arps) - _arps_shown} restantes — role para baixo para carregar)"
+                                f"Ainda há {len(arps) - _arps_shown} para carregar conforme você rolar a tela."
                             )
 
                         for i, ata in enumerate(arps[:_arps_shown]):
@@ -1130,25 +1212,19 @@ with tab_busca:
                                         if not docs_compra and not atas_pncp:
                                             st.caption("Nenhum documento encontrado no PNCP para esta ARP.")
 
-                        # ── Carregar mais ARPs ────────────────────────────────
-                        st.markdown("---")
+                        # ── Carregamento automático ao rolar ───────────────────
                         if _arps_shown < len(arps):
-                            _restantes = len(arps) - _arps_shown
-                            _prox = min(_ARP_PAGE_SIZE, _restantes)
-                            col_btn, col_status = st.columns([3, 1])
-                            with col_btn:
-                                if st.button(
-                                    f"⬇️ Carregar próximas {_prox} ARPs",
-                                    key="btn_load_more_arps",
-                                    use_container_width=True,
-                                ):
-                                    st.session_state["_dc_arps_shown"] = _arps_shown + _ARP_PAGE_SIZE
-                                    st.rerun()
-                            with col_status:
-                                st.info(f"⏳ {_restantes} pendentes")
+                            _load_label_arps = "Carregar mais ARPs (auto)"
+                            if st.button(_load_label_arps, key="btn_load_more_arps_auto"):
+                                st.session_state["_dc_arps_shown"] = min(
+                                    _arps_shown + _ARP_PAGE_SIZE,
+                                    len(arps),
+                                )
+                                st.rerun()
+                            render_autoload_trigger("arps", _load_label_arps)
                         else:
                             if len(arps) > _ARP_PAGE_SIZE:
-                                st.success(f"✅ Todas as {len(arps)} ARPs carregadas.")
+                                st.caption(f"✅ Todas as {len(arps)} ARPs foram carregadas.")
 
 
             # ── 5. Busca direta PNCP se nada foi encontrado via ComprasGov ───
