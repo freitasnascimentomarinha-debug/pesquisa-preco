@@ -14,6 +14,9 @@ import hashlib
 import base64
 from datetime import datetime, timedelta
 from fpdf import FPDF
+from docx import Document as DocxDocument
+from docx.shared import Pt, Inches, RGBColor
+from docx.enum.text import WD_ALIGN_PARAGRAPH
 
 try:
     from dotenv import load_dotenv
@@ -1012,6 +1015,228 @@ Documento gerado pelo sistema O Babilaca (IA) — Ferramenta de apoio.
 Confirmar sempre nas fontes oficiais.
 """
 
+TEMPLATE_ATA_RP = """## ATA DE REGISTRO DE PREÇOS
+
+### PREÂMBULO
+- **Processo Administrativo nº:** {processo}
+- **Pregão Eletrônico nº:** {pregao}
+- **Órgão Gerenciador:** {orgao}
+- **CNPJ do Órgão:** {cnpj_orgao}
+- **Vigência da Ata:** {vigencia}
+- **Data de Assinatura:** {data_assinatura}
+
+O(A) **{orgao}**, com sede em {endereco_orgao}, inscrito(a) no CNPJ sob nº {cnpj_orgao}, neste ato representado(a) pelo(a) {cargo_representante}, Sr(a). {representante}, nomeado(a) pela Portaria nº ____________, resolve REGISTRAR OS PREÇOS para eventual aquisição/contratação dos itens abaixo especificados, conforme condições estabelecidas no Edital do Pregão Eletrônico nº {pregao} e seus anexos.
+
+---
+
+### 1. DO OBJETO
+Registro de preços para {objeto}, conforme especificações e condições estabelecidas no Termo de Referência (Anexo I do Edital).
+
+### 2. DO FORNECEDOR REGISTRADO
+- **Razão Social:** {fornecedor}
+- **CNPJ:** {cnpj_fornecedor}
+- **Endereço:** {endereco_fornecedor}
+- **Representante Legal:** {representante_fornecedor}
+- **Telefone/E-mail:** {contato_fornecedor}
+
+### 3. DOS ITENS REGISTRADOS
+
+| Item | Descrição | Unidade | Qtd Estimada | Valor Unitário (R$) | Valor Total (R$) |
+|------|-----------|---------|-------------|--------------------|--------------------|
+{tabela_itens}
+
+**Valor Total Registrado:** {valor_total}
+
+### 4. DA VALIDADE DA ATA
+A presente Ata de Registro de Preços terá validade de **{vigencia}**, contados a partir da data de sua publicação no Diário Oficial, podendo ser prorrogada por igual período, nos termos do **Art. 84 da Lei 14.133/2021**.
+
+### 5. DA REVISÃO E CANCELAMENTO DOS PREÇOS
+5.1. Os preços registrados poderão ser revisados em decorrência de eventual redução dos preços praticados no mercado ou de fato que eleve o custo dos bens, obras ou serviços registrados, nos termos do **Art. 82, §5° da Lei 14.133/2021**.
+
+5.2. O registro do preço do fornecedor será cancelado quando:
+- Descumprir as condições da Ata de Registro de Preços;
+- Não aceitar reduzir o preço registrado, na hipótese de este se tornar superior aos praticados no mercado;
+- Sofrer sanção prevista nos incisos III ou IV do Art. 156 da Lei 14.133/2021.
+
+### 6. DAS CONDIÇÕES DE ENTREGA / EXECUÇÃO
+6.1. **Prazo de entrega:** {prazo_entrega}
+6.2. **Local de entrega:** {local_entrega}
+6.3. **Responsável pelo recebimento:** Comissão de Recebimento designada pelo Órgão Gerenciador.
+
+### 7. DO PAGAMENTO
+7.1. O pagamento será efetuado em até **{prazo_pagamento}** após o recebimento definitivo, mediante apresentação de nota fiscal/fatura.
+7.2. A nota fiscal deverá ser acompanhada das certidões de regularidade fiscal e trabalhista vigentes.
+
+### 8. DAS OBRIGAÇÕES DO FORNECEDOR
+8.1. Entregar os materiais/prestar os serviços conforme especificações do Termo de Referência;
+8.2. Manter, durante toda a vigência da Ata, as condições de habilitação exigidas na licitação;
+8.3. Comunicar ao Órgão Gerenciador qualquer alteração de dados cadastrais;
+8.4. Responsabilizar-se pelos encargos trabalhistas, previdenciários, fiscais e comerciais;
+8.5. Substituir, às suas expensas, os materiais que apresentarem defeitos.
+
+### 9. DAS OBRIGAÇÕES DO ÓRGÃO GERENCIADOR
+9.1. Gerenciar a Ata de Registro de Preços;
+9.2. Conduzir eventuais renegociações de preços;
+9.3. Aplicar, garantida a ampla defesa e o contraditório, as penalidades cabíveis;
+9.4. Providenciar a publicação da Ata e seus aditivos no Diário Oficial.
+
+### 10. DA ADESÃO À ATA (CARONA)
+10.1. A Ata de Registro de Preços poderá ser utilizada por órgãos e entidades não participantes, mediante prévia consulta ao Órgão Gerenciador e anuência do Fornecedor, nos termos do **Art. 86 da Lei 14.133/2021**.
+10.2. O quantitativo para adesão não poderá exceder, por órgão/entidade, a **50% dos quantitativos** registrados na Ata.
+10.3. O quantitativo total de adesões não poderá exceder, na totalidade, ao **dobro** do quantitativo registrado.
+
+### 11. DAS PENALIDADES
+Aplicam-se as sanções previstas nos **Arts. 155 a 163 da Lei 14.133/2021**, sem prejuízo das responsabilidades civil e criminal.
+
+### 12. DA FUNDAMENTAÇÃO LEGAL
+- Lei 14.133/2021, Arts. 82 a 86 (Registro de Preços)
+- Decreto nº 11.462/2023 (regulamenta o SRP)
+- Edital do Pregão Eletrônico nº {pregao} e seus anexos
+
+### 13. DO FORO
+Fica eleito o foro da Justiça Federal — Seção Judiciária de __________ para dirimir quaisquer questões oriundas desta Ata.
+
+### 14. DAS DISPOSIÇÕES GERAIS
+{observacoes}
+
+---
+Documento gerado pelo sistema O Babilaca (IA) — Ferramenta de apoio.
+Confirmar sempre nas fontes oficiais.
+"""
+
+TEMPLATE_MINUTA_CONTRATO = """## MINUTA DE CONTRATO DE {tipo_contrato}
+
+### PREÂMBULO
+- **Processo Administrativo nº:** {processo}
+- **Licitação nº:** {licitacao}
+- **Modalidade:** {modalidade}
+- **Contrato nº:** ____/{ano}
+- **Vigência:** {vigencia}
+
+O(A) **{orgao}** (CONTRATANTE), com sede em {endereco_orgao}, inscrito(a) no CNPJ sob nº {cnpj_orgao}, neste ato representado(a) pelo(a) {cargo_representante}, Sr(a). {representante}, e a empresa **{empresa}** (CONTRATADA), inscrita no CNPJ sob nº {cnpj_empresa}, com sede em {endereco_empresa}, representada pelo(a) Sr(a). {representante_empresa}, celebram o presente Contrato, nos termos da **Lei 14.133/2021** e demais legislações aplicáveis.
+
+---
+
+### CLÁUSULA PRIMEIRA — DO OBJETO
+1.1. {objeto}
+1.2. A CONTRATADA deverá fornecer/executar os itens/serviços conforme especificações do Termo de Referência (Anexo I).
+
+### CLÁUSULA SEGUNDA — DOS ITENS / ESPECIFICAÇÕES
+
+| Item | Descrição | Unidade | Quantidade | Valor Unitário (R$) | Valor Total (R$) |
+|------|-----------|---------|-----------|--------------------|--------------------|
+{tabela_itens}
+
+**Valor Total do Contrato:** {valor_total}
+
+### CLÁUSULA TERCEIRA — DO VALOR E DO PAGAMENTO
+3.1. O valor total do presente contrato é de **{valor_total}** ({valor_extenso}).
+3.2. O pagamento será efetuado em até **{prazo_pagamento}** após o recebimento definitivo dos materiais/serviços, mediante apresentação de nota fiscal/fatura devidamente atestada.
+3.3. A nota fiscal deverá conter: descrição do item, quantidade, valor unitário e total, número do contrato e dados bancários da CONTRATADA.
+3.4. Será retido na fonte os tributos previstos na legislação vigente (IR, CSLL, PIS, COFINS, ISS quando aplicável).
+
+### CLÁUSULA QUARTA — DO PRAZO DE VIGÊNCIA E EXECUÇÃO
+4.1. O presente contrato terá vigência de **{vigencia}**, contados a partir da data de sua assinatura.
+4.2. O prazo de entrega/execução dos serviços será de **{prazo_execucao}**, contados a partir do recebimento da Ordem de Fornecimento/Serviço.
+4.3. Os prazos poderão ser prorrogados nos termos do **Art. 107 da Lei 14.133/2021**.
+
+### CLÁUSULA QUINTA — DA GARANTIA CONTRATUAL
+5.1. A CONTRATADA deverá prestar garantia de execução do contrato no valor correspondente a **{percentual_garantia_contratual}** do valor total, em uma das seguintes modalidades (Art. 96, §1° da Lei 14.133/2021):
+   - I — Caução em dinheiro ou em títulos da dívida pública;
+   - II — Seguro-garantia;
+   - III — Fiança bancária.
+5.2. A garantia deverá ser apresentada no prazo de **10 (dez) dias úteis** após a assinatura do contrato.
+5.3. A garantia somente será liberada após o integral cumprimento de todas as obrigações contratuais, inclusive quanto a multas aplicadas.
+
+### CLÁUSULA SEXTA — DA GARANTIA DOS PRODUTOS / SERVIÇOS
+6.1. Os materiais fornecidos deverão possuir garantia mínima de **{garantia_produto}**, contados a partir do recebimento definitivo.
+6.2. Durante o período de garantia, a CONTRATADA deverá:
+   - a) Substituir, sem ônus, os materiais que apresentarem defeitos de fabricação, vícios ou não conformidade com as especificações;
+   - b) Realizar o reparo/substituição no prazo máximo de **{prazo_reparo}** após a notificação do defeito;
+   - c) Arcar com todos os custos de transporte, frete, mão de obra e peças de reposição;
+   - d) Fornecer assistência técnica autorizada pelo fabricante, quando aplicável.
+6.3. A garantia não cobre defeitos decorrentes de mau uso, negligência, instalação inadequada ou caso fortuito e força maior devidamente comprovados.
+6.4. Para serviços, a garantia cobre:
+   - a) Vícios ou defeitos de execução que se manifestem dentro do prazo de garantia;
+   - b) Conformidade com normas técnicas aplicáveis (ABNT, INMETRO e demais);
+   - c) Reexecução integral do serviço defeituoso, às expensas da CONTRATADA.
+6.5. O prazo de garantia será suspenso durante o período em que o material estiver em reparo ou substituição.
+6.6. A recusa injustificada da CONTRATADA em atender chamados de garantia ensejará a aplicação das sanções previstas neste contrato.
+
+### CLÁUSULA SÉTIMA — DAS OBRIGAÇÕES DA CONTRATADA
+7.1. Executar o objeto conforme especificações do Termo de Referência e proposta apresentada;
+7.2. Manter durante toda a execução do contrato as condições de habilitação exigidas na licitação;
+7.3. Responsabilizar-se por todos os encargos trabalhistas, previdenciários, fiscais e comerciais;
+7.4. Reparar, corrigir, remover ou substituir, às suas expensas, no total ou em parte, os materiais/serviços em que se verificarem vícios, defeitos ou incorreções;
+7.5. Designar preposto para representá-la durante a execução contratual (Art. 118 da Lei 14.133/2021);
+7.6. Comunicar ao CONTRATANTE qualquer anormalidade que interfira no cumprimento do contrato;
+7.7. No caso de serviços continuados, apresentar mensalmente os comprovantes de regularidade fiscal, trabalhista e previdenciária;
+7.8. Fornecer EPI e garantir condições de segurança do trabalho a seus empregados.
+
+### CLÁUSULA OITAVA — DAS OBRIGAÇÕES DO CONTRATANTE
+8.1. Proporcionar condições para a execução contratual;
+8.2. Designar Fiscal e Gestor do Contrato (Art. 117 da Lei 14.133/2021);
+8.3. Efetuar o pagamento conforme estipulado;
+8.4. Comunicar à CONTRATADA as irregularidades observadas;
+8.5. Aplicar as sanções cabíveis, garantidos o contraditório e a ampla defesa.
+
+### CLÁUSULA NONA — DA FISCALIZAÇÃO
+9.1. A fiscalização será exercida por servidor designado pelo CONTRATANTE, nos termos do **Art. 117 da Lei 14.133/2021**.
+9.2. A fiscalização não exclui nem reduz a responsabilidade da CONTRATADA.
+
+### CLÁUSULA DÉCIMA — DO RECEBIMENTO DO OBJETO
+10.1. **Recebimento provisório:** em até **{prazo_recebimento_provisorio}** do término da entrega/execução, pelo fiscal do contrato.
+10.2. **Recebimento definitivo:** em até **{prazo_recebimento_definitivo}** do recebimento provisório, pela comissão de recebimento ou gestor do contrato, após verificação da conformidade.
+10.3. Nos casos de inconformidade, a CONTRATADA será notificada para correção em prazo razoável.
+
+### CLÁUSULA DÉCIMA PRIMEIRA — DA ALTERAÇÃO CONTRATUAL
+11.1. O contrato poderá ser alterado nos termos dos **Arts. 124 a 136 da Lei 14.133/2021**.
+11.2. Acréscimos ou supressões de até **25%** do valor inicial atualizado (ou até 50% para reforma de edifícios/equipamentos).
+
+### CLÁUSULA DÉCIMA SEGUNDA — DAS PENALIDADES
+12.1. Pelo inadimplemento, aplicam-se as sanções dos **Arts. 155 a 163 da Lei 14.133/2021**:
+   - I — Advertência;
+   - II — Multa moratória de **{multa_moratoria}** por dia de atraso, limitada a **{limite_multa}** do valor do contrato;
+   - III — Multa compensatória de até **{multa_compensatoria}** do valor total, por inexecução parcial ou total;
+   - IV — Impedimento de licitar e contratar pelo prazo de até 3 anos;
+   - V — Declaração de inidoneidade para licitar ou contratar.
+12.2. As multas poderão ser descontadas da garantia, de pagamentos devidos ou cobradas judicialmente.
+
+### CLÁUSULA DÉCIMA TERCEIRA — DA RESCISÃO
+13.1. O contrato poderá ser rescindido nas hipóteses previstas nos **Arts. 137 a 139 da Lei 14.133/2021**.
+
+### CLÁUSULA DÉCIMA QUARTA — DA FUNDAMENTAÇÃO LEGAL
+- Lei 14.133/2021 (Lei de Licitações e Contratos)
+- Decreto nº 11.462/2023 (quando aplicável — SRP)
+- IN SEGES/ME nº 5/2017 ou IN SEGES/ME nº 58/2022 (conforme o caso)
+- Edital da Licitação nº {licitacao} e seus anexos
+
+### CLÁUSULA DÉCIMA QUINTA — DO FORO
+Fica eleito o foro da Justiça Federal — Seção Judiciária de __________ para dirimir quaisquer questões oriundas deste contrato.
+
+### CLÁUSULA DÉCIMA SEXTA — DAS DISPOSIÇÕES GERAIS
+{observacoes}
+
+---
+
+**CONTRATANTE:**
+{orgao}
+Nome: {representante}
+Cargo: {cargo_representante}
+
+**CONTRATADA:**
+{empresa}
+Nome: {representante_empresa}
+
+**TESTEMUNHAS:**
+1. Nome: _________________ CPF: _________________
+2. Nome: _________________ CPF: _________________
+
+---
+Documento gerado pelo sistema O Babilaca (IA) — Ferramenta de apoio.
+Confirmar sempre nas fontes oficiais.
+"""
+
 
 def _fmt_brl(valor: float) -> str:
     """Formata um valor float em reais BR: R$ 1.234,56"""
@@ -1090,6 +1315,152 @@ def gerar_mapa_comparativo_pdf(itens: list[dict], observacoes: str = "") -> byte
     pdf.set_text_color(120, 120, 120)
     pdf.cell(0, 5, _sanitize_for_pdf("Documento gerado pelo sistema O Babilaca (IA) - Ferramenta de apoio. Confirmar sempre nas fontes oficiais."), ln=True)
     return bytes(pdf.output())
+
+
+def gerar_docx_documento(titulo: str, corpo: str) -> bytes:
+    """Gera um documento Word (.docx) editável a partir de título e corpo markdown simples."""
+    doc = DocxDocument()
+    style = doc.styles["Normal"]
+    style.font.name = "Calibri"
+    style.font.size = Pt(11)
+    style.font.color.rgb = RGBColor(30, 30, 30)
+
+    # Título
+    p_titulo = doc.add_heading(titulo, level=1)
+    p_titulo.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    for run in p_titulo.runs:
+        run.font.color.rgb = RGBColor(0, 26, 77)
+
+    # Data
+    p_data = doc.add_paragraph()
+    p_data.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+    run_data = p_data.add_run(f"Gerado em {datetime.now().strftime('%d/%m/%Y %H:%M')}")
+    run_data.font.size = Pt(9)
+    run_data.font.color.rgb = RGBColor(100, 100, 100)
+
+    for linha in corpo.split("\n"):
+        linha_limpa = re.sub(r"\*{1,3}(.+?)\*{1,3}", r"\1", linha)
+        if linha.startswith("## "):
+            doc.add_heading(linha.replace("## ", ""), level=2)
+        elif linha.startswith("### "):
+            doc.add_heading(linha.replace("### ", ""), level=3)
+        elif linha.strip().startswith("- "):
+            texto_bullet = re.sub(r"\*{1,3}(.+?)\*{1,3}", r"\1", linha.strip()[2:])
+            doc.add_paragraph(texto_bullet, style="List Bullet")
+        elif linha.strip() == "---":
+            p = doc.add_paragraph()
+            p.add_run("_" * 60).font.color.rgb = RGBColor(180, 180, 180)
+        elif linha.strip() == "":
+            doc.add_paragraph()
+        else:
+            doc.add_paragraph(linha_limpa)
+
+    # Rodapé
+    doc.add_paragraph()
+    p_footer = doc.add_paragraph()
+    run_f = p_footer.add_run("Gerado por AtaCotada - O Babilaca (IA) - Marinha do Brasil")
+    run_f.font.size = Pt(7)
+    run_f.font.italic = True
+    run_f.font.color.rgb = RGBColor(150, 150, 150)
+    p_footer.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+    buf = io.BytesIO()
+    doc.save(buf)
+    return buf.getvalue()
+
+
+def gerar_mapa_comparativo_xlsx(itens: list[dict], observacoes: str = "") -> bytes:
+    """Gera planilha Excel editável do mapa comparativo de preços."""
+    import openpyxl
+    from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+    from openpyxl.utils import get_column_letter
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Mapa Comparativo"
+
+    # Estilos
+    header_font = Font(name="Calibri", bold=True, size=10, color="FFFFFF")
+    header_fill = PatternFill(start_color="001A4D", end_color="001A4D", fill_type="solid")
+    total_fill = PatternFill(start_color="F0F5FF", end_color="F0F5FF", fill_type="solid")
+    thin_border = Border(
+        left=Side(style="thin"), right=Side(style="thin"),
+        top=Side(style="thin"), bottom=Side(style="thin"),
+    )
+    center = Alignment(horizontal="center", vertical="center")
+    right_align = Alignment(horizontal="right", vertical="center")
+
+    # Título
+    ws.merge_cells("A1:I1")
+    ws["A1"] = "MAPA COMPARATIVO DE PREÇOS"
+    ws["A1"].font = Font(name="Calibri", bold=True, size=14, color="001A4D")
+    ws["A1"].alignment = Alignment(horizontal="center")
+
+    ws.merge_cells("A2:I2")
+    ws["A2"] = f"Gerado em {datetime.now().strftime('%d/%m/%Y %H:%M')}"
+    ws["A2"].font = Font(name="Calibri", size=9, color="666666")
+    ws["A2"].alignment = Alignment(horizontal="right")
+
+    # Cabeçalho
+    headers = ["Item", "Descrição", "Qtd", "Fornecedor 1", "Fornecedor 2", "Fornecedor 3", "Média", "Mediana", "Total Estimado"]
+    larguras = [6, 40, 8, 16, 16, 16, 16, 16, 18]
+    for col_idx, (header, larg) in enumerate(zip(headers, larguras), 1):
+        cell = ws.cell(row=4, column=col_idx, value=header)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.border = thin_border
+        cell.alignment = center
+        ws.column_dimensions[get_column_letter(col_idx)].width = larg
+
+    # Dados
+    total_geral = 0.0
+    for i, item in enumerate(itens, 1):
+        row = i + 4
+        precos = [item.get("preco1", 0), item.get("preco2", 0), item.get("preco3", 0)]
+        validos = [p for p in precos if p > 0]
+        media = sum(validos) / len(validos) if validos else 0
+        mediana = sorted(validos)[len(validos) // 2] if validos else 0
+        qtd = item.get("quantidade", 1) or 1
+        total_item = media * qtd
+        total_geral += total_item
+
+        valores = [i, item.get("descricao", ""), int(qtd),
+                    item.get("preco1", 0), item.get("preco2", 0), item.get("preco3", 0),
+                    media, mediana, total_item]
+        for col_idx, val in enumerate(valores, 1):
+            cell = ws.cell(row=row, column=col_idx, value=val)
+            cell.border = thin_border
+            if col_idx >= 4:
+                cell.number_format = '#,##0.00'
+                cell.alignment = right_align
+            elif col_idx in (1, 3):
+                cell.alignment = center
+
+    # Total geral
+    total_row = len(itens) + 5
+    ws.merge_cells(start_row=total_row, start_column=1, end_row=total_row, end_column=8)
+    cell_label = ws.cell(row=total_row, column=1, value="TOTAL GERAL")
+    cell_label.font = Font(name="Calibri", bold=True, size=10)
+    cell_label.fill = total_fill
+    cell_label.border = thin_border
+    cell_label.alignment = Alignment(horizontal="right")
+    cell_total = ws.cell(row=total_row, column=9, value=total_geral)
+    cell_total.font = Font(name="Calibri", bold=True, size=10)
+    cell_total.fill = total_fill
+    cell_total.border = thin_border
+    cell_total.number_format = '#,##0.00'
+    cell_total.alignment = right_align
+
+    # Observações
+    if observacoes and observacoes.strip():
+        obs_row = total_row + 2
+        ws.cell(row=obs_row, column=1, value="OBSERVAÇÕES:").font = Font(name="Calibri", bold=True, size=10)
+        ws.merge_cells(start_row=obs_row + 1, start_column=1, end_row=obs_row + 1, end_column=9)
+        ws.cell(row=obs_row + 1, column=1, value=observacoes.strip())
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
 
 
 # ============================================================
@@ -2031,6 +2402,8 @@ with tab_docs:
          "Mapa Comparativo de Preços",
          "Cronograma Físico-Financeiro",
          "Memória de Cálculo",
+         "Ata de Registro de Preços",
+         "Minuta de Contrato de Serviço / Material",
          "Classificação de Risco Jurídico"],
     )
 
@@ -2064,7 +2437,12 @@ with tab_docs:
                 )
                 st.markdown(corpo)
                 pdf_bytes = gerar_pdf_documento("DOCUMENTO DE FORMALIZAÇÃO DE DEMANDA (DFD)", corpo)
-                st.download_button("⬇️ Baixar DFD em PDF", pdf_bytes, "dfd.pdf", "application/pdf")
+                docx_bytes = gerar_docx_documento("DOCUMENTO DE FORMALIZAÇÃO DE DEMANDA (DFD)", corpo)
+                _c_pdf, _c_docx = st.columns(2)
+                with _c_pdf:
+                    st.download_button("⬇️ Baixar DFD em PDF", pdf_bytes, "dfd.pdf", "application/pdf")
+                with _c_docx:
+                    st.download_button("📝 Baixar DFD em Word", docx_bytes, "dfd.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
         else:
             desc_ia = st.text_area(
                 "Descreva brevemente a necessidade de contratação e o Babilaca preencherá o DFD:",
@@ -2086,7 +2464,12 @@ with tab_docs:
                         resultado = chamar_ia([{"role": "user", "content": prompt_dfd}], system)
                     st.markdown(resultado)
                     pdf_bytes = gerar_pdf_documento("DOCUMENTO DE FORMALIZAÇÃO DE DEMANDA (DFD)", resultado)
-                    st.download_button("⬇️ Baixar DFD em PDF", pdf_bytes, "dfd_ia.pdf", "application/pdf")
+                    docx_bytes = gerar_docx_documento("DOCUMENTO DE FORMALIZAÇÃO DE DEMANDA (DFD)", resultado)
+                    _c_pdf, _c_docx = st.columns(2)
+                    with _c_pdf:
+                        st.download_button("⬇️ Baixar DFD em PDF", pdf_bytes, "dfd_ia.pdf", "application/pdf")
+                    with _c_docx:
+                        st.download_button("📝 Baixar DFD em Word", docx_bytes, "dfd_ia.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
                 else:
                     st.warning("Descreva a necessidade antes de gerar.")
 
@@ -2118,7 +2501,12 @@ with tab_docs:
                 )
                 st.markdown(corpo)
                 pdf_bytes = gerar_pdf_documento("TERMO DE REFERÊNCIA", corpo)
-                st.download_button("⬇️ Baixar TR em PDF", pdf_bytes, "termo_referencia.pdf", "application/pdf")
+                docx_bytes = gerar_docx_documento("TERMO DE REFERÊNCIA", corpo)
+                _c_pdf, _c_docx = st.columns(2)
+                with _c_pdf:
+                    st.download_button("⬇️ Baixar TR em PDF", pdf_bytes, "termo_referencia.pdf", "application/pdf")
+                with _c_docx:
+                    st.download_button("📝 Baixar TR em Word", docx_bytes, "termo_referencia.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
         else:
             desc_tr = st.text_area(
                 "Descreva o que precisa contratar e o Babilaca elaborará o Termo de Referência:",
@@ -2151,7 +2539,12 @@ with tab_docs:
                         resultado = chamar_ia([{"role": "user", "content": prompt_tr}], system)
                     st.markdown(resultado)
                     pdf_bytes = gerar_pdf_documento("TERMO DE REFERÊNCIA", resultado)
-                    st.download_button("⬇️ Baixar TR em PDF", pdf_bytes, "tr_ia.pdf", "application/pdf")
+                    docx_bytes = gerar_docx_documento("TERMO DE REFERÊNCIA", resultado)
+                    _c_pdf, _c_docx = st.columns(2)
+                    with _c_pdf:
+                        st.download_button("⬇️ Baixar TR em PDF", pdf_bytes, "tr_ia.pdf", "application/pdf")
+                    with _c_docx:
+                        st.download_button("📝 Baixar TR em Word", docx_bytes, "tr_ia.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
                 else:
                     st.warning("Forneça uma descrição ou envie um arquivo.")
 
@@ -2181,7 +2574,12 @@ with tab_docs:
                 )
                 st.markdown(corpo)
                 pdf_bytes = gerar_pdf_documento("JUSTIFICATIVA DE CONTRATAÇÃO", corpo)
-                st.download_button("⬇️ Baixar Justificativa em PDF", pdf_bytes, "justificativa.pdf", "application/pdf")
+                docx_bytes = gerar_docx_documento("JUSTIFICATIVA DE CONTRATAÇÃO", corpo)
+                _c_pdf, _c_docx = st.columns(2)
+                with _c_pdf:
+                    st.download_button("⬇️ Baixar Justificativa em PDF", pdf_bytes, "justificativa.pdf", "application/pdf")
+                with _c_docx:
+                    st.download_button("📝 Baixar Justificativa em Word", docx_bytes, "justificativa.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
         else:
             desc_just = st.text_area(
                 "Descreva a contratação que precisa justificar:",
@@ -2202,7 +2600,12 @@ with tab_docs:
                         resultado = chamar_ia([{"role": "user", "content": prompt_just}], system)
                     st.markdown(resultado)
                     pdf_bytes = gerar_pdf_documento("JUSTIFICATIVA DE CONTRATAÇÃO", resultado)
-                    st.download_button("⬇️ Baixar em PDF", pdf_bytes, "justificativa_ia.pdf", "application/pdf")
+                    docx_bytes = gerar_docx_documento("JUSTIFICATIVA DE CONTRATAÇÃO", resultado)
+                    _c_pdf, _c_docx = st.columns(2)
+                    with _c_pdf:
+                        st.download_button("⬇️ Baixar em PDF", pdf_bytes, "justificativa_ia.pdf", "application/pdf")
+                    with _c_docx:
+                        st.download_button("📝 Baixar em Word", docx_bytes, "justificativa_ia.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
                 else:
                     st.warning("Descreva o cenário.")
 
@@ -2238,7 +2641,12 @@ with tab_docs:
 
             if st.button("📊 Gerar Mapa Comparativo", key="btn_mapa"):
                 pdf_bytes = gerar_mapa_comparativo_pdf(itens_mapa, observacoes=obs_mapa)
-                st.download_button("⬇️ Baixar Mapa em PDF", pdf_bytes, "mapa_comparativo.pdf", "application/pdf")
+                xlsx_bytes = gerar_mapa_comparativo_xlsx(itens_mapa, observacoes=obs_mapa)
+                _c_pdf, _c_xlsx = st.columns(2)
+                with _c_pdf:
+                    st.download_button("⬇️ Baixar Mapa em PDF", pdf_bytes, "mapa_comparativo.pdf", "application/pdf")
+                with _c_xlsx:
+                    st.download_button("📊 Baixar Mapa em Excel", xlsx_bytes, "mapa_comparativo.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
                 # Mostrar tabela na tela
                 rows = []
@@ -2324,7 +2732,12 @@ with tab_docs:
                                 itens_arq.append(item)
                             if itens_arq:
                                 pdf_bytes = gerar_mapa_comparativo_pdf(itens_arq, observacoes=obs_mapa_arq)
-                                st.download_button("⬇️ Baixar Mapa em PDF", pdf_bytes, "mapa_comparativo.pdf", "application/pdf")
+                                xlsx_bytes = gerar_mapa_comparativo_xlsx(itens_arq, observacoes=obs_mapa_arq)
+                                _c_pdf, _c_xlsx = st.columns(2)
+                                with _c_pdf:
+                                    st.download_button("⬇️ Baixar Mapa em PDF", pdf_bytes, "mapa_comparativo.pdf", "application/pdf")
+                                with _c_xlsx:
+                                    st.download_button("📊 Baixar Mapa em Excel", xlsx_bytes, "mapa_comparativo.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
                 except Exception as e:
                     st.error(f"Erro ao processar arquivo: {e}")
 
@@ -2429,7 +2842,12 @@ Confirmar sempre nas fontes oficiais.
 """
                 st.markdown(corpo_crono)
                 pdf_bytes = gerar_pdf_documento("CRONOGRAMA FÍSICO-FINANCEIRO", corpo_crono)
-                st.download_button("⬇️ Baixar Cronograma em PDF", pdf_bytes, "cronograma_fisico_financeiro.pdf", "application/pdf")
+                docx_bytes = gerar_docx_documento("CRONOGRAMA FÍSICO-FINANCEIRO", corpo_crono)
+                _c_pdf, _c_docx = st.columns(2)
+                with _c_pdf:
+                    st.download_button("⬇️ Baixar Cronograma em PDF", pdf_bytes, "cronograma_fisico_financeiro.pdf", "application/pdf")
+                with _c_docx:
+                    st.download_button("📝 Baixar Cronograma em Word", docx_bytes, "cronograma_fisico_financeiro.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
 
         else:  # Assistido por IA
             st.markdown(
@@ -2484,7 +2902,12 @@ Confirmar sempre nas fontes oficiais.
                         resultado = chamar_ia([{"role": "user", "content": prompt_crono}], system)
                     st.markdown(resultado)
                     pdf_bytes = gerar_pdf_documento("CRONOGRAMA FÍSICO-FINANCEIRO", resultado)
-                    st.download_button("⬇️ Baixar Cronograma em PDF", pdf_bytes, "cronograma_ia.pdf", "application/pdf")
+                    docx_bytes = gerar_docx_documento("CRONOGRAMA FÍSICO-FINANCEIRO", resultado)
+                    _c_pdf, _c_docx = st.columns(2)
+                    with _c_pdf:
+                        st.download_button("⬇️ Baixar Cronograma em PDF", pdf_bytes, "cronograma_ia.pdf", "application/pdf")
+                    with _c_docx:
+                        st.download_button("📝 Baixar Cronograma em Word", docx_bytes, "cronograma_ia.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
                 else:
                     st.warning("Descreva o projeto ou envie um arquivo.")
 
@@ -2671,7 +3094,12 @@ Confirmar sempre nas fontes oficiais.
 """
                 st.markdown(corpo_mc)
                 pdf_bytes = gerar_pdf_documento("MEMÓRIA DE CÁLCULO", corpo_mc)
-                st.download_button("⬇️ Baixar Memória de Cálculo em PDF", pdf_bytes, "memoria_calculo.pdf", "application/pdf")
+                docx_bytes = gerar_docx_documento("MEMÓRIA DE CÁLCULO", corpo_mc)
+                _c_pdf, _c_docx = st.columns(2)
+                with _c_pdf:
+                    st.download_button("⬇️ Baixar Memória de Cálculo em PDF", pdf_bytes, "memoria_calculo.pdf", "application/pdf")
+                with _c_docx:
+                    st.download_button("📝 Baixar Memória de Cálculo em Word", docx_bytes, "memoria_calculo.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
 
         else:  # Assistido por IA
             st.markdown(
@@ -2734,9 +3162,384 @@ Confirmar sempre nas fontes oficiais.
                         resultado = chamar_ia([{"role": "user", "content": prompt_mc}], system)
                     st.markdown(resultado)
                     pdf_bytes = gerar_pdf_documento("MEMÓRIA DE CÁLCULO", resultado)
-                    st.download_button("⬇️ Baixar Memória de Cálculo em PDF", pdf_bytes, "memoria_calculo_ia.pdf", "application/pdf")
+                    docx_bytes = gerar_docx_documento("MEMÓRIA DE CÁLCULO", resultado)
+                    _c_pdf, _c_docx = st.columns(2)
+                    with _c_pdf:
+                        st.download_button("⬇️ Baixar Memória de Cálculo em PDF", pdf_bytes, "memoria_calculo_ia.pdf", "application/pdf")
+                    with _c_docx:
+                        st.download_button("📝 Baixar Memória de Cálculo em Word", docx_bytes, "memoria_calculo_ia.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
                 else:
                     st.warning("Descreva os itens/valores ou envie um arquivo.")
+
+    # ---- ATA DE REGISTRO DE PREÇOS ----
+    elif "Ata de Registro" in tipo_doc:
+        st.markdown("#### 📜 Modelo de Ata de Registro de Preços")
+        st.markdown(
+            "Gere um modelo completo de Ata de Registro de Preços conforme a **Lei 14.133/2021 (Arts. 82 a 86)** "
+            "e o **Decreto nº 11.462/2023**. Inclui cláusulas de revisão, cancelamento, adesão (carona), "
+            "obrigações e penalidades."
+        )
+        modo_ata = st.radio("Modo de preenchimento", ["Manual", "Assistido por IA"], horizontal=True, key="modo_ata", index=1)
+
+        if modo_ata == "Manual":
+            with st.form("form_ata_rp"):
+                st.markdown("**Dados do Órgão Gerenciador**")
+                ca1, ca2 = st.columns(2)
+                with ca1:
+                    ata_orgao = st.text_input("Órgão Gerenciador", key="ata_orgao")
+                    ata_cnpj_orgao = st.text_input("CNPJ do Órgão", key="ata_cnpj_orgao")
+                    ata_endereco_orgao = st.text_input("Endereço do Órgão", key="ata_end_orgao")
+                with ca2:
+                    ata_representante = st.text_input("Representante Legal", key="ata_repr")
+                    ata_cargo = st.text_input("Cargo do Representante", key="ata_cargo")
+                    ata_processo = st.text_input("Nº Processo Administrativo", key="ata_processo")
+
+                st.markdown("---")
+                st.markdown("**Dados da Licitação**")
+                cb1, cb2 = st.columns(2)
+                with cb1:
+                    ata_pregao = st.text_input("Nº do Pregão Eletrônico", key="ata_pregao")
+                    ata_objeto = st.text_area("Objeto", height=60, key="ata_objeto")
+                with cb2:
+                    ata_vigencia = st.text_input("Vigência da Ata", value="12 (doze) meses", key="ata_vigencia")
+                    ata_data_assinatura = st.date_input("Data de Assinatura", key="ata_data_ass")
+
+                st.markdown("---")
+                st.markdown("**Dados do Fornecedor**")
+                cc1, cc2 = st.columns(2)
+                with cc1:
+                    ata_fornecedor = st.text_input("Razão Social do Fornecedor", key="ata_forn")
+                    ata_cnpj_forn = st.text_input("CNPJ do Fornecedor", key="ata_cnpj_forn")
+                    ata_end_forn = st.text_input("Endereço do Fornecedor", key="ata_end_forn")
+                with cc2:
+                    ata_repr_forn = st.text_input("Representante do Fornecedor", key="ata_repr_forn")
+                    ata_contato_forn = st.text_input("Telefone/E-mail do Fornecedor", key="ata_contato_forn")
+
+                st.markdown("---")
+                st.markdown("**Itens Registrados**")
+                n_itens_ata = st.number_input("Número de itens", min_value=1, max_value=50, value=3, key="n_itens_ata")
+                itens_ata = []
+                for i in range(int(n_itens_ata)):
+                    st.markdown(f"**Item {i + 1}**")
+                    ia1, ia2, ia3, ia4 = st.columns([4, 1, 1, 1.5])
+                    with ia1:
+                        ata_desc = st.text_input("Descrição", key=f"ata_desc_{i}")
+                    with ia2:
+                        ata_und = st.text_input("Unidade", value="UN", key=f"ata_und_{i}")
+                    with ia3:
+                        ata_qtd = st.number_input("Qtd", min_value=1, value=1, key=f"ata_qtd_{i}")
+                    with ia4:
+                        ata_val = st.number_input("Valor Unit. (R$)", min_value=0.0, format="%.2f", key=f"ata_val_{i}")
+                    itens_ata.append({"descricao": ata_desc, "unidade": ata_und, "quantidade": ata_qtd, "valor": ata_val})
+
+                st.markdown("---")
+                st.markdown("**Condições**")
+                cd1, cd2 = st.columns(2)
+                with cd1:
+                    ata_prazo_entrega = st.text_input("Prazo de entrega", value="30 (trinta) dias", key="ata_prazo_ent")
+                    ata_local_entrega = st.text_input("Local de entrega", key="ata_local_ent")
+                with cd2:
+                    ata_prazo_pgto = st.text_input("Prazo de pagamento", value="30 (trinta) dias", key="ata_prazo_pgto")
+                ata_obs = st.text_area("Observações / Disposições Gerais", height=80, key="ata_obs")
+                submit_ata = st.form_submit_button("📜 Gerar Ata de Registro de Preços", use_container_width=True)
+
+            if submit_ata:
+                tabela_itens_str = ""
+                valor_total_ata = 0.0
+                for j, it in enumerate(itens_ata, 1):
+                    vt = it["valor"] * it["quantidade"]
+                    valor_total_ata += vt
+                    tabela_itens_str += f"| {j} | {it['descricao']} | {it['unidade']} | {it['quantidade']} | {_fmt_brl(it['valor'])} | {_fmt_brl(vt)} |\n"
+
+                corpo_ata = TEMPLATE_ATA_RP.format(
+                    processo=ata_processo, pregao=ata_pregao, orgao=ata_orgao,
+                    cnpj_orgao=ata_cnpj_orgao, vigencia=ata_vigencia,
+                    data_assinatura=ata_data_assinatura.strftime("%d/%m/%Y"),
+                    endereco_orgao=ata_endereco_orgao, cargo_representante=ata_cargo,
+                    representante=ata_representante, objeto=ata_objeto,
+                    fornecedor=ata_fornecedor, cnpj_fornecedor=ata_cnpj_forn,
+                    endereco_fornecedor=ata_end_forn, representante_fornecedor=ata_repr_forn,
+                    contato_fornecedor=ata_contato_forn, tabela_itens=tabela_itens_str,
+                    valor_total=_fmt_brl(valor_total_ata), prazo_entrega=ata_prazo_entrega,
+                    local_entrega=ata_local_entrega, prazo_pagamento=ata_prazo_pgto,
+                    observacoes=ata_obs or "Sem observações adicionais.",
+                )
+                st.markdown(corpo_ata)
+                pdf_bytes = gerar_pdf_documento("ATA DE REGISTRO DE PREÇOS", corpo_ata)
+                docx_bytes = gerar_docx_documento("ATA DE REGISTRO DE PREÇOS", corpo_ata)
+                _c_pdf, _c_docx = st.columns(2)
+                with _c_pdf:
+                    st.download_button("⬇️ Baixar Ata em PDF", pdf_bytes, "ata_registro_precos.pdf", "application/pdf")
+                with _c_docx:
+                    st.download_button("📝 Baixar Ata em Word", docx_bytes, "ata_registro_precos.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+        else:
+            desc_ata = st.text_area(
+                "Descreva os dados da licitação, órgão, fornecedor, itens e condições. O Babilaca gerará a Ata completa:",
+                height=180,
+                key="ata_ia_input",
+                placeholder=(
+                    "Ex: Pregão Eletrônico nº 10/2026, UASG 787000 (Centro de Obtenção da Marinha).\n"
+                    "Fornecedor vencedor: Empresa ABC Ltda, CNPJ 12.345.678/0001-90.\n"
+                    "Itens: 100 un resma de papel A4 a R$ 25,00/un; 50 un toner HP a R$ 180,00/un.\n"
+                    "Vigência: 12 meses. Entrega em 30 dias no almoxarifado central."
+                ),
+            )
+            arquivo_ata = st.file_uploader("Ou envie edital/resultado de licitação (PDF/Excel)", type=["pdf", "xlsx"], key="ata_upload")
+            if st.button("🤖 Gerar Ata com IA", key="btn_ata_ia"):
+                ctx_extra = ""
+                if arquivo_ata:
+                    if arquivo_ata.name.endswith(".pdf"):
+                        ctx_extra = extrair_texto_pdf(arquivo_ata)
+                    else:
+                        ctx_extra, _ = extrair_dados_excel(arquivo_ata)
+                if desc_ata or ctx_extra:
+                    with st.spinner("Gerando Ata de Registro de Preços com IA..."):
+                        prompt_ata = (
+                            "Gere um **Modelo de Ata de Registro de Preços** completo e detalhado, "
+                            "conforme a Lei 14.133/2021 (Arts. 82 a 86) e o Decreto 11.462/2023.\n\n"
+                            f"**Dados fornecidos:**\n{desc_ata}\n\n"
+                        )
+                        if ctx_extra:
+                            prompt_ata += f"**Dados do arquivo anexado:**\n{ctx_extra[:4000]}\n\n"
+                        prompt_ata += (
+                            "O documento deve conter OBRIGATORIAMENTE:\n\n"
+                            "1. **PREÂMBULO** com identificação do Órgão Gerenciador, licitação e fornecedor\n"
+                            "2. **OBJETO** detalhado\n"
+                            "3. **TABELA DE ITENS** com descrição, unidade, quantidade, valor unitário e total\n"
+                            "4. **VALIDADE DA ATA** — prazo e condições de prorrogação (Art. 84)\n"
+                            "5. **REVISÃO E CANCELAMENTO** de preços (Art. 82, §5°)\n"
+                            "6. **CONDIÇÕES DE ENTREGA** — prazo, local, recebimento provisório/definitivo\n"
+                            "7. **PAGAMENTO** — prazo, documentação, retenções\n"
+                            "8. **OBRIGAÇÕES DO FORNECEDOR** — habilitação, encargos, substituição\n"
+                            "9. **OBRIGAÇÕES DO ÓRGÃO** — gerenciamento, renegociação, sanções\n"
+                            "10. **ADESÃO (CARONA)** — limites de 50% por órgão e dobro total (Art. 86)\n"
+                            "11. **PENALIDADES** — Arts. 155 a 163\n"
+                            "12. **FUNDAMENTAÇÃO LEGAL** — Lei 14.133/2021, Decreto 11.462/2023\n\n"
+                            "Use tabelas Markdown, valores em Reais (R$) e linguagem jurídica formal."
+                        )
+                        ctx = buscar_base_juridica("ata registro preços pregão licitação fornecedor")
+                        system = _build_system_prompt(ctx)
+                        resultado = chamar_ia([{"role": "user", "content": prompt_ata}], system)
+                    st.markdown(resultado)
+                    pdf_bytes = gerar_pdf_documento("ATA DE REGISTRO DE PREÇOS", resultado)
+                    docx_bytes = gerar_docx_documento("ATA DE REGISTRO DE PREÇOS", resultado)
+                    _c_pdf, _c_docx = st.columns(2)
+                    with _c_pdf:
+                        st.download_button("⬇️ Baixar Ata em PDF", pdf_bytes, "ata_rp_ia.pdf", "application/pdf")
+                    with _c_docx:
+                        st.download_button("📝 Baixar Ata em Word", docx_bytes, "ata_rp_ia.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+                else:
+                    st.warning("Descreva os dados da licitação ou envie um arquivo.")
+
+    # ---- MINUTA DE CONTRATO ----
+    elif "Minuta de Contrato" in tipo_doc:
+        st.markdown("#### 📑 Minuta de Contrato de Serviço / Material")
+        st.markdown(
+            "Gere uma minuta de contrato completa com todas as cláusulas essenciais, incluindo "
+            "**garantia contratual**, **garantia dos produtos/serviços**, penalidades, fiscalização "
+            "e recebimento, conforme a **Lei 14.133/2021**."
+        )
+        modo_contrato = st.radio("Modo de preenchimento", ["Manual", "Assistido por IA"], horizontal=True, key="modo_contrato", index=1)
+
+        if modo_contrato == "Manual":
+            with st.form("form_minuta_contrato"):
+                st.markdown("**Dados do Contratante**")
+                mc1, mc2 = st.columns(2)
+                with mc1:
+                    ct_orgao = st.text_input("Órgão/Entidade", key="ct_orgao")
+                    ct_cnpj_orgao = st.text_input("CNPJ do Órgão", key="ct_cnpj_orgao")
+                    ct_endereco_orgao = st.text_input("Endereço do Órgão", key="ct_end_orgao")
+                with mc2:
+                    ct_representante = st.text_input("Representante Legal", key="ct_repr")
+                    ct_cargo = st.text_input("Cargo", key="ct_cargo")
+                    ct_processo = st.text_input("Nº Processo Administrativo", key="ct_processo")
+
+                st.markdown("---")
+                st.markdown("**Dados da Licitação e Contrato**")
+                md1, md2 = st.columns(2)
+                with md1:
+                    ct_licitacao = st.text_input("Nº da Licitação", key="ct_licitacao")
+                    ct_modalidade = st.selectbox("Modalidade", [
+                        "Pregão Eletrônico", "Concorrência", "Dispensa de Licitação",
+                        "Inexigibilidade", "Adesão a Ata de Registro de Preços"
+                    ], key="ct_modalidade")
+                    ct_tipo = st.selectbox("Tipo de Contrato", [
+                        "FORNECIMENTO DE MATERIAL", "PRESTAÇÃO DE SERVIÇO",
+                        "FORNECIMENTO DE MATERIAL E PRESTAÇÃO DE SERVIÇO"
+                    ], key="ct_tipo")
+                with md2:
+                    ct_ano = st.text_input("Ano", value=str(datetime.now().year), key="ct_ano")
+                    ct_vigencia = st.text_input("Vigência", value="12 (doze) meses", key="ct_vigencia")
+                    ct_objeto = st.text_area("Objeto da Contratação", height=60, key="ct_objeto")
+
+                st.markdown("---")
+                st.markdown("**Dados da Contratada**")
+                me1, me2 = st.columns(2)
+                with me1:
+                    ct_empresa = st.text_input("Razão Social da Empresa", key="ct_empresa")
+                    ct_cnpj_empresa = st.text_input("CNPJ da Empresa", key="ct_cnpj_emp")
+                    ct_end_empresa = st.text_input("Endereço da Empresa", key="ct_end_emp")
+                with me2:
+                    ct_repr_empresa = st.text_input("Representante da Empresa", key="ct_repr_emp")
+
+                st.markdown("---")
+                st.markdown("**Itens / Serviços**")
+                n_itens_ct = st.number_input("Número de itens", min_value=1, max_value=50, value=3, key="n_itens_ct")
+                itens_ct = []
+                for i in range(int(n_itens_ct)):
+                    st.markdown(f"**Item {i + 1}**")
+                    ic1, ic2, ic3, ic4 = st.columns([4, 1, 1, 1.5])
+                    with ic1:
+                        ct_desc = st.text_input("Descrição", key=f"ct_desc_{i}")
+                    with ic2:
+                        ct_und = st.text_input("Unidade", value="UN", key=f"ct_und_{i}")
+                    with ic3:
+                        ct_qtd = st.number_input("Qtd", min_value=1, value=1, key=f"ct_qtd_{i}")
+                    with ic4:
+                        ct_val = st.number_input("Valor Unit. (R$)", min_value=0.0, format="%.2f", key=f"ct_val_{i}")
+                    itens_ct.append({"descricao": ct_desc, "unidade": ct_und, "quantidade": ct_qtd, "valor": ct_val})
+
+                st.markdown("---")
+                st.markdown("**Garantia e Condições**")
+                gf1, gf2 = st.columns(2)
+                with gf1:
+                    ct_garantia_contratual = st.selectbox("Garantia contratual (% do valor)", [
+                        "5%", "10%", "Até 30% (obras de grande vulto)"
+                    ], key="ct_gar_contratual")
+                    ct_garantia_produto = st.text_input("Garantia dos produtos/serviços", value="12 (doze) meses", key="ct_gar_prod")
+                    ct_prazo_reparo = st.text_input("Prazo para reparo/substituição em garantia", value="10 (dez) dias úteis", key="ct_prazo_reparo")
+                with gf2:
+                    ct_prazo_execucao = st.text_input("Prazo de execução/entrega", value="30 (trinta) dias", key="ct_prazo_exec")
+                    ct_prazo_pgto = st.text_input("Prazo de pagamento", value="30 (trinta) dias", key="ct_prazo_pgto")
+
+                st.markdown("---")
+                st.markdown("**Penalidades**")
+                gp1, gp2, gp3 = st.columns(3)
+                with gp1:
+                    ct_multa_mora = st.text_input("Multa moratória (por dia)", value="0,5%", key="ct_multa_mora")
+                with gp2:
+                    ct_limite_multa = st.text_input("Limite da multa moratória", value="10%", key="ct_limite_multa")
+                with gp3:
+                    ct_multa_comp = st.text_input("Multa compensatória", value="20%", key="ct_multa_comp")
+
+                st.markdown("---")
+                st.markdown("**Recebimento**")
+                gr1, gr2 = st.columns(2)
+                with gr1:
+                    ct_receb_prov = st.text_input("Prazo receb. provisório", value="5 (cinco) dias úteis", key="ct_rec_prov")
+                with gr2:
+                    ct_receb_def = st.text_input("Prazo receb. definitivo", value="10 (dez) dias úteis", key="ct_rec_def")
+
+                ct_obs = st.text_area("Observações / Disposições Gerais", height=80, key="ct_obs")
+                submit_ct = st.form_submit_button("📑 Gerar Minuta de Contrato", use_container_width=True)
+
+            if submit_ct:
+                tabela_itens_ct = ""
+                valor_total_ct = 0.0
+                for j, it in enumerate(itens_ct, 1):
+                    vt = it["valor"] * it["quantidade"]
+                    valor_total_ct += vt
+                    tabela_itens_ct += f"| {j} | {it['descricao']} | {it['unidade']} | {it['quantidade']} | {_fmt_brl(it['valor'])} | {_fmt_brl(vt)} |\n"
+
+                corpo_ct = TEMPLATE_MINUTA_CONTRATO.format(
+                    tipo_contrato=ct_tipo, processo=ct_processo, licitacao=ct_licitacao,
+                    modalidade=ct_modalidade, ano=ct_ano, vigencia=ct_vigencia,
+                    orgao=ct_orgao, endereco_orgao=ct_endereco_orgao, cnpj_orgao=ct_cnpj_orgao,
+                    cargo_representante=ct_cargo, representante=ct_representante,
+                    empresa=ct_empresa, cnpj_empresa=ct_cnpj_empresa,
+                    endereco_empresa=ct_end_empresa, representante_empresa=ct_repr_empresa,
+                    objeto=ct_objeto, tabela_itens=tabela_itens_ct,
+                    valor_total=_fmt_brl(valor_total_ct),
+                    valor_extenso="(valor por extenso)",
+                    prazo_pagamento=ct_prazo_pgto, prazo_execucao=ct_prazo_execucao,
+                    percentual_garantia_contratual=ct_garantia_contratual,
+                    garantia_produto=ct_garantia_produto, prazo_reparo=ct_prazo_reparo,
+                    multa_moratoria=ct_multa_mora, limite_multa=ct_limite_multa,
+                    multa_compensatoria=ct_multa_comp,
+                    prazo_recebimento_provisorio=ct_receb_prov,
+                    prazo_recebimento_definitivo=ct_receb_def,
+                    observacoes=ct_obs or "Sem observações adicionais.",
+                )
+                st.markdown(corpo_ct)
+                pdf_bytes = gerar_pdf_documento(f"MINUTA DE CONTRATO DE {ct_tipo}", corpo_ct)
+                docx_bytes = gerar_docx_documento(f"MINUTA DE CONTRATO DE {ct_tipo}", corpo_ct)
+                _c_pdf, _c_docx = st.columns(2)
+                with _c_pdf:
+                    st.download_button("⬇️ Baixar Minuta em PDF", pdf_bytes, "minuta_contrato.pdf", "application/pdf")
+                with _c_docx:
+                    st.download_button("📝 Baixar Minuta em Word", docx_bytes, "minuta_contrato.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+        else:
+            desc_ct = st.text_area(
+                "Descreva o objeto, tipo (serviço/material), condições e o Babilaca gerará a Minuta completa:",
+                height=180,
+                key="ct_ia_input",
+                placeholder=(
+                    "Ex: Contrato de fornecimento de 200 cadeiras ergonômicas para o prédio administrativo.\n"
+                    "Empresa: Móveis XYZ Ltda. Valor: R$ 150.000,00. Prazo de entrega: 45 dias.\n"
+                    "Garantia do produto: 5 anos. Garantia contratual: 5% em seguro-garantia.\n"
+                    "Incluir cláusula de assistência técnica e substituição em caso de defeito."
+                ),
+            )
+            arquivo_ct = st.file_uploader("Ou envie Termo de Referência / proposta (PDF/Excel)", type=["pdf", "xlsx"], key="ct_upload")
+            if st.button("🤖 Gerar Minuta com IA", key="btn_ct_ia"):
+                ctx_extra = ""
+                if arquivo_ct:
+                    if arquivo_ct.name.endswith(".pdf"):
+                        ctx_extra = extrair_texto_pdf(arquivo_ct)
+                    else:
+                        ctx_extra, _ = extrair_dados_excel(arquivo_ct)
+                if desc_ct or ctx_extra:
+                    with st.spinner("Gerando Minuta de Contrato com IA..."):
+                        prompt_ct = (
+                            "Gere uma **Minuta de Contrato** completa e detalhada para a contratação abaixo, "
+                            "conforme a Lei 14.133/2021.\n\n"
+                            f"**Dados fornecidos:**\n{desc_ct}\n\n"
+                        )
+                        if ctx_extra:
+                            prompt_ct += f"**Dados do arquivo anexado:**\n{ctx_extra[:4000]}\n\n"
+                        prompt_ct += (
+                            "O documento deve conter OBRIGATORIAMENTE todas as cláusulas essenciais:\n\n"
+                            "1. **PREÂMBULO** — identificação das partes (CONTRATANTE e CONTRATADA)\n"
+                            "2. **OBJETO** — descrição detalhada\n"
+                            "3. **ITENS/ESPECIFICAÇÕES** — tabela com descrição, unidade, qtd, valor unitário e total\n"
+                            "4. **VALOR E PAGAMENTO** — valor total, prazo de pagamento, condições, retenções fiscais\n"
+                            "5. **VIGÊNCIA E EXECUÇÃO** — prazos, possibilidade de prorrogação (Art. 107)\n"
+                            "6. **GARANTIA CONTRATUAL** (CLÁUSULA ESSENCIAL!) — percentual (5% a 10%), "
+                            "modalidades (caução, seguro-garantia, fiança bancária), prazo de apresentação, "
+                            "condições de liberação (Art. 96 da Lei 14.133/2021)\n"
+                            "7. **GARANTIA DOS PRODUTOS/SERVIÇOS** (CLÁUSULA ESSENCIAL!) — prazo mínimo de garantia, "
+                            "obrigações de substituição/reparo, prazo para atendimento de chamados, "
+                            "cobertura (defeitos de fabricação, vícios, não conformidade), "
+                            "exclusões (mau uso, caso fortuito), suspensão do prazo durante reparo, "
+                            "assistência técnica, reexecução de serviços defeituosos\n"
+                            "8. **OBRIGAÇÕES DA CONTRATADA** — habilitação, encargos, preposto, EPI, segurança\n"
+                            "9. **OBRIGAÇÕES DO CONTRATANTE** — fiscalização, pagamento, comunicação\n"
+                            "10. **FISCALIZAÇÃO** — fiscal e gestor do contrato (Art. 117)\n"
+                            "11. **RECEBIMENTO** — provisório e definitivo, prazos, conferência\n"
+                            "12. **ALTERAÇÃO CONTRATUAL** — limites de 25%/50% (Arts. 124-136)\n"
+                            "13. **PENALIDADES** — multa moratória (% por dia), multa compensatória, "
+                            "impedimento de licitar, inidoneidade (Arts. 155-163)\n"
+                            "14. **RESCISÃO** — hipóteses (Arts. 137-139)\n"
+                            "15. **FUNDAMENTAÇÃO LEGAL**\n"
+                            "16. **FORO**\n"
+                            "17. **ASSINATURAS** — espaço para CONTRATANTE, CONTRATADA e testemunhas\n\n"
+                            "ATENÇÃO ESPECIAL às cláusulas de GARANTIA: sejam extremamente detalhistas sobre "
+                            "prazos, coberturas, exclusões, procedimentos de acionamento e penalidades por descumprimento.\n\n"
+                            "Use linguagem jurídica formal, tabelas Markdown e valores em Reais (R$)."
+                        )
+                        ctx = buscar_base_juridica("contrato garantia fiscalização recebimento penalidade pagamento")
+                        system = _build_system_prompt(ctx)
+                        resultado = chamar_ia([{"role": "user", "content": prompt_ct}], system)
+                    st.markdown(resultado)
+                    pdf_bytes = gerar_pdf_documento("MINUTA DE CONTRATO", resultado)
+                    docx_bytes = gerar_docx_documento("MINUTA DE CONTRATO", resultado)
+                    _c_pdf, _c_docx = st.columns(2)
+                    with _c_pdf:
+                        st.download_button("⬇️ Baixar Minuta em PDF", pdf_bytes, "minuta_contrato_ia.pdf", "application/pdf")
+                    with _c_docx:
+                        st.download_button("📝 Baixar Minuta em Word", docx_bytes, "minuta_contrato_ia.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+                else:
+                    st.warning("Descreva a contratação ou envie um arquivo.")
 
     # ---- Classificação de Risco Jurídico ----
     elif "Risco" in tipo_doc:

@@ -3,6 +3,7 @@ requests
 pandas
 fpdf2
 openpyxl
+python-docx
 reportlab
 aiohttp
 folium
