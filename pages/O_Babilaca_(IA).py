@@ -864,21 +864,26 @@ def gerar_pdf_documento(titulo: str, corpo: str) -> bytes:
     pdf.set_font("Helvetica", "", 11)
     pdf.set_text_color(30, 30, 30)
     for linha in corpo.split("\n"):
+        # Garante que X está na margem esquerda antes de cada renderização
+        pdf.x = pdf.l_margin
         # Remove markdown bold/italic markers para o PDF
         linha_limpa = re.sub(r"\*{1,3}(.+?)\*{1,3}", r"\1", linha)
         linha_limpa = _sanitize_for_pdf(linha_limpa)
         if linha.startswith("## "):
             pdf.ln(4)
             pdf.set_font("Helvetica", "B", 13)
+            pdf.x = pdf.l_margin
             pdf.multi_cell(0, 7, _sanitize_for_pdf(linha.replace("## ", "")))
             pdf.set_font("Helvetica", "", 11)
         elif linha.startswith("### "):
             pdf.ln(2)
             pdf.set_font("Helvetica", "B", 11)
+            pdf.x = pdf.l_margin
             pdf.multi_cell(0, 6, _sanitize_for_pdf(linha.replace("### ", "")))
             pdf.set_font("Helvetica", "", 11)
         elif linha.strip().startswith("- "):
             texto_bullet = re.sub(r"\*{1,3}(.+?)\*{1,3}", r"\1", linha.strip()[2:])
+            pdf.x = pdf.l_margin
             pdf.multi_cell(0, 6, _sanitize_for_pdf(f"  - {texto_bullet}"))
         elif linha.strip() == "---":
             pdf.ln(3)
@@ -888,6 +893,7 @@ def gerar_pdf_documento(titulo: str, corpo: str) -> bytes:
         elif linha.strip() == "":
             pdf.ln(3)
         else:
+            pdf.x = pdf.l_margin
             pdf.multi_cell(0, 6, linha_limpa)
 
     # Rodape
