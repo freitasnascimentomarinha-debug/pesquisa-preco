@@ -120,6 +120,18 @@ st.markdown("""
         border: none !important; font-weight: bold !important;
     }
     .stButton > button[kind="primary"]:hover { background-color: #c5a028 !important; }
+
+    /* Botão amarelo para carregar mais ARPs */
+    .stButton > button[kind="secondary"],
+    .stButton > button[data-testid="stBaseButton-secondary"] {
+        background-color: #d4af37 !important; color: #000 !important;
+        border: 2px solid #d4af37 !important; font-weight: bold !important;
+        border-radius: 8px !important;
+    }
+    .stButton > button[kind="secondary"]:hover,
+    .stButton > button[data-testid="stBaseButton-secondary"]:hover {
+        background-color: #f0d060 !important; border-color: #f0d060 !important;
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -479,7 +491,7 @@ def render_autoload_trigger(section: str, button_text: str):
     st.markdown(
         f"""
         <div id="{marker_id}" style="height:1px;"></div>
-        <script>
+        <div style="display:none;"><script>
         (function() {{
             const parentWin = window.parent;
             const doc = parentWin.document;
@@ -491,10 +503,6 @@ def render_autoload_trigger(section: str, button_text: str):
                 const marker = doc.getElementById("{marker_id}");
                 const btn = findButton();
                 if (!marker || !btn) return;
-
-                const wrapper = btn.closest('div[data-testid="stButton"]');
-                if (wrapper) wrapper.style.display = 'none';
-                btn.style.display = 'none';
 
                 const rect = marker.getBoundingClientRect();
                 const nearViewport = rect.top <= (parentWin.innerHeight + 140);
@@ -516,7 +524,7 @@ def render_autoload_trigger(section: str, button_text: str):
                 parentWin["{listener_key}"] = true;
             }}
         }})();
-        </script>
+        </script></div>
         """,
         unsafe_allow_html=True,
     )
