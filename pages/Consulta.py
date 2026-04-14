@@ -8,6 +8,9 @@ import io
 import base64
 import tempfile
 import datetime
+import urllib3
+
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # Configuração da página
 st.set_page_config(
@@ -221,83 +224,47 @@ def consultar_brasilapi(cnpj_limpo):
 
 
 @st.cache_data(ttl=3600)
-def consultar_comprasgov(cnpj_limpo):
-    """Consulta contratos no ComprasGov (API antiga)."""
-    try:
-        url = f"http://compras.dados.gov.br/contratos/v1/contratos.json?cnpj_contratada={cnpj_limpo}"
-        resp = requests.get(url, timeout=30)
-        if resp.status_code == 200:
-            dados = resp.json()
-            if isinstance(dados, dict) and 'resultado' in dados:
-                return dados['resultado']
-            elif isinstance(dados, dict) and '_embedded' in dados:
-                return dados['_embedded'].get('contratos', [])
-            return dados if isinstance(dados, list) else []
-    except Exception:
-        return []
-    return []
-
-
-@st.cache_data(ttl=3600)
-def consultar_compras_sem_licitacao(ano):
-    """Consulta compras sem licitação (Endpoint 5) por ano."""
-    try:
-        url = "https://dadosabertos.compras.gov.br/modulo-legado/5_consultarComprasSemLicitacao"
-        params = {
-            'dt_ano_aviso': ano,
-            'pagina': 1,
-            'tamanhoPagina': 500
-        }
-        resp = requests.get(url, params=params, timeout=30, headers={'User-Agent': 'Mozilla/5.0'})
-        if resp.status_code == 200:
-            data = resp.json()
-            if isinstance(data, dict) and 'resultado' in data:
-                return data['resultado']
-        return []
-    except Exception:
-        return []
-
-
-@st.cache_data(ttl=3600)
-def consultar_itens_compras_sem_licitacao(cnpj_limpo, ano):
-    """Consulta itens de compras sem licitação (Endpoint 6) por ano.
-    Busca página a página e filtra pelo CNPJ do fornecedor vencedor."""
-    todos_itens = []
+def consultar_pncp_search(cnpj_limpo, tipo_documento="contrato"):
+    """Consulta o PNCP via API de busca (Search).
+    Busca contratos ou compras associados ao CNPJ fornecido.
+    Retorna lista de resultados paginados."""
+    todos = []
     pagina = 1
     max_paginas = 20
 
     while pagina <= max_paginas:
         try:
-            url = "https://dadosabertos.compras.gov.br/modulo-legado/6_consultarCompraItensSemLicitacao"
+            url = "https://pncp.gov.br/api/search/"
             params = {
-                'dt_ano_aviso_licitacao': ano,
+                'q': cnpj_limpo,
+                'tipos_documento': tipo_documento,
                 'pagina': pagina,
-                'tamanhoPagina': 500
+                'ordenacao': '-data',
             }
-            resp = requests.get(url, params=params, timeout=30, headers={'User-Agent': 'Mozilla/5.0'})
+            resp = requests.get(url, params=params, timeout=60,
+                                headers={'User-Agent': 'Mozilla/5.0'}, verify=False)
             if resp.status_code != 200:
                 break
 
             data = resp.json()
-            if isinstance(data, dict) and 'resultado' in data:
-                resultados = data['resultado']
-                if not resultados:
-                    break
-
-                for item in resultados:
-                    cnpj_vencedor = str(item.get('nuCnpjVencedor', '')).replace('.', '').replace('/', '').replace('-', '').strip()
-                    if cnpj_vencedor == cnpj_limpo:
-                        todos_itens.append(item)
-
-                if len(resultados) < 500:
-                    break
-                pagina += 1
-            else:
+            items = data.get('items', [])
+            if not items:
                 break
+
+            # Filtrar somente dicts (a API pode retornar strings em busca geral)
+            for item in items:
+                if isinstance(item, dict):
+                    todos.append(item)
+
+            total = data.get('total', 0)
+            if len(todos) >= total:
+                break
+
+            pagina += 1
         except Exception:
             break
 
-    return todos_itens
+    return todos
 
 
 # ===================== NOTAS FISCAIS =====================
@@ -490,37 +457,20 @@ if btn_consultar and cnpj_input:
             dados_empresa = consultar_opencnpj(cnpj_limpo)
             dados_brasil_api = consultar_brasilapi(cnpj_limpo)
 
-            # 2) Contratos ComprasGov
-            contratos_cg = consultar_comprasgov(cnpj_limpo)
+            # 2) Contratos via PNCP Search API
+            progress_contratos = st.progress(0, text="Consultando contratos no PNCP...")
+            contratos_pncp = consultar_pncp_search(cnpj_limpo, "contrato")
+            progress_contratos.progress(0.5, text="Consultando compras/dispensas no PNCP...")
 
-            # 3) Compras sem licitação – Endpoints 5 e 6 (por ano)
-            compras_ep5_total = []
-            compras_ep6_total = []
-
-            progress_compras = st.progress(0, text="Consultando compras sem licitação...")
-            for i, ano in enumerate(anos_busca):
-                progress_compras.progress(
-                    (i + 1) / len(anos_busca),
-                    text=f"Consultando compras sem licitação — Ano {ano}... ({i+1}/{len(anos_busca)})"
-                )
-
-                # Endpoint 6: Itens (filtra por CNPJ do vencedor)
-                itens_ano = consultar_itens_compras_sem_licitacao(cnpj_limpo, ano)
-                if itens_ano:
-                    compras_ep6_total.extend(itens_ano)
-
-                # Endpoint 5: Compras gerais (sem filtro CNPJ na API)
-                compras_ano = consultar_compras_sem_licitacao(ano)
-                if compras_ano:
-                    compras_ep5_total.extend(compras_ano)
-
-            progress_compras.empty()
+            # 3) Compras/dispensas via PNCP Search API
+            dispensas_pncp = consultar_pncp_search(cnpj_limpo, "compra")
+            progress_contratos.progress(1.0, text="Consulta concluída!")
+            progress_contratos.empty()
 
         st.session_state['dados_empresa'] = dados_empresa
         st.session_state['dados_brasil_api'] = dados_brasil_api
-        st.session_state['contratos_cg'] = contratos_cg
-        st.session_state['compras_ep5'] = compras_ep5_total
-        st.session_state['compras_ep6'] = compras_ep6_total
+        st.session_state['contratos_pncp'] = contratos_pncp
+        st.session_state['dispensas_pncp'] = dispensas_pncp
         st.session_state['anos_busca'] = anos_busca
         st.session_state['data_ini'] = data_ini
         st.session_state['data_fim'] = data_fim
@@ -532,9 +482,8 @@ if 'cnpj_consulta' in st.session_state:
     cnpj_limpo = st.session_state['cnpj_consulta']
     dados_empresa = st.session_state.get('dados_empresa')
     dados_brasil_api = st.session_state.get('dados_brasil_api')
-    contratos_cg = st.session_state.get('contratos_cg', [])
-    compras_ep5 = st.session_state.get('compras_ep5', [])
-    compras_ep6 = st.session_state.get('compras_ep6', [])
+    contratos_pncp = st.session_state.get('contratos_pncp', [])
+    dispensas_pncp = st.session_state.get('dispensas_pncp', [])
     anos_busca = st.session_state.get('anos_busca', [])
     data_ini = st.session_state.get('data_ini', '')
     data_fim = st.session_state.get('data_fim', '')
@@ -650,129 +599,103 @@ if 'cnpj_consulta' in st.session_state:
     # ==================== ABA 2: CONTRATOS ====================
     with tab_contratos:
         st.markdown("### Histórico de Contratos Governamentais")
-        st.write("##### Fonte: Dados Abertos Compras.gov.br")
+        st.write("##### Fonte: PNCP — Portal Nacional de Contratações Públicas")
 
-        if contratos_cg and len(contratos_cg) > 0:
-            contratos_filtrados = []
-            for c in contratos_cg:
-                data_ass = c.get('data_assinatura') or c.get('data_inicio_vigencia')
-                if data_ass and data_ini and data_fim and data_ass >= data_ini and data_ass <= data_fim:
-                    contratos_filtrados.append(c)
-                elif not data_ass:
-                    contratos_filtrados.append(c)
+        if contratos_pncp and len(contratos_pncp) > 0:
+            st.success(f"Encontrados **{len(contratos_pncp)}** contratos associados a este CNPJ.")
 
-            st.success(f"Encontrados {len(contratos_filtrados)} contratos no período analisado.")
-            for c in contratos_filtrados:
-                uasg_nome = c.get('nome_orgao') or c.get('ug_nome', 'N/A')
-                uasg_cod = c.get('codigo_orgao') or c.get('ug', '')
-                valor = c.get('valor_inicial') or c.get('valor_total', 0)
-                objeto = c.get('objeto', 'N/A')
-                vigencia_inicio = c.get('data_inicio_vigencia') or c.get('data_assinatura', 'N/A')
+            for c in contratos_pncp:
+                orgao_nome = c.get('orgao_nome', 'N/A')
+                unidade_nome = c.get('unidade_nome', '')
+                valor = c.get('valor_global', 0)
+                titulo = c.get('title', 'N/A')
+                descricao = c.get('description', 'N/A')
+                vigencia_inicio = c.get('data_inicio_vigencia', 'N/A')
                 vigencia_fim = c.get('data_fim_vigencia', 'N/A')
+                modalidade = c.get('modalidade_licitacao_nome', 'N/A')
+                situacao = c.get('situacao_nome', 'N/A')
+                uf = c.get('uf', '')
+                municipio = c.get('municipio_nome', '')
+                url_pncp = c.get('item_url', '')
+                link_pncp = f"https://pncp.gov.br/app{url_pncp}" if url_pncp else ''
 
                 st.markdown(f"""
                 <div class="contract-card">
-                    <div class="contract-title">📄 Órgão/UASG: {uasg_cod} - {uasg_nome}</div>
-                    <div style="margin-bottom:0.5rem; color:#cbd5e1;"><strong>Objeto:</strong> {objeto}</div>
+                    <div class="contract-title">📄 {titulo} — {orgao_nome}</div>
+                    <div style="margin-bottom:0.3rem; color:#cbd5e1;"><strong>Unidade:</strong> {unidade_nome} ({municipio}/{uf})</div>
+                    <div style="margin-bottom:0.3rem; color:#cbd5e1;"><strong>Modalidade:</strong> {modalidade} | <strong>Situação:</strong> {situacao}</div>
+                    <div style="margin-bottom:0.5rem; color:#cbd5e1;"><strong>Objeto:</strong> {str(descricao)[:200]}</div>
                     <div style="display:flex; justify-content:space-between; flex-wrap:wrap; color:#cbd5e1; font-size:0.9rem;">
                         <div><strong>Vigência:</strong> {vigencia_inicio} a {vigencia_fim}</div>
                         <div style="color:#d4af37; font-weight:bold;">Valor: {formatar_moeda_br(valor)}</div>
                     </div>
+                    {'<div style="margin-top:0.5rem;"><a href="' + link_pncp + '" target="_blank" style="color:#4da6ff;">🔗 Ver no PNCP</a></div>' if link_pncp else ''}
                 </div>
                 """, unsafe_allow_html=True)
+
+            # Tabela resumo
+            with st.expander("📊 Ver tabela resumo dos contratos"):
+                df_contratos = pd.DataFrame([{
+                    'Título': c.get('title', ''),
+                    'Órgão': c.get('orgao_nome', 'N/A'),
+                    'Unidade': c.get('unidade_nome', ''),
+                    'Modalidade': c.get('modalidade_licitacao_nome', ''),
+                    'Início Vigência': c.get('data_inicio_vigencia', ''),
+                    'Fim Vigência': c.get('data_fim_vigencia', ''),
+                    'Valor': formatar_moeda_br(c.get('valor_global', 0)),
+                } for c in contratos_pncp])
+                st.dataframe(df_contratos, use_container_width=True, hide_index=True)
         else:
-            st.info("Nenhum contrato encontrado associado a este CNPJ no Compras.gov.br dentro deste período.")
+            st.info("Nenhum contrato encontrado no PNCP para este CNPJ.")
 
     # ==================== ABA 3: COMPRAS SEM LICITAÇÃO ====================
     with tab_compras:
-        st.markdown("### Compras sem Licitação")
-        st.markdown(f"Pesquisa nos anos: **{', '.join(str(a) for a in sorted(anos_busca, reverse=True))}** (últimos {len(anos_busca)} anos)")
+        st.markdown("### Compras / Contratações Diretas")
+        st.write("##### Fonte: PNCP — Portal Nacional de Contratações Públicas")
 
-        sub_tab_itens, sub_tab_compras = st.tabs([
-            "📦 Itens de Compras (Endpoint 6)",
-            "📋 Compras Gerais (Endpoint 5)"
-        ])
+        if dispensas_pncp and len(dispensas_pncp) > 0:
+            st.success(f"Encontradas **{len(dispensas_pncp)}** compras/contratações associadas a este CNPJ.")
 
-        # ---- Sub-aba: Endpoint 6 ----
-        with sub_tab_itens:
-            st.markdown("##### Fonte: `modulo-legado/6_consultarCompraItensSemLicitacao`")
-            st.caption("Itens de compras sem licitação onde este CNPJ foi o fornecedor vencedor.")
+            for c in dispensas_pncp:
+                orgao_nome = c.get('orgao_nome', 'N/A')
+                unidade_nome = c.get('unidade_nome', '')
+                valor = c.get('valor_global') or c.get('valor_total_estimado', 0)
+                titulo = c.get('title', 'N/A')
+                descricao = c.get('description', 'N/A')
+                modalidade = c.get('modalidade_licitacao_nome', 'N/A')
+                situacao = c.get('situacao_nome', 'N/A')
+                data_pub = c.get('data_publicacao_pncp', 'N/A')
+                uf = c.get('uf', '')
+                municipio = c.get('municipio_nome', '')
+                url_pncp = c.get('item_url', '')
+                link_pncp = f"https://pncp.gov.br/app{url_pncp}" if url_pncp else ''
 
-            if compras_ep6 and len(compras_ep6) > 0:
-                st.success(f"Encontrados **{len(compras_ep6)}** itens de compras para este CNPJ.")
+                st.markdown(f"""
+                <div class="contract-card">
+                    <div class="contract-title">🛒 {titulo} — {orgao_nome}</div>
+                    <div style="margin-bottom:0.3rem; color:#cbd5e1;"><strong>Unidade:</strong> {unidade_nome} ({municipio}/{uf})</div>
+                    <div style="margin-bottom:0.3rem; color:#cbd5e1;"><strong>Modalidade:</strong> {modalidade} | <strong>Situação:</strong> {situacao}</div>
+                    <div style="margin-bottom:0.5rem; color:#cbd5e1;"><strong>Objeto:</strong> {str(descricao)[:200]}</div>
+                    <div style="display:flex; justify-content:space-between; flex-wrap:wrap; color:#cbd5e1; font-size:0.9rem;">
+                        <div><strong>Publicação:</strong> {str(data_pub)[:10]}</div>
+                        <div style="color:#d4af37; font-weight:bold;">Valor: {formatar_moeda_br(valor)}</div>
+                    </div>
+                    {'<div style="margin-top:0.5rem;"><a href="' + link_pncp + '" target="_blank" style="color:#4da6ff;">🔗 Ver no PNCP</a></div>' if link_pncp else ''}
+                </div>
+                """, unsafe_allow_html=True)
 
-                df_ep6 = pd.DataFrame(compras_ep6)
-                mapa_6 = {
-                    'dtAnoAvisoLicitacao': 'Ano',
-                    'coUasg': 'UASG',
-                    'noModalidadeLicitacao': 'Modalidade',
-                    'dsObjetoLicitacao': 'Objeto',
-                    'noConjuntoMateriais': 'Material',
-                    'noServico': 'Serviço',
-                    'dsDetalhada': 'Descrição Detalhada',
-                    'vrEstimadoItem': 'Valor Estimado',
-                    'noFornecedorVencedor': 'Fornecedor',
-                    'noUnidadeMedida': 'Unidade',
-                    'qtMaterialAlt': 'Quantidade',
-                }
-                cols_6 = [c for c in mapa_6 if c in df_ep6.columns]
-                if cols_6:
-                    df_show6 = df_ep6[cols_6].rename(columns=mapa_6)
-                    if 'Valor Estimado' in df_show6.columns:
-                        df_show6['Valor Estimado'] = df_show6['Valor Estimado'].apply(formatar_moeda_br)
-                    st.dataframe(df_show6, use_container_width=True, hide_index=True)
-
-                    try:
-                        total_v = sum(float(it.get('vrEstimadoItem', 0) or 0) for it in compras_ep6)
-                        st.markdown(f"**Valor total estimado:** {formatar_moeda_br(total_v)}")
-                    except:
-                        pass
-
-                with st.expander("📋 Ver detalhes completos dos itens"):
-                    for i, item in enumerate(compras_ep6):
-                        st.markdown(f"""
-                        <div class="contract-card">
-                            <div class="contract-title">📦 Item {i+1} — UASG {item.get('coUasg', 'N/A')} | Ano {item.get('dtAnoAvisoLicitacao', '')}</div>
-                            <div style="color:#cbd5e1;margin-bottom:0.3rem;"><strong>Modalidade:</strong> {item.get('noModalidadeLicitacao', 'N/A')}</div>
-                            <div style="color:#cbd5e1;margin-bottom:0.3rem;"><strong>Objeto:</strong> {str(item.get('dsObjetoLicitacao', 'N/A'))[:200]}</div>
-                            <div style="color:#cbd5e1;margin-bottom:0.3rem;"><strong>Material/Serviço:</strong> {item.get('noConjuntoMateriais', '') or item.get('noServico', 'N/A')}</div>
-                            <div style="color:#cbd5e1;margin-bottom:0.3rem;"><strong>Descrição:</strong> {str(item.get('dsDetalhada', 'N/A'))[:200]}</div>
-                            <div style="display:flex;justify-content:space-between;flex-wrap:wrap;color:#cbd5e1;font-size:0.9rem;margin-top:0.5rem;">
-                                <div><strong>Fornecedor:</strong> {item.get('noFornecedorVencedor', 'N/A')}</div>
-                                <div style="color:#d4af37;font-weight:bold;">Valor: {formatar_moeda_br(item.get('vrEstimadoItem', 0))}</div>
-                            </div>
-                        </div>
-                        """, unsafe_allow_html=True)
-            else:
-                st.info("Nenhum item de compra sem licitação encontrado para este CNPJ como fornecedor vencedor nos anos pesquisados.")
-
-        # ---- Sub-aba: Endpoint 5 ----
-        with sub_tab_compras:
-            st.markdown("##### Fonte: `modulo-legado/5_consultarComprasSemLicitacao`")
-            st.caption("Lista geral de compras sem licitação por ano (a API não suporta filtro por CNPJ).")
-
-            if compras_ep5 and len(compras_ep5) > 0:
-                st.success(f"Encontradas **{len(compras_ep5)}** compras sem licitação no período.")
-
-                df_ep5 = pd.DataFrame(compras_ep5)
-                mapa_5 = {
-                    'dt_ano_aviso': 'Ano',
-                    'co_uasg': 'UASG',
-                    'no_ausg': 'Nome UASG',
-                    'co_modalidade_licitacao': 'Mod. Licitação',
-                    'ds_objeto_licitacao': 'Objeto',
-                    'vr_estimado': 'Valor Estimado',
-                    'ds_fundamento_legal': 'Fundamento Legal',
-                    'nu_processo': 'Processo',
-                }
-                cols_5 = [c for c in mapa_5 if c in df_ep5.columns]
-                if cols_5:
-                    df_show5 = df_ep5[cols_5].rename(columns=mapa_5)
-                    if 'Valor Estimado' in df_show5.columns:
-                        df_show5['Valor Estimado'] = df_show5['Valor Estimado'].apply(formatar_moeda_br)
-                    st.dataframe(df_show5, use_container_width=True, hide_index=True)
-            else:
-                st.info("Nenhuma compra sem licitação encontrada nos anos pesquisados.")
+            with st.expander("📊 Ver tabela resumo"):
+                df_dispensas = pd.DataFrame([{
+                    'Título': c.get('title', ''),
+                    'Órgão': c.get('orgao_nome', 'N/A'),
+                    'Modalidade': c.get('modalidade_licitacao_nome', 'N/A'),
+                    'Situação': c.get('situacao_nome', 'N/A'),
+                    'Publicação': str(c.get('data_publicacao_pncp', ''))[:10],
+                    'Valor': formatar_moeda_br(c.get('valor_global') or c.get('valor_total_estimado', 0)),
+                } for c in dispensas_pncp])
+                st.dataframe(df_dispensas, use_container_width=True, hide_index=True)
+        else:
+            st.info("Nenhuma compra/contratação direta encontrada no PNCP para este CNPJ.")
 
     # ==================== ABA 4: NOTAS FISCAIS ====================
     with tab_nf:
