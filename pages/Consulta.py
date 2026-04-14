@@ -269,64 +269,86 @@ def consultar_pncp_search(cnpj_limpo, tipo_documento="contrato"):
 
 @st.cache_data(ttl=3600)
 def consultar_pncp_atas(cnpj_limpo, anos_janela=3):
-    """Consulta atas de registro de preços no PNCP via API de consulta.
-    Usa cnpjFornecedor com chunks mensais e retry para contornar timeouts."""
-    import time as _time
-    todas_atas = []
-    hoje = datetime.date.today()
-    data_inicio = hoje - datetime.timedelta(days=365 * anos_janela)
+    """Consulta atas de registro de preços no PNCP via Search API.
+    Busca atas associadas ao CNPJ do fornecedor."""
+    todos = []
+    pagina = 1
+    max_paginas = 20
 
-    # Chunks mensais para evitar timeout
-    current = data_inicio.replace(day=1)
-    end = hoje
+    while pagina <= max_paginas:
+        try:
+            url = "https://pncp.gov.br/api/search/"
+            params = {
+                'q': cnpj_limpo,
+                'tipos_documento': 'ata',
+                'pagina': pagina,
+                'ordenacao': '-data',
+            }
+            resp = requests.get(url, params=params, timeout=60,
+                                headers={'User-Agent': 'Mozilla/5.0'}, verify=False)
+            if resp.status_code != 200:
+                break
 
-    seen_ids = set()
+            data = resp.json()
+            items = data.get('items', [])
+            if not items:
+                break
 
-    while current <= end:
-        # Fim do mês
-        if current.month == 12:
-            chunk_end = datetime.date(current.year + 1, 1, 1) - datetime.timedelta(days=1)
-        else:
-            chunk_end = datetime.date(current.year, current.month + 1, 1) - datetime.timedelta(days=1)
-        chunk_end = min(chunk_end, end)
+            for item in items:
+                if isinstance(item, dict):
+                    todos.append(item)
 
-        params = {
-            'dataInicial': current.strftime('%Y%m%d'),
-            'dataFinal': chunk_end.strftime('%Y%m%d'),
-            'cnpjFornecedor': cnpj_limpo,
-            'pagina': 1,
-            'tamanhoPagina': 50,
-        }
+            total = data.get('total', 0)
+            if len(todos) >= total:
+                break
 
-        for attempt in range(3):
-            try:
-                resp = requests.get(
-                    "https://pncp.gov.br/api/consulta/v1/atas",
-                    params=params, timeout=45,
-                    headers={'User-Agent': 'Mozilla/5.0'}, verify=False)
-                if resp.status_code == 200:
-                    data = resp.json()
-                    items = data.get('data', []) if isinstance(data, dict) else (data if isinstance(data, list) else [])
-                    for ata in items:
-                        if not isinstance(ata, dict):
-                            continue
-                        ata_id = ata.get('numeroControlePNCPAta', '')
-                        if ata_id and ata_id not in seen_ids:
-                            seen_ids.add(ata_id)
-                            todas_atas.append(ata)
-                    break
-                else:
-                    break
-            except Exception:
-                _time.sleep(2)
+            pagina += 1
+        except Exception:
+            break
 
-        # Próximo mês
-        if current.month == 12:
-            current = datetime.date(current.year + 1, 1, 1)
-        else:
-            current = datetime.date(current.year, current.month + 1, 1)
+    return todos
 
-    return todas_atas
+
+@st.cache_data(ttl=3600)
+def consultar_pncp_compras(cnpj_limpo):
+    """Consulta compras/licitações no PNCP via Search API.
+    Captura pregões, concorrências e outros processos licitatórios."""
+    todos = []
+    pagina = 1
+    max_paginas = 20
+
+    while pagina <= max_paginas:
+        try:
+            url = "https://pncp.gov.br/api/search/"
+            params = {
+                'q': cnpj_limpo,
+                'tipos_documento': 'compra',
+                'pagina': pagina,
+                'ordenacao': '-data',
+            }
+            resp = requests.get(url, params=params, timeout=60,
+                                headers={'User-Agent': 'Mozilla/5.0'}, verify=False)
+            if resp.status_code != 200:
+                break
+
+            data = resp.json()
+            items = data.get('items', [])
+            if not items:
+                break
+
+            for item in items:
+                if isinstance(item, dict):
+                    todos.append(item)
+
+            total = data.get('total', 0)
+            if len(todos) >= total:
+                break
+
+            pagina += 1
+        except Exception:
+            break
+
+    return todos
 
 
 # ===================== NOTAS FISCAIS =====================
@@ -350,6 +372,41 @@ ARQUIVOS_FALLBACK = {
     "1tSqz-nIiM_uDZW38GdWeRboNC7nwq3jH": "202601_NFe_NotaFiscalItem.csv",
     "1tgekwOo8__NZZSs2OdFMS6xT6pS3LXVn": "202602_NFe_NotaFiscalItem.csv",
 }
+
+
+@st.cache_data(ttl=600, show_spinner=False)
+def listar_arquivos_disponiveis(folder_id):
+    """Descobre os arquivos CSV disponíveis na pasta do Google Drive."""
+    url = f"https://drive.google.com/drive/folders/{folder_id}"
+    try:
+        resp = requests.get(url, timeout=30)
+        resp.raise_for_status()
+        ids_encontrados = re.findall(r'data-id="([a-zA-Z0-9_-]{20,})"', resp.text)
+        ids_encontrados = list(dict.fromkeys(ids_encontrados))
+
+        if not ids_encontrados:
+            return None
+
+        arquivos = {}
+        for fid in ids_encontrados:
+            try:
+                view_url = f"https://drive.google.com/file/d/{fid}/view"
+                view_resp = requests.get(view_url, timeout=15)
+                title_match = re.search(r"<title>([^<]+)</title>", view_resp.text)
+                if title_match:
+                    nome = title_match.group(1).replace(" - Google Drive", "").strip()
+                    if nome and nome != "Google Drive":
+                        arquivos[fid] = nome
+                    else:
+                        arquivos[fid] = f"Arquivo {fid[:10]}"
+                else:
+                    arquivos[fid] = f"Arquivo {fid[:10]}"
+            except Exception:
+                arquivos[fid] = f"Arquivo {fid[:10]}"
+
+        return arquivos if arquivos else None
+    except Exception:
+        return None
 
 
 def baixar_arquivo_csv(file_id, progress_bar=None):
@@ -522,19 +579,29 @@ if btn_consultar and cnpj_input:
             # 2) Contratos via PNCP Search API
             progress_contratos = st.progress(0, text="Consultando contratos no PNCP...")
             todos_contratos = consultar_pncp_search(cnpj_limpo, "contrato")
-            progress_contratos.progress(0.33, text="Consultando atas de registro de preços...")
+            progress_contratos.progress(0.25, text="Consultando compras/licitações no PNCP...")
 
-            # 3) Atas de Registro de Preços via PNCP Consulta API
+            # 3) Compras/licitações (pregões, concorrências etc.)
+            compras_pncp = consultar_pncp_compras(cnpj_limpo)
+            progress_contratos.progress(0.50, text="Consultando atas de registro de preços...")
+
+            # 4) Atas de Registro de Preços via PNCP Search API
             atas_pncp = consultar_pncp_atas(cnpj_limpo, anos_janela)
-            progress_contratos.progress(0.66, text="Classificando resultados...")
+            progress_contratos.progress(0.75, text="Classificando resultados...")
 
-            # 4) Separar contratos por modalidade
+            # 5) Separar contratos por modalidade
             #    Dispensas / Contratação Direta → aba própria
             #    Demais (Pregão, Concorrência etc.) → aba Contratos
             contratos_pncp = [c for c in todos_contratos
                               if c.get('modalidade_licitacao_nome', '').lower() not in ('dispensa', 'inexigibilidade')]
             dispensas_pncp = [c for c in todos_contratos
                               if c.get('modalidade_licitacao_nome', '').lower() in ('dispensa', 'inexigibilidade')]
+
+            # 6) Separar compras por modalidade — pregões vão para Contratos, dispensas para Dispensas
+            compras_pregao = [c for c in compras_pncp
+                              if c.get('modalidade_licitacao_nome', '').lower() not in ('dispensa', 'inexigibilidade')]
+            compras_dispensa = [c for c in compras_pncp
+                                if c.get('modalidade_licitacao_nome', '').lower() in ('dispensa', 'inexigibilidade')]
 
             progress_contratos.progress(1.0, text="Consulta concluída!")
             progress_contratos.empty()
@@ -543,6 +610,8 @@ if btn_consultar and cnpj_input:
         st.session_state['dados_brasil_api'] = dados_brasil_api
         st.session_state['contratos_pncp'] = contratos_pncp
         st.session_state['dispensas_pncp'] = dispensas_pncp
+        st.session_state['compras_pregao'] = compras_pregao
+        st.session_state['compras_dispensa'] = compras_dispensa
         st.session_state['atas_pncp'] = atas_pncp
         st.session_state['anos_busca'] = anos_busca
         st.session_state['data_ini'] = data_ini
@@ -557,6 +626,8 @@ if 'cnpj_consulta' in st.session_state:
     dados_brasil_api = st.session_state.get('dados_brasil_api')
     contratos_pncp = st.session_state.get('contratos_pncp', [])
     dispensas_pncp = st.session_state.get('dispensas_pncp', [])
+    compras_pregao = st.session_state.get('compras_pregao', [])
+    compras_dispensa = st.session_state.get('compras_dispensa', [])
     atas_pncp = st.session_state.get('atas_pncp', [])
     anos_busca = st.session_state.get('anos_busca', [])
     data_ini = st.session_state.get('data_ini', '')
@@ -673,13 +744,16 @@ if 'cnpj_consulta' in st.session_state:
 
     # ==================== ABA 2: CONTRATOS ====================
     with tab_contratos:
-        st.markdown("### Histórico de Contratos Governamentais")
+        st.markdown("### Histórico de Contratos e Licitações")
         st.write("##### Fonte: PNCP — Portal Nacional de Contratações Públicas")
 
-        if contratos_pncp and len(contratos_pncp) > 0:
-            st.success(f"Encontrados **{len(contratos_pncp)}** contratos associados a este CNPJ.")
+        todos_contratos_aba = contratos_pncp + compras_pregao
 
-            for c in contratos_pncp:
+        if todos_contratos_aba and len(todos_contratos_aba) > 0:
+            st.success(f"Encontrados **{len(todos_contratos_aba)}** registros associados a este CNPJ "
+                       f"({len(contratos_pncp)} contratos, {len(compras_pregao)} compras/licitações).")
+
+            for c in todos_contratos_aba:
                 orgao_nome = c.get('orgao_nome', 'N/A')
                 unidade_nome = c.get('unidade_nome', '')
                 valor = c.get('valor_global', 0)
@@ -709,7 +783,7 @@ if 'cnpj_consulta' in st.session_state:
                 """, unsafe_allow_html=True)
 
             # Tabela resumo
-            with st.expander("📊 Ver tabela resumo dos contratos"):
+            with st.expander("📊 Ver tabela resumo dos contratos/licitações"):
                 df_contratos = pd.DataFrame([{
                     'Título': c.get('title', ''),
                     'Órgão': c.get('orgao_nome', 'N/A'),
@@ -718,55 +792,43 @@ if 'cnpj_consulta' in st.session_state:
                     'Início Vigência': c.get('data_inicio_vigencia', ''),
                     'Fim Vigência': c.get('data_fim_vigencia', ''),
                     'Valor': formatar_moeda_br(c.get('valor_global', 0)),
-                } for c in contratos_pncp])
+                } for c in todos_contratos_aba])
                 st.dataframe(df_contratos, use_container_width=True, hide_index=True)
         else:
-            st.info("Nenhum contrato (Pregão, Concorrência etc.) encontrado no PNCP para este CNPJ. "
+            st.info("Nenhum contrato ou licitação (Pregão, Concorrência etc.) encontrado no PNCP para este CNPJ. "
                     "Verifique a aba **Dispensas / Contratação Direta** e **Atas de Registro de Preços**.")
 
     # ==================== ABA 3: ATAS DE REGISTRO DE PREÇOS ====================
     with tab_atas:
         st.markdown("### Atas de Registro de Preços")
-        st.write("##### Fonte: PNCP — Portal Nacional de Contratações Públicas (API de Consulta)")
+        st.write("##### Fonte: PNCP — Portal Nacional de Contratações Públicas (Search API)")
 
         if atas_pncp and len(atas_pncp) > 0:
             st.success(f"Encontradas **{len(atas_pncp)}** atas de registro de preços associadas a este CNPJ.")
 
             for ata in atas_pncp:
-                num_ata = ata.get('numeroAtaRegistroPreco', 'N/A')
-                ano_ata = ata.get('anoAta', '')
-                vig_ini = ata.get('vigenciaInicio', 'N/A')
-                vig_fim = ata.get('vigenciaFim', 'N/A')
-                data_pub = str(ata.get('dataPublicacaoPncp', ''))[:10]
-                cancelado = ata.get('cancelado', False)
-                situacao_ata = '❌ Cancelada' if cancelado else '✅ Vigente'
-
-                orgao_info = ata.get('orgaoEntidade', {}) or {}
-                orgao_nome = orgao_info.get('razaoSocial', 'N/A')
-                orgao_cnpj = orgao_info.get('cnpj', '')
-
-                unidade_info = ata.get('unidadeOrgao', {}) or {}
-                unidade_nome = unidade_info.get('nomeUnidade', '')
-                uf_nome = unidade_info.get('ufNome', '')
-                municipio = unidade_info.get('nomeMunicipio', '')
-
-                ctrl_compra = ata.get('numeroControlePNCPCompra', '')
-                ctrl_ata = ata.get('numeroControlePNCPAta', '')
-                # Gerar link PNCP: /atas/{orgao_cnpj}/{ano}/{seq_compra}/{seq_ata}
-                link_pncp = ''
-                if ctrl_ata:
-                    parts = ctrl_ata.split('-')
-                    if len(parts) >= 3:
-                        link_pncp = f"https://pncp.gov.br/app/atas/{ctrl_ata.replace('-1-', '/').replace('-2-', '/').replace('-', '/')}"
+                orgao_nome = ata.get('orgao_nome', 'N/A')
+                unidade_nome = ata.get('unidade_nome', '')
+                titulo = ata.get('title', 'N/A')
+                descricao = ata.get('description', 'N/A')
+                data_pub = str(ata.get('data_publicacao_pncp', ''))[:10]
+                situacao = ata.get('situacao_nome', 'N/A')
+                modalidade = ata.get('modalidade_licitacao_nome', 'N/A')
+                valor = ata.get('valor_global') or ata.get('valor_total_estimado', 0)
+                uf = ata.get('uf', '')
+                municipio = ata.get('municipio_nome', '')
+                url_pncp = ata.get('item_url', '')
+                link_pncp = f"https://pncp.gov.br/app{url_pncp}" if url_pncp else ''
 
                 st.markdown(f"""
                 <div class="contract-card">
-                    <div class="contract-title">📑 Ata nº {num_ata}/{ano_ata} — {orgao_nome}</div>
-                    <div style="margin-bottom:0.3rem; color:#cbd5e1;"><strong>Unidade:</strong> {unidade_nome} ({municipio}/{uf_nome})</div>
-                    <div style="margin-bottom:0.3rem; color:#cbd5e1;"><strong>Situação:</strong> {situacao_ata} | <strong>Publicação PNCP:</strong> {data_pub}</div>
-                    <div style="margin-bottom:0.3rem; color:#cbd5e1;"><strong>Nº Controle PNCP:</strong> {ctrl_ata}</div>
+                    <div class="contract-title">📑 {titulo} — {orgao_nome}</div>
+                    <div style="margin-bottom:0.3rem; color:#cbd5e1;"><strong>Unidade:</strong> {unidade_nome} ({municipio}/{uf})</div>
+                    <div style="margin-bottom:0.3rem; color:#cbd5e1;"><strong>Modalidade:</strong> {modalidade} | <strong>Situação:</strong> {situacao}</div>
+                    <div style="margin-bottom:0.5rem; color:#cbd5e1;"><strong>Objeto:</strong> {str(descricao)[:200]}</div>
                     <div style="display:flex; justify-content:space-between; flex-wrap:wrap; color:#cbd5e1; font-size:0.9rem;">
-                        <div><strong>Vigência:</strong> {vig_ini} a {vig_fim}</div>
+                        <div><strong>Publicação:</strong> {data_pub}</div>
+                        <div style="color:#d4af37; font-weight:bold;">Valor: {formatar_moeda_br(valor)}</div>
                     </div>
                     {'<div style="margin-top:0.5rem;"><a href="' + link_pncp + '" target="_blank" style="color:#4da6ff;">🔗 Ver no PNCP</a></div>' if link_pncp else ''}
                 </div>
@@ -774,28 +836,28 @@ if 'cnpj_consulta' in st.session_state:
 
             with st.expander("📊 Ver tabela resumo das atas"):
                 df_atas = pd.DataFrame([{
-                    'Nº Ata': f"{a.get('numeroAtaRegistroPreco','')}/{a.get('anoAta','')}",
-                    'Órgão': (a.get('orgaoEntidade') or {}).get('razaoSocial', 'N/A'),
-                    'Vigência Início': a.get('vigenciaInicio', ''),
-                    'Vigência Fim': a.get('vigenciaFim', ''),
-                    'Cancelada': 'Sim' if a.get('cancelado') else 'Não',
-                    'Publicação': str(a.get('dataPublicacaoPncp', ''))[:10],
+                    'Título': a.get('title', ''),
+                    'Órgão': a.get('orgao_nome', 'N/A'),
+                    'Modalidade': a.get('modalidade_licitacao_nome', 'N/A'),
+                    'Situação': a.get('situacao_nome', 'N/A'),
+                    'Publicação': str(a.get('data_publicacao_pncp', ''))[:10],
+                    'Valor': formatar_moeda_br(a.get('valor_global') or a.get('valor_total_estimado', 0)),
                 } for a in atas_pncp])
                 st.dataframe(df_atas, use_container_width=True, hide_index=True)
         else:
-            st.info("Nenhuma ata de registro de preços encontrada no PNCP para este CNPJ.\n\n"
-                    "⚠️ A API de consulta de atas do PNCP pode apresentar instabilidade. "
-                    "Caso saiba que existem atas, tente novamente mais tarde.")
+            st.info("Nenhuma ata de registro de preços encontrada no PNCP para este CNPJ.")
 
     # ==================== ABA 4: DISPENSAS / CONTRATAÇÃO DIRETA ====================
     with tab_compras:
         st.markdown("### Dispensas / Contratação Direta")
         st.write("##### Fonte: PNCP — Portal Nacional de Contratações Públicas")
 
-        if dispensas_pncp and len(dispensas_pncp) > 0:
-            st.success(f"Encontradas **{len(dispensas_pncp)}** compras/contratações associadas a este CNPJ.")
+        todas_dispensas_aba = dispensas_pncp + compras_dispensa
 
-            for c in dispensas_pncp:
+        if todas_dispensas_aba and len(todas_dispensas_aba) > 0:
+            st.success(f"Encontradas **{len(todas_dispensas_aba)}** compras/contratações diretas associadas a este CNPJ.")
+
+            for c in todas_dispensas_aba:
                 orgao_nome = c.get('orgao_nome', 'N/A')
                 unidade_nome = c.get('unidade_nome', '')
                 valor = c.get('valor_global') or c.get('valor_total_estimado', 0)
@@ -831,18 +893,25 @@ if 'cnpj_consulta' in st.session_state:
                     'Situação': c.get('situacao_nome', 'N/A'),
                     'Publicação': str(c.get('data_publicacao_pncp', ''))[:10],
                     'Valor': formatar_moeda_br(c.get('valor_global') or c.get('valor_total_estimado', 0)),
-                } for c in dispensas_pncp])
+                } for c in todas_dispensas_aba])
                 st.dataframe(df_dispensas, use_container_width=True, hide_index=True)
         else:
             st.info("Nenhuma compra/contratação direta encontrada no PNCP para este CNPJ.")
 
-    # ==================== ABA 4: NOTAS FISCAIS ====================
+    # ==================== ABA 5: NOTAS FISCAIS ====================
     with tab_nf:
         st.markdown("### Pesquisa em Notas Fiscais")
         st.markdown(f"Buscando o CNPJ **{formatar_cnpj(cnpj_limpo)}** nos arquivos de Notas Fiscais do Portal da Transparência.")
 
-        nomes_arqs = list(ARQUIVOS_FALLBACK.values())
-        ids_arqs = list(ARQUIVOS_FALLBACK.keys())
+        # Tentar listagem dinâmica da pasta do Drive, com fallback para dict estático
+        arquivos_drive = listar_arquivos_disponiveis(PASTA_ID)
+        if arquivos_drive:
+            arquivos_dict = arquivos_drive
+        else:
+            arquivos_dict = ARQUIVOS_FALLBACK
+
+        nomes_arqs = list(arquivos_dict.values())
+        ids_arqs = list(arquivos_dict.keys())
 
         # Ordenar por nome (YYYYMM)
         idx_sorted = sorted(range(len(nomes_arqs)), key=lambda i: nomes_arqs[i], reverse=True)
