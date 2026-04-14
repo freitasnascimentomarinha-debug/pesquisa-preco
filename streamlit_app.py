@@ -1,4 +1,4 @@
-mport base64
+import base64
 import os
 import streamlit as st
 import requests
