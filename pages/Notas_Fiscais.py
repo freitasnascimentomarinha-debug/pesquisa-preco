@@ -324,7 +324,7 @@ tab_pesquisa, tab_consulta_nfe = st.tabs([
 NFE_URL = "https://www.nfe.fazenda.gov.br/portal/consultaRecaptcha.aspx?tipoConsulta=resumo&tipoConteudo=7PhJ+gAVw2g="
 
 with tab_consulta_nfe:
-    st.markdown("### 📋 Consulta de NFe — Receita Federal")
+    st.markdown("### 📋 Consulta e Download de NFe — Receita Federal")
 
     st.markdown("")
     st.link_button("🌐 Acessar Portal da NFe (Receita Federal)", NFE_URL, use_container_width=True)
@@ -332,18 +332,22 @@ with tab_consulta_nfe:
 
     st.markdown(f"""
     <div style="background: #0a2540; border: 1px solid #333; border-radius: 8px; padding: 1.2rem; margin-top: 0.5rem;">
-        <p style="color: #d4af37; font-weight: bold; font-size: 15px; margin-bottom: 0.8rem;">📌 Como consultar e baixar uma NFe:</p>
-        <ol style="color: #cccccc; font-size: 13px; line-height: 2;">
-            <li>Clique no botão acima — o portal da Receita Federal abrirá em uma <b>nova aba</b> do navegador.</li>
-            <li>No portal, insira a <b>chave de acesso</b> da NFe (44 dígitos numéricos, encontrada no DANFE ou no corpo da nota).</li>
-            <li>Resolva o <b>captcha</b> e clique em <b>"Continuar"</b>.</li>
-            <li>Na tela de resultado, você poderá visualizar o resumo da nota e baixar o <b>DANFE (PDF)</b> ou o <b>XML</b>.</li>
-            <li>Para consultar outra NFe, basta repetir o processo na mesma aba.</li>
+        <p style="color: #d4af37; font-weight: bold; font-size: 15px; margin-bottom: 0.8rem;">📌 Como usar:</p>
+        <ol style="color: #cccccc; font-size: 13px; line-height: 2.2;">
+            <li>Na aba <b>"Pesquisa de NF"</b>, busque notas fiscais pelo produto, fornecedor ou destino desejado.</li>
+            <li>Nos resultados, localize a <b>chave de acesso</b> (44 dígitos) da nota que deseja consultar.</li>
+            <li>Clique no botão acima para abrir o <b>Portal da NFe</b> da Receita Federal.</li>
+            <li>Cole a <b>chave de acesso</b>, resolva o captcha e clique em <b>"Continuar"</b>.</li>
+            <li>Na tela de resultado, baixe o <b>DANFE (PDF)</b> ou o <b>XML</b> completo da nota.</li>
+            <li>Para consultar outra nota, basta repetir o processo na mesma aba do navegador.</li>
         </ol>
         <hr style="border-color: #333; margin: 1rem 0;">
-        <p style="color: #aaa; font-size: 12px; margin: 0;">
-            💡 <b>Dica:</b> A chave de acesso possui 44 dígitos e identifica unicamente cada Nota Fiscal Eletrônica.
-            Ela pode ser encontrada no campo "Chave de Acesso" do DANFE impresso ou nos dados da nota no sistema emissor.
+        <p style="color: #d4af37; font-weight: bold; font-size: 14px; margin-bottom: 0.5rem;">💡 Dica — Use as notas como referência de preço:</p>
+        <p style="color: #cccccc; font-size: 13px; line-height: 1.8; margin: 0;">
+            Ao pesquisar notas fiscais na aba anterior, você pode encontrar <b>materiais e serviços de mesma natureza</b>
+            adquiridos por outros órgãos. Os valores dessas notas podem servir como <b>referência de preço e orçamento</b>
+            para fundamentar sua pesquisa de preços, conforme previsto na legislação de licitações.
+            Baixe o DANFE ou XML para ter o documento comprobatório completo.
         </p>
     </div>
     """, unsafe_allow_html=True)
