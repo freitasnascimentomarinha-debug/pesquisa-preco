@@ -344,21 +344,10 @@ with tab_consulta_nfe:
             unsafe_allow_html=True
         )
 
-    # Iframe embutido com a página da NFe
+    # Iframe embutido diretamente (sem duplo iframe)
     nfe_key = st.session_state['nfe_iframe_key']
-    iframe_html = f"""
-    <div style="border: 2px solid #d4af37; border-radius: 8px; overflow: hidden; margin-top: 1rem;">
-        <iframe
-            src="{NFE_URL}&_reload={nfe_key}"
-            width="100%"
-            height="800"
-            style="border: none; background: #ffffff;"
-            sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-top-navigation"
-            title="Consulta NFe - Receita Federal"
-        ></iframe>
-    </div>
-    """
-    st.components.v1.html(iframe_html, height=830, scrolling=False)
+    nfe_src = f"{NFE_URL}&_reload={nfe_key}"
+    st.components.v1.iframe(nfe_src, width=None, height=800, scrolling=True)
 
     st.markdown(f"""
     <div style="background: #0a2540; border: 1px solid #333; border-radius: 8px; padding: 1rem; margin-top: 1rem;">
