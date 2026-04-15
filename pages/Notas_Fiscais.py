@@ -331,23 +331,41 @@ with tab_consulta_nfe:
     if 'nfe_iframe_key' not in st.session_state:
         st.session_state['nfe_iframe_key'] = 0
 
-    col_reset, col_info_nfe = st.columns([1, 3])
+    col_reset, col_open, col_info_nfe = st.columns([1, 1, 2])
     with col_reset:
         if st.button("🔄 Nova Consulta", use_container_width=True, key="btn_reset_nfe"):
             st.session_state['nfe_iframe_key'] += 1
             st.rerun()
+    with col_open:
+        st.link_button("🌐 Abrir em nova aba", NFE_URL, use_container_width=True)
     with col_info_nfe:
         st.markdown(
             '<span style="color:#cbd5e1; font-size:0.9rem;">'
-            'Utilize o botão <b>Nova Consulta</b> para recarregar a página da Receita Federal e iniciar uma nova pesquisa.'
+            'Se o formulário não funcionar no quadro abaixo, use o botão <b>Abrir em nova aba</b>.'
             '</span>',
             unsafe_allow_html=True
         )
 
-    # Iframe embutido diretamente (sem duplo iframe)
+    # Iframe embutido via HTML puro — o componente html() cria um shadow iframe,
+    # então usamos srcdoc com um redirect para que o iframe interno seja o "top" do conteúdo
     nfe_key = st.session_state['nfe_iframe_key']
-    nfe_src = f"{NFE_URL}&_reload={nfe_key}"
-    st.components.v1.iframe(nfe_src, width=None, height=800, scrolling=True)
+    nfe_src = f"{NFE_URL}&_r={nfe_key}"
+
+    # Usar HTML puro com <object> que não interfere com postback como iframe dentro de iframe
+    embed_html = f"""
+    <html>
+    <head><style>
+        html, body {{ margin:0; padding:0; width:100%; height:100%; overflow:hidden; }}
+    </style></head>
+    <body>
+        <iframe id="nfe-frame" src="{nfe_src}"
+            style="width:100%; height:100%; border:2px solid #d4af37; border-radius:8px;"
+            allowfullscreen="true">
+        </iframe>
+    </body>
+    </html>
+    """
+    st.components.v1.html(embed_html, height=800, scrolling=False)
 
     st.markdown(f"""
     <div style="background: #0a2540; border: 1px solid #333; border-radius: 8px; padding: 1rem; margin-top: 1rem;">
@@ -355,8 +373,8 @@ with tab_consulta_nfe:
         <ul style="color: #cccccc; font-size: 13px; line-height: 1.8;">
             <li>Insira a <b>chave de acesso</b> da NFe (44 dígitos) e resolva o captcha para consultar.</li>
             <li>Após a consulta, é possível <b>baixar o DANFE (PDF)</b> ou o <b>XML</b> da nota.</li>
-            <li>Clique em <b>🔄 Nova Consulta</b> para recarregar a página e consultar outra NFe.</li>
-            <li>Caso o site não carregue no iframe, <a href="{NFE_URL}" target="_blank" style="color: #ffd700;">clique aqui para abrir em nova aba</a>.</li>
+            <li>Clique em <b>🔄 Nova Consulta</b> para recarregar o quadro acima para uma nova pesquisa.</li>
+            <li>Se o site não funcionar no quadro embutido, clique em <b>🌐 Abrir em nova aba</b>.</li>
         </ul>
     </div>
     """, unsafe_allow_html=True)
