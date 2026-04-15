@@ -269,49 +269,60 @@ def consultar_pncp_search(cnpj_limpo, tipo_documento="contrato"):
 
 @st.cache_data(ttl=3600)
 def consultar_dadosabertos_arps(cnpj_limpo, anos_janela=3, apenas_vigentes=False):
-    """Consulta Atas de Registro de Preços no dadosabertos.compras.gov.br
-    filtrando por CNPJ do fornecedor registrado na ata."""
+    """Consulta itens de ARP no dadosabertos.compras.gov.br onde este CNPJ
+    é fornecedor registrado.  Usa o endpoint 2_consultarARPItem com o
+    parâmetro ``niFornecedor`` (NI = CNPJ/CPF).
+    A API exige janelas de data <= 365 dias, então varremos ano a ano."""
     todos = []
-    pagina = 1
     max_paginas = 20
     hoje = datetime.date.today()
-    data_ini = (hoje - datetime.timedelta(days=365 * anos_janela)).strftime("%Y-%m-%d")
-    data_fim = hoje.strftime("%Y-%m-%d")
 
-    while pagina <= max_paginas:
-        try:
-            params = {
-                'cnpjFornecedor': cnpj_limpo,
-                'dataVigenciaInicialMin': data_ini,
-                'dataVigenciaInicialMax': data_fim,
-                'pagina': pagina,
-                'tamanhoPagina': 50,
-            }
-            if apenas_vigentes:
-                params['situacaoAta'] = 'VIGENTE'
+    for i in range(anos_janela):
+        d_fim = (hoje - datetime.timedelta(days=360 * i)).strftime("%Y-%m-%d")
+        d_ini = (hoje - datetime.timedelta(days=360 * (i + 1))).strftime("%Y-%m-%d")
+        pagina = 1
 
-            resp = requests.get(
-                'https://dadosabertos.compras.gov.br/modulo-arp/1_consultarARP',
-                params=params, timeout=30,
-                headers={'User-Agent': 'Mozilla/5.0'}, verify=False
-            )
-            if resp.status_code != 200:
+        while pagina <= max_paginas:
+            try:
+                params = {
+                    'niFornecedor': cnpj_limpo,
+                    'dataVigenciaInicialMin': d_ini,
+                    'dataVigenciaInicialMax': d_fim,
+                    'pagina': pagina,
+                    'tamanhoPagina': 100,
+                }
+
+                resp = requests.get(
+                    'https://dadosabertos.compras.gov.br/modulo-arp/2_consultarARPItem',
+                    params=params, timeout=60,
+                    headers={'User-Agent': 'Mozilla/5.0'}, verify=False
+                )
+                if resp.status_code != 200:
+                    break
+
+                data = resp.json()
+                itens = data.get('resultado', [])
+                if not itens:
+                    break
+
+                todos.extend(itens)
+
+                total = data.get('totalRegistros', 0)
+                if len(todos) >= total:
+                    break
+
+                pagina += 1
+            except Exception:
                 break
 
-            data = resp.json()
-            itens = data.get('resultado', [])
-            if not itens:
-                break
-
-            todos.extend(itens)
-
-            total = data.get('totalRegistros', 0)
-            if len(todos) >= total:
-                break
-
-            pagina += 1
-        except Exception:
-            break
+    # Filtro de vigentes no lado do cliente, pois o endpoint não tem esse filtro
+    if apenas_vigentes:
+        hoje_str = hoje.strftime("%Y-%m-%d")
+        todos = [
+            a for a in todos
+            if str(a.get('dataVigenciaFinal', '9999-12-31'))[:10] >= hoje_str
+              and a.get('maximoAdesao', 0) and a.get('maximoAdesao', 0) > 0
+        ]
 
     return todos
 
@@ -638,11 +649,15 @@ if btn_consultar and cnpj_input:
             atas_pncp = consultar_pncp_atas(cnpj_limpo, anos_janela)
             progress_contratos.progress(0.60, text="Consultando atas e adesões vigentes (dadosabertos)...")
 
-            # 5) Atas e adesões vigentes via dadosabertos (por cnpjFornecedor)
+            # 5) Itens de ARP via dadosabertos (por niFornecedor / CNPJ)
             atas_dadosabertos = consultar_dadosabertos_arps(cnpj_limpo, anos_janela, apenas_vigentes=False)
-            adesoes_vigentes = [a for a in atas_dadosabertos
-                                if str(a.get('situacaoAta', '')).upper() == 'VIGENTE'
-                                or str(a.get('situacaoAta', '')).upper() == 'ATIVA']
+            # Vigentes = dataVigenciaFinal >= hoje E maximoAdesao > 0
+            hoje_str = datetime.date.today().strftime("%Y-%m-%d")
+            adesoes_vigentes = [
+                a for a in atas_dadosabertos
+                if str(a.get('dataVigenciaFinal', ''))[:10] >= hoje_str
+                   and (a.get('maximoAdesao') or 0) > 0
+            ]
             progress_contratos.progress(0.80, text="Classificando resultados...")
 
             # 6) Todos os contratos vão para a aba Contratos Governamentais (independente da modalidade)
@@ -909,70 +924,97 @@ if 'cnpj_consulta' in st.session_state:
     # ==================== ABA 4: ADESÕES VIGENTES ====================
     with tab_adesoes:
         st.markdown("### Adesões Vigentes")
-        st.write("##### Fonte: ComprasGov — Atas de Registro de Preços onde este CNPJ é fornecedor registrado")
+        st.write("##### Fonte: ComprasGov — Itens de ARP onde este CNPJ é fornecedor registrado")
 
-        # Combina todas as ARPs (dadosabertos): filtra as vigentes/ativas para exibição destacada
-        todos_arps_dadosabertos = atas_dadosabertos if atas_dadosabertos else []
-        vigentes = [a for a in todos_arps_dadosabertos
-                    if str(a.get('situacaoAta', '')).upper() in ('VIGENTE', 'ATIVA')]
-        encerradas = [a for a in todos_arps_dadosabertos
-                      if str(a.get('situacaoAta', '')).upper() not in ('VIGENTE', 'ATIVA')]
+        # Dados vindos de 2_consultarARPItem (niFornecedor)
+        todos_itens_arp = atas_dadosabertos if atas_dadosabertos else []
+        hoje_str = datetime.date.today().strftime("%Y-%m-%d")
+        vigentes = [a for a in todos_itens_arp
+                    if str(a.get('dataVigenciaFinal', ''))[:10] >= hoje_str
+                       and (a.get('maximoAdesao') or 0) > 0]
+        encerradas = [a for a in todos_itens_arp if a not in vigentes]
 
-        if todos_arps_dadosabertos:
-            st.success(f"Encontradas **{len(todos_arps_dadosabertos)}** atas associadas a este CNPJ "
-                       f"({len(vigentes)} vigentes, {len(encerradas)} encerradas).")
+        if todos_itens_arp:
+            st.success(f"Encontrados **{len(todos_itens_arp)}** itens de ARP associados a este CNPJ "
+                       f"(**{len(vigentes)}** abertos para adesão, {len(encerradas)} outros).")
 
-            # Subtabs: Vigentes e Todas
-            sub_vigentes, sub_todas = st.tabs(["🟢 Vigentes", "📋 Todas"])
+            # Agrupar itens por ATA (numeroAtaRegistroPreco + codigoUnidadeGerenciadora)
+            def _agrupar_por_ata(itens):
+                atas = {}
+                for item in itens:
+                    chave = f"{item.get('numeroAtaRegistroPreco', '')}|{item.get('codigoUnidadeGerenciadora', '')}"
+                    if chave not in atas:
+                        atas[chave] = {
+                            'numero_ata': item.get('numeroAtaRegistroPreco', 'N/A'),
+                            'unidade': item.get('nomeUnidadeGerenciadora', 'N/A'),
+                            'modalidade': item.get('nomeModalidadeCompra', 'N/A'),
+                            'data_ini': str(item.get('dataVigenciaInicial', ''))[:10],
+                            'data_fim': str(item.get('dataVigenciaFinal', ''))[:10],
+                            'numero_pncp': item.get('numeroControlePncpAta', ''),
+                            'itens': [],
+                        }
+                    atas[chave]['itens'].append(item)
+                return atas
 
-            def _render_arps(arps_lista):
-                for arp in arps_lista:
-                    numero_ata = arp.get('numeroAta') or arp.get('numeroAtaRegistroPreco', 'N/A')
-                    orgao = arp.get('nomeOrgao') or arp.get('orgao', 'N/A')
-                    unidade = arp.get('nomeUnidadeGestora') or arp.get('unidadeGestora', '')
-                    situacao = arp.get('situacaoAta', 'N/A')
-                    data_ini_arp = str(arp.get('dataVigenciaInicial') or arp.get('dataInicioVigencia', ''))[:10]
-                    data_fim_arp = str(arp.get('dataVigenciaFinal') or arp.get('dataFimVigencia', ''))[:10]
-                    objeto = arp.get('objetoAtaRegistroPreco') or arp.get('descricaoObjeto') or arp.get('objeto', 'N/A')
-                    valor = arp.get('valorTotalAta') or arp.get('valorTotal') or 0
-                    numero_pncp = arp.get('numeroPncp') or arp.get('numeroControlePNCP', '')
+            sub_vigentes, sub_todas = st.tabs(["🟢 Abertos para Adesão", "📋 Todos os Itens"])
 
-                    cor = "🟢" if str(situacao).upper() in ('VIGENTE', 'ATIVA') else "🔴"
-                    header = f"{cor} ARP nº {numero_ata} — {orgao}"
-                    if unidade and unidade != orgao:
-                        header += f" / {unidade}"
+            def _render_atas_agrupadas(atas_dict):
+                for _chave, ata_info in atas_dict.items():
+                    vigencia_fim = ata_info['data_fim']
+                    aberta = vigencia_fim >= hoje_str
+                    cor = "🟢" if aberta else "🔴"
+                    total_itens = len(ata_info['itens'])
+                    valor_total = sum(i.get('valorTotal', 0) or 0 for i in ata_info['itens'])
+                    header = f"{cor} ARP nº {ata_info['numero_ata']} — {ata_info['unidade']} ({total_itens} itens)"
 
                     with st.expander(header):
                         col1, col2, col3 = st.columns(3)
-                        col1.metric("Situação", situacao)
-                        col2.metric("Vigência", f"{data_ini_arp} → {data_fim_arp}")
-                        col3.metric("Valor Total", formatar_moeda_br(valor))
-                        st.write(f"**Objeto:** {objeto}")
-                        if numero_pncp:
-                            link_pncp = f"https://pncp.gov.br/app/atas/{numero_pncp.replace('/', '-')}"
-                            st.markdown(f"[🔗 Ver no PNCP]({link_pncp})")
+                        col1.metric("Modalidade", ata_info['modalidade'])
+                        col2.metric("Vigência", f"{ata_info['data_ini']} → {ata_info['data_fim']}")
+                        col3.metric("Valor Total Itens", formatar_moeda_br(valor_total))
+
+                        if ata_info['numero_pncp']:
+                            link_pncp = f"https://pncp.gov.br/app/atas/{ata_info['numero_pncp']}"
+                            st.markdown(f"[🔗 Ver ATA no PNCP]({link_pncp})")
+
+                        # Tabela de itens desta ATA
+                        df_itens = pd.DataFrame([{
+                            'Item': i.get('numeroItem', ''),
+                            'Descrição': i.get('descricaoItem', ''),
+                            'Tipo': i.get('tipoItem', ''),
+                            'Qtd Homologada': i.get('quantidadeHomologadaItem', ''),
+                            'Valor Unitário': formatar_moeda_br(i.get('valorUnitario', 0) or 0),
+                            'Valor Total': formatar_moeda_br(i.get('valorTotal', 0) or 0),
+                            'Máximo Adesão': i.get('maximoAdesao', 0),
+                            'Qtd Empenhada': i.get('quantidadeEmpenhada', 0),
+                        } for i in ata_info['itens']])
+                        st.dataframe(df_itens, use_container_width=True, hide_index=True)
 
             with sub_vigentes:
                 if vigentes:
-                    _render_arps(vigentes)
+                    atas_vigentes = _agrupar_por_ata(vigentes)
+                    _render_atas_agrupadas(atas_vigentes)
                 else:
-                    st.info("Nenhuma ata vigente encontrada para este CNPJ no período consultado.")
+                    st.info("Nenhum item vigente com adesão aberta encontrado para este CNPJ.")
 
             with sub_todas:
-                if todos_arps_dadosabertos:
-                    _render_arps(todos_arps_dadosabertos)
-                    # Tabela resumida
-                    df_arps = pd.DataFrame([{
-                        'Nº ATA': a.get('numeroAta') or a.get('numeroAtaRegistroPreco', ''),
-                        'Órgão': a.get('nomeOrgao') or a.get('orgao', ''),
-                        'Situação': a.get('situacaoAta', ''),
-                        'Início Vigência': str(a.get('dataVigenciaInicial') or a.get('dataInicioVigencia', ''))[:10],
-                        'Fim Vigência': str(a.get('dataVigenciaFinal') or a.get('dataFimVigencia', ''))[:10],
-                        'Valor Total': formatar_moeda_br(a.get('valorTotalAta') or a.get('valorTotal') or 0),
-                    } for a in todos_arps_dadosabertos])
-                    st.dataframe(df_arps, use_container_width=True, hide_index=True)
+                atas_todas = _agrupar_por_ata(todos_itens_arp)
+                _render_atas_agrupadas(atas_todas)
+                # Tabela resumo geral
+                with st.expander("📊 Tabela resumo de todos os itens"):
+                    df_todos = pd.DataFrame([{
+                        'Nº ATA': a.get('numeroAtaRegistroPreco', ''),
+                        'Unidade Gerenciadora': a.get('nomeUnidadeGerenciadora', ''),
+                        'Item': a.get('numeroItem', ''),
+                        'Descrição': str(a.get('descricaoItem', ''))[:80],
+                        'Vigência Início': str(a.get('dataVigenciaInicial', ''))[:10],
+                        'Vigência Fim': str(a.get('dataVigenciaFinal', ''))[:10],
+                        'Valor Total': formatar_moeda_br(a.get('valorTotal', 0) or 0),
+                        'Máx. Adesão': a.get('maximoAdesao', 0),
+                    } for a in todos_itens_arp])
+                    st.dataframe(df_todos, use_container_width=True, hide_index=True)
         else:
-            st.info("Nenhuma ata de registro de preços encontrada no ComprasGov para este CNPJ no período consultado.")
+            st.info("Nenhum item de ARP encontrado no ComprasGov para este CNPJ no período consultado.")
 
     # ==================== ABA 5: DISPENSAS / CONTRATAÇÃO DIRETA ====================
     with tab_compras:
