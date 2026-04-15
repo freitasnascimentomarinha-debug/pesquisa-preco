@@ -314,6 +314,64 @@ st.markdown("""
 st.title("📄 Notas Fiscais")
 st.markdown("Consulta de notas fiscais eletrônicas a partir dos dados abertos do **Portal da Transparência**.")
 
+# ===== ABAS PRINCIPAIS =====
+tab_pesquisa, tab_consulta_nfe = st.tabs([
+    "🔍 Pesquisa de NF (Portal da Transparência)",
+    "📋 Consulta / Download NFe (Receita Federal)"
+])
+
+# ==================== ABA 2: CONSULTA NFe (RECEITA FEDERAL) ====================
+NFE_URL = "https://www.nfe.fazenda.gov.br/portal/consultaRecaptcha.aspx?tipoConsulta=resumo&tipoConteudo=7PhJ+gAVw2g="
+
+with tab_consulta_nfe:
+    st.markdown("### Consulta de NFe — Receita Federal")
+    st.markdown("Acesse o portal da Receita Federal para consultar e baixar Notas Fiscais Eletrônicas pela **chave de acesso**.")
+
+    # Botão de reset para recarregar o iframe
+    if 'nfe_iframe_key' not in st.session_state:
+        st.session_state['nfe_iframe_key'] = 0
+
+    col_reset, col_info_nfe = st.columns([1, 3])
+    with col_reset:
+        if st.button("🔄 Nova Consulta", use_container_width=True, key="btn_reset_nfe"):
+            st.session_state['nfe_iframe_key'] += 1
+            st.rerun()
+    with col_info_nfe:
+        st.markdown(
+            '<span style="color:#cbd5e1; font-size:0.9rem;">'
+            'Utilize o botão <b>Nova Consulta</b> para recarregar a página da Receita Federal e iniciar uma nova pesquisa.'
+            '</span>',
+            unsafe_allow_html=True
+        )
+
+    # Iframe embutido com a página da NFe
+    nfe_key = st.session_state['nfe_iframe_key']
+    iframe_html = f"""
+    <div style="border: 2px solid #d4af37; border-radius: 8px; overflow: hidden; margin-top: 1rem;">
+        <iframe
+            src="{NFE_URL}&_reload={nfe_key}"
+            width="100%"
+            height="800"
+            style="border: none; background: #ffffff;"
+            sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-top-navigation"
+            title="Consulta NFe - Receita Federal"
+        ></iframe>
+    </div>
+    """
+    st.components.v1.html(iframe_html, height=830, scrolling=False)
+
+    st.markdown(f"""
+    <div style="background: #0a2540; border: 1px solid #333; border-radius: 8px; padding: 1rem; margin-top: 1rem;">
+        <p style="color: #d4af37; font-weight: bold; margin-bottom: 0.5rem;">ℹ️ Instruções:</p>
+        <ul style="color: #cccccc; font-size: 13px; line-height: 1.8;">
+            <li>Insira a <b>chave de acesso</b> da NFe (44 dígitos) e resolva o captcha para consultar.</li>
+            <li>Após a consulta, é possível <b>baixar o DANFE (PDF)</b> ou o <b>XML</b> da nota.</li>
+            <li>Clique em <b>🔄 Nova Consulta</b> para recarregar a página e consultar outra NFe.</li>
+            <li>Caso o site não carregue no iframe, <a href="{NFE_URL}" target="_blank" style="color: #ffd700;">clique aqui para abrir em nova aba</a>.</li>
+        </ul>
+    </div>
+    """, unsafe_allow_html=True)
+
 # --- Configuração da fonte de dados ---
 PASTA_ID = "1369rEJAqpprCP3dZp55eXaTcQRU9D5Ol"
 DOWNLOAD_BASE = "https://drive.usercontent.google.com/download?id={file_id}&export=download&confirm=t"
@@ -1187,449 +1245,451 @@ def gerar_excel_formatado(df_exib, item_pesquisado, filtros_texto, stats_info, f
     return output.getvalue()
 
 
-# --- Carregar lista de arquivos ---
-with st.spinner("Carregando lista de arquivos do Portal da Transparência..."):
-    arquivos_portal = listar_arquivos_disponiveis(PASTA_ID)
+# ==================== ABA 1: PESQUISA NF (PORTAL DA TRANSPARÊNCIA) ====================
+with tab_pesquisa:
+    # --- Carregar lista de arquivos ---
+    with st.spinner("Carregando lista de arquivos do Portal da Transparência..."):
+        arquivos_portal = listar_arquivos_disponiveis(PASTA_ID)
 
-if not arquivos_portal:
-    arquivos_portal = ARQUIVOS_FALLBACK.copy()
-    st.warning("⚠️ Não foi possível listar os arquivos. Usando dados conhecidos como fallback.")
+    if not arquivos_portal:
+        arquivos_portal = ARQUIVOS_FALLBACK.copy()
+        st.warning("⚠️ Não foi possível listar os arquivos. Usando dados conhecidos como fallback.")
 
-col_info, col_refresh = st.columns([4, 1])
-with col_info:
-    st.markdown(f"**{len(arquivos_portal)}** arquivo(s) disponível(is) no Portal da Transparência.")
-with col_refresh:
-    if st.button("🔄 Atualizar lista", use_container_width=True):
-        listar_arquivos_disponiveis.clear()
-        st.rerun()
+    col_info, col_refresh = st.columns([4, 1])
+    with col_info:
+        st.markdown(f"**{len(arquivos_portal)}** arquivo(s) disponível(is) no Portal da Transparência.")
+    with col_refresh:
+        if st.button("🔄 Atualizar lista", use_container_width=True):
+            listar_arquivos_disponiveis.clear()
+            st.rerun()
 
-# --- Formulário de busca ---
-st.markdown('<div class="filtros-container">', unsafe_allow_html=True)
-st.subheader("🔍 Filtros de Pesquisa")
+    # --- Formulário de busca ---
+    st.markdown('<div class="filtros-container">', unsafe_allow_html=True)
+    st.subheader("🔍 Filtros de Pesquisa")
 
-nomes_arquivos = list(arquivos_portal.values())
-ids_arquivos = list(arquivos_portal.keys())
+    nomes_arquivos = list(arquivos_portal.values())
+    ids_arquivos = list(arquivos_portal.keys())
 
-# Ordenar por nome decrescente para o arquivo mais recente ficar primeiro
-ordem = sorted(range(len(nomes_arquivos)), key=lambda i: nomes_arquivos[i], reverse=True)
-nomes_arquivos = [nomes_arquivos[i] for i in ordem]
-ids_arquivos = [ids_arquivos[i] for i in ordem]
+    # Ordenar por nome decrescente para o arquivo mais recente ficar primeiro
+    ordem = sorted(range(len(nomes_arquivos)), key=lambda i: nomes_arquivos[i], reverse=True)
+    nomes_arquivos = [nomes_arquivos[i] for i in ordem]
+    ids_arquivos = [ids_arquivos[i] for i in ordem]
 
-arquivo_idx = st.selectbox(
-    "📂 Arquivo / Período",
-    options=range(len(nomes_arquivos)),
-    format_func=lambda i: nomes_arquivos[i],
-    help="Selecione o arquivo CSV a ser consultado",
-)
-
-col1, col2 = st.columns(2)
-
-with col1:
-    filtro_produto = st.text_input(
-        "Descrição do Produto / Serviço",
-        placeholder="Ex: TINTA, PARAFUSO, DIESEL...",
-        help="Pesquisa parcial na descrição do produto/serviço",
+    arquivo_idx = st.selectbox(
+        "📂 Arquivo / Período",
+        options=range(len(nomes_arquivos)),
+        format_func=lambda i: nomes_arquivos[i],
+        help="Selecione o arquivo CSV a ser consultado",
     )
 
-with col2:
-    filtro_nome_dest = st.text_input(
-        "Nome Destinatário",
-        placeholder="Ex: ARSENAL, HOSPITAL NAVAL...",
-        help="Pesquisa parcial no nome do destinatário",
-    )
+    col1, col2 = st.columns(2)
 
-col3, col4, col5 = st.columns(3)
+    with col1:
+        filtro_produto = st.text_input(
+            "Descrição do Produto / Serviço",
+            placeholder="Ex: TINTA, PARAFUSO, DIESEL...",
+            help="Pesquisa parcial na descrição do produto/serviço",
+        )
 
-with col3:
-    filtro_uf_dest = st.text_input(
-        "UF Destinatário",
-        placeholder="Ex: RJ, SP, DF...",
-        help="Sigla do estado do destinatário (filtro exato)",
-        max_chars=2,
-    )
+    with col2:
+        filtro_nome_dest = st.text_input(
+            "Nome Destinatário",
+            placeholder="Ex: ARSENAL, HOSPITAL NAVAL...",
+            help="Pesquisa parcial no nome do destinatário",
+        )
 
-with col4:
-    filtro_uf_emit = st.text_input(
-        "UF Emitente",
-        placeholder="Ex: RJ, SP, MG...",
-        help="Sigla do estado do emitente/fornecedor (filtro exato)",
-        max_chars=2,
-    )
+    col3, col4, col5 = st.columns(3)
 
-with col5:
-    max_resultados = st.number_input(
-        "Máximo de resultados",
-        min_value=100,
-        max_value=10000,
-        value=500,
-        step=100,
-        help="Limita a quantidade de registros retornados para otimizar a performance",
-    )
+    with col3:
+        filtro_uf_dest = st.text_input(
+            "UF Destinatário",
+            placeholder="Ex: RJ, SP, DF...",
+            help="Sigla do estado do destinatário (filtro exato)",
+            max_chars=2,
+        )
 
-buscar = st.button("🔎 Pesquisar Notas Fiscais", use_container_width=True)
-st.markdown('</div>', unsafe_allow_html=True)
+    with col4:
+        filtro_uf_emit = st.text_input(
+            "UF Emitente",
+            placeholder="Ex: RJ, SP, MG...",
+            help="Sigla do estado do emitente/fornecedor (filtro exato)",
+            max_chars=2,
+        )
 
-# --- Processar busca ---
-if buscar:
-    if not filtro_produto and not filtro_nome_dest and not filtro_uf_dest and not filtro_uf_emit:
-        st.warning("⚠️ Informe pelo menos um filtro para realizar a pesquisa.")
-    else:
-        file_id = ids_arquivos[arquivo_idx]
-        file_name = nomes_arquivos[arquivo_idx]
+    with col5:
+        max_resultados = st.number_input(
+            "Máximo de resultados",
+            min_value=100,
+            max_value=10000,
+            value=500,
+            step=100,
+            help="Limita a quantidade de registros retornados para otimizar a performance",
+        )
 
-        # Etapa 1: Download do arquivo
-        progress_bar = st.progress(0, text="Verificando arquivo...")
-        cache_path = os.path.join(CACHE_DIR, f"{file_id}.csv")
+    buscar = st.button("🔎 Pesquisar Notas Fiscais", use_container_width=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
-        # Invalidar cache corrompido (HTML salvo como CSV)
-        if os.path.exists(cache_path) and os.path.getsize(cache_path) < 10000:
-            os.remove(cache_path)
-
-        if os.path.exists(cache_path):
-            progress_bar.progress(1.0, text="✅ Arquivo já em cache local")
+    # --- Processar busca ---
+    if buscar:
+        if not filtro_produto and not filtro_nome_dest and not filtro_uf_dest and not filtro_uf_emit:
+            st.warning("⚠️ Informe pelo menos um filtro para realizar a pesquisa.")
         else:
+            file_id = ids_arquivos[arquivo_idx]
+            file_name = nomes_arquivos[arquivo_idx]
+
+            # Etapa 1: Download do arquivo
+            progress_bar = st.progress(0, text="Verificando arquivo...")
+            cache_path = os.path.join(CACHE_DIR, f"{file_id}.csv")
+
+            # Invalidar cache corrompido (HTML salvo como CSV)
+            if os.path.exists(cache_path) and os.path.getsize(cache_path) < 10000:
+                os.remove(cache_path)
+
+            if os.path.exists(cache_path):
+                progress_bar.progress(1.0, text="✅ Arquivo já em cache local")
+            else:
+                try:
+                    cache_path = baixar_arquivo_csv(file_id, progress_bar)
+                except Exception as e:
+                    progress_bar.empty()
+                    st.error(f"❌ {str(e)}")
+                    st.stop()
+
+            # Etapa 2: Pesquisa nos dados
+            progress_bar.progress(1.0, text="🔍 Pesquisando nos dados...")
+
             try:
-                cache_path = baixar_arquivo_csv(file_id, progress_bar)
+                df_resultado, total_linhas = pesquisar_notas(
+                    cache_path, filtro_produto, filtro_nome_dest, filtro_uf_dest, filtro_uf_emit, max_resultados
+                )
             except Exception as e:
                 progress_bar.empty()
-                st.error(f"❌ {str(e)}")
+                st.error(f"❌ Erro ao processar o arquivo: {str(e)}")
                 st.stop()
 
-        # Etapa 2: Pesquisa nos dados
-        progress_bar.progress(1.0, text="🔍 Pesquisando nos dados...")
-
-        try:
-            df_resultado, total_linhas = pesquisar_notas(
-                cache_path, filtro_produto, filtro_nome_dest, filtro_uf_dest, filtro_uf_emit, max_resultados
-            )
-        except Exception as e:
             progress_bar.empty()
-            st.error(f"❌ Erro ao processar o arquivo: {str(e)}")
-            st.stop()
 
-        progress_bar.empty()
+            if df_resultado.empty:
+                st.info("📭 Nenhuma nota fiscal encontrada para os filtros informados.")
+            else:
+                # Salvar resultados no session_state para persistir entre interações
+                st.session_state["nf_resultado"] = df_resultado
+                st.session_state["nf_total_linhas"] = total_linhas
+                st.session_state["nf_file_name"] = file_name
+                st.session_state["nf_max_resultados"] = max_resultados
+                st.session_state["nf_item_pesquisado"] = gerar_nome_pesquisa(filtro_produto, filtro_nome_dest, filtro_uf_dest, filtro_uf_emit)
+                st.session_state["nf_filtros_texto"] = gerar_filtros_texto(filtro_produto, filtro_nome_dest, filtro_uf_dest, filtro_uf_emit)
 
-        if df_resultado.empty:
-            st.info("📭 Nenhuma nota fiscal encontrada para os filtros informados.")
+    # --- Exibir resultados (persistidos no session_state) ---
+    if "nf_resultado" in st.session_state and not st.session_state["nf_resultado"].empty:
+        df_resultado = st.session_state["nf_resultado"]
+        total_linhas = st.session_state["nf_total_linhas"]
+        file_name = st.session_state["nf_file_name"]
+        max_resultados = st.session_state["nf_max_resultados"]
+
+        # Colunas e ordem definidas pelo usuário
+        colunas_exibicao = {
+            "DATA EMISSÃO": "Data",
+            "DESCRIÇÃO DO PRODUTO/SERVIÇO": "Produto",
+            "UNIDADE": "Unidade",
+            "QUANTIDADE": "Quantidade",
+            "VALOR UNITÁRIO": "Valor Unitário",
+            "VALOR TOTAL": "Valor Total",
+            "UF DESTINATÁRIO": "UF Destinatário",
+            "NOME DESTINATÁRIO": "Nome Destinatário",
+            "RAZÃO SOCIAL EMITENTE": "Razão Social Emitente",
+            "CPF/CNPJ Emitente": "CNPJ Emitente",
+            "UF EMITENTE": "UF Emitente",
+            "MUNICÍPIO EMITENTE": "Município",
+            "NCM/SH (TIPO DE PRODUTO)": "NCM/SH (Tipo de Produto)",
+            "CHAVE DE ACESSO": "Chave de Acesso",
+            "NATUREZA DA OPERAÇÃO": "Natureza da Operação",
+        }
+        colunas_disponiveis = [c for c in colunas_exibicao if c in df_resultado.columns]
+        df_exib = df_resultado[colunas_disponiveis].rename(columns=colunas_exibicao).copy()
+
+        # --- Filtro de Outliers ---
+        _col_vunit = "Valor Unitário"
+        _valores_num = pd.Series(dtype=float)
+        if _col_vunit in df_exib.columns:
+            _valores_num = pd.to_numeric(
+                df_exib[_col_vunit].astype(str)
+                .str.replace(".", "", regex=False)
+                .str.replace(",", ".", regex=False),
+                errors="coerce"
+            )
+
+        col_outlier, _ = st.columns([1, 2])
+        with col_outlier:
+            remover_outliers = st.checkbox(
+                "🎯 Remover Outliers (IQR)",
+                value=False,
+                help="Remove valores unitários discrepantes usando o método IQR (Intervalo Interquartil). "
+                     "Valores abaixo de Q1 − 1.5×IQR ou acima de Q3 + 1.5×IQR são removidos.",
+            )
+
+        if remover_outliers and not _valores_num.dropna().empty:
+            q1 = _valores_num.quantile(0.25)
+            q3 = _valores_num.quantile(0.75)
+            iqr = q3 - q1
+            lim_inf = max(q1 - 1.5 * iqr, 0)
+            lim_sup = q3 + 1.5 * iqr
+            mask_inlier = ((_valores_num >= lim_inf) & (_valores_num <= lim_sup)) | _valores_num.isna()
+            n_removidos = int((~mask_inlier).sum())
+            df_exib = df_exib[mask_inlier].reset_index(drop=True)
+            _valores_num = _valores_num[mask_inlier].reset_index(drop=True)
+            if n_removidos > 0:
+                st.info(f"🎯 {n_removidos} registro(s) com valor unitário discrepante removido(s) "
+                        f"(limites: {_fmt_brl(lim_inf)} — {_fmt_brl(lim_sup)}).")
+
+        # Calcular estatísticas de preço unitário
+        _vnum_valid = _valores_num.dropna()
+        if not _vnum_valid.empty:
+            preco_menor = _vnum_valid.min()
+            preco_medio = _vnum_valid.mean()
+            preco_mediana = _vnum_valid.median()
+            preco_maior = _vnum_valid.max()
         else:
-            # Salvar resultados no session_state para persistir entre interações
-            st.session_state["nf_resultado"] = df_resultado
-            st.session_state["nf_total_linhas"] = total_linhas
-            st.session_state["nf_file_name"] = file_name
-            st.session_state["nf_max_resultados"] = max_resultados
-            st.session_state["nf_item_pesquisado"] = gerar_nome_pesquisa(filtro_produto, filtro_nome_dest, filtro_uf_dest, filtro_uf_emit)
-            st.session_state["nf_filtros_texto"] = gerar_filtros_texto(filtro_produto, filtro_nome_dest, filtro_uf_dest, filtro_uf_emit)
+            preco_menor = preco_medio = preco_mediana = preco_maior = 0
 
-# --- Exibir resultados (persistidos no session_state) ---
-if "nf_resultado" in st.session_state and not st.session_state["nf_resultado"].empty:
-    df_resultado = st.session_state["nf_resultado"]
-    total_linhas = st.session_state["nf_total_linhas"]
-    file_name = st.session_state["nf_file_name"]
-    max_resultados = st.session_state["nf_max_resultados"]
+        # --- Cards de estatísticas ---
+        st.markdown("---")
+        col_s1, col_s2, col_s3, col_s4 = st.columns(4)
 
-    # Colunas e ordem definidas pelo usuário
-    colunas_exibicao = {
-        "DATA EMISSÃO": "Data",
-        "DESCRIÇÃO DO PRODUTO/SERVIÇO": "Produto",
-        "UNIDADE": "Unidade",
-        "QUANTIDADE": "Quantidade",
-        "VALOR UNITÁRIO": "Valor Unitário",
-        "VALOR TOTAL": "Valor Total",
-        "UF DESTINATÁRIO": "UF Destinatário",
-        "NOME DESTINATÁRIO": "Nome Destinatário",
-        "RAZÃO SOCIAL EMITENTE": "Razão Social Emitente",
-        "CPF/CNPJ Emitente": "CNPJ Emitente",
-        "UF EMITENTE": "UF Emitente",
-        "MUNICÍPIO EMITENTE": "Município",
-        "NCM/SH (TIPO DE PRODUTO)": "NCM/SH (Tipo de Produto)",
-        "CHAVE DE ACESSO": "Chave de Acesso",
-        "NATUREZA DA OPERAÇÃO": "Natureza da Operação",
-    }
-    colunas_disponiveis = [c for c in colunas_exibicao if c in df_resultado.columns]
-    df_exib = df_resultado[colunas_disponiveis].rename(columns=colunas_exibicao).copy()
+        with col_s1:
+            st.markdown(f"""
+            <div class="stats-card">
+                <div style="color: #d4af37; font-size: 14px; font-weight: 600;">REGISTROS ENCONTRADOS</div>
+                <div style="color: #ffffff; font-size: 32px; font-weight: bold;">{len(df_resultado):,}</div>
+                <div style="color: #aaaaaa; font-size: 12px;">{total_linhas:,} linhas analisadas</div>
+            </div>
+            """, unsafe_allow_html=True)
 
-    # --- Filtro de Outliers ---
-    _col_vunit = "Valor Unitário"
-    _valores_num = pd.Series(dtype=float)
-    if _col_vunit in df_exib.columns:
-        _valores_num = pd.to_numeric(
-            df_exib[_col_vunit].astype(str)
-            .str.replace(".", "", regex=False)
-            .str.replace(",", ".", regex=False),
-            errors="coerce"
+        with col_s2:
+            fornecedores = (
+                df_resultado["RAZÃO SOCIAL EMITENTE"].nunique()
+                if "RAZÃO SOCIAL EMITENTE" in df_resultado.columns
+                else 0
+            )
+            st.markdown(f"""
+            <div class="stats-card">
+                <div style="color: #d4af37; font-size: 14px; font-weight: 600;">FORNECEDORES</div>
+                <div style="color: #ffffff; font-size: 32px; font-weight: bold;">{fornecedores}</div>
+                <div style="color: #aaaaaa; font-size: 12px;">Distintos</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        with col_s3:
+            orgaos = (
+                df_resultado["ÓRGÃO DESTINATÁRIO"].nunique()
+                if "ÓRGÃO DESTINATÁRIO" in df_resultado.columns
+                else 0
+            )
+            st.markdown(f"""
+            <div class="stats-card">
+                <div style="color: #d4af37; font-size: 14px; font-weight: 600;">ÓRGÃOS DESTINO</div>
+                <div style="color: #ffffff; font-size: 32px; font-weight: bold;">{orgaos}</div>
+                <div style="color: #aaaaaa; font-size: 12px;">Distintos</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        with col_s4:
+            try:
+                total_valor = pd.to_numeric(
+                    df_resultado["VALOR TOTAL"]
+                    .str.replace(".", "", regex=False)
+                    .str.replace(",", ".", regex=False),
+                    errors="coerce",
+                ).sum()
+                valor_fmt = (
+                    f"R$ {total_valor:,.2f}"
+                    .replace(",", "X")
+                    .replace(".", ",")
+                    .replace("X", ".")
+                )
+            except Exception:
+                valor_fmt = "—"
+            st.markdown(f"""
+            <div class="stats-card">
+                <div style="color: #d4af37; font-size: 14px; font-weight: 600;">VALOR TOTAL</div>
+                <div style="color: #ffffff; font-size: 20px; font-weight: bold;">{valor_fmt}</div>
+                <div style="color: #aaaaaa; font-size: 12px;">Soma dos registros</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        # --- Cards de preço unitário ---
+        col_p1, col_p2, col_p3, col_p4 = st.columns(4)
+
+        with col_p1:
+            st.markdown(f"""
+            <div class="stats-card">
+                <div style="color: #d4af37; font-size: 14px; font-weight: 600;">MENOR PREÇO UNIT.</div>
+                <div style="color: #00ff88; font-size: 22px; font-weight: bold;">{_fmt_brl(preco_menor)}</div>
+                <div style="color: #aaaaaa; font-size: 12px;">Valor unitário mínimo</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        with col_p2:
+            st.markdown(f"""
+            <div class="stats-card">
+                <div style="color: #d4af37; font-size: 14px; font-weight: 600;">PREÇO MÉDIO</div>
+                <div style="color: #ffffff; font-size: 22px; font-weight: bold;">{_fmt_brl(preco_medio)}</div>
+                <div style="color: #aaaaaa; font-size: 12px;">Média aritmética</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        with col_p3:
+            st.markdown(f"""
+            <div class="stats-card">
+                <div style="color: #d4af37; font-size: 14px; font-weight: 600;">MEDIANA</div>
+                <div style="color: #ffffff; font-size: 22px; font-weight: bold;">{_fmt_brl(preco_mediana)}</div>
+                <div style="color: #aaaaaa; font-size: 12px;">Valor central</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        with col_p4:
+            st.markdown(f"""
+            <div class="stats-card">
+                <div style="color: #d4af37; font-size: 14px; font-weight: 600;">MAIOR PREÇO UNIT.</div>
+                <div style="color: #ff6666; font-size: 22px; font-weight: bold;">{_fmt_brl(preco_maior)}</div>
+                <div style="color: #aaaaaa; font-size: 12px;">Valor unitário máximo</div>
+            </div>
+            """, unsafe_allow_html=True)
+
+        # --- Tabela de resultados ---
+        st.markdown("---")
+        st.subheader("📋 Resultados")
+        st.markdown(f"**Arquivo:** {file_name}")
+        st.dataframe(
+            df_exib,
+            use_container_width=True,
+            hide_index=True,
+            height=min(len(df_exib) * 38 + 40, 700),
         )
 
-    col_outlier, _ = st.columns([1, 2])
-    with col_outlier:
-        remover_outliers = st.checkbox(
-            "🎯 Remover Outliers (IQR)",
-            value=False,
-            help="Remove valores unitários discrepantes usando o método IQR (Intervalo Interquartil). "
-                 "Valores abaixo de Q1 − 1.5×IQR ou acima de Q3 + 1.5×IQR são removidos.",
+        # --- Preparar dados para exportação ---
+        item_pesquisado = st.session_state.get("nf_item_pesquisado", "Consulta Geral")
+        filtros_texto = st.session_state.get("nf_filtros_texto", "")
+        nome_arquivo_base = sanitizar_nome_arquivo(item_pesquisado)
+
+        # Montar estatísticas para os relatórios
+        _fornecedores_exp = (
+            df_exib["Razão Social Emitente"].nunique()
+            if "Razão Social Emitente" in df_exib.columns else 0
         )
-
-    if remover_outliers and not _valores_num.dropna().empty:
-        q1 = _valores_num.quantile(0.25)
-        q3 = _valores_num.quantile(0.75)
-        iqr = q3 - q1
-        lim_inf = max(q1 - 1.5 * iqr, 0)
-        lim_sup = q3 + 1.5 * iqr
-        mask_inlier = ((_valores_num >= lim_inf) & (_valores_num <= lim_sup)) | _valores_num.isna()
-        n_removidos = int((~mask_inlier).sum())
-        df_exib = df_exib[mask_inlier].reset_index(drop=True)
-        _valores_num = _valores_num[mask_inlier].reset_index(drop=True)
-        if n_removidos > 0:
-            st.info(f"🎯 {n_removidos} registro(s) com valor unitário discrepante removido(s) "
-                    f"(limites: {_fmt_brl(lim_inf)} — {_fmt_brl(lim_sup)}).")
-
-    # Calcular estatísticas de preço unitário
-    _vnum_valid = _valores_num.dropna()
-    if not _vnum_valid.empty:
-        preco_menor = _vnum_valid.min()
-        preco_medio = _vnum_valid.mean()
-        preco_mediana = _vnum_valid.median()
-        preco_maior = _vnum_valid.max()
-    else:
-        preco_menor = preco_medio = preco_mediana = preco_maior = 0
-
-    # --- Cards de estatísticas ---
-    st.markdown("---")
-    col_s1, col_s2, col_s3, col_s4 = st.columns(4)
-
-    with col_s1:
-        st.markdown(f"""
-        <div class="stats-card">
-            <div style="color: #d4af37; font-size: 14px; font-weight: 600;">REGISTROS ENCONTRADOS</div>
-            <div style="color: #ffffff; font-size: 32px; font-weight: bold;">{len(df_resultado):,}</div>
-            <div style="color: #aaaaaa; font-size: 12px;">{total_linhas:,} linhas analisadas</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    with col_s2:
-        fornecedores = (
-            df_resultado["RAZÃO SOCIAL EMITENTE"].nunique()
-            if "RAZÃO SOCIAL EMITENTE" in df_resultado.columns
-            else 0
-        )
-        st.markdown(f"""
-        <div class="stats-card">
-            <div style="color: #d4af37; font-size: 14px; font-weight: 600;">FORNECEDORES</div>
-            <div style="color: #ffffff; font-size: 32px; font-weight: bold;">{fornecedores}</div>
-            <div style="color: #aaaaaa; font-size: 12px;">Distintos</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    with col_s3:
-        orgaos = (
-            df_resultado["ÓRGÃO DESTINATÁRIO"].nunique()
-            if "ÓRGÃO DESTINATÁRIO" in df_resultado.columns
-            else 0
-        )
-        st.markdown(f"""
-        <div class="stats-card">
-            <div style="color: #d4af37; font-size: 14px; font-weight: 600;">ÓRGÃOS DESTINO</div>
-            <div style="color: #ffffff; font-size: 32px; font-weight: bold;">{orgaos}</div>
-            <div style="color: #aaaaaa; font-size: 12px;">Distintos</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    with col_s4:
         try:
-            total_valor = pd.to_numeric(
-                df_resultado["VALOR TOTAL"]
+            _total_valor_exp = pd.to_numeric(
+                df_exib["Valor Total"].astype(str)
                 .str.replace(".", "", regex=False)
                 .str.replace(",", ".", regex=False),
                 errors="coerce",
             ).sum()
-            valor_fmt = (
-                f"R$ {total_valor:,.2f}"
-                .replace(",", "X")
-                .replace(".", ",")
-                .replace("X", ".")
-            )
+            _valor_fmt_exp = _fmt_brl(_total_valor_exp)
         except Exception:
-            valor_fmt = "—"
-        st.markdown(f"""
-        <div class="stats-card">
-            <div style="color: #d4af37; font-size: 14px; font-weight: 600;">VALOR TOTAL</div>
-            <div style="color: #ffffff; font-size: 20px; font-weight: bold;">{valor_fmt}</div>
-            <div style="color: #aaaaaa; font-size: 12px;">Soma dos registros</div>
-        </div>
-        """, unsafe_allow_html=True)
+            _valor_fmt_exp = "—"
 
-    # --- Cards de preço unitário ---
-    col_p1, col_p2, col_p3, col_p4 = st.columns(4)
+        stats_export = {
+            "REGISTROS": f"{len(df_exib):,}",
+            "FORNECEDORES": str(_fornecedores_exp),
+            "VALOR TOTAL": _valor_fmt_exp,
+            "MENOR PREÇO": _fmt_brl(preco_menor),
+            "PREÇO MÉDIO": _fmt_brl(preco_medio),
+            "MEDIANA": _fmt_brl(preco_mediana),
+            "MAIOR PREÇO": _fmt_brl(preco_maior),
+        }
 
-    with col_p1:
-        st.markdown(f"""
-        <div class="stats-card">
-            <div style="color: #d4af37; font-size: 14px; font-weight: 600;">MENOR PREÇO UNIT.</div>
-            <div style="color: #00ff88; font-size: 22px; font-weight: bold;">{_fmt_brl(preco_menor)}</div>
-            <div style="color: #aaaaaa; font-size: 12px;">Valor unitário mínimo</div>
-        </div>
-        """, unsafe_allow_html=True)
+        # --- Botões de download ---
+        st.markdown("---")
+        col_d1, col_d2, col_d3 = st.columns(3)
 
-    with col_p2:
-        st.markdown(f"""
-        <div class="stats-card">
-            <div style="color: #d4af37; font-size: 14px; font-weight: 600;">PREÇO MÉDIO</div>
-            <div style="color: #ffffff; font-size: 22px; font-weight: bold;">{_fmt_brl(preco_medio)}</div>
-            <div style="color: #aaaaaa; font-size: 12px;">Média aritmética</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    with col_p3:
-        st.markdown(f"""
-        <div class="stats-card">
-            <div style="color: #d4af37; font-size: 14px; font-weight: 600;">MEDIANA</div>
-            <div style="color: #ffffff; font-size: 22px; font-weight: bold;">{_fmt_brl(preco_mediana)}</div>
-            <div style="color: #aaaaaa; font-size: 12px;">Valor central</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    with col_p4:
-        st.markdown(f"""
-        <div class="stats-card">
-            <div style="color: #d4af37; font-size: 14px; font-weight: 600;">MAIOR PREÇO UNIT.</div>
-            <div style="color: #ff6666; font-size: 22px; font-weight: bold;">{_fmt_brl(preco_maior)}</div>
-            <div style="color: #aaaaaa; font-size: 12px;">Valor unitário máximo</div>
-        </div>
-        """, unsafe_allow_html=True)
-
-    # --- Tabela de resultados ---
-    st.markdown("---")
-    st.subheader("📋 Resultados")
-    st.markdown(f"**Arquivo:** {file_name}")
-    st.dataframe(
-        df_exib,
-        use_container_width=True,
-        hide_index=True,
-        height=min(len(df_exib) * 38 + 40, 700),
-    )
-
-    # --- Preparar dados para exportação ---
-    item_pesquisado = st.session_state.get("nf_item_pesquisado", "Consulta Geral")
-    filtros_texto = st.session_state.get("nf_filtros_texto", "")
-    nome_arquivo_base = sanitizar_nome_arquivo(item_pesquisado)
-
-    # Montar estatísticas para os relatórios
-    _fornecedores_exp = (
-        df_exib["Razão Social Emitente"].nunique()
-        if "Razão Social Emitente" in df_exib.columns else 0
-    )
-    try:
-        _total_valor_exp = pd.to_numeric(
-            df_exib["Valor Total"].astype(str)
-            .str.replace(".", "", regex=False)
-            .str.replace(",", ".", regex=False),
-            errors="coerce",
-        ).sum()
-        _valor_fmt_exp = _fmt_brl(_total_valor_exp)
-    except Exception:
-        _valor_fmt_exp = "—"
-
-    stats_export = {
-        "REGISTROS": f"{len(df_exib):,}",
-        "FORNECEDORES": str(_fornecedores_exp),
-        "VALOR TOTAL": _valor_fmt_exp,
-        "MENOR PREÇO": _fmt_brl(preco_menor),
-        "PREÇO MÉDIO": _fmt_brl(preco_medio),
-        "MEDIANA": _fmt_brl(preco_mediana),
-        "MAIOR PREÇO": _fmt_brl(preco_maior),
-    }
-
-    # --- Botões de download ---
-    st.markdown("---")
-    col_d1, col_d2, col_d3 = st.columns(3)
-
-    with col_d1:
-        _csv_stats = (
-            f"# Estatísticas de Preço Unitário: "
-            f"Menor={_fmt_brl(preco_menor)} | Médio={_fmt_brl(preco_medio)} "
-            f"| Mediana={_fmt_brl(preco_mediana)} | Maior={_fmt_brl(preco_maior)}\n"
-        )
-        _csv_just = "\n\n" + JUSTIFICATIVA_NF.replace('\n\n', '\n') + "\n"
-        csv_data = _csv_stats + df_exib.to_csv(index=False, sep=";", encoding="utf-8-sig") + _csv_just
-        st.download_button(
-            "📥 Baixar CSV",
-            data=csv_data,
-            file_name=f"NF_{nome_arquivo_base}.csv",
-            mime="text/csv",
-            use_container_width=True,
-        )
-
-    with col_d2:
-        try:
-            excel_data = gerar_excel_formatado(
-                df_exib, item_pesquisado, filtros_texto, stats_export, file_name
+        with col_d1:
+            _csv_stats = (
+                f"# Estatísticas de Preço Unitário: "
+                f"Menor={_fmt_brl(preco_menor)} | Médio={_fmt_brl(preco_medio)} "
+                f"| Mediana={_fmt_brl(preco_mediana)} | Maior={_fmt_brl(preco_maior)}\n"
             )
+            _csv_just = "\n\n" + JUSTIFICATIVA_NF.replace('\n\n', '\n') + "\n"
+            csv_data = _csv_stats + df_exib.to_csv(index=False, sep=";", encoding="utf-8-sig") + _csv_just
             st.download_button(
-                "📥 Baixar Planilha Excel",
-                data=excel_data,
-                file_name=f"NF_{nome_arquivo_base}.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                "📥 Baixar CSV",
+                data=csv_data,
+                file_name=f"NF_{nome_arquivo_base}.csv",
+                mime="text/csv",
                 use_container_width=True,
             )
-        except Exception as e:
-            st.error(f"Erro ao gerar Excel: {e}")
 
-    with col_d3:
-        try:
-            pdf_data = gerar_pdf_notas(
-                df_exib, item_pesquisado, filtros_texto, stats_export, file_name
-            )
-            st.download_button(
-                "📥 Baixar PDF",
-                data=pdf_data,
-                file_name=f"NF_{nome_arquivo_base}.pdf",
-                mime="application/pdf",
-                use_container_width=True,
-            )
-        except Exception as e:
-            st.error(f"Erro ao gerar PDF: {e}")
+        with col_d2:
+            try:
+                excel_data = gerar_excel_formatado(
+                    df_exib, item_pesquisado, filtros_texto, stats_export, file_name
+                )
+                st.download_button(
+                    "📥 Baixar Planilha Excel",
+                    data=excel_data,
+                    file_name=f"NF_{nome_arquivo_base}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True,
+                )
+            except Exception as e:
+                st.error(f"Erro ao gerar Excel: {e}")
 
-    # --- Botão Consultar Fornecedores ---
-    st.markdown("<br>", unsafe_allow_html=True)
-    col_forn_btn, _ = st.columns([1, 2])
-    with col_forn_btn:
-        if st.button("📞 Consultar Fornecedores", use_container_width=True, key="btn_fornecedores_nf"):
-            cnpjs_unicos = df_resultado["CPF/CNPJ Emitente"].dropna().unique() if "CPF/CNPJ Emitente" in df_resultado.columns else []
-            if len(cnpjs_unicos) == 0:
-                st.warning("⚠️ Nenhum CNPJ encontrado nos resultados filtrados.")
-            else:
-                with st.spinner(f"Consultando dados de {len(cnpjs_unicos)} fornecedor(es) na API..."):
-                    html_fornecedores = gerar_html_fornecedores_nf(df_resultado)
-                    st.session_state["nf_html_fornecedores"] = html_fornecedores
+        with col_d3:
+            try:
+                pdf_data = gerar_pdf_notas(
+                    df_exib, item_pesquisado, filtros_texto, stats_export, file_name
+                )
+                st.download_button(
+                    "📥 Baixar PDF",
+                    data=pdf_data,
+                    file_name=f"NF_{nome_arquivo_base}.pdf",
+                    mime="application/pdf",
+                    use_container_width=True,
+                )
+            except Exception as e:
+                st.error(f"Erro ao gerar PDF: {e}")
 
-    # Mostrar botão de download do relatório se já foi gerado
-    if "nf_html_fornecedores" in st.session_state:
-        col_dl_forn, _ = st.columns([1, 2])
-        with col_dl_forn:
-            data_hora_arq = datetime.now().strftime("%Y%m%d_%H%M%S")
-            st.download_button(
-                label="📋 Baixar Relatório de Fornecedores (HTML)",
-                data=st.session_state["nf_html_fornecedores"].encode('utf-8'),
-                file_name=f"fornecedores_NF_{data_hora_arq}.html",
-                mime="text/html",
-                use_container_width=True,
-                key="btn_download_fornecedores_nf",
-            )
+        # --- Botão Consultar Fornecedores ---
+        st.markdown("<br>", unsafe_allow_html=True)
+        col_forn_btn, _ = st.columns([1, 2])
+        with col_forn_btn:
+            if st.button("📞 Consultar Fornecedores", use_container_width=True, key="btn_fornecedores_nf"):
+                cnpjs_unicos = df_resultado["CPF/CNPJ Emitente"].dropna().unique() if "CPF/CNPJ Emitente" in df_resultado.columns else []
+                if len(cnpjs_unicos) == 0:
+                    st.warning("⚠️ Nenhum CNPJ encontrado nos resultados filtrados.")
+                else:
+                    with st.spinner(f"Consultando dados de {len(cnpjs_unicos)} fornecedor(es) na API..."):
+                        html_fornecedores = gerar_html_fornecedores_nf(df_resultado)
+                        st.session_state["nf_html_fornecedores"] = html_fornecedores
 
-    # --- Informações ---
-    st.markdown("---")
-    st.markdown(f"""
-    <div style="background: #0a2540; border: 1px solid #333; border-radius: 8px; padding: 1rem; margin-top: 0.5rem;">
-        <p style="color: #d4af37; font-weight: bold; margin-bottom: 0.5rem;">ℹ️ Informações:</p>
-        <ul style="color: #cccccc; font-size: 13px; line-height: 1.8;">
-            <li>Dados extraídos do <b>Portal da Transparência</b> — Notas Fiscais Eletrônicas.</li>
-            <li>Na primeira consulta, os dados são carregados e armazenados em <b>cache local</b> (pode levar alguns minutos para arquivos grandes).</li>
-            <li>Consultas subsequentes no mesmo arquivo são <b>muito mais rápidas</b>.</li>
-            <li>Limite de <b>{max_resultados}</b> resultados para otimizar a performance.</li>
-            <li>Os resultados podem ser exportados em <b>CSV</b> ou <b>Excel</b>.</li>
-        </ul>
-        <p style="color: #d4af37; text-align: center; margin-top: 1rem; font-size: 14px; font-weight: 600;">
-            Notas Fiscais podem ser usadas na pesquisa de preço, acesse para baixar com a chave de acesso:
-            <a href="https://www.nfe.fazenda.gov.br/portal/principal.aspx" target="_blank" style="color: #ffd700; text-decoration: underline;">https://www.nfe.fazenda.gov.br/portal/principal.aspx</a>
-        </p>
-    </div>
-    """, unsafe_allow_html=True)
+        # Mostrar botão de download do relatório se já foi gerado
+        if "nf_html_fornecedores" in st.session_state:
+            col_dl_forn, _ = st.columns([1, 2])
+            with col_dl_forn:
+                data_hora_arq = datetime.now().strftime("%Y%m%d_%H%M%S")
+                st.download_button(
+                    label="📋 Baixar Relatório de Fornecedores (HTML)",
+                    data=st.session_state["nf_html_fornecedores"].encode('utf-8'),
+                    file_name=f"fornecedores_NF_{data_hora_arq}.html",
+                    mime="text/html",
+                    use_container_width=True,
+                    key="btn_download_fornecedores_nf",
+                )
+
+        # --- Informações ---
+        st.markdown("---")
+        st.markdown(f"""
+        <div style="background: #0a2540; border: 1px solid #333; border-radius: 8px; padding: 1rem; margin-top: 0.5rem;">
+            <p style="color: #d4af37; font-weight: bold; margin-bottom: 0.5rem;">ℹ️ Informações:</p>
+            <ul style="color: #cccccc; font-size: 13px; line-height: 1.8;">
+                <li>Dados extraídos do <b>Portal da Transparência</b> — Notas Fiscais Eletrônicas.</li>
+                <li>Na primeira consulta, os dados são carregados e armazenados em <b>cache local</b> (pode levar alguns minutos para arquivos grandes).</li>
+                <li>Consultas subsequentes no mesmo arquivo são <b>muito mais rápidas</b>.</li>
+                <li>Limite de <b>{max_resultados}</b> resultados para otimizar a performance.</li>
+                <li>Os resultados podem ser exportados em <b>CSV</b> ou <b>Excel</b>.</li>
+            </ul>
+            <p style="color: #d4af37; text-align: center; margin-top: 1rem; font-size: 14px; font-weight: 600;">
+                Notas Fiscais podem ser usadas na pesquisa de preço, acesse para baixar com a chave de acesso:
+                <a href="https://www.nfe.fazenda.gov.br/portal/principal.aspx" target="_blank" style="color: #ffd700; text-decoration: underline;">https://www.nfe.fazenda.gov.br/portal/principal.aspx</a>
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
