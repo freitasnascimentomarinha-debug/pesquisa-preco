@@ -268,6 +268,55 @@ def consultar_pncp_search(cnpj_limpo, tipo_documento="contrato"):
 
 
 @st.cache_data(ttl=3600)
+def consultar_dadosabertos_arps(cnpj_limpo, anos_janela=3, apenas_vigentes=False):
+    """Consulta Atas de Registro de Preços no dadosabertos.compras.gov.br
+    filtrando por CNPJ do fornecedor registrado na ata."""
+    todos = []
+    pagina = 1
+    max_paginas = 20
+    hoje = datetime.date.today()
+    data_ini = (hoje - datetime.timedelta(days=365 * anos_janela)).strftime("%Y-%m-%d")
+    data_fim = hoje.strftime("%Y-%m-%d")
+
+    while pagina <= max_paginas:
+        try:
+            params = {
+                'cnpjFornecedor': cnpj_limpo,
+                'dataVigenciaInicialMin': data_ini,
+                'dataVigenciaInicialMax': data_fim,
+                'pagina': pagina,
+                'tamanhoPagina': 50,
+            }
+            if apenas_vigentes:
+                params['situacaoAta'] = 'VIGENTE'
+
+            resp = requests.get(
+                'https://dadosabertos.compras.gov.br/modulo-arp/1_consultarARP',
+                params=params, timeout=30,
+                headers={'User-Agent': 'Mozilla/5.0'}, verify=False
+            )
+            if resp.status_code != 200:
+                break
+
+            data = resp.json()
+            itens = data.get('resultado', [])
+            if not itens:
+                break
+
+            todos.extend(itens)
+
+            total = data.get('totalRegistros', 0)
+            if len(todos) >= total:
+                break
+
+            pagina += 1
+        except Exception:
+            break
+
+    return todos
+
+
+@st.cache_data(ttl=3600)
 def consultar_pncp_atas(cnpj_limpo, anos_janela=3):
     """Consulta atas de registro de preços no PNCP via Search API.
     Busca atas associadas ao CNPJ do fornecedor."""
@@ -576,28 +625,32 @@ if btn_consultar and cnpj_input:
             dados_empresa = consultar_opencnpj(cnpj_limpo)
             dados_brasil_api = consultar_brasilapi(cnpj_limpo)
 
-            # 2) Contratos via PNCP Search API
+            # 2) Contratos via PNCP Search API (todos os contratos onde este CNPJ é o contratado)
             progress_contratos = st.progress(0, text="Consultando contratos no PNCP...")
             todos_contratos = consultar_pncp_search(cnpj_limpo, "contrato")
-            progress_contratos.progress(0.25, text="Consultando compras/licitações no PNCP...")
+            progress_contratos.progress(0.20, text="Consultando compras/licitações no PNCP...")
 
             # 3) Compras/licitações (pregões, concorrências etc.)
             compras_pncp = consultar_pncp_compras(cnpj_limpo)
-            progress_contratos.progress(0.50, text="Consultando atas de registro de preços...")
+            progress_contratos.progress(0.40, text="Consultando atas de registro de preços (PNCP)...")
 
             # 4) Atas de Registro de Preços via PNCP Search API
             atas_pncp = consultar_pncp_atas(cnpj_limpo, anos_janela)
-            progress_contratos.progress(0.75, text="Classificando resultados...")
+            progress_contratos.progress(0.60, text="Consultando atas e adesões vigentes (dadosabertos)...")
 
-            # 5) Separar contratos por modalidade
-            #    Dispensas / Contratação Direta → aba própria
-            #    Demais (Pregão, Concorrência etc.) → aba Contratos
-            contratos_pncp = [c for c in todos_contratos
-                              if c.get('modalidade_licitacao_nome', '').lower() not in ('dispensa', 'inexigibilidade')]
-            dispensas_pncp = [c for c in todos_contratos
-                              if c.get('modalidade_licitacao_nome', '').lower() in ('dispensa', 'inexigibilidade')]
+            # 5) Atas e adesões vigentes via dadosabertos (por cnpjFornecedor)
+            atas_dadosabertos = consultar_dadosabertos_arps(cnpj_limpo, anos_janela, apenas_vigentes=False)
+            adesoes_vigentes = [a for a in atas_dadosabertos
+                                if str(a.get('situacaoAta', '')).upper() == 'VIGENTE'
+                                or str(a.get('situacaoAta', '')).upper() == 'ATIVA']
+            progress_contratos.progress(0.80, text="Classificando resultados...")
 
-            # 6) Separar compras por modalidade — pregões vão para Contratos, dispensas para Dispensas
+            # 6) Todos os contratos vão para a aba Contratos Governamentais (independente da modalidade)
+            #    A aba Dispensas recebe apenas as compras (processos de compra) com modalidade dispensa
+            contratos_pncp = todos_contratos  # TODOS os contratos onde este CNPJ é fornecedor
+            dispensas_pncp = []              # Contratos por dispensa ficam na aba contratos também
+
+            # 7) Separar compras por modalidade — pregões → Contratos, dispensas → Dispensas
             compras_pregao = [c for c in compras_pncp
                               if c.get('modalidade_licitacao_nome', '').lower() not in ('dispensa', 'inexigibilidade')]
             compras_dispensa = [c for c in compras_pncp
@@ -613,6 +666,8 @@ if btn_consultar and cnpj_input:
         st.session_state['compras_pregao'] = compras_pregao
         st.session_state['compras_dispensa'] = compras_dispensa
         st.session_state['atas_pncp'] = atas_pncp
+        st.session_state['atas_dadosabertos'] = atas_dadosabertos
+        st.session_state['adesoes_vigentes'] = adesoes_vigentes
         st.session_state['anos_busca'] = anos_busca
         st.session_state['data_ini'] = data_ini
         st.session_state['data_fim'] = data_fim
@@ -629,16 +684,19 @@ if 'cnpj_consulta' in st.session_state:
     compras_pregao = st.session_state.get('compras_pregao', [])
     compras_dispensa = st.session_state.get('compras_dispensa', [])
     atas_pncp = st.session_state.get('atas_pncp', [])
+    atas_dadosabertos = st.session_state.get('atas_dadosabertos', [])
+    adesoes_vigentes = st.session_state.get('adesoes_vigentes', [])
     anos_busca = st.session_state.get('anos_busca', [])
     data_ini = st.session_state.get('data_ini', '')
     data_fim = st.session_state.get('data_fim', '')
 
     st.markdown("---")
 
-    tab_empresa, tab_contratos, tab_atas, tab_compras, tab_nf = st.tabs([
+    tab_empresa, tab_contratos, tab_atas, tab_adesoes, tab_compras, tab_nf = st.tabs([
         "🏢 Dados da Empresa",
         "📋 Contratos Governamentais",
         "📑 Atas de Registro de Preços",
+        "🤝 Adesões Vigentes",
         "🛒 Dispensas / Contratação Direta",
         "📄 Notas Fiscais"
     ])
@@ -845,9 +903,78 @@ if 'cnpj_consulta' in st.session_state:
                 } for a in atas_pncp])
                 st.dataframe(df_atas, use_container_width=True, hide_index=True)
         else:
-            st.info("Nenhuma ata de registro de preços encontrada no PNCP para este CNPJ.")
+            st.info("Nenhuma ata de registro de preços encontrada no PNCP para este CNPJ. "
+                    "Verifique a aba **🤝 Adesões Vigentes** para atas no ComprasGov.")
 
-    # ==================== ABA 4: DISPENSAS / CONTRATAÇÃO DIRETA ====================
+    # ==================== ABA 4: ADESÕES VIGENTES ====================
+    with tab_adesoes:
+        st.markdown("### Adesões Vigentes")
+        st.write("##### Fonte: ComprasGov — Atas de Registro de Preços onde este CNPJ é fornecedor registrado")
+
+        # Combina todas as ARPs (dadosabertos): filtra as vigentes/ativas para exibição destacada
+        todos_arps_dadosabertos = atas_dadosabertos if atas_dadosabertos else []
+        vigentes = [a for a in todos_arps_dadosabertos
+                    if str(a.get('situacaoAta', '')).upper() in ('VIGENTE', 'ATIVA')]
+        encerradas = [a for a in todos_arps_dadosabertos
+                      if str(a.get('situacaoAta', '')).upper() not in ('VIGENTE', 'ATIVA')]
+
+        if todos_arps_dadosabertos:
+            st.success(f"Encontradas **{len(todos_arps_dadosabertos)}** atas associadas a este CNPJ "
+                       f"({len(vigentes)} vigentes, {len(encerradas)} encerradas).")
+
+            # Subtabs: Vigentes e Todas
+            sub_vigentes, sub_todas = st.tabs(["🟢 Vigentes", "📋 Todas"])
+
+            def _render_arps(arps_lista):
+                for arp in arps_lista:
+                    numero_ata = arp.get('numeroAta') or arp.get('numeroAtaRegistroPreco', 'N/A')
+                    orgao = arp.get('nomeOrgao') or arp.get('orgao', 'N/A')
+                    unidade = arp.get('nomeUnidadeGestora') or arp.get('unidadeGestora', '')
+                    situacao = arp.get('situacaoAta', 'N/A')
+                    data_ini_arp = str(arp.get('dataVigenciaInicial') or arp.get('dataInicioVigencia', ''))[:10]
+                    data_fim_arp = str(arp.get('dataVigenciaFinal') or arp.get('dataFimVigencia', ''))[:10]
+                    objeto = arp.get('objetoAtaRegistroPreco') or arp.get('descricaoObjeto') or arp.get('objeto', 'N/A')
+                    valor = arp.get('valorTotalAta') or arp.get('valorTotal') or 0
+                    numero_pncp = arp.get('numeroPncp') or arp.get('numeroControlePNCP', '')
+
+                    cor = "🟢" if str(situacao).upper() in ('VIGENTE', 'ATIVA') else "🔴"
+                    header = f"{cor} ARP nº {numero_ata} — {orgao}"
+                    if unidade and unidade != orgao:
+                        header += f" / {unidade}"
+
+                    with st.expander(header):
+                        col1, col2, col3 = st.columns(3)
+                        col1.metric("Situação", situacao)
+                        col2.metric("Vigência", f"{data_ini_arp} → {data_fim_arp}")
+                        col3.metric("Valor Total", formatar_moeda_br(valor))
+                        st.write(f"**Objeto:** {objeto}")
+                        if numero_pncp:
+                            link_pncp = f"https://pncp.gov.br/app/atas/{numero_pncp.replace('/', '-')}"
+                            st.markdown(f"[🔗 Ver no PNCP]({link_pncp})")
+
+            with sub_vigentes:
+                if vigentes:
+                    _render_arps(vigentes)
+                else:
+                    st.info("Nenhuma ata vigente encontrada para este CNPJ no período consultado.")
+
+            with sub_todas:
+                if todos_arps_dadosabertos:
+                    _render_arps(todos_arps_dadosabertos)
+                    # Tabela resumida
+                    df_arps = pd.DataFrame([{
+                        'Nº ATA': a.get('numeroAta') or a.get('numeroAtaRegistroPreco', ''),
+                        'Órgão': a.get('nomeOrgao') or a.get('orgao', ''),
+                        'Situação': a.get('situacaoAta', ''),
+                        'Início Vigência': str(a.get('dataVigenciaInicial') or a.get('dataInicioVigencia', ''))[:10],
+                        'Fim Vigência': str(a.get('dataVigenciaFinal') or a.get('dataFimVigencia', ''))[:10],
+                        'Valor Total': formatar_moeda_br(a.get('valorTotalAta') or a.get('valorTotal') or 0),
+                    } for a in todos_arps_dadosabertos])
+                    st.dataframe(df_arps, use_container_width=True, hide_index=True)
+        else:
+            st.info("Nenhuma ata de registro de preços encontrada no ComprasGov para este CNPJ no período consultado.")
+
+    # ==================== ABA 5: DISPENSAS / CONTRATAÇÃO DIRETA ====================
     with tab_compras:
         st.markdown("### Dispensas / Contratação Direta")
         st.write("##### Fonte: PNCP — Portal Nacional de Contratações Públicas")
@@ -898,7 +1025,7 @@ if 'cnpj_consulta' in st.session_state:
         else:
             st.info("Nenhuma compra/contratação direta encontrada no PNCP para este CNPJ.")
 
-    # ==================== ABA 5: NOTAS FISCAIS ====================
+    # ==================== ABA 6: NOTAS FISCAIS ====================
     with tab_nf:
         st.markdown("### Pesquisa em Notas Fiscais")
         st.markdown(f"Buscando o CNPJ **{formatar_cnpj(cnpj_limpo)}** nos arquivos de Notas Fiscais do Portal da Transparência.")
