@@ -324,58 +324,27 @@ tab_pesquisa, tab_consulta_nfe = st.tabs([
 NFE_URL = "https://www.nfe.fazenda.gov.br/portal/consultaRecaptcha.aspx?tipoConsulta=resumo&tipoConteudo=7PhJ+gAVw2g="
 
 with tab_consulta_nfe:
-    st.markdown("### Consulta de NFe — Receita Federal")
-    st.markdown("Acesse o portal da Receita Federal para consultar e baixar Notas Fiscais Eletrônicas pela **chave de acesso**.")
+    st.markdown("### 📋 Consulta de NFe — Receita Federal")
 
-    # Botão de reset para recarregar o iframe
-    if 'nfe_iframe_key' not in st.session_state:
-        st.session_state['nfe_iframe_key'] = 0
-
-    col_reset, col_open, col_info_nfe = st.columns([1, 1, 2])
-    with col_reset:
-        if st.button("🔄 Nova Consulta", use_container_width=True, key="btn_reset_nfe"):
-            st.session_state['nfe_iframe_key'] += 1
-            st.rerun()
-    with col_open:
-        st.link_button("🌐 Abrir em nova aba", NFE_URL, use_container_width=True)
-    with col_info_nfe:
-        st.markdown(
-            '<span style="color:#cbd5e1; font-size:0.9rem;">'
-            'Se o formulário não funcionar no quadro abaixo, use o botão <b>Abrir em nova aba</b>.'
-            '</span>',
-            unsafe_allow_html=True
-        )
-
-    # Iframe embutido via HTML puro — o componente html() cria um shadow iframe,
-    # então usamos srcdoc com um redirect para que o iframe interno seja o "top" do conteúdo
-    nfe_key = st.session_state['nfe_iframe_key']
-    nfe_src = f"{NFE_URL}&_r={nfe_key}"
-
-    # Usar HTML puro com <object> que não interfere com postback como iframe dentro de iframe
-    embed_html = f"""
-    <html>
-    <head><style>
-        html, body {{ margin:0; padding:0; width:100%; height:100%; overflow:hidden; }}
-    </style></head>
-    <body>
-        <iframe id="nfe-frame" src="{nfe_src}"
-            style="width:100%; height:100%; border:2px solid #d4af37; border-radius:8px;"
-            allowfullscreen="true">
-        </iframe>
-    </body>
-    </html>
-    """
-    st.components.v1.html(embed_html, height=800, scrolling=False)
+    st.markdown("")
+    st.link_button("🌐 Acessar Portal da NFe (Receita Federal)", NFE_URL, use_container_width=True)
+    st.markdown("")
 
     st.markdown(f"""
-    <div style="background: #0a2540; border: 1px solid #333; border-radius: 8px; padding: 1rem; margin-top: 1rem;">
-        <p style="color: #d4af37; font-weight: bold; margin-bottom: 0.5rem;">ℹ️ Instruções:</p>
-        <ul style="color: #cccccc; font-size: 13px; line-height: 1.8;">
-            <li>Insira a <b>chave de acesso</b> da NFe (44 dígitos) e resolva o captcha para consultar.</li>
-            <li>Após a consulta, é possível <b>baixar o DANFE (PDF)</b> ou o <b>XML</b> da nota.</li>
-            <li>Clique em <b>🔄 Nova Consulta</b> para recarregar o quadro acima para uma nova pesquisa.</li>
-            <li>Se o site não funcionar no quadro embutido, clique em <b>🌐 Abrir em nova aba</b>.</li>
-        </ul>
+    <div style="background: #0a2540; border: 1px solid #333; border-radius: 8px; padding: 1.2rem; margin-top: 0.5rem;">
+        <p style="color: #d4af37; font-weight: bold; font-size: 15px; margin-bottom: 0.8rem;">📌 Como consultar e baixar uma NFe:</p>
+        <ol style="color: #cccccc; font-size: 13px; line-height: 2;">
+            <li>Clique no botão acima — o portal da Receita Federal abrirá em uma <b>nova aba</b> do navegador.</li>
+            <li>No portal, insira a <b>chave de acesso</b> da NFe (44 dígitos numéricos, encontrada no DANFE ou no corpo da nota).</li>
+            <li>Resolva o <b>captcha</b> e clique em <b>"Continuar"</b>.</li>
+            <li>Na tela de resultado, você poderá visualizar o resumo da nota e baixar o <b>DANFE (PDF)</b> ou o <b>XML</b>.</li>
+            <li>Para consultar outra NFe, basta repetir o processo na mesma aba.</li>
+        </ol>
+        <hr style="border-color: #333; margin: 1rem 0;">
+        <p style="color: #aaa; font-size: 12px; margin: 0;">
+            💡 <b>Dica:</b> A chave de acesso possui 44 dígitos e identifica unicamente cada Nota Fiscal Eletrônica.
+            Ela pode ser encontrada no campo "Chave de Acesso" do DANFE impresso ou nos dados da nota no sistema emissor.
+        </p>
     </div>
     """, unsafe_allow_html=True)
 
