@@ -509,33 +509,9 @@ def renderizar_grid_resultados(df_exibicao):
         indices = list(evento.selection.rows)
 
     if indices:
-        linhas_sel = df_exibicao.iloc[indices]
-        partes = []
-        for _, row in linhas_sel.iterrows():
-            desc = str(row.get('Descrição do Item', ''))[:55] or str(row.iloc[2])[:55]
-            preco = str(row.get('Preço Unitário', ''))
-            partes.append(
-                f'<div style="background:#d4af37;color:#001a4d;border-radius:6px;'
-                f'padding:6px 12px;margin:4px 0;font-weight:700;font-size:13px;">'
-                f'✔ {desc}'
-                f'<span style="float:right;margin-left:16px;">{preco}</span></div>'
-            )
-        st.markdown(
-            f'<div style="background:#0a2540;border-left:4px solid #d4af37;border-radius:8px;'
-            f'padding:12px 14px;margin-top:10px;">'
-            f'<div style="color:#d4af37;font-weight:700;font-size:13px;margin-bottom:8px;">'
-            f'✅ {len(indices)} item(ns) selecionado(s) para o relatório:</div>'
-            f'{"" .join(partes)}</div>',
-            unsafe_allow_html=True
-        )
+        st.caption(f"✅ {len(indices)} item(ns) selecionado(s) — os relatórios usarão apenas esses itens.")
     else:
-        st.markdown(
-            '<div style="background:#0a2540;border-left:4px solid #6b7280;border-radius:8px;'
-            'padding:10px 14px;margin-top:10px;color:#9ca3af;font-size:13px;">'
-            'Clique em uma ou mais linhas para selecionar os itens que devem entrar no relatório. '
-            'Sem seleção, todos os itens filtrados serão incluídos.</div>',
-            unsafe_allow_html=True
-        )
+        st.caption('Clique em uma ou mais linhas para incluir apenas elas no relatório. Sem seleção, todos os itens são usados.')
 
     return indices
 
