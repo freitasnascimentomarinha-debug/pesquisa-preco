@@ -484,7 +484,12 @@ def renderizar_grid_resultados(df_exibicao):
         indices = list(evento.selection.rows)
 
     if indices:
-        st.caption(f"✅ {len(indices)} item(ns) selecionado(s) — os relatórios usarão apenas esses itens.")
+        st.markdown(
+            f'<div style="background:#1e4976;border-left:4px solid #d4af37;border-radius:6px;'
+            f'padding:8px 14px;margin-top:8px;color:#ffffff;font-size:13px;font-weight:600;">'
+            f'✅ {len(indices)} item(ns) selecionado(s) — os relatórios usarão apenas esses itens.</div>',
+            unsafe_allow_html=True
+        )
     else:
         st.caption('Clique em uma ou mais linhas para incluir apenas elas no relatório. Sem seleção, todos os itens são usados.')
 
