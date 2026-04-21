@@ -418,6 +418,50 @@ def encontrar_coluna(df, nomes_possiveis):
 
     return None
 
+def organizar_colunas_resultado(df):
+    """Reordena as colunas para priorizar os campos mais úteis na análise."""
+    colunas_prioritarias = [
+        (["idCompra", "id_compra", "compraId"], "ID Compra"),
+        (["dataCompra", "data_compra"], "Data Compra"),
+        (["descricaoItem", "descricao", "description", "item_descricao"], "Descrição do Item"),
+        (["siglaUnidadeFornecimento", "unidadeFornecimento", "unidade_fornecimento"], "Sigla Unidade Fornecimento"),
+        (["precoUnitario", "valorUnitario", "preco_unitario"], "Preço Unitário"),
+        (["quantidade", "quantidadeItem", "qtd"], "Quantidade"),
+        (["nomeUasg", "orgaoEntidade.razaoSocial", "orgao_nome"], "Nome UASG"),
+        (["nomeFornecedor", "razaoSocialFornecedor", "fornecedor_nome"], "Nome Fornecedor"),
+        (["niFornecedor", "cnpjFornecedor", "fornecedor_cnpj"], "NI Fornecedor"),
+        (["marca", "nomeMarca"], "Marca"),
+        (["objetoCompra", "objeto", "objetoCompraDescricao"], "Objeto Compra"),
+    ]
+
+    colunas_ordenadas = []
+    renomear = {}
+    for aliases, label in colunas_prioritarias:
+        coluna = encontrar_coluna(df, aliases)
+        if coluna and coluna not in colunas_ordenadas:
+            colunas_ordenadas.append(coluna)
+            renomear[coluna] = label
+
+    colunas_restantes = [col for col in df.columns if col not in colunas_ordenadas]
+    df_ordenado = df[colunas_ordenadas + colunas_restantes].copy()
+    return df_ordenado.rename(columns=renomear)
+
+def preparar_dataframe_exibicao(df):
+    """Prepara a grade de resultados com colunas ordenadas e formatações de leitura."""
+    df_exibicao = organizar_colunas_resultado(df)
+
+    if "Preço Unitário" in df_exibicao.columns:
+        df_exibicao["Preço Unitário"] = df_exibicao["Preço Unitário"].apply(formatar_preco_reais)
+
+    if "Data Compra" in df_exibicao.columns:
+        datas = pd.to_datetime(df_exibicao["Data Compra"], errors='coerce')
+        df_exibicao["Data Compra"] = datas.dt.strftime('%d/%m/%Y').where(
+            datas.notna(),
+            df_exibicao["Data Compra"].fillna('').astype(str)
+        )
+
+    return df_exibicao
+
 # Função para remover outliers usando o método IQR (Interquartile Range)
 def remover_outliers_iqr(dataframe, coluna):
     """
@@ -1372,76 +1416,6 @@ if st.session_state.get('itens'):
                             </div>
                         """, unsafe_allow_html=True)
                 
-                # Botões de download
-                if col_precounitario and col_precounitario in dataframe.columns:
-                    mean = dataframe[col_precounitario].mean()
-                    median = dataframe[col_precounitario].median()
-                    preco_min = dataframe[col_precounitario].min()
-                    preco_max = dataframe[col_precounitario].max()
-                    std = dataframe[col_precounitario].std()
-                    cv = ((std / mean) * 100) if mean != 0 else 0
-                    
-                    estatisticas = {
-                        'min': preco_min,
-                        'mean': mean,
-                        'median': median,
-                        'max': preco_max,
-                        'std': std,
-                        'cv': cv
-                    }
-                    
-                    # Gerar Excel
-                    excel_bytes = gerar_relatorio_excel(dataframe, estatisticas, outliers_info, col_precounitario)
-                    data_hora = datetime.now().strftime("%Y%m%d_%H%M%S")
-                    filename_excel = f"relatorio_AtaCotada_{data_hora}.xlsx"
-                    
-                    with col_btn_excel:
-                        st.download_button(
-                            label="📊 Excel",
-                            data=excel_bytes,
-                            file_name=filename_excel,
-                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                            use_container_width=True
-                        )
-                    
-                    # Gerar PDF
-                    pdf_bytes = gerar_relatorio_pdf_simples(dataframe, estatisticas, outliers_info, col_precounitario)
-                    filename_pdf = f"relatorio_AtaCotada_{data_hora}.pdf"
-                    
-                    with col_btn_pdf:
-                        st.download_button(
-                            label="📄 PDF",
-                            data=pdf_bytes,
-                            file_name=filename_pdf,
-                            mime="application/pdf",
-                            use_container_width=True
-                        )
-                    
-                    # Botão centralizado para consultar fornecedores
-                    st.markdown("<br>", unsafe_allow_html=True)
-                    col_fornecedores = st.columns([0.6, 1, 1])
-                    with col_fornecedores[0]:
-                        if st.button("📞 Consultar Fornecedores", use_container_width=True, key="btn_fornecedores"):
-                            with st.spinner("Consultando dados de fornecedores..."):
-                                # Extrair descrição do item se disponível
-                                col_descricao = encontrar_coluna(dataframe, ['descricaoItem', 'descricao', 'description', 'item_descricao'])
-                                descricao_item = None
-                                if col_descricao and len(dataframe) > 0:
-                                    descricao_item = str(dataframe.iloc[0][col_descricao])
-                                
-                                html_fornecedores = gerar_html_fornecedores(dataframe, descricao_item)
-                                html_bytes = html_fornecedores.encode('utf-8')
-                                html_filename = f"fornecedores_AtaCotada_{data_hora}.html"
-                                
-                                st.download_button(
-                                    label="📋 Abrir Relatório de Fornecedores",
-                                    data=html_bytes,
-                                    file_name=html_filename,
-                                    mime="text/html",
-                                    use_container_width=True,
-                                    key="btn_download_fornecedores"
-                                )
-                
                 # Mostrar informações sobre outliers removidos quando não houver
                 if not outliers_info:
                     with col_info_b:
@@ -1460,15 +1434,58 @@ if st.session_state.get('itens'):
                             <span style="color: #ffffff;">{formatar_preco_reais(outliers_info['limite_inf'])} até {formatar_preco_reais(outliers_info['limite_sup'])}</span>
                         </div>
                     """, unsafe_allow_html=True)
+
+                st.markdown("### Itens encontrados")
+                df_exibicao = preparar_dataframe_exibicao(dataframe)
+                df_editor = df_exibicao.copy()
+                df_editor.insert(0, 'Selecionar', False)
+
+                df_editor = st.data_editor(
+                    df_editor,
+                    hide_index=True,
+                    use_container_width=True,
+                    disabled=[col for col in df_editor.columns if col != 'Selecionar'],
+                    column_config={
+                        'Selecionar': st.column_config.CheckboxColumn(
+                            'Selecionar',
+                            help='Marque os itens que devem entrar no relatório.'
+                        ),
+                        'Descrição do Item': st.column_config.TextColumn('Descrição do Item', width='large'),
+                        'Objeto Compra': st.column_config.TextColumn('Objeto Compra', width='large'),
+                        'Nome UASG': st.column_config.TextColumn('Nome UASG', width='medium'),
+                        'Nome Fornecedor': st.column_config.TextColumn('Nome Fornecedor', width='medium')
+                    },
+                    key='resultado_cotacao_editor'
+                )
+
+                indices_selecionados = df_editor.index[df_editor['Selecionar'].fillna(False)].tolist()
+                dataframe_relatorio = dataframe.iloc[indices_selecionados].copy() if indices_selecionados else dataframe.copy()
+                usa_selecao = len(indices_selecionados) > 0
+
+                if usa_selecao:
+                    st.info(
+                        f"Relatórios e cálculos considerarão apenas {len(dataframe_relatorio)} item(ns) selecionado(s)."
+                    )
+                else:
+                    st.caption('Marque a coluna Selecionar para gerar os relatórios somente com os itens desejados.')
                 
                 # Mostrar estatísticas se a coluna precoUnitario existir
                 if col_precounitario and col_precounitario in dataframe.columns:
-                    mean = dataframe[col_precounitario].mean()
-                    median = dataframe[col_precounitario].median()
-                    preco_min = dataframe[col_precounitario].min()
-                    preco_max = dataframe[col_precounitario].max()
-                    std = dataframe[col_precounitario].std()
+                    mean = dataframe_relatorio[col_precounitario].mean()
+                    median = dataframe_relatorio[col_precounitario].median()
+                    preco_min = dataframe_relatorio[col_precounitario].min()
+                    preco_max = dataframe_relatorio[col_precounitario].max()
+                    std = dataframe_relatorio[col_precounitario].std()
                     cv = ((std / mean) * 100) if mean != 0 else 0
+
+                    estatisticas = {
+                        'min': preco_min,
+                        'mean': mean,
+                        'median': median,
+                        'max': preco_max,
+                        'std': std,
+                        'cv': cv
+                    }
                     
                     st.markdown(
                         f"""
@@ -1477,13 +1494,55 @@ if st.session_state.get('itens'):
                             |**{formatar_preco_reais(preco_min)}**|**{formatar_preco_reais(mean)}**|**{formatar_preco_reais(median)}**|**{formatar_preco_reais(preco_max)}**|**{formatar_preco_reais(std)}**|**{formatar_numero_br(cv)}%**|
                         """
                     )
-                    
-                    # Formatar preço para exibição
-                    df_exibicao = dataframe.copy()
-                    df_exibicao[col_precounitario] = df_exibicao[col_precounitario].apply(formatar_preco_reais)
-                    st.write(df_exibicao)
+
+                    data_hora = datetime.now().strftime("%Y%m%d_%H%M%S")
+                    filename_excel = f"relatorio_AtaCotada_{data_hora}.xlsx"
+                    filename_pdf = f"relatorio_AtaCotada_{data_hora}.pdf"
+                    excel_bytes = gerar_relatorio_excel(dataframe_relatorio, estatisticas, outliers_info, col_precounitario)
+                    pdf_bytes = gerar_relatorio_pdf_simples(dataframe_relatorio, estatisticas, outliers_info, col_precounitario)
+
+                    with col_btn_excel:
+                        st.download_button(
+                            label="📊 Excel (seleção)" if usa_selecao else "📊 Excel",
+                            data=excel_bytes,
+                            file_name=filename_excel,
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                            use_container_width=True
+                        )
+
+                    with col_btn_pdf:
+                        st.download_button(
+                            label="📄 PDF (seleção)" if usa_selecao else "📄 PDF",
+                            data=pdf_bytes,
+                            file_name=filename_pdf,
+                            mime="application/pdf",
+                            use_container_width=True
+                        )
+
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    col_fornecedores = st.columns([0.6, 1, 1])
+                    with col_fornecedores[0]:
+                        if st.button("📞 Consultar Fornecedores", use_container_width=True, key="btn_fornecedores"):
+                            with st.spinner("Consultando dados de fornecedores..."):
+                                col_descricao = encontrar_coluna(dataframe_relatorio, ['descricaoItem', 'descricao', 'description', 'item_descricao'])
+                                descricao_item = None
+                                if col_descricao and len(dataframe_relatorio) > 0:
+                                    descricao_item = str(dataframe_relatorio.iloc[0][col_descricao])
+
+                                html_fornecedores = gerar_html_fornecedores(dataframe_relatorio, descricao_item)
+                                html_bytes = html_fornecedores.encode('utf-8')
+                                html_filename = f"fornecedores_AtaCotada_{data_hora}.html"
+
+                                st.download_button(
+                                    label="📋 Abrir Relatório de Fornecedores",
+                                    data=html_bytes,
+                                    file_name=html_filename,
+                                    mime="text/html",
+                                    use_container_width=True,
+                                    key="btn_download_fornecedores"
+                                )
                 else:
-                    st.write(dataframe)
+                    st.caption('A seleção é mantida na tabela, mas os cálculos do relatório dependem da coluna de preço unitário.')
             else:
                 st.warning("Nenhum resultado encontrado com os filtros aplicados. Tente ajustar os critérios.")
                      
