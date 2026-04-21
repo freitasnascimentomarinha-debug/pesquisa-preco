@@ -1311,15 +1311,22 @@ if st.session_state.get('itens'):
             if col_precounitario and col_precounitario in dataframe.columns and len(dataframe) > 0:
                 preco_min_filtrado = dataframe[col_precounitario].min()
                 preco_max_filtrado = dataframe[col_precounitario].max()
-                
-                faixa_preco = st.slider(
-                    "Faixa de Preço Unitário (R$)",
-                    min_value=float(preco_min_filtrado),
-                    max_value=float(preco_max_filtrado),
-                    value=(float(preco_min_filtrado), float(preco_max_filtrado)),
-                    step=0.01,
-                    key='filtro_preco'
-                )
+
+                if float(preco_min_filtrado) < float(preco_max_filtrado):
+                    faixa_preco = st.slider(
+                        "Faixa de Preço Unitário (R$)",
+                        min_value=float(preco_min_filtrado),
+                        max_value=float(preco_max_filtrado),
+                        value=(float(preco_min_filtrado), float(preco_max_filtrado)),
+                        format="R$ %.2f",
+                        step=0.01,
+                        key='filtro_preco'
+                    )
+                else:
+                    faixa_preco = (float(preco_min_filtrado), float(preco_max_filtrado))
+                    st.info(
+                        f"Todos os itens filtrados possuem o mesmo preço unitário: {formatar_preco_reais(preco_min_filtrado)}."
+                    )
                 
                 # Mostrar valores selecionados em formato brasileiro
                 st.markdown(f"""
@@ -1467,7 +1474,7 @@ if st.session_state.get('itens'):
                         f"""
                             |Preço Mínimo|Preço Unitário Médio|Preço Unitário Mediano|Preço Máximo|Desvio Padrão|Coeficiente de Variação|
                             |:----------:|:------------------:|:--------------------:|:----------:|:-----------:|:---------------------:|
-                            |**{formatar_preco_reais(preco_min)}**|**{formatar_preco_reais(mean)}**|**{formatar_preco_reais(median)}**|**{formatar_preco_reais(preco_max)}**|**{formatar_numero_br(std)}**|**{formatar_numero_br(cv)}%**|
+                            |**{formatar_preco_reais(preco_min)}**|**{formatar_preco_reais(mean)}**|**{formatar_preco_reais(median)}**|**{formatar_preco_reais(preco_max)}**|**{formatar_preco_reais(std)}**|**{formatar_numero_br(cv)}%**|
                         """
                     )
                     
