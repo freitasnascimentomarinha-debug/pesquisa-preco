@@ -542,10 +542,9 @@ def renderizar_grid_resultados(df_exibicao):
         gridOptions=grid_options,
         update_mode=GridUpdateMode.SELECTION_CHANGED,
         allow_unsafe_jscode=True,
-        fit_columns_on_grid_load=False,
         enable_enterprise_modules=False,
         height=min(520, max(220, (len(df_grid) + 1) * 42)),
-        theme='balham',
+        theme='blue',
         custom_css={
             '.ag-root-wrapper': {'border': '1px solid #d4af37', 'border-radius': '8px'},
             '.ag-header': {'background-color': '#0a2540 !important', 'color': '#ffffff !important'},
