@@ -1,4 +1,5 @@
 streamlit
+streamlit-aggrid
 requests
 pandas
 fpdf2
