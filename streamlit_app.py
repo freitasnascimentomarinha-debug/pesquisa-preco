@@ -4,7 +4,6 @@ import streamlit as st
 import requests
 import pandas as pd
 import streamlit.components.v1 as components
-from st_aggrid import AgGrid, GridOptionsBuilder, GridUpdateMode, JsCode
 from datetime import datetime
 from io import BytesIO
 from fpdf import FPDF
@@ -489,84 +488,56 @@ def preparar_dataframe_exibicao(df):
     return df_exibicao
 
 def renderizar_grid_resultados(df_exibicao):
-    """Renderiza a grade de resultados com destaque forte nas linhas selecionadas."""
-    df_grid = df_exibicao.reset_index().rename(columns={'index': '__row_index'})
-
-    gb = GridOptionsBuilder.from_dataframe(df_grid)
-    gb.configure_default_column(
-        sortable=True,
-        filter=True,
-        resizable=True,
-        wrapText=True,
-        autoHeight=True,
-    )
-    gb.configure_column('__row_index', hide=True)
-    gb.configure_selection(
-        selection_mode='multiple',
-        use_checkbox=False,
-        rowMultiSelectWithClick=True,
-        suppressRowDeselection=False,
-    )
-
-    for coluna_larga in ['Descrição do Item', 'Objeto Compra']:
-        if coluna_larga in df_grid.columns:
-            gb.configure_column(coluna_larga, width=360)
-
-    for coluna_media in ['Nome UASG', 'Nome Fornecedor']:
-        if coluna_media in df_grid.columns:
-            gb.configure_column(coluna_media, width=220)
-
-    grid_options = gb.build()
-    grid_options['rowHeight'] = 42
-    grid_options['animateRows'] = False
-    grid_options['getRowStyle'] = JsCode("""
-        function(params) {
-            if (params.node.isSelected()) {
-                return {
-                    backgroundColor: '#d4af37',
-                    color: '#001a4d',
-                    fontWeight: '700',
-                    borderTop: '2px solid #fff4c2',
-                    borderBottom: '2px solid #fff4c2'
-                };
-            }
-            if (params.rowIndex % 2 === 0) {
-                return { backgroundColor: '#f8fbff', color: '#111827' };
-            }
-            return { backgroundColor: '#eaf1ff', color: '#111827' };
-        }
-    """)
-
-    resposta_grid = AgGrid(
-        df_grid,
-        gridOptions=grid_options,
-        update_mode=GridUpdateMode.SELECTION_CHANGED,
-        allow_unsafe_jscode=True,
-        enable_enterprise_modules=False,
-        height=min(520, max(220, (len(df_grid) + 1) * 42)),
-        theme='blue',
-        custom_css={
-            '.ag-root-wrapper': {'border': '1px solid #d4af37', 'border-radius': '8px'},
-            '.ag-header': {'background-color': '#0a2540 !important', 'color': '#ffffff !important'},
-            '.ag-header-cell-label': {'color': '#ffffff !important', 'font-weight': '700 !important'},
-            '.ag-row-selected .ag-cell': {
-                'background-color': '#d4af37 !important',
-                'color': '#001a4d !important',
-                'font-weight': '700 !important'
-            },
-            '.ag-cell': {'display': 'flex', 'align-items': 'center'},
+    """Renderiza a grade de resultados com seleção nativa do Streamlit."""
+    evento = st.dataframe(
+        df_exibicao,
+        hide_index=True,
+        use_container_width=True,
+        on_select='rerun',
+        selection_mode='multi-row',
+        column_config={
+            'Descrição do Item': st.column_config.TextColumn('Descrição do Item', width='large'),
+            'Objeto Compra': st.column_config.TextColumn('Objeto Compra', width='large'),
+            'Nome UASG': st.column_config.TextColumn('Nome UASG', width='medium'),
+            'Nome Fornecedor': st.column_config.TextColumn('Nome Fornecedor', width='medium'),
         },
-        key='resultado_cotacao_grid'
+        key='resultado_cotacao_tabela'
     )
 
-    selected_rows = resposta_grid.get('selected_rows', []) if isinstance(resposta_grid, dict) else []
-    if isinstance(selected_rows, pd.DataFrame):
-        if '__row_index' in selected_rows.columns:
-            return selected_rows['__row_index'].astype(int).tolist()
-        return []
-    if isinstance(selected_rows, list):
-        return [int(row['__row_index']) for row in selected_rows if '__row_index' in row]
-    return []
+    indices = []
+    if evento is not None and hasattr(evento, 'selection'):
+        indices = list(evento.selection.rows)
+
+    if indices:
+        linhas_sel = df_exibicao.iloc[indices]
+        partes = []
+        for _, row in linhas_sel.iterrows():
+            desc = str(row.get('Descrição do Item', ''))[:55] or str(row.iloc[2])[:55]
+            preco = str(row.get('Preço Unitário', ''))
+            partes.append(
+                f'<div style="background:#d4af37;color:#001a4d;border-radius:6px;'
+                f'padding:6px 12px;margin:4px 0;font-weight:700;font-size:13px;">'
+                f'✔ {desc}'
+                f'<span style="float:right;margin-left:16px;">{preco}</span></div>'
+            )
+        st.markdown(
+            f'<div style="background:#0a2540;border-left:4px solid #d4af37;border-radius:8px;'
+            f'padding:12px 14px;margin-top:10px;">'
+            f'<div style="color:#d4af37;font-weight:700;font-size:13px;margin-bottom:8px;">'
+            f'✅ {len(indices)} item(ns) selecionado(s) para o relatório:</div>'
+            f'{"" .join(partes)}</div>',
+            unsafe_allow_html=True
+        )
+    else:
+        st.markdown(
+            '<div style="background:#0a2540;border-left:4px solid #6b7280;border-radius:8px;'
+            'padding:10px 14px;margin-top:10px;color:#9ca3af;font-size:13px;">'
+            'Clique em uma ou mais linhas para selecionar os itens que devem entrar no relatório. '
+            'Sem seleção, todos os itens filtrados serão incluídos.</div>',
+            unsafe_allow_html=True
+        )
+
+    return indices
 
 # Função para remover outliers usando o método IQR (Interquartile Range)
 def remover_outliers_iqr(dataframe, coluna):
@@ -1547,13 +1518,6 @@ if st.session_state.get('itens'):
                 indices_selecionados = renderizar_grid_resultados(df_exibicao)
                 dataframe_relatorio = dataframe.iloc[indices_selecionados].copy() if indices_selecionados else dataframe.copy()
                 usa_selecao = len(indices_selecionados) > 0
-
-                if usa_selecao:
-                    st.info(
-                        f"Relatórios e cálculos considerarão apenas {len(dataframe_relatorio)} item(ns) selecionado(s)."
-                    )
-                else:
-                    st.caption('Selecione as linhas diretamente na tabela para gerar os relatórios somente com os itens desejados.')
                 
                 # Mostrar estatísticas se a coluna precoUnitario existir
                 if col_precounitario and col_precounitario in dataframe.columns:
