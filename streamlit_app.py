@@ -487,6 +487,26 @@ def preparar_dataframe_exibicao(df):
 
     return df_exibicao
 
+def exibir_tabela_com_destaque(df_editor):
+    """Exibe uma visualização com destaque para linhas selecionadas."""
+    if 'Selecionar' not in df_editor.columns:
+        st.dataframe(df_editor, hide_index=True, use_container_width=True)
+        return
+
+    df_visual = df_editor.drop(columns=['Selecionar']).copy()
+    mask = df_editor['Selecionar'].fillna(False)
+
+    def estilo_linha(row):
+        if bool(mask.loc[row.name]):
+            return ['background-color: #fff5cc; color: #1a1a1a; font-weight: 600'] * len(row)
+        return [''] * len(row)
+
+    st.dataframe(
+        df_visual.style.apply(estilo_linha, axis=1),
+        hide_index=True,
+        use_container_width=True
+    )
+
 # Função para remover outliers usando o método IQR (Interquartile Range)
 def remover_outliers_iqr(dataframe, coluna):
     """
@@ -1487,6 +1507,9 @@ if st.session_state.get('itens'):
                 indices_selecionados = df_editor.index[df_editor['Selecionar'].fillna(False)].tolist()
                 dataframe_relatorio = dataframe.iloc[indices_selecionados].copy() if indices_selecionados else dataframe.copy()
                 usa_selecao = len(indices_selecionados) > 0
+
+                st.caption('Visualização com destaque das linhas selecionadas:')
+                exibir_tabela_com_destaque(df_editor)
 
                 if usa_selecao:
                     st.info(
