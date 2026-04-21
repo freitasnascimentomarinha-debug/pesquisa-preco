@@ -487,26 +487,6 @@ def preparar_dataframe_exibicao(df):
 
     return df_exibicao
 
-def exibir_tabela_com_destaque(df_editor):
-    """Exibe uma visualização com destaque para linhas selecionadas."""
-    if 'Selecionar' not in df_editor.columns:
-        st.dataframe(df_editor, hide_index=True, use_container_width=True)
-        return
-
-    df_visual = df_editor.drop(columns=['Selecionar']).copy()
-    mask = df_editor['Selecionar'].fillna(False)
-
-    def estilo_linha(row):
-        if bool(mask.loc[row.name]):
-            return ['background-color: #fff5cc; color: #1a1a1a; font-weight: 600'] * len(row)
-        return [''] * len(row)
-
-    st.dataframe(
-        df_visual.style.apply(estilo_linha, axis=1),
-        hide_index=True,
-        use_container_width=True
-    )
-
 # Função para remover outliers usando o método IQR (Interquartile Range)
 def remover_outliers_iqr(dataframe, coluna):
     """
@@ -1483,40 +1463,33 @@ if st.session_state.get('itens'):
 
                 st.markdown("### Itens encontrados")
                 df_exibicao = preparar_dataframe_exibicao(dataframe)
-                df_editor = df_exibicao.copy()
-                df_editor.insert(0, 'Selecionar', False)
-
-                df_editor = st.data_editor(
-                    df_editor,
+                evento_tabela = st.dataframe(
+                    df_exibicao,
                     hide_index=True,
                     use_container_width=True,
-                    disabled=[col for col in df_editor.columns if col != 'Selecionar'],
+                    on_select='rerun',
+                    selection_mode='multi-row',
                     column_config={
-                        'Selecionar': st.column_config.CheckboxColumn(
-                            'Selecionar',
-                            help='Marque os itens que devem entrar no relatório.'
-                        ),
                         'Descrição do Item': st.column_config.TextColumn('Descrição do Item', width='large'),
                         'Objeto Compra': st.column_config.TextColumn('Objeto Compra', width='large'),
                         'Nome UASG': st.column_config.TextColumn('Nome UASG', width='medium'),
                         'Nome Fornecedor': st.column_config.TextColumn('Nome Fornecedor', width='medium')
                     },
-                    key='resultado_cotacao_editor'
+                    key='resultado_cotacao_tabela'
                 )
 
-                indices_selecionados = df_editor.index[df_editor['Selecionar'].fillna(False)].tolist()
+                indices_selecionados = []
+                if evento_tabela is not None and hasattr(evento_tabela, 'selection'):
+                    indices_selecionados = list(evento_tabela.selection.rows)
                 dataframe_relatorio = dataframe.iloc[indices_selecionados].copy() if indices_selecionados else dataframe.copy()
                 usa_selecao = len(indices_selecionados) > 0
-
-                st.caption('Visualização com destaque das linhas selecionadas:')
-                exibir_tabela_com_destaque(df_editor)
 
                 if usa_selecao:
                     st.info(
                         f"Relatórios e cálculos considerarão apenas {len(dataframe_relatorio)} item(ns) selecionado(s)."
                     )
                 else:
-                    st.caption('Marque a coluna Selecionar para gerar os relatórios somente com os itens desejados.')
+                    st.caption('Selecione as linhas diretamente na tabela para gerar os relatórios somente com os itens desejados.')
                 
                 # Mostrar estatísticas se a coluna precoUnitario existir
                 if col_precounitario and col_precounitario in dataframe.columns:
