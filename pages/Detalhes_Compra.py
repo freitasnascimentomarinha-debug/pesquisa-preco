@@ -252,6 +252,60 @@ def build_pncp_portal_link(cnpj: str, ano: str, seq: str) -> str:
     return f"{PNCP_PORTAL_BASE}/{cnpj}/{ano}/{seq_int}"
 
 
+def normalize_id_compra(raw_value: Any) -> str:
+    """Normaliza o ID da compra mantendo apenas dígitos para comparação."""
+    if raw_value is None:
+        return ""
+    return re.sub(r"\D", "", str(raw_value))
+
+
+def infer_year_from_id_compra(id_compra: str) -> Optional[int]:
+    """Infere o ano a partir dos 4 últimos dígitos do ID da compra."""
+    normalized = normalize_id_compra(id_compra)
+    if len(normalized) < 4:
+        return None
+    try:
+        year = int(normalized[-4:])
+    except ValueError:
+        return None
+    if 2000 <= year <= 2100:
+        return year
+    return None
+
+
+def id_compra_matches(candidate: Any, expected: str) -> bool:
+    """Compara IDs de compra de forma tolerante a formatação."""
+    normalized_candidate = normalize_id_compra(candidate)
+    normalized_expected = normalize_id_compra(expected)
+    if not normalized_candidate or not normalized_expected:
+        return False
+    return (
+        normalized_candidate == normalized_expected
+        or normalized_candidate.endswith(normalized_expected)
+        or normalized_expected.endswith(normalized_candidate)
+    )
+
+
+def dedupe_by_keys(items: List[Dict], keys: List[str]) -> List[Dict]:
+    """Remove duplicados de listas de dicionários usando chaves candidatas."""
+    seen = set()
+    deduped: List[Dict] = []
+    for item in items:
+        item_key = ""
+        for key in keys:
+            value = item.get(key)
+            if value:
+                item_key = str(value)
+                break
+        if not item_key:
+            item_key = json.dumps(item, sort_keys=True, ensure_ascii=False)
+        if item_key in seen:
+            continue
+        seen.add(item_key)
+        deduped.append(item)
+    return deduped
+
+
 # ── API ComprasGov: Contratos ──────────────────────────────────────────────
 
 @st.cache_data(ttl=300, show_spinner=False)
@@ -907,6 +961,10 @@ with tab_busca:
             uasg = input_uasg.strip()
             ano = int(input_ano)
             id_filtro = input_id_compra.strip() if input_id_compra else ""
+            ano_inferido_id = infer_year_from_id_compra(id_filtro) if id_filtro else None
+            anos_busca = [ano]
+            if id_filtro and ano_inferido_id:
+                anos_busca = sorted({max(2020, ano_inferido_id - 1), ano_inferido_id, min(2030, ano_inferido_id + 1)})
 
             # Info da UASG
             uasg_index = load_uasg_index()
@@ -919,21 +977,32 @@ with tab_busca:
                 f'<p><strong>{nome_uasg}</strong>{" — " + uf if uf else ""}</p></div>',
                 unsafe_allow_html=True,
             )
+            if id_filtro and ano_inferido_id and ano_inferido_id != ano:
+                st.info(
+                    f"Ano inferido a partir do ID da compra: {ano_inferido_id}. "
+                    f"A busca será feita em {', '.join(str(item) for item in anos_busca)} para aumentar a chance de localizar a compra."
+                )
 
             # ── 1. Buscar Contratos ───────────────────────────────────────────
             with st.spinner("Buscando contratos no ComprasGov..."):
-                contratos = buscar_contratos_uasg(uasg, ano)
+                contratos = []
+                for ano_busca in anos_busca:
+                    contratos.extend(buscar_contratos_uasg(uasg, ano_busca))
+                contratos = dedupe_by_keys(contratos, ["numeroContrato", "idCompra", "numeroControlePncpCompra"])
 
             # Filtrar por idCompra se informado
             if id_filtro and contratos:
-                contratos = [c for c in contratos if c.get("idCompra", "") == id_filtro]
+                contratos = [c for c in contratos if id_compra_matches(c.get("idCompra", ""), id_filtro)]
 
             # ── 2. Buscar ARPs (SRP) ──────────────────────────────────────────
             with st.spinner("Buscando Atas de Registro de Preço (SRP)..."):
-                arps = buscar_arp_uasg(uasg, ano)
+                arps = []
+                for ano_busca in anos_busca:
+                    arps.extend(buscar_arp_uasg(uasg, ano_busca))
+                arps = dedupe_by_keys(arps, ["numeroAtaRegistroPreco", "idCompra", "numeroControlePncpAta"])
 
             if id_filtro and arps:
-                arps = [a for a in arps if a.get("idCompra", "") == id_filtro]
+                arps = [a for a in arps if id_compra_matches(a.get("idCompra", ""), id_filtro)]
 
             # ── Filtros avançados aplicados nos resultados ────────────────────
             _modalidade_map = {
