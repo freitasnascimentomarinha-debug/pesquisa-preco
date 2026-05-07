@@ -20,6 +20,11 @@ API_URL_UNIDADES = "https://dadosabertos.compras.gov.br/modulo-arp/3_consultarUn
 MAX_CONCURRENCY = 4
 DATE_RANGE_DAYS = 360
 PAGE_SIZE = {"Material": 100, "Serviço": 100}
+API_CONNECT_TIMEOUT_SECONDS = 15
+API_SEARCH_READ_TIMEOUT_SECONDS = 90
+API_DETAIL_READ_TIMEOUT_SECONDS = 60
+API_SEARCH_RETRIES = 3
+API_DETAIL_RETRIES = 2
 
 # Configuração da página
 st.set_page_config(
@@ -752,7 +757,7 @@ async def fetch_page(
     base_params: Dict[str, str],
 ) -> Dict:
     params = {**base_params, "pagina": page}
-    retries = 10
+    retries = API_SEARCH_RETRIES
     delay = 0.5
     async with semaphore:
         for attempt in range(retries):
@@ -775,7 +780,12 @@ async def search_async(
     uasg_sphere: Dict[str, str],
     max_concurrency: int = MAX_CONCURRENCY,
 ) -> List[Dict]:
-    timeout = aiohttp.ClientTimeout(total=10)
+    timeout = aiohttp.ClientTimeout(
+        total=None,
+        connect=API_CONNECT_TIMEOUT_SECONDS,
+        sock_connect=API_CONNECT_TIMEOUT_SECONDS,
+        sock_read=API_SEARCH_READ_TIMEOUT_SECONDS,
+    )
     semaphore = asyncio.Semaphore(max_concurrency)
     connector = aiohttp.TCPConnector(limit=None, ssl=False)
 
@@ -856,7 +866,7 @@ async def fetch_unit_detail(
         "tamanhoPagina": 10,
         "pagina": 1,
     }
-    retries = 3
+    retries = API_DETAIL_RETRIES
     delay = 0.5
     async with semaphore:
         for attempt in range(retries):
@@ -882,7 +892,12 @@ async def enrich_results_async(
 ) -> Dict[str, Dict]:
     """Para cada ata em display_results, busca detalhes de saldo/adesão.
     Retorna dict mapeando identificador -> detalhes."""
-    timeout = aiohttp.ClientTimeout(total=15)
+    timeout = aiohttp.ClientTimeout(
+        total=None,
+        connect=API_CONNECT_TIMEOUT_SECONDS,
+        sock_connect=API_CONNECT_TIMEOUT_SECONDS,
+        sock_read=API_DETAIL_READ_TIMEOUT_SECONDS,
+    )
     semaphore = asyncio.Semaphore(max_concurrency)
     connector = aiohttp.TCPConnector(limit=None, ssl=False)
     details: Dict[str, Dict] = {}
