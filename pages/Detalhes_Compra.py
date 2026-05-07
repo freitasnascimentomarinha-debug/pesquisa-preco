@@ -273,6 +273,22 @@ def infer_year_from_id_compra(id_compra: str) -> Optional[int]:
     return None
 
 
+def parse_id_compra(id_compra: str) -> Optional[Dict[str, str]]:
+    """Extrai componentes conhecidos do ID da compra.
+
+    Formato esperado: UASG(6) + modalidade(2) + sequencial(5) + ano(4).
+    """
+    normalized = normalize_id_compra(id_compra)
+    if len(normalized) != 17:
+        return None
+    return {
+        "uasg": normalized[:6],
+        "modalidade": normalized[6:8],
+        "sequencial": normalized[8:13],
+        "ano": normalized[13:17],
+    }
+
+
 def id_compra_matches(candidate: Any, expected: str) -> bool:
     """Compara IDs de compra de forma tolerante a formatação."""
     normalized_candidate = normalize_id_compra(candidate)
@@ -837,15 +853,26 @@ with tab_busca:
 </p>
 """, unsafe_allow_html=True)
 
+    inferred_from_state = parse_id_compra(st.session_state.get("detalhe_id_compra", ""))
+    default_uasg = st.session_state.get("detalhe_uasg", "") or (
+        inferred_from_state["uasg"] if inferred_from_state else ""
+    )
+    default_year = datetime.now().year
+    if inferred_from_state:
+        try:
+            default_year = int(inferred_from_state["ano"])
+        except (TypeError, ValueError):
+            pass
+
     # ── Formulário de busca ───────────────────────────────────────────────────
     col_uasg, col_ano, col_id = st.columns([2, 1, 3])
 
     with col_uasg:
         input_uasg = st.text_input(
-            "Código UASG *",
-            value=st.session_state.get("detalhe_uasg", ""),
+            "Código UASG",
+            value=default_uasg,
             placeholder="Ex: 153050, 771300",
-            help="Código da Unidade Gestora (6 dígitos). Campo obrigatório.",
+            help="Código da Unidade Gestora (6 dígitos). Se você informar o ID da compra, a UASG pode ser preenchida automaticamente.",
         )
 
     with col_ano:
@@ -853,8 +880,8 @@ with tab_busca:
             "Ano",
             min_value=2020,
             max_value=2030,
-            value=datetime.now().year,
-            help="Ano de vigência/referência.",
+            value=default_year,
+            help="Ano de vigência/referência. Quando o ID da compra é informado, o ano pode ser inferido automaticamente.",
         )
 
     with col_id:
@@ -935,10 +962,16 @@ with tab_busca:
     if st.session_state.get("detalhe_id_compra") and not input_id_compra:
         input_id_compra = st.session_state["detalhe_id_compra"]
 
+    parsed_id_compra = parse_id_compra(input_id_compra)
+    if parsed_id_compra and not input_uasg:
+        input_uasg = parsed_id_compra["uasg"]
+
     # ── Execução da busca ─────────────────────────────────────────────────────
     if consultar:
-        if not input_uasg or not input_uasg.strip().isdigit():
-            st.error("❌ Informe um código UASG válido (apenas números).")
+        valid_uasg = input_uasg and input_uasg.strip().isdigit()
+        valid_id_only = bool(parsed_id_compra)
+        if not valid_uasg and not valid_id_only:
+            st.error("❌ Informe uma UASG válida ou um ID da compra válido para preencher a UASG automaticamente.")
             st.session_state.pop("_dc_active", None)
         else:
             st.session_state["_dc_active"] = True
@@ -952,19 +985,20 @@ with tab_busca:
     # Renderizar resultados (persiste entre reruns via cache + session_state)
     _dc_should_render = (
         st.session_state.get("_dc_active")
-        and input_uasg
-        and input_uasg.strip().isdigit()
+        and ((input_uasg and input_uasg.strip().isdigit()) or bool(parsed_id_compra))
     )
     if _dc_should_render:
         _dc_go = True  # nível extra para preservar recuo do bloco original
         if _dc_go:
-            uasg = input_uasg.strip()
+            uasg = input_uasg.strip() if input_uasg and input_uasg.strip() else ""
+            if not uasg and parsed_id_compra:
+                uasg = parsed_id_compra["uasg"]
             ano = int(input_ano)
             id_filtro = input_id_compra.strip() if input_id_compra else ""
             ano_inferido_id = infer_year_from_id_compra(id_filtro) if id_filtro else None
             anos_busca = [ano]
             if id_filtro and ano_inferido_id:
-                anos_busca = sorted({max(2020, ano_inferido_id - 1), ano_inferido_id, min(2030, ano_inferido_id + 1)})
+                anos_busca = [ano_inferido_id]
 
             # Info da UASG
             uasg_index = load_uasg_index()
@@ -977,11 +1011,17 @@ with tab_busca:
                 f'<p><strong>{nome_uasg}</strong>{" — " + uf if uf else ""}</p></div>',
                 unsafe_allow_html=True,
             )
-            if id_filtro and ano_inferido_id and ano_inferido_id != ano:
+            if parsed_id_compra:
+                st.caption(
+                    f"ID {normalize_id_compra(id_filtro)} detectado: UASG {parsed_id_compra['uasg']} | "
+                    f"sequencial {parsed_id_compra['sequencial']} | ano {parsed_id_compra['ano']}"
+                )
+            if id_filtro and ano_inferido_id:
                 st.info(
                     f"Ano inferido a partir do ID da compra: {ano_inferido_id}. "
-                    f"A busca será feita em {', '.join(str(item) for item in anos_busca)} para aumentar a chance de localizar a compra."
+                    f"A busca será feita nesse ano e a UASG pode ser usada automaticamente a partir dos 6 primeiros dígitos do ID."
                 )
+                render_links_externos(id_filtro)
 
             # ── 1. Buscar Contratos ───────────────────────────────────────────
             with st.spinner("Buscando contratos no ComprasGov..."):
