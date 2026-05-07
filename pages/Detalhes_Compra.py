@@ -25,6 +25,7 @@ PNCP_API_BASE = "https://pncp.gov.br/pncp-api/v1"
 PNCP_API_BASE_NEW = "https://pncp.gov.br/api/consulta/v1"
 PNCP_PORTAL_BASE = "https://pncp.gov.br/app/editais"
 COMPRASNET_BASE = "https://cnetmobile.estaleiro.serpro.gov.br/comprasnet-web/public/landing"
+COMPRASNET_FASE_EXTERNA_BASE = "https://cnetmobile.estaleiro.serpro.gov.br/comprasnet-fase-externa/v1"
 REQUEST_TIMEOUT = 20
 MAX_RETRIES = 1
 
@@ -320,6 +321,78 @@ def dedupe_by_keys(items: List[Dict], keys: List[str]) -> List[Dict]:
         seen.add(item_key)
         deduped.append(item)
     return deduped
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def buscar_link_compra_fase_externa(id_compra: str) -> Dict[str, str]:
+    """Consulta a API pública de fase externa do ComprasNet para uma compra."""
+    normalized = normalize_id_compra(id_compra)
+    if not normalized:
+        return {"status": "invalid", "message": "ID da compra inválido."}
+
+    url = f"{COMPRASNET_FASE_EXTERNA_BASE}/compras/{normalized}/link"
+    try:
+        response = requests.get(
+            url,
+            timeout=REQUEST_TIMEOUT,
+            headers={"User-Agent": "Mozilla/5.0"},
+            verify=True,
+        )
+        if response.status_code == 200:
+            return {
+                "status": "found",
+                "link": response.text.strip(),
+                "message": "Compra localizada na fase externa pública do ComprasNet.",
+            }
+        if response.status_code == 404:
+            try:
+                payload = response.json()
+                message = payload.get("message", "Compra não encontrada.")
+            except Exception:
+                message = "Compra não encontrada."
+            return {"status": "not-found", "message": message}
+        return {
+            "status": "error",
+            "message": f"A API pública do ComprasNet respondeu com status {response.status_code}.",
+        }
+    except requests.exceptions.Timeout:
+        return {
+            "status": "timeout",
+            "message": "A consulta pública do ComprasNet demorou além do limite.",
+        }
+    except requests.exceptions.RequestException:
+        return {
+            "status": "error",
+            "message": "Não foi possível consultar a API pública do ComprasNet no momento.",
+        }
+
+
+def render_status_compra_publica(id_compra: str):
+    """Mostra o status público de detalhamento da compra no ComprasNet."""
+    status = buscar_link_compra_fase_externa(id_compra)
+    raw_status = status.get("status", "error")
+    message = status.get("message", "")
+
+    if raw_status == "found":
+        st.success(message)
+        link = status.get("link", "")
+        if link:
+            st.markdown(
+                f'<div class="info-card"><h4>🔗 Fase Externa Pública</h4>'
+                f'<p>Foi encontrado um link público mais específico para esta compra.</p>'
+                f'<p><a href="{link}" target="_blank">Abrir detalhamento público da compra</a></p></div>',
+                unsafe_allow_html=True,
+            )
+    elif raw_status == "not-found":
+        st.warning(
+            "A API pública detalhada do ComprasNet não encontrou esta compra. "
+            "Isso indica que pode existir um identificador válido e um link de acesso, mas sem detalhes públicos disponíveis nessa rota."
+        )
+        st.caption(message)
+    elif raw_status == "timeout":
+        st.warning(message)
+    else:
+        st.info(message or "Não houve retorno conclusivo da consulta pública do ComprasNet.")
 
 
 # ── API ComprasGov: Contratos ──────────────────────────────────────────────
@@ -1364,6 +1437,7 @@ with tab_busca:
                         unsafe_allow_html=True,
                     )
                     render_links_externos(id_filtro)
+                    render_status_compra_publica(id_filtro)
 
                 with st.spinner("Buscando CNPJ do órgão..."):
                     params_pp = {
