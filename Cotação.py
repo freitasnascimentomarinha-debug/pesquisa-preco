@@ -429,7 +429,7 @@ def organizar_colunas_resultado(df):
         (["quantidade", "quantidadeItem", "qtd"], "Quantidade"),
         (["codigoUasg", "codigo_uasg"], "Cód. UASG"),
         (["nomeUasg", "orgaoEntidade.razaoSocial", "orgao_nome"], "Nome UASG"),
-        (["orgaoEntidade.cnpj", "cnpjOrgaoEntidade", "niOrgao", "cnpj_orgao"], "CNPJ Órgão"),
+        (["orgaoEntidade.cnpj", "orgaoSubRogado.cnpj", "cnpjOrgaoEntidade", "cnpjOrgaoSubRogado", "niOrgao", "cnpj_orgao"], "CNPJ Órgão"),
         (["nomeFornecedor", "razaoSocialFornecedor", "fornecedor_nome"], "Nome Fornecedor"),
         (["niFornecedor", "cnpjFornecedor", "fornecedor_cnpj"], "NI Fornecedor"),
         (["marca", "nomeMarca"], "Marca"),
