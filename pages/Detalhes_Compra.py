@@ -1718,12 +1718,6 @@ with tab_busca:
                             f"unidade {evidence.get('unidade_codigo', '')} | "
                             f"{evidence.get('title', '')}"
                         )
-                        item_url = str(evidence.get("item_url", "") or "").strip()
-                        if item_url:
-                            st.markdown(
-                                f"🔎 Evidência da mesma UASG no PNCP: "
-                                f"[abrir documento relacionado](https://pncp.gov.br{item_url})"
-                            )
                     if parsed_id_compra:
                         render_links_externos(
                             id_filtro,
@@ -1741,10 +1735,19 @@ with tab_busca:
                             seq_candidates.append(int(parsed_id_compra["sequencial"]))
                         except ValueError:
                             pass
-                    seq_candidates.extend(range(1, 101))
                     seen_seq = set()
                     seq_candidates = [seq for seq in seq_candidates if not (seq in seen_seq or seen_seq.add(seq))]
                     total_seq = len(seq_candidates)
+
+                    if not seq_candidates:
+                        progress_fallback.progress(100, text="Não foi possível extrair o sequencial do ID da compra.")
+                        status_fallback.warning(
+                            "O sequencial não pôde ser extraído do ID da compra."
+                        )
+                        st.warning(
+                            "A consulta direta no PNCP exige um sequencial válido no ID da compra."
+                        )
+                        st.stop()
 
                     with st.spinner("Escaneando compras recentes no PNCP..."):
                         for idx, seq_try in enumerate(seq_candidates, start=1):
@@ -1817,13 +1820,13 @@ with tab_busca:
                                 break
 
                     if not encontrou:
-                        progress_fallback.progress(100, text="Busca direta concluída sem localizar detalhes adicionais.")
+                        progress_fallback.progress(100, text="Consulta do sequencial do ID concluída sem localizar detalhes adicionais.")
                         status_fallback.warning(
-                            "Busca direta concluída. A compra não foi localizada no PNCP com detalhes adicionais."
+                            "Consulta direta concluída. O PNCP não retornou detalhes para o sequencial extraído do ID."
                         )
                         st.warning(
-                            "Compra não encontrada no PNCP com detalhes adicionais. "
-                            "Isso normalmente significa que a compra existe pelo ID/ComprasNet, mas ainda não está exposta nas rotas consultadas de contratos, ARP ou PNCP."
+                            "Compra não encontrada no PNCP com detalhes adicionais para o sequencial do próprio ID. "
+                            "Isso normalmente significa que a compra existe pelo ID/ComprasNet, mas ainda não está exposta na rota de detalhe consultada do PNCP."
                         )
                         st.caption(
                             "Os links diretos acima continuam válidos para abrir a compra pelo ID informado."
