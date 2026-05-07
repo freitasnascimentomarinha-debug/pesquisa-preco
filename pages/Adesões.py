@@ -1256,8 +1256,14 @@ if results:
                 unsafe_allow_html=True,
             )
             # Enriquecer resultados com dados do endpoint 3_consultarUnidadesItem
+            enrich_status_placeholder = st.empty()
+            enrich_progress_bar = st.progress(0, text="Preparando detalhes das atas…")
             with st.spinner("Buscando detalhes de saldo e adesão…"):
-                enriched = run_enrich(display_results)
+                enriched = run_enrich(
+                    display_results,
+                    enrich_status_placeholder,
+                    enrich_progress_bar,
+                )
 
             for idx, raw in enumerate(display_results):
                 normalized = normalize_item(raw)
