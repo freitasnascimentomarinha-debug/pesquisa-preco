@@ -427,7 +427,9 @@ def organizar_colunas_resultado(df):
         (["siglaUnidadeFornecimento", "unidadeFornecimento", "unidade_fornecimento"], "Sigla Unidade Fornecimento"),
         (["precoUnitario", "valorUnitario", "preco_unitario"], "Preço Unitário"),
         (["quantidade", "quantidadeItem", "qtd"], "Quantidade"),
+        (["codigoUasg", "codigo_uasg"], "Cód. UASG"),
         (["nomeUasg", "orgaoEntidade.razaoSocial", "orgao_nome"], "Nome UASG"),
+        (["orgaoEntidade.cnpj", "cnpjOrgaoEntidade", "niOrgao", "cnpj_orgao"], "CNPJ Órgão"),
         (["nomeFornecedor", "razaoSocialFornecedor", "fornecedor_nome"], "Nome Fornecedor"),
         (["niFornecedor", "cnpjFornecedor", "fornecedor_cnpj"], "NI Fornecedor"),
         (["marca", "nomeMarca"], "Marca"),
@@ -473,7 +475,9 @@ def renderizar_grid_resultados(df_exibicao):
         column_config={
             'Descrição do Item': st.column_config.TextColumn('Descrição do Item', width='large'),
             'Objeto Compra': st.column_config.TextColumn('Objeto Compra', width='large'),
+            'Cód. UASG': st.column_config.TextColumn('Cód. UASG', width='small'),
             'Nome UASG': st.column_config.TextColumn('Nome UASG', width='medium'),
+            'CNPJ Órgão': st.column_config.TextColumn('CNPJ Órgão', width='small'),
             'Nome Fornecedor': st.column_config.TextColumn('Nome Fornecedor', width='medium'),
         },
         key='resultado_cotacao_tabela'
