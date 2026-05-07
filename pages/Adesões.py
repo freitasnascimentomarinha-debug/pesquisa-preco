@@ -776,6 +776,7 @@ async def search_async(
     tipo: str,
     codigo: str,
     status_placeholder: st.delta_generator.DeltaGenerator,
+    progress_bar,
     federal_only: bool,
     uasg_sphere: Dict[str, str],
     max_concurrency: int = MAX_CONCURRENCY,
@@ -825,29 +826,61 @@ async def search_async(
         else:
             base_params["codigoItem"] = codigo
 
+        status_placeholder.info("Conectando ao Compras.gov e carregando a primeira página…")
+        progress_bar.progress(5, text="Conectando ao Compras.gov…")
+
         first_page = await fetch_page(session, semaphore, 1, base_params)
         total_pages_count = 1 + parse_remaining_pages(first_page.get("paginasRestantes"))
         render_payload(first_page)
         processed_pages = 1
+        progress_value = min(int(processed_pages / max(total_pages_count, 1) * 100), 100)
+        status_placeholder.info(
+            f"Página {processed_pages}/{total_pages_count} carregada. {len(results)} atas encontradas até agora."
+        )
+        progress_bar.progress(
+            max(progress_value, 10),
+            text=(
+                f"Carregando páginas do Compras.gov: {processed_pages}/{total_pages_count} "
+                f"| atas encontradas: {len(results)}"
+            ),
+        )
 
         for page in range(2, total_pages_count + 1):
             tasks.append(asyncio.create_task(fetch_page(session, semaphore, page, base_params)))
 
         if total_pages_count == processed_pages:
-            status_placeholder.success("Busca concluída.")
+            progress_bar.progress(
+                100,
+                text=f"Busca concluída. {len(results)} atas encontradas.",
+            )
+            status_placeholder.success(f"Busca concluída. {len(results)} atas encontradas.")
             return results
 
         for idx, task in enumerate(asyncio.as_completed(tasks), start=processed_pages + 1):
             try:
                 payload = await task
                 render_payload(payload)
-                status_placeholder.info(f"Processando páginas ({idx}/{total_pages_count})…")
+                progress_value = min(int(idx / max(total_pages_count, 1) * 100), 100)
+                status_placeholder.info(
+                    f"Página {idx}/{total_pages_count} carregada. {len(results)} atas encontradas até agora."
+                )
+                progress_bar.progress(
+                    progress_value,
+                    text=(
+                        f"Carregando páginas do Compras.gov: {idx}/{total_pages_count} "
+                        f"| atas encontradas: {len(results)}"
+                    ),
+                )
             except Exception:
                 status_placeholder.warning(
-                    "Falha ao carregar uma das páginas. Retentativa não disponível."
+                    f"Falha ao carregar uma das páginas. {len(results)} atas já foram encontradas até agora."
                 )
 
-        status_placeholder.success("Busca concluída.")
+        progress_bar.progress(
+            100,
+            text=f"Busca concluída. {len(results)} atas encontradas.",
+        )
+        status_placeholder.success(f"Busca concluída. {len(results)} atas encontradas.")
         return results
 
 
@@ -888,6 +921,8 @@ async def fetch_unit_detail(
 
 async def enrich_results_async(
     display_results: List[Dict],
+    status_placeholder: st.delta_generator.DeltaGenerator,
+    progress_bar,
     max_concurrency: int = MAX_CONCURRENCY,
 ) -> Dict[str, Dict]:
     """Para cada ata em display_results, busca detalhes de saldo/adesão.
@@ -904,7 +939,6 @@ async def enrich_results_async(
 
     async with aiohttp.ClientSession(timeout=timeout, connector=connector) as session:
         tasks = []
-        keys = []
         for raw in display_results:
             numero_ata = raw.get("numeroAtaRegistroPreco", "")
             unidade = raw.get("codigoUnidadeGerenciadora", "") or str(raw.get("codigoUasg", ""))
@@ -912,23 +946,74 @@ async def enrich_results_async(
             identificador = raw.get("numeroControlePncpAta", "")
             if not (numero_ata and unidade and numero_item):
                 continue
-            keys.append(identificador)
+
+            async def fetch_with_key(
+                key: str,
+                ata_numero: str,
+                ata_unidade: str,
+                ata_item: str,
+            ) -> Tuple[str, Optional[Dict]]:
+                result = await fetch_unit_detail(
+                    session,
+                    semaphore,
+                    ata_numero,
+                    ata_unidade,
+                    ata_item,
+                )
+                return key, result
+
             tasks.append(
                 asyncio.create_task(
-                    fetch_unit_detail(session, semaphore, numero_ata, unidade, numero_item)
+                    fetch_with_key(identificador, numero_ata, unidade, numero_item)
                 )
             )
-        results_list = await asyncio.gather(*tasks, return_exceptions=True)
-        for key, result in zip(keys, results_list):
+        total_tasks = len(tasks)
+        if total_tasks == 0:
+            progress_bar.progress(100, text="Nenhum detalhe adicional para carregar.")
+            status_placeholder.info("Nenhum detalhe adicional para carregar.")
+            return details
+
+        status_placeholder.info(
+            f"Carregando detalhes complementares de {total_tasks} atas…"
+        )
+        progress_bar.progress(5, text=f"Carregando detalhes de 0/{total_tasks} atas…")
+
+        processed_tasks = 0
+        for task in asyncio.as_completed(tasks):
+            key, result = await task
+            processed_tasks += 1
             if isinstance(result, dict):
                 details[key] = result
+            progress_value = min(int(processed_tasks / total_tasks * 100), 100)
+            progress_bar.progress(
+                progress_value,
+                text=(
+                    f"Carregando detalhes de {processed_tasks}/{total_tasks} atas "
+                    f"| detalhes prontos: {len(details)}"
+                ),
+            )
+            status_placeholder.info(
+                f"Detalhes carregados: {processed_tasks}/{total_tasks}."
+            )
+
+        progress_bar.progress(
+            100,
+            text=f"Detalhes concluídos. {len(details)} atas enriquecidas.",
+        )
+        status_placeholder.success(
+            f"Detalhes concluídos. {len(details)} atas enriquecidas."
+        )
     return details
 
 
-def run_enrich(display_results: List[Dict]) -> Dict[str, Dict]:
+def run_enrich(
+    display_results: List[Dict],
+    status_placeholder: st.delta_generator.DeltaGenerator,
+    progress_bar,
+) -> Dict[str, Dict]:
     """Wrapper síncrono para enriquecer resultados com dados do endpoint 3."""
     try:
-        return asyncio.run(enrich_results_async(display_results))
+        return asyncio.run(enrich_results_async(display_results, status_placeholder, progress_bar))
     except Exception:
         return {}
 
@@ -940,6 +1025,7 @@ def run_search(
     uasg_sphere: Dict[str, str],
 ) -> List[Dict]:
     status_placeholder = st.empty()
+    progress_bar = st.progress(0, text="Preparando consulta…")
     with st.spinner("Consultando dados, por favor aguarde um momento…"):
         try:
             results = asyncio.run(
@@ -947,11 +1033,13 @@ def run_search(
                     tipo,
                     codigo,
                     status_placeholder,
+                    progress_bar,
                     federal_only=federal_only,
                     uasg_sphere=uasg_sphere,
                 )
             )
         except Exception:
+            progress_bar.empty()
             status_placeholder.error(
                 "Não foi possível concluir a consulta agora, provavelmente por instabilidades no Compras.gov. Tente novamente em instantes."
             )
