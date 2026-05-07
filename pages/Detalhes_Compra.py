@@ -1354,6 +1354,17 @@ with tab_busca:
                 )
                 st.info("Tentando localizar a compra diretamente no PNCP via contratações...")
 
+                if parsed_id_compra:
+                    st.markdown(
+                        f'<div class="info-card"><h4>🧩 Compra identificada pelo ID</h4>'
+                        f'<p><strong>ID:</strong> {normalize_id_compra(id_filtro)}</p>'
+                        f'<p><strong>UASG:</strong> {parsed_id_compra["uasg"]}</p>'
+                        f'<p><strong>Sequencial:</strong> {parsed_id_compra["sequencial"]}</p>'
+                        f'<p><strong>Ano:</strong> {parsed_id_compra["ano"]}</p></div>',
+                        unsafe_allow_html=True,
+                    )
+                    render_links_externos(id_filtro)
+
                 with st.spinner("Buscando CNPJ do órgão..."):
                     params_pp = {
                         "codigoUasg": uasg,
@@ -1380,9 +1391,31 @@ with tab_busca:
                 else:
                     st.markdown(f"CNPJ do órgão: **{cnpj_orgao}**")
                     encontrou = False
+                    status_fallback = st.empty()
+                    progress_fallback = st.progress(0, text="Preparando busca direta no PNCP…")
+
+                    seq_candidates: List[int] = []
+                    if parsed_id_compra:
+                        try:
+                            seq_candidates.append(int(parsed_id_compra["sequencial"]))
+                        except ValueError:
+                            pass
+                    seq_candidates.extend(range(1, 101))
+                    seen_seq = set()
+                    seq_candidates = [seq for seq in seq_candidates if not (seq in seen_seq or seen_seq.add(seq))]
+                    total_seq = len(seq_candidates)
+
                     with st.spinner("Escaneando compras recentes no PNCP..."):
-                        for seq_try in range(1, 51):
+                        for idx, seq_try in enumerate(seq_candidates, start=1):
                             seq_str = f"{seq_try:06d}"
+                            progress_value = min(int(idx / total_seq * 100), 100)
+                            status_fallback.info(
+                                f"Consultando PNCP: tentativa {idx}/{total_seq} | sequencial {seq_str}"
+                            )
+                            progress_fallback.progress(
+                                progress_value,
+                                text=f"Consultando sequencial {seq_str} no PNCP ({idx}/{total_seq})",
+                            )
                             compra = buscar_compra_pncp(cnpj_orgao, str(ano), seq_str)
                             if not compra:
                                 continue
@@ -1392,6 +1425,8 @@ with tab_busca:
 
                             if id_filtro and id_filtro in link_origem:
                                 encontrou = True
+                                progress_fallback.progress(100, text=f"Compra localizada no PNCP no sequencial {seq_str}.")
+                                status_fallback.success(f"Compra localizada no PNCP no sequencial {seq_str}.")
                                 st.success(f"Compra encontrada no PNCP! Sequencial: {seq_str}")
                                 obj = compra.get("objetoCompra", "")
                                 modal = compra.get("modalidadeNome", "")
@@ -1441,7 +1476,14 @@ with tab_busca:
                                 break
 
                     if not encontrou:
+                        progress_fallback.progress(100, text="Busca direta concluída sem localizar detalhes adicionais.")
+                        status_fallback.warning(
+                            "Busca direta concluída. A compra não foi localizada no PNCP com detalhes adicionais."
+                        )
                         st.warning(
-                            "Compra não encontrada no PNCP nos primeiros 50 sequenciais. "
-                            "A compra pode ser muito recente ou ainda não publicada no PNCP."
+                            "Compra não encontrada no PNCP com detalhes adicionais. "
+                            "Isso normalmente significa que a compra existe pelo ID/ComprasNet, mas ainda não está exposta nas rotas consultadas de contratos, ARP ou PNCP."
+                        )
+                        st.caption(
+                            "Os links diretos acima continuam válidos para abrir a compra pelo ID informado."
                         )
