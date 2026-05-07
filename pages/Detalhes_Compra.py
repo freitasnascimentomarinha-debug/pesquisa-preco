@@ -400,6 +400,7 @@ def buscar_cnpj_orgao_por_uasg(codigo_uasg: str, ano: int) -> Dict[str, Any]:
     """Tenta obter o CNPJ do órgão a partir da UASG usando endpoints públicos conhecidos."""
     headers = {"User-Agent": "Mozilla/5.0"}
     attempts = []
+    codigo_uasg_limpo = normalize_id_compra(codigo_uasg)
     endpoints = [
         (
             "material",
@@ -413,7 +414,7 @@ def buscar_cnpj_orgao_por_uasg(codigo_uasg: str, ano: int) -> Dict[str, Any]:
 
     for label, base_url in endpoints:
         params = {
-            "codigoUasg": codigo_uasg,
+            "codigoUasg": codigo_uasg_limpo,
             "dataCompraInicio": f"{ano}-01-01",
             "dataCompraFim": f"{ano}-12-31",
             "pagina": 1,
@@ -453,6 +454,105 @@ def buscar_cnpj_orgao_por_uasg(codigo_uasg: str, ano: int) -> Dict[str, Any]:
             attempts.append({"fonte": label, "status": "timeout"})
         except requests.exceptions.RequestException as exc:
             attempts.append({"fonte": label, "status": "error", "message": str(exc)})
+
+    uasg_info = load_uasg_index().get(codigo_uasg_limpo, {})
+    nome_uasg = str(uasg_info.get("nomeUasg", "") or "").strip()
+    queries: List[str] = []
+    if nome_uasg:
+        queries.append(nome_uasg)
+        nome_sem_prefixo = re.sub(r"^[A-Z]{2,6}-", "", nome_uasg).strip()
+        if nome_sem_prefixo and nome_sem_prefixo not in queries:
+            queries.append(nome_sem_prefixo)
+        tokens = re.findall(r"[A-Z0-9À-ÿ]{3,}", nome_uasg.upper())
+        resumo = " ".join(tokens[:6]).strip()
+        if resumo and resumo not in queries:
+            queries.append(resumo)
+
+    if codigo_uasg_limpo and codigo_uasg_limpo not in queries:
+        queries.append(codigo_uasg_limpo)
+
+    for query in queries:
+        for tipo_documento in ("contrato", "ata", "compra"):
+            for pagina in range(1, 4):
+                params = {
+                    "q": query,
+                    "tipos_documento": tipo_documento,
+                    "pagina": pagina,
+                    "ordenacao": "-data",
+                }
+                try:
+                    response = requests.get(
+                        "https://pncp.gov.br/api/search/",
+                        params=params,
+                        timeout=REQUEST_TIMEOUT,
+                        headers=headers,
+                        verify=False,
+                    )
+                    attempt = {
+                        "fonte": f"pncp-search:{tipo_documento}",
+                        "status": response.status_code,
+                        "query": query,
+                        "pagina": pagina,
+                    }
+                    if response.status_code != 200:
+                        attempt["message"] = response.text[:200]
+                        attempts.append(attempt)
+                        break
+
+                    data = response.json()
+                    items = data.get("items", []) if isinstance(data, dict) else []
+                    attempt["total"] = data.get("total", len(items)) if isinstance(data, dict) else len(items)
+                    if not items:
+                        attempts.append(attempt)
+                        break
+
+                    for item in items:
+                        if not isinstance(item, dict):
+                            continue
+                        unidade_codigo = normalize_id_compra(item.get("unidade_codigo", ""))
+                        item_ano = str(item.get("ano", "") or "")
+                        cnpj = normalize_id_compra(item.get("orgao_cnpj", ""))
+                        if unidade_codigo != codigo_uasg_limpo:
+                            continue
+                        if item_ano and str(ano) and item_ano != str(ano):
+                            continue
+                        if len(cnpj) != 14:
+                            continue
+
+                        attempt["cnpj"] = cnpj
+                        attempt["title"] = item.get("title", "")
+                        attempts.append(attempt)
+                        return {
+                            "cnpj": cnpj,
+                            "attempts": attempts,
+                            "status": "found-search",
+                            "evidence": {
+                                "query": query,
+                                "tipo_documento": tipo_documento,
+                                "title": item.get("title", ""),
+                                "orgao_nome": item.get("orgao_nome", ""),
+                                "unidade_codigo": item.get("unidade_codigo", ""),
+                                "unidade_nome": item.get("unidade_nome", ""),
+                                "item_url": item.get("item_url", ""),
+                            },
+                        }
+
+                    attempts.append(attempt)
+                except requests.exceptions.Timeout:
+                    attempts.append({
+                        "fonte": f"pncp-search:{tipo_documento}",
+                        "status": "timeout",
+                        "query": query,
+                        "pagina": pagina,
+                    })
+                except requests.exceptions.RequestException as exc:
+                    attempts.append({
+                        "fonte": f"pncp-search:{tipo_documento}",
+                        "status": "error",
+                        "query": query,
+                        "pagina": pagina,
+                        "message": str(exc),
+                    })
 
     return {"cnpj": "", "attempts": attempts, "status": "not-found"}
 
@@ -1214,12 +1314,14 @@ with tab_busca:
                     f"ID {normalize_id_compra(id_filtro)} detectado: UASG {parsed_id_compra['uasg']} | "
                     f"sequencial {parsed_id_compra['sequencial']} | ano {parsed_id_compra['ano']}"
                 )
+            if id_filtro:
+                render_links_externos(id_filtro)
+                render_status_compra_publica(id_filtro)
             if id_filtro and ano_inferido_id:
                 st.info(
                     f"Ano inferido a partir do ID da compra: {ano_inferido_id}. "
                     f"A busca será feita nesse ano e a UASG pode ser usada automaticamente a partir dos 6 primeiros dígitos do ID."
                 )
-                render_links_externos(id_filtro)
 
             # ── 1. Buscar Contratos ───────────────────────────────────────────
             with st.spinner("Buscando contratos no ComprasGov..."):
@@ -1561,9 +1663,6 @@ with tab_busca:
                         f'<p><strong>Ano:</strong> {parsed_id_compra["ano"]}</p></div>',
                         unsafe_allow_html=True,
                     )
-                    render_links_externos(id_filtro)
-                    render_status_compra_publica(id_filtro)
-
                 cnpj_orgao = cnpj_orgao_informado
                 compra_localizada_diretamente = False
                 if cnpj_orgao:
@@ -1601,7 +1700,7 @@ with tab_busca:
                     )
                     st.warning(
                         "Não foi possível obter o CNPJ do órgão automaticamente a partir da UASG. "
-                        "Neste caso, o problema não costuma ser timeout: os endpoints públicos consultados não retornaram um registro utilizável para essa UASG/ano."
+                        "As consultas públicas do ComprasGov e o fallback textual do PNCP Search não retornaram um registro utilizável para essa UASG/ano."
                     )
                     if statuses:
                         st.caption(f"Diagnóstico da consulta do CNPJ do órgão: {statuses}")
@@ -1611,6 +1710,27 @@ with tab_busca:
                             st.caption(f"{item.get('fonte')}: {message}")
                 elif not compra_localizada_diretamente:
                     st.markdown(f"CNPJ do órgão: **{cnpj_orgao}**")
+                    evidence = cnpj_lookup.get("evidence") or {}
+                    if evidence:
+                        st.caption(
+                            "CNPJ inferido pelo índice de busca do PNCP: "
+                            f"{evidence.get('tipo_documento', 'documento')} | "
+                            f"unidade {evidence.get('unidade_codigo', '')} | "
+                            f"{evidence.get('title', '')}"
+                        )
+                        item_url = str(evidence.get("item_url", "") or "").strip()
+                        if item_url:
+                            st.markdown(
+                                f"🔎 Evidência da mesma UASG no PNCP: "
+                                f"[abrir documento relacionado](https://pncp.gov.br{item_url})"
+                            )
+                    if parsed_id_compra:
+                        render_links_externos(
+                            id_filtro,
+                            cnpj_orgao,
+                            parsed_id_compra["ano"],
+                            parsed_id_compra["sequencial"],
+                        )
                     encontrou = False
                     status_fallback = st.empty()
                     progress_fallback = st.progress(0, text="Preparando busca direta no PNCP…")
