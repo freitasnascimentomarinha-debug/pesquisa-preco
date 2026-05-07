@@ -95,14 +95,38 @@ st.markdown("""
 
     /* Cards */
     .info-card {
-        background: rgba(0, 26, 77, 0.6); border: 1px solid rgba(212,175,55,0.3);
-        border-radius: 12px; padding: 1rem 1.25rem; margin-bottom: .8rem;
-        box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+        background: linear-gradient(135deg, rgba(7, 37, 92, 0.92) 0%, rgba(0, 82, 204, 0.78) 100%);
+        border: 1px solid rgba(212,175,55,0.42);
+        border-radius: 14px; padding: 1.05rem 1.35rem; margin-bottom: .9rem;
+        box-shadow: 0 10px 28px rgba(0,0,0,0.28);
+        backdrop-filter: blur(4px);
     }
     .info-card h4 { color: #d4af37; margin: 0 0 .5rem 0; font-size: 1rem; }
     .info-card p { color: #cbd5e1; margin: .15rem 0; font-size: .9rem; }
     .info-card a { color: #d4af37 !important; text-decoration: none; font-weight: 600; }
     .info-card a:hover { color: #f0d060 !important; text-decoration: underline; }
+
+    .lookup-panel {
+        border-radius: 16px; padding: 1.2rem 1.35rem; margin: 1rem 0 1.1rem 0;
+        border: 1px solid rgba(212,175,55,0.35);
+        box-shadow: 0 14px 30px rgba(0,0,0,0.24);
+    }
+    .lookup-panel.success {
+        background: linear-gradient(135deg, rgba(10, 58, 38, 0.96) 0%, rgba(13, 110, 75, 0.86) 100%);
+    }
+    .lookup-panel.warning {
+        background: linear-gradient(135deg, rgba(92, 45, 7, 0.96) 0%, rgba(156, 87, 17, 0.84) 100%);
+    }
+    .lookup-title {
+        color: #ffffff; font-size: 1.08rem; font-weight: 700; margin-bottom: .45rem;
+    }
+    .lookup-text {
+        color: #f8fafc; font-size: .95rem; line-height: 1.55; margin: .15rem 0;
+    }
+    .lookup-meta {
+        color: #fde68a; font-size: .82rem; letter-spacing: .04em; text-transform: uppercase;
+        margin-top: .55rem;
+    }
 
     .doc-card {
         background: rgba(0, 26, 77, 0.45); border: 1px solid rgba(212,175,55,0.2);
@@ -251,6 +275,51 @@ def build_pncp_portal_link(cnpj: str, ano: str, seq: str) -> str:
     """Gera link para o portal PNCP."""
     seq_int = str(int(seq))
     return f"{PNCP_PORTAL_BASE}/{cnpj}/{ano}/{seq_int}"
+
+
+@st.cache_data(ttl=300, show_spinner=False)
+def resolver_publicacao_pncp_por_id(id_compra: str, codigo_uasg: str = "") -> Dict[str, Any]:
+    """Valida se um ID de compra possui publicação acessível no PNCP."""
+    parsed = parse_id_compra(id_compra)
+    if not parsed:
+        return {"status": "invalid", "message": "ID da compra inválido."}
+
+    uasg = normalize_id_compra(codigo_uasg) or parsed["uasg"]
+    ano = parsed["ano"]
+    seq = parsed["sequencial"]
+    cnpj_lookup = buscar_cnpj_orgao_por_uasg(uasg, int(ano))
+    cnpj = normalize_id_compra(cnpj_lookup.get("cnpj", ""))
+    if len(cnpj) != 14:
+        return {
+            "status": "orgao-not-found",
+            "message": "Não foi possível identificar um CNPJ de órgão confiável para esta UASG.",
+            "uasg": uasg,
+            "ano": ano,
+            "seq": seq,
+            "attempts": cnpj_lookup.get("attempts", []),
+        }
+
+    compra = buscar_compra_pncp(cnpj, ano, seq)
+    if not compra:
+        return {
+            "status": "not-found",
+            "message": "O PNCP não retornou publicação para o sequencial extraído do ID.",
+            "uasg": uasg,
+            "ano": ano,
+            "seq": seq,
+            "cnpj": cnpj,
+        }
+
+    return {
+        "status": "found",
+        "message": "Publicação localizada no PNCP.",
+        "uasg": uasg,
+        "ano": ano,
+        "seq": seq,
+        "cnpj": cnpj,
+        "compra": compra,
+        "portal_url": build_pncp_portal_link(cnpj, ano, seq),
+    }
 
 
 def normalize_id_compra(raw_value: Any) -> str:
@@ -787,6 +856,51 @@ def render_links_externos(id_compra: str, cnpj: str = "", ano: str = "", seq: st
         st.markdown(f'<div class="info-card"><h4>🌐 Links Externos</h4>{links_html}</div>', unsafe_allow_html=True)
 
 
+def render_resultado_id_pncp(resultado: Dict[str, Any], id_compra: str, nome_uasg: str, uf: str = ""):
+    """Exibe o resultado da validação de um ID de compra no PNCP."""
+    parsed = parse_id_compra(id_compra) or {}
+    base_info = (
+        f"<div class='lookup-meta'>UASG {parsed.get('uasg', 'N/I')}"
+        f" • Sequencial {parsed.get('sequencial', 'N/I')} • Ano {parsed.get('ano', 'N/I')}</div>"
+    )
+
+    if resultado.get("status") == "found":
+        compra = resultado.get("compra", {}) or {}
+        objeto = compra.get("objetoCompra", "") or "Objeto não informado"
+        modalidade = compra.get("modalidadeNome", "Publicação encontrada") or "Publicação encontrada"
+        orgao = compra.get("orgaoEntidade", {}) or {}
+        orgao_nome = orgao.get("razaoSocial", "") or nome_uasg
+        st.markdown(
+            f"""
+            <div class="lookup-panel success">
+                <div class="lookup-title">PNCP localizado para o ID {normalize_id_compra(id_compra)}</div>
+                <div class="lookup-text"><strong>{modalidade}</strong></div>
+                <div class="lookup-text">{objeto}</div>
+                <div class="lookup-text"><strong>Órgão:</strong> {orgao_nome}</div>
+                <div class="lookup-text"><strong>UASG:</strong> {nome_uasg}{' — ' + uf if uf else ''}</div>
+                <div class="lookup-text"><strong>CNPJ:</strong> {resultado.get('cnpj', 'N/I')}</div>
+                {base_info}
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        st.link_button("🔗 Abrir publicação no PNCP", resultado.get("portal_url", ""), use_container_width=True)
+        return
+
+    motivo = resultado.get("message", "Nenhuma publicação do PNCP foi encontrada para este ID.")
+    st.markdown(
+        f"""
+        <div class="lookup-panel warning">
+            <div class="lookup-title">Nenhuma publicação do PNCP encontrada para o ID {normalize_id_compra(id_compra)}</div>
+            <div class="lookup-text">{motivo}</div>
+            <div class="lookup-text"><strong>UASG:</strong> {nome_uasg}{' — ' + uf if uf else ''}</div>
+            {base_info}
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
 def render_autoload_trigger(section: str, button_text: str):
     """Dispara clique automático em botão oculto quando o marcador entra na área visível."""
     marker_id = f"dc_autoload_{section}_marker"
@@ -1147,7 +1261,7 @@ with tab_busca:
             pass
 
     # ── Formulário de busca ───────────────────────────────────────────────────
-    col_uasg, col_ano, col_id, col_cnpj = st.columns([2, 1, 3, 2])
+    col_uasg, col_ano, col_id = st.columns([2, 1, 4])
 
     with col_uasg:
         input_uasg = st.text_input(
@@ -1172,14 +1286,6 @@ with tab_busca:
             value=st.session_state.get("detalhe_id_compra", ""),
             placeholder="Ex: 15305006000142026",
             help="Se informado, filtra os resultados por esse ID específico.",
-        )
-
-    with col_cnpj:
-        input_cnpj_orgao = st.text_input(
-            "CNPJ Órgão (opcional)",
-            value=st.session_state.get("detalhe_cnpj_orgao", ""),
-            placeholder="Ex: 12345678000199",
-            help="Se você souber o CNPJ do órgão, a página pode consultar diretamente o PNCP sem depender da descoberta automática.",
         )
 
     # ── Filtros avançados ─────────────────────────────────────────────────────
@@ -1251,30 +1357,22 @@ with tab_busca:
         input_uasg = st.session_state["detalhe_uasg"]
     if st.session_state.get("detalhe_id_compra") and not input_id_compra:
         input_id_compra = st.session_state["detalhe_id_compra"]
-    if st.session_state.get("detalhe_cnpj_orgao") and not input_cnpj_orgao:
-        input_cnpj_orgao = st.session_state["detalhe_cnpj_orgao"]
 
     parsed_id_compra = parse_id_compra(input_id_compra)
     if parsed_id_compra and not input_uasg:
         input_uasg = parsed_id_compra["uasg"]
-    cnpj_orgao_informado = normalize_id_compra(input_cnpj_orgao)
 
     # ── Execução da busca ─────────────────────────────────────────────────────
     if consultar:
         valid_uasg = input_uasg and input_uasg.strip().isdigit()
         valid_id_only = bool(parsed_id_compra)
-        valid_cnpj = (not cnpj_orgao_informado) or len(cnpj_orgao_informado) == 14
-        if not valid_cnpj:
-            st.error("❌ Informe um CNPJ do órgão válido com 14 dígitos ou deixe o campo em branco.")
-            st.session_state.pop("_dc_active", None)
-        elif not valid_uasg and not valid_id_only:
+        if not valid_uasg and not valid_id_only:
             st.error("❌ Informe uma UASG válida ou um ID da compra válido para preencher a UASG automaticamente.")
             st.session_state.pop("_dc_active", None)
         else:
             st.session_state["_dc_active"] = True
             st.session_state["_dc_arps_shown"] = 3
             st.session_state["_dc_compras_shown"] = 5
-            st.session_state["detalhe_cnpj_orgao"] = cnpj_orgao_informado
             # Limpar flags de docs sob demanda da busca anterior
             for _k in list(st.session_state.keys()):
                 if _k.startswith("_dc_arp_docs_"):
@@ -1315,8 +1413,10 @@ with tab_busca:
                     f"sequencial {parsed_id_compra['sequencial']} | ano {parsed_id_compra['ano']}"
                 )
             if id_filtro:
-                render_links_externos(id_filtro)
-                render_status_compra_publica(id_filtro)
+                with st.spinner("Validando publicação externa no PNCP..."):
+                    resultado_id = resolver_publicacao_pncp_por_id(id_filtro, uasg)
+                render_resultado_id_pncp(resultado_id, id_filtro, nome_uasg, uf)
+                st.stop()
             if id_filtro and ano_inferido_id:
                 st.info(
                     f"Ano inferido a partir do ID da compra: {ano_inferido_id}. "
@@ -1663,7 +1763,7 @@ with tab_busca:
                         f'<p><strong>Ano:</strong> {parsed_id_compra["ano"]}</p></div>',
                         unsafe_allow_html=True,
                     )
-                cnpj_orgao = cnpj_orgao_informado
+                cnpj_orgao = ""
                 compra_localizada_diretamente = False
                 if cnpj_orgao:
                     st.markdown(f"CNPJ do órgão informado: **{cnpj_orgao}**")
