@@ -395,6 +395,68 @@ def render_status_compra_publica(id_compra: str):
         st.info(message or "Não houve retorno conclusivo da consulta pública do ComprasNet.")
 
 
+@st.cache_data(ttl=300, show_spinner=False)
+def buscar_cnpj_orgao_por_uasg(codigo_uasg: str, ano: int) -> Dict[str, Any]:
+    """Tenta obter o CNPJ do órgão a partir da UASG usando endpoints públicos conhecidos."""
+    headers = {"User-Agent": "Mozilla/5.0"}
+    attempts = []
+    endpoints = [
+        (
+            "material",
+            f"{COMPRASGOV_BASE}/modulo-pesquisa-preco/1_consultarMaterial",
+        ),
+        (
+            "servico",
+            f"{COMPRASGOV_BASE}/modulo-pesquisa-preco/3_consultarServico",
+        ),
+    ]
+
+    for label, base_url in endpoints:
+        params = {
+            "codigoUasg": codigo_uasg,
+            "dataCompraInicio": f"{ano}-01-01",
+            "dataCompraFim": f"{ano}-12-31",
+            "pagina": 1,
+            "tamanhoPagina": 10,
+        }
+        try:
+            response = requests.get(
+                base_url,
+                params=params,
+                timeout=REQUEST_TIMEOUT,
+                headers=headers,
+                verify=True,
+            )
+            attempt: Dict[str, Any] = {
+                "fonte": label,
+                "status": response.status_code,
+                "url": response.url,
+            }
+            if "json" in response.headers.get("content-type", ""):
+                data = response.json()
+                if isinstance(data, dict):
+                    attempt["message"] = data.get("message")
+                    for item in data.get("resultado", []):
+                        ni = item.get("niOrgao", "")
+                        if ni and len(str(ni)) == 14:
+                            attempt["cnpj"] = str(ni)
+                            attempts.append(attempt)
+                            return {
+                                "cnpj": str(ni),
+                                "attempts": attempts,
+                                "status": "found",
+                            }
+            else:
+                attempt["message"] = response.text[:200]
+            attempts.append(attempt)
+        except requests.exceptions.Timeout:
+            attempts.append({"fonte": label, "status": "timeout"})
+        except requests.exceptions.RequestException as exc:
+            attempts.append({"fonte": label, "status": "error", "message": str(exc)})
+
+    return {"cnpj": "", "attempts": attempts, "status": "not-found"}
+
+
 # ── API ComprasGov: Contratos ──────────────────────────────────────────────
 
 @st.cache_data(ttl=300, show_spinner=False)
@@ -884,6 +946,53 @@ def render_item_pncp(item: Dict, idx: int):
         st.metric("Valor Unit. Est.", _fmt_valor(valor))
 
 
+def render_compra_pncp_detalhes(compra: Dict, cnpj_orgao: str, ano: str, seq_str: str, id_compra: str):
+    """Renderiza detalhes de uma compra localizada diretamente no PNCP."""
+    obj = compra.get("objetoCompra", "")
+    modal = compra.get("modalidadeNome", "")
+    uorg = compra.get("unidadeOrgao", {}) or {}
+    cod_unidade = uorg.get("codigoUnidade", "")
+
+    with st.container(border=True):
+        st.markdown(f"##### 🏷️ {modal or 'Compra localizada no PNCP'}")
+        if obj:
+            st.markdown(f"**Objeto:** {obj}")
+        st.caption(f"UASG: {cod_unidade or 'N/I'}")
+        render_links_externos(id_compra, cnpj_orgao, ano, seq_str)
+
+    docs = buscar_documentos_pncp(cnpj_orgao, ano, seq_str)
+    if docs:
+        render_documentos(docs)
+
+    itens = buscar_itens_pncp(cnpj_orgao, ano, seq_str)
+    if itens:
+        with st.expander(f"📦 Itens ({len(itens)})", expanded=False):
+            for it in itens:
+                render_item_pncp(it, it.get("numeroItem", 0))
+
+    contratos_pncp = buscar_contratos_pncp_por_contratacao(cnpj_orgao, ano, seq_str)
+    if contratos_pncp:
+        st.markdown(f"##### 📄 Contratos/Empenhos ({len(contratos_pncp)})")
+        for ct in contratos_pncp:
+            with st.expander(
+                f"📄 {ct.get('numeroContratoEmpenho', 'N/I')} — {ct.get('nomeRazaoSocialFornecedor', '')}",
+                expanded=True,
+            ):
+                render_contrato_pncp(ct, cnpj_orgao)
+
+    atas = buscar_atas_pncp(cnpj_orgao, ano, seq_str)
+    if atas:
+        st.markdown(f"##### 📜 Atas ({len(atas)})")
+        for at in atas:
+            seq_at = at.get("sequencialAta", "")
+            forn = at.get("nomeRazaoSocialFornecedor", "")
+            with st.container(border=True):
+                st.markdown(f"**Ata seq {seq_at}** — {forn}")
+                docs_at = buscar_documentos_ata_pncp(cnpj_orgao, ano, seq_str, str(seq_at))
+                if docs_at:
+                    render_documentos(docs_at)
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # PÁGINA PRINCIPAL
 # ═══════════════════════════════════════════════════════════════════════════
@@ -938,7 +1047,7 @@ with tab_busca:
             pass
 
     # ── Formulário de busca ───────────────────────────────────────────────────
-    col_uasg, col_ano, col_id = st.columns([2, 1, 3])
+    col_uasg, col_ano, col_id, col_cnpj = st.columns([2, 1, 3, 2])
 
     with col_uasg:
         input_uasg = st.text_input(
@@ -963,6 +1072,14 @@ with tab_busca:
             value=st.session_state.get("detalhe_id_compra", ""),
             placeholder="Ex: 15305006000142026",
             help="Se informado, filtra os resultados por esse ID específico.",
+        )
+
+    with col_cnpj:
+        input_cnpj_orgao = st.text_input(
+            "CNPJ Órgão (opcional)",
+            value=st.session_state.get("detalhe_cnpj_orgao", ""),
+            placeholder="Ex: 12345678000199",
+            help="Se você souber o CNPJ do órgão, a página pode consultar diretamente o PNCP sem depender da descoberta automática.",
         )
 
     # ── Filtros avançados ─────────────────────────────────────────────────────
@@ -1034,22 +1151,30 @@ with tab_busca:
         input_uasg = st.session_state["detalhe_uasg"]
     if st.session_state.get("detalhe_id_compra") and not input_id_compra:
         input_id_compra = st.session_state["detalhe_id_compra"]
+    if st.session_state.get("detalhe_cnpj_orgao") and not input_cnpj_orgao:
+        input_cnpj_orgao = st.session_state["detalhe_cnpj_orgao"]
 
     parsed_id_compra = parse_id_compra(input_id_compra)
     if parsed_id_compra and not input_uasg:
         input_uasg = parsed_id_compra["uasg"]
+    cnpj_orgao_informado = normalize_id_compra(input_cnpj_orgao)
 
     # ── Execução da busca ─────────────────────────────────────────────────────
     if consultar:
         valid_uasg = input_uasg and input_uasg.strip().isdigit()
         valid_id_only = bool(parsed_id_compra)
-        if not valid_uasg and not valid_id_only:
+        valid_cnpj = (not cnpj_orgao_informado) or len(cnpj_orgao_informado) == 14
+        if not valid_cnpj:
+            st.error("❌ Informe um CNPJ do órgão válido com 14 dígitos ou deixe o campo em branco.")
+            st.session_state.pop("_dc_active", None)
+        elif not valid_uasg and not valid_id_only:
             st.error("❌ Informe uma UASG válida ou um ID da compra válido para preencher a UASG automaticamente.")
             st.session_state.pop("_dc_active", None)
         else:
             st.session_state["_dc_active"] = True
             st.session_state["_dc_arps_shown"] = 3
             st.session_state["_dc_compras_shown"] = 5
+            st.session_state["detalhe_cnpj_orgao"] = cnpj_orgao_informado
             # Limpar flags de docs sob demanda da busca anterior
             for _k in list(st.session_state.keys()):
                 if _k.startswith("_dc_arp_docs_"):
@@ -1439,30 +1564,52 @@ with tab_busca:
                     render_links_externos(id_filtro)
                     render_status_compra_publica(id_filtro)
 
-                with st.spinner("Buscando CNPJ do órgão..."):
-                    params_pp = {
-                        "codigoUasg": uasg,
-                        "dataCompraInicio": f"{ano}-01-01",
-                        "dataCompraFim": f"{ano}-12-31",
-                        "pagina": 1,
-                        "tamanhoPagina": 10,
-                    }
-                    url_pp = f"{COMPRASGOV_BASE}/modulo-pesquisa-preco/1_consultarMaterial?{urlencode(params_pp)}"
-                    data_pp = _api_get(url_pp)
-                    cnpj_orgao = ""
-                    if data_pp and isinstance(data_pp, dict):
-                        for item in data_pp.get("resultado", []):
-                            ni = item.get("niOrgao", "")
-                            if ni and len(ni) == 14:
-                                cnpj_orgao = ni
-                                break
+                cnpj_orgao = cnpj_orgao_informado
+                compra_localizada_diretamente = False
+                if cnpj_orgao:
+                    st.markdown(f"CNPJ do órgão informado: **{cnpj_orgao}**")
+                    if parsed_id_compra:
+                        seq_direto = parsed_id_compra["sequencial"]
+                        st.info(
+                            f"Consultando diretamente o PNCP com CNPJ {cnpj_orgao}, ano {ano} e sequencial {seq_direto}."
+                        )
+                        with st.spinner("Consultando compra diretamente no PNCP com o CNPJ informado..."):
+                            compra_direta = buscar_compra_pncp(cnpj_orgao, str(ano), seq_direto)
+                        if compra_direta:
+                            st.success(f"Compra localizada diretamente no PNCP com o CNPJ informado. Sequencial: {seq_direto}")
+                            render_compra_pncp_detalhes(compra_direta, cnpj_orgao, str(ano), seq_direto, id_filtro)
+                            cnpj_lookup = {"cnpj": cnpj_orgao, "attempts": [], "status": "found"}
+                            compra_localizada_diretamente = True
+                        else:
+                            st.warning(
+                                "O PNCP não retornou a compra diretamente com o CNPJ informado e o sequencial extraído do ID. "
+                                "A busca continuará no modo de varredura, usando esse mesmo CNPJ."
+                            )
 
                 if not cnpj_orgao:
-                    st.warning(
-                        "Não foi possível encontrar o CNPJ do órgão automaticamente. "
-                        "As APIs podem estar instáveis."
-                    )
+                    with st.spinner("Buscando CNPJ do órgão..."):
+                        cnpj_lookup = buscar_cnpj_orgao_por_uasg(uasg, ano)
+                        cnpj_orgao = cnpj_lookup.get("cnpj", "")
                 else:
+                    cnpj_lookup = {"cnpj": cnpj_orgao, "attempts": [], "status": "found"}
+
+                if not cnpj_orgao:
+                    attempts = cnpj_lookup.get("attempts", [])
+                    statuses = ", ".join(
+                        f"{item.get('fonte')}: {item.get('status')}"
+                        for item in attempts
+                    )
+                    st.warning(
+                        "Não foi possível obter o CNPJ do órgão automaticamente a partir da UASG. "
+                        "Neste caso, o problema não costuma ser timeout: os endpoints públicos consultados não retornaram um registro utilizável para essa UASG/ano."
+                    )
+                    if statuses:
+                        st.caption(f"Diagnóstico da consulta do CNPJ do órgão: {statuses}")
+                    for item in attempts:
+                        message = item.get("message")
+                        if message:
+                            st.caption(f"{item.get('fonte')}: {message}")
+                elif not compra_localizada_diretamente:
                     st.markdown(f"CNPJ do órgão: **{cnpj_orgao}**")
                     encontrou = False
                     status_fallback = st.empty()
