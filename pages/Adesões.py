@@ -1363,7 +1363,6 @@ if results:
                             if "ata de registro" not in (d.get("tipoDocumentoNome") or "").lower()
                         ]
                         if docs:
-                            base_url = build_ata_documents_url(identificador)
                             doc_links_html = ""
                             for doc_idx, doc in enumerate(docs):
                                 titulo = (
@@ -1375,7 +1374,24 @@ if results:
                                 )
                                 tipo_doc = doc.get("tipoDocumentoNome", doc.get("tipoDocumento", doc.get("tipo", "")))
                                 seq = doc.get("sequencialDocumento", doc.get("sequencial", doc_idx + 1))
-                                doc_url = doc.get("url", doc.get("uri", f"{base_url}/{seq}"))
+
+                                # Evita links assinados expirados quando possível: usa endpoint canônico por origem.
+                                origem = (doc.get("_origem") or "").lower()
+                                if origem == "compra":
+                                    base_url = build_compra_documents_url(identificador)
+                                else:
+                                    base_url = build_ata_documents_url(identificador)
+
+                                doc_url = ""
+                                if base_url and seq not in (None, ""):
+                                    doc_url = f"{base_url}/{seq}"
+
+                                if not doc_url:
+                                    doc_url = doc.get("url") or doc.get("uri") or ""
+
+                                if not doc_url:
+                                    continue
+
                                 badge = f'<span class="doc-badge">{tipo_doc}</span>' if tipo_doc else ""
                                 doc_links_html += (
                                     f'<a href="{doc_url}" target="_blank" class="doc-pill">'

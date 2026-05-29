@@ -279,7 +279,7 @@ def build_pncp_portal_link(cnpj: str, ano: str, seq: str) -> str:
 
 @st.cache_data(ttl=300, show_spinner=False)
 def resolver_publicacao_pncp_por_id(id_compra: str, codigo_uasg: str = "") -> Dict[str, Any]:
-    """Valida se um ID de compra possui publicação acessível no PNCP."""
+    """Valida se um ID de compra possui links externos úteis em ComprasNet e/ou PNCP."""
     parsed = parse_id_compra(id_compra)
     if not parsed:
         return {"status": "invalid", "message": "ID da compra inválido."}
@@ -287,12 +287,23 @@ def resolver_publicacao_pncp_por_id(id_compra: str, codigo_uasg: str = "") -> Di
     uasg = normalize_id_compra(codigo_uasg) or parsed["uasg"]
     ano = parsed["ano"]
     seq = parsed["sequencial"]
+    comprasnet_status = buscar_link_compra_fase_externa(id_compra)
+    comprasnet_link = comprasnet_status.get("link", "") if comprasnet_status.get("status") == "found" else ""
     cnpj_lookup = buscar_cnpj_orgao_por_uasg(uasg, int(ano))
     cnpj = normalize_id_compra(cnpj_lookup.get("cnpj", ""))
     if len(cnpj) != 14:
+        if comprasnet_link:
+            return {
+                "status": "found-comprasnet",
+                "message": "Compra localizada em link externo do ComprasNet.",
+                "uasg": uasg,
+                "ano": ano,
+                "seq": seq,
+                "comprasnet_url": comprasnet_link,
+            }
         return {
             "status": "orgao-not-found",
-            "message": "Não foi possível identificar um CNPJ de órgão confiável para esta UASG.",
+            "message": "Não foi possível identificar um CNPJ de órgão confiável para esta UASG e não há publicação externa válida para o ID.",
             "uasg": uasg,
             "ano": ano,
             "seq": seq,
@@ -301,9 +312,19 @@ def resolver_publicacao_pncp_por_id(id_compra: str, codigo_uasg: str = "") -> Di
 
     compra = buscar_compra_pncp(cnpj, ano, seq)
     if not compra:
+        if comprasnet_link:
+            return {
+                "status": "found-comprasnet",
+                "message": "Compra localizada em link externo do ComprasNet, mas sem publicação de detalhe no PNCP.",
+                "uasg": uasg,
+                "ano": ano,
+                "seq": seq,
+                "cnpj": cnpj,
+                "comprasnet_url": comprasnet_link,
+            }
         return {
             "status": "not-found",
-            "message": "O PNCP não retornou publicação para o sequencial extraído do ID.",
+            "message": "O PNCP não retornou publicação para o sequencial extraído do ID e nenhum link externo válido foi confirmado.",
             "uasg": uasg,
             "ano": ano,
             "seq": seq,
@@ -311,7 +332,7 @@ def resolver_publicacao_pncp_por_id(id_compra: str, codigo_uasg: str = "") -> Di
         }
 
     return {
-        "status": "found",
+        "status": "found-both" if comprasnet_link else "found-pncp",
         "message": "Publicação localizada no PNCP.",
         "uasg": uasg,
         "ano": ano,
@@ -319,6 +340,7 @@ def resolver_publicacao_pncp_por_id(id_compra: str, codigo_uasg: str = "") -> Di
         "cnpj": cnpj,
         "compra": compra,
         "portal_url": build_pncp_portal_link(cnpj, ano, seq),
+        "comprasnet_url": comprasnet_link,
     }
 
 
@@ -857,14 +879,14 @@ def render_links_externos(id_compra: str, cnpj: str = "", ano: str = "", seq: st
 
 
 def render_resultado_id_pncp(resultado: Dict[str, Any], id_compra: str, nome_uasg: str, uf: str = ""):
-    """Exibe o resultado da validação de um ID de compra no PNCP."""
+    """Exibe o resultado da validação de um ID de compra em links externos."""
     parsed = parse_id_compra(id_compra) or {}
     base_info = (
         f"<div class='lookup-meta'>UASG {parsed.get('uasg', 'N/I')}"
         f" • Sequencial {parsed.get('sequencial', 'N/I')} • Ano {parsed.get('ano', 'N/I')}</div>"
     )
 
-    if resultado.get("status") == "found":
+    if resultado.get("status") in {"found-pncp", "found-both"}:
         compra = resultado.get("compra", {}) or {}
         objeto = compra.get("objetoCompra", "") or "Objeto não informado"
         modalidade = compra.get("modalidadeNome", "Publicação encontrada") or "Publicação encontrada"
@@ -884,14 +906,34 @@ def render_resultado_id_pncp(resultado: Dict[str, Any], id_compra: str, nome_uas
             """,
             unsafe_allow_html=True,
         )
-        st.link_button("🔗 Abrir publicação no PNCP", resultado.get("portal_url", ""), use_container_width=True)
+        if resultado.get("portal_url"):
+            st.link_button("🔗 Abrir publicação no PNCP", resultado.get("portal_url", ""), use_container_width=True)
+        if resultado.get("comprasnet_url"):
+            st.link_button("🔗 Abrir acompanhamento no ComprasNet", resultado.get("comprasnet_url", ""), use_container_width=True)
+        return
+
+    if resultado.get("status") == "found-comprasnet":
+        st.markdown(
+            f"""
+            <div class="lookup-panel success">
+                <div class="lookup-title">Link externo localizado para o ID {normalize_id_compra(id_compra)}</div>
+                <div class="lookup-text">O ComprasNet possui uma página pública para este ID, mas o PNCP não retornou publicação de detalhe.</div>
+                <div class="lookup-text"><strong>UASG:</strong> {nome_uasg}{' — ' + uf if uf else ''}</div>
+                <div class="lookup-text"><strong>CNPJ:</strong> {resultado.get('cnpj', 'N/I')}</div>
+                {base_info}
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+        if resultado.get("comprasnet_url"):
+            st.link_button("🔗 Abrir acompanhamento no ComprasNet", resultado.get("comprasnet_url", ""), use_container_width=True)
         return
 
     motivo = resultado.get("message", "Nenhuma publicação do PNCP foi encontrada para este ID.")
     st.markdown(
         f"""
         <div class="lookup-panel warning">
-            <div class="lookup-title">Nenhuma publicação do PNCP encontrada para o ID {normalize_id_compra(id_compra)}</div>
+            <div class="lookup-title">Nenhum link externo válido encontrado para o ID {normalize_id_compra(id_compra)}</div>
             <div class="lookup-text">{motivo}</div>
             <div class="lookup-text"><strong>UASG:</strong> {nome_uasg}{' — ' + uf if uf else ''}</div>
             {base_info}
