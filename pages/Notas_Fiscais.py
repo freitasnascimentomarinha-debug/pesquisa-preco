@@ -1387,6 +1387,7 @@ with tab_pesquisa:
         }
         colunas_disponiveis = [c for c in colunas_exibicao if c in df_resultado.columns]
         df_exib = df_resultado[colunas_disponiveis].rename(columns=colunas_exibicao).copy()
+        df_resultado_filtrado = df_resultado.copy()
 
         # --- Filtro de Outliers ---
         _col_vunit = "Valor Unitário"
@@ -1416,11 +1417,52 @@ with tab_pesquisa:
             lim_sup = q3 + 1.5 * iqr
             mask_inlier = ((_valores_num >= lim_inf) & (_valores_num <= lim_sup)) | _valores_num.isna()
             n_removidos = int((~mask_inlier).sum())
-            df_exib = df_exib[mask_inlier].reset_index(drop=True)
-            _valores_num = _valores_num[mask_inlier].reset_index(drop=True)
+            df_exib = df_exib[mask_inlier].copy()
+            df_resultado_filtrado = df_resultado_filtrado[mask_inlier].copy()
+            _valores_num = _valores_num[mask_inlier].copy()
             if n_removidos > 0:
                 st.info(f"🎯 {n_removidos} registro(s) com valor unitário discrepante removido(s) "
                         f"(limites: {_fmt_brl(lim_inf)} — {_fmt_brl(lim_sup)}).")
+
+        # --- Filtro de Faixa de Preço Unitário ---
+        if not _valores_num.dropna().empty:
+            preco_min_filtrado = float(_valores_num.min())
+            preco_max_filtrado = float(_valores_num.max())
+
+            if preco_min_filtrado < preco_max_filtrado:
+                faixa_preco = st.slider(
+                    "Faixa de Preço Unitário (R$)",
+                    min_value=preco_min_filtrado,
+                    max_value=preco_max_filtrado,
+                    value=(preco_min_filtrado, preco_max_filtrado),
+                    format="R$ %.2f",
+                    step=0.01,
+                    key="nf_filtro_preco_unitario",
+                )
+            else:
+                faixa_preco = (preco_min_filtrado, preco_max_filtrado)
+                st.info(
+                    f"Todos os itens filtrados possuem o mesmo preço unitário: {_fmt_brl(preco_min_filtrado)}."
+                )
+
+            st.markdown(
+                f"""
+                <div style="background-color: #0a2540; padding: 0.8rem; border-radius: 6px; border-left: 4px solid #d4af37; margin-top: 0.5rem;">
+                    <span style="color: #d4af37; font-weight: bold;">Intervalo selecionado:</span>
+                    <span style="color: #ffffff;"> {_fmt_brl(faixa_preco[0])} até {_fmt_brl(faixa_preco[1])}</span>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+
+            mask_preco = _valores_num.between(faixa_preco[0], faixa_preco[1], inclusive="both")
+            df_exib = df_exib[mask_preco].copy()
+            df_resultado_filtrado = df_resultado_filtrado[mask_preco].copy()
+            _valores_num = _valores_num[mask_preco].copy()
+
+        df_exib = df_exib.reset_index(drop=True)
+        df_resultado = df_resultado_filtrado.reset_index(drop=True)
+        _valores_num = _valores_num.reset_index(drop=True)
 
         # Calcular estatísticas de preço unitário
         _vnum_valid = _valores_num.dropna()
