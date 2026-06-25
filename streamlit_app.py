@@ -1,5 +1,4 @@
-import base64
-import os
+os
 import streamlit as st
 import requests
 import pandas as pd

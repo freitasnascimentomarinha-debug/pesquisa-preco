@@ -6,6 +6,7 @@ import re
 import os
 import base64
 import json
+import html as html_lib
 from datetime import datetime
 from io import BytesIO
 from urllib.parse import urlparse, quote_plus
@@ -232,6 +233,8 @@ DOMINIOS_IGNORADOS = [
 MAX_FONTES_POR_ITEM = 3
 MAX_RETRIES = 2
 SCREENSHOT_DIR = "/tmp/scraping_screenshots"
+OUTLIER_MULTIPLIER = 1.6
+MIN_ORCAMENTOS_PARA_ANALISE_OUTLIER = 3
 
 # SearchAPI.io (Google Shopping) — fallback quando DDGS falha
 SEARCHAPI_KEY = "wZb2W9zvLh3gPziTp2639VCr"
@@ -315,6 +318,110 @@ def formatar_moeda_br(valor):
         return f"R$ {val:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
     except Exception:
         return "N/A"
+
+
+def normalizar_texto_contexto(texto):
+    """Limpa e formata o texto extraído para evidências."""
+    if not texto:
+        return ""
+
+    texto = html_lib.unescape(str(texto)).replace("\xa0", " ")
+    linhas = []
+    for linha in texto.splitlines():
+        linha_limpa = re.sub(r"\s+", " ", linha).strip()
+        if linha_limpa:
+            linhas.append(linha_limpa)
+
+    if not linhas:
+        return ""
+
+    texto_limpo = "\n".join(linhas)
+    texto_limpo = re.sub(r"\n{3,}", "\n\n", texto_limpo)
+    return texto_limpo.strip()
+
+
+def extrair_contexto_preco(texto_base, preco_referencia, janela=260):
+    """Extrai um trecho legível ao redor do preço encontrado."""
+    texto_base = normalizar_texto_contexto(texto_base)
+    if not texto_base:
+        return ""
+
+    formatos_preco = [
+        f"{preco_referencia:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."),
+        f"{preco_referencia:.2f}".replace(".", ","),
+        f"R$ {preco_referencia:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."),
+    ]
+
+    idx_preco = -1
+    preco_encontrado = ""
+    for formato in formatos_preco:
+        idx_preco = texto_base.find(formato)
+        if idx_preco >= 0:
+            preco_encontrado = formato
+            break
+
+    if idx_preco < 0:
+        return texto_base[:600]
+
+    inicio = max(0, idx_preco - janela)
+    fim = min(len(texto_base), idx_preco + len(preco_encontrado) + janela)
+
+    while inicio > 0 and texto_base[inicio] not in ".!?\n":
+        inicio -= 1
+    while fim < len(texto_base) and texto_base[fim - 1] not in ".!?\n":
+        fim += 1
+
+    return texto_base[inicio:fim].strip(" \n-:")
+
+
+def classificar_orcamentos_item(orcamentos, max_fontes):
+    """Descarta outliers altos com base na média e mantém a quantidade necessária."""
+    if not orcamentos:
+        return [], [], []
+
+    selecionados = sorted(orcamentos, key=lambda registro: registro["preco"])
+    descartados = []
+
+    while len(selecionados) >= MIN_ORCAMENTOS_PARA_ANALISE_OUTLIER:
+        media_atual = sum(registro["preco"] for registro in selecionados) / len(selecionados)
+        limite_superior = media_atual * OUTLIER_MULTIPLIER
+        candidatos_outlier = [
+            registro for registro in selecionados
+            if registro["preco"] > limite_superior
+        ]
+
+        if not candidatos_outlier:
+            break
+
+        maior_preco = max(candidatos_outlier, key=lambda registro: registro["preco"])
+        selecionados = [
+            registro for registro in selecionados
+            if registro["resultado_id"] != maior_preco["resultado_id"]
+        ]
+
+        outlier_info = dict(maior_preco)
+        outlier_info["media_referencia"] = media_atual
+        outlier_info["limite_superior"] = limite_superior
+        descartados.append(outlier_info)
+
+    reservas = []
+    if len(selecionados) > max_fontes:
+        reservas = selecionados[max_fontes:]
+        selecionados = selecionados[:max_fontes]
+
+    return selecionados, descartados, reservas
+
+
+def atualizar_estado_orcamentos(candidatos_item, max_fontes):
+    """Recalcula o conjunto válido do item após cada nova cotação."""
+    validos, descartados, reservas = classificar_orcamentos_item(candidatos_item, max_fontes)
+    return {
+        "validos": validos,
+        "ids_validos": {registro["resultado_id"] for registro in validos},
+        "descartados": descartados,
+        "ids_descartados": {registro["resultado_id"] for registro in descartados},
+        "reservas": reservas,
+    }
 
 
 # ===================== SCRAPING COM REQUESTS + BS4 =====================
@@ -769,6 +876,7 @@ def scraping_requests(session, url, headers, item_nome=None):
 
         # Gerar screenshot HTML como evidência (sem precisar de Playwright)
         screenshot_path = None
+        contexto_extraido = ""
         try:
             soup = BeautifulSoup(html, "html.parser")
             # Remover scripts e styles para captura limpa
@@ -776,23 +884,15 @@ def scraping_requests(session, url, headers, item_nome=None):
                 tag.decompose()
 
             # Extrair trecho de texto ao redor do preço para contexto
-            body_text_full = soup.get_text(separator="\n", strip=True)
-            preco_formatado = f"{preco_medio:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-            trecho_preco = ""
-            idx_preco = body_text_full.find(preco_formatado)
-            if idx_preco == -1:
-                # Tentar formato sem milhar
-                preco_simples = f"{preco_medio:.2f}".replace(".", ",")
-                idx_preco = body_text_full.find(preco_simples)
-            if idx_preco >= 0:
-                inicio = max(0, idx_preco - 200)
-                fim = min(len(body_text_full), idx_preco + 200)
-                trecho_preco = body_text_full[inicio:fim]
-            else:
-                trecho_preco = body_text_full[:600]
+            body_text_full = " ".join(soup.stripped_strings)
+            contexto_extraido = extrair_contexto_preco(body_text_full, preco_medio)
 
             # Listar todos os preços encontrados
             todos_precos_str = " | ".join([f"R$ {p:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".") for p in precos[:8]])
+            titulo_html = html_lib.escape(titulo)
+            url_html = html_lib.escape(url, quote=True)
+            contexto_html = html_lib.escape(contexto_extraido or "Contexto não identificado.")
+            precos_html = html_lib.escape(todos_precos_str)
 
             screenshot_dir = SCREENSHOT_DIR
             os.makedirs(screenshot_dir, exist_ok=True)
@@ -800,7 +900,7 @@ def scraping_requests(session, url, headers, item_nome=None):
             snapshot_path = os.path.join(screenshot_dir, f"{safe_name}_{hash(url) % 10000}.html")
             with open(snapshot_path, "w", encoding="utf-8") as f:
                 f.write(f"""<!DOCTYPE html>
-<html><head><meta charset="utf-8"><title>Evidência — {titulo}</title>
+<html><head><meta charset="utf-8"><title>Evidência — {titulo_html}</title>
 <style>
 body {{ font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 20px; background: #f8f9fa; color: #333; }}
 .evidence-card {{ max-width: 900px; margin: auto; background: #fff; border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.1); overflow: hidden; }}
@@ -819,7 +919,7 @@ body {{ font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 20px; ba
 </style></head><body>
 <div class="evidence-card">
   <div class="evidence-header">
-    <h2>{titulo}</h2>
+        <h2>{titulo_html}</h2>
     <div class="evidence-price">R$ {preco_medio:,.2f}</div>
     <div class="evidence-meta">
       <span>📅 {datetime.now().strftime('%d/%m/%Y %H:%M')}</span>
@@ -830,15 +930,15 @@ body {{ font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 20px; ba
   <div class="evidence-body">
     <div class="evidence-section">
       <div class="evidence-section-title">🔗 Fonte</div>
-      <div class="evidence-url"><a href="{url}" target="_blank">{url}</a></div>
+            <div class="evidence-url"><a href="{url_html}" target="_blank">{url_html}</a></div>
     </div>
     <div class="evidence-section">
       <div class="evidence-section-title">💰 Todos os Preços Detectados</div>
-      <div class="all-prices">{todos_precos_str}</div>
+            <div class="all-prices">{precos_html}</div>
     </div>
     <div class="evidence-section">
       <div class="evidence-section-title">📄 Contexto Extraído</div>
-      <div class="evidence-context">{trecho_preco}</div>
+            <div class="evidence-context">{contexto_html}</div>
     </div>
   </div>
   <div class="evidence-footer">Evidência gerada automaticamente pelo AtaCotada — Marinha do Brasil</div>
@@ -854,6 +954,8 @@ body {{ font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 20px; ba
             "url": url,
             "dominio": extrair_dominio(url),
             "screenshot": screenshot_path,
+            "precos_detectados": precos,
+            "contexto_extraido": contexto_extraido,
         }
     except Exception:
         return None
@@ -1119,12 +1221,19 @@ def scraping_playwright(url, item_nome, screenshot_path=None):
 
             if precos:
                 preco_medio = sorted(precos)[len(precos) // 2]
+                try:
+                    body_text_full = page.locator("body").inner_text(timeout=5000)
+                except Exception:
+                    body_text_full = re.sub(r"<[^>]+>", " ", html)
+                contexto_extraido = extrair_contexto_preco(body_text_full, preco_medio)
                 resultado = {
                     "titulo": titulo,
                     "preco": preco_medio,
                     "url": url,
                     "dominio": extrair_dominio(url),
                     "screenshot": screenshot_path if screenshot_path and os.path.exists(screenshot_path) else None,
+                    "precos_detectados": precos,
+                    "contexto_extraido": contexto_extraido,
                 }
     except Exception as e:
         # Logar o erro em vez de engolir silenciosamente
@@ -1136,7 +1245,7 @@ def scraping_playwright(url, item_nome, screenshot_path=None):
 
 # ===================== ORQUESTRADOR DE SCRAPING =====================
 
-def executar_scraping(itens, usar_playwright, progress_bar, log_container, status_text):
+def executar_scraping(itens, usar_playwright, progress_bar, log_container, status_text, max_fontes):
     """Executa o scraping completo para todos os itens."""
     import requests as req
 
@@ -1162,15 +1271,20 @@ def executar_scraping(itens, usar_playwright, progress_bar, log_container, statu
         status_text.text(f"Buscando: {item} ({idx+1}/{total_itens})")
         progress_bar.progress((idx) / total_itens)
 
-        orcamentos_item = []
+        candidatos_item = []
         dominios_usados = set()
+        outliers_logados = set()
+        reservas_logadas = set()
+        contador_item = 0
+        item_slug = re.sub(r'[^a-zA-Z0-9]', '_', item)[:40] or "item"
 
         # Selecionar variantes de busca aleatoriamente (usar mais variantes para maximizar cobertura)
         variantes = random.sample(VARIANTES_BUSCA, min(5, len(VARIANTES_BUSCA)))
 
         for variante in variantes:
-            if len(orcamentos_item) >= MAX_FONTES_POR_ITEM:
-                log_msg(log_container, logs, f"✓ {MAX_FONTES_POR_ITEM} orçamentos encontrados para '{item}'. Avançando.", "success")
+            estado_item = atualizar_estado_orcamentos(candidatos_item, max_fontes)
+            if len(estado_item["validos"]) >= max_fontes:
+                log_msg(log_container, logs, f"✓ {max_fontes} orçamentos válidos encontrados para '{item}'. Avançando.", "success")
                 break
 
             query = variante.format(item=item)
@@ -1191,7 +1305,8 @@ def executar_scraping(itens, usar_playwright, progress_bar, log_container, statu
             log_msg(log_container, logs, f"📋 {len(urls)} resultados encontrados via {engine}", "info")
 
             for url in urls:
-                if len(orcamentos_item) >= MAX_FONTES_POR_ITEM:
+                estado_item = atualizar_estado_orcamentos(candidatos_item, max_fontes)
+                if len(estado_item["validos"]) >= max_fontes:
                     break
 
                 dominio = extrair_dominio(url)
@@ -1208,7 +1323,7 @@ def executar_scraping(itens, usar_playwright, progress_bar, log_container, statu
                 resultado = None
                 screenshot_path = os.path.join(
                     SCREENSHOT_DIR,
-                    f"{re.sub(r'[^a-zA-Z0-9]', '_', item)}_{len(orcamentos_item)+1}.png",
+                    f"{item_slug}_{contador_item + 1}.png",
                 )
 
                 # Se Playwright selecionado e disponível, usar primeiro
@@ -1236,6 +1351,8 @@ def executar_scraping(itens, usar_playwright, progress_bar, log_container, statu
                             session.headers.update(headers)
 
                 if resultado:
+                    contador_item += 1
+                    resultado["resultado_id"] = f"{item_slug}_{contador_item}_{abs(hash(url)) % 10000}"
                     resultado["item"] = item
                     resultado["data_coleta"] = datetime.now().strftime("%d/%m/%Y %H:%M")
 
@@ -1248,42 +1365,87 @@ def executar_scraping(itens, usar_playwright, progress_bar, log_container, statu
                         except Exception:
                             pass
 
-                    orcamentos_item.append(resultado)
+                    candidatos_item.append(resultado)
                     dominios_usados.add(dominio)
-                    log_msg(
-                        log_container,
-                        logs,
-                        f"💰 Orçamento [{len(orcamentos_item)}/{MAX_FONTES_POR_ITEM}] — {formatar_moeda_br(resultado['preco'])} em {dominio}",
-                        "orcamento",
-                    )
+                    estado_item = atualizar_estado_orcamentos(candidatos_item, max_fontes)
+
+                    for descartado in estado_item["descartados"]:
+                        if descartado["resultado_id"] in outliers_logados:
+                            continue
+                        log_msg(
+                            log_container,
+                            logs,
+                            f"🚫 Outlier descartado em {descartado['dominio']}: {formatar_moeda_br(descartado['preco'])} acima do limite de {formatar_moeda_br(descartado['limite_superior'])} para '{item}'. Buscando reposição.",
+                            "warn",
+                        )
+                        outliers_logados.add(descartado["resultado_id"])
+
+                    if resultado["resultado_id"] in estado_item["ids_validos"]:
+                        log_msg(
+                            log_container,
+                            logs,
+                            f"💰 Orçamento [{len(estado_item['validos'])}/{max_fontes}] — {formatar_moeda_br(resultado['preco'])} em {dominio}",
+                            "orcamento",
+                        )
+                    elif resultado["resultado_id"] not in estado_item["ids_descartados"] and resultado["resultado_id"] not in reservas_logadas:
+                        log_msg(
+                            log_container,
+                            logs,
+                            f"📌 Cotação extra mantida em reserva: {formatar_moeda_br(resultado['preco'])} em {dominio}",
+                            "info",
+                        )
+                        reservas_logadas.add(resultado["resultado_id"])
                 else:
                     log_msg(log_container, logs, f"✗ Sem preço extraível de {dominio}", "error")
 
         # Complemento: se não atingiu o mínimo de fontes, usar SearchAPI (Google Shopping)
-        faltam = MAX_FONTES_POR_ITEM - len(orcamentos_item)
+        estado_item = atualizar_estado_orcamentos(candidatos_item, max_fontes)
+        faltam = max_fontes - len(estado_item["validos"])
         if faltam > 0:
             log_msg(log_container, logs, f"🛒 Faltam {faltam} orçamento(s) para '{item}'. Tentando Google Shopping (SearchAPI)...", "info")
             searchapi_results = buscar_searchapi(item, faltam + 2)  # pedir extras para compensar duplicados
             if searchapi_results:
-                dominios_ja = {r['dominio'] for r in orcamentos_item}
+                dominios_ja = {r['dominio'] for r in candidatos_item}
                 for sr in searchapi_results:
-                    if len(orcamentos_item) >= MAX_FONTES_POR_ITEM:
+                    estado_item = atualizar_estado_orcamentos(candidatos_item, max_fontes)
+                    if len(estado_item["validos"]) >= max_fontes:
                         break
                     if sr.get('dominio') in dominios_ja:
                         continue
+                    contador_item += 1
+                    sr["resultado_id"] = f"{item_slug}_{contador_item}_{abs(hash(sr.get('url', sr.get('dominio', 'searchapi')))) % 10000}"
                     sr["item"] = item
                     sr["data_coleta"] = datetime.now().strftime("%d/%m/%Y %H:%M")
-                    orcamentos_item.append(sr)
+                    sr["precos_detectados"] = [sr.get("preco")] if sr.get("preco") else []
+                    sr["contexto_extraido"] = "Preço complementar obtido no Google Shopping (SearchAPI)."
+                    candidatos_item.append(sr)
                     dominios_ja.add(sr.get('dominio', ''))
-                    log_msg(
-                        log_container,
-                        logs,
-                        f"💰 Orçamento [{len(orcamentos_item)}/{MAX_FONTES_POR_ITEM}] — Google Shopping: {formatar_moeda_br(sr['preco'])} em {sr['dominio']}",
-                        "orcamento",
-                    )
-            if len(orcamentos_item) < MAX_FONTES_POR_ITEM:
-                log_msg(log_container, logs, f"⚠ Apenas {len(orcamentos_item)} orçamento(s) encontrado(s) para '{item}'", "warn")
+                    estado_item = atualizar_estado_orcamentos(candidatos_item, max_fontes)
 
+                    for descartado in estado_item["descartados"]:
+                        if descartado["resultado_id"] in outliers_logados:
+                            continue
+                        log_msg(
+                            log_container,
+                            logs,
+                            f"🚫 Outlier descartado em {descartado['dominio']}: {formatar_moeda_br(descartado['preco'])} acima do limite de {formatar_moeda_br(descartado['limite_superior'])} para '{item}'.",
+                            "warn",
+                        )
+                        outliers_logados.add(descartado["resultado_id"])
+
+                    if sr["resultado_id"] in estado_item["ids_validos"]:
+                        log_msg(
+                            log_container,
+                            logs,
+                            f"💰 Orçamento [{len(estado_item['validos'])}/{max_fontes}] — Google Shopping: {formatar_moeda_br(sr['preco'])} em {sr['dominio']}",
+                            "orcamento",
+                        )
+
+            estado_item = atualizar_estado_orcamentos(candidatos_item, max_fontes)
+            if len(estado_item["validos"]) < max_fontes:
+                log_msg(log_container, logs, f"⚠ Apenas {len(estado_item['validos'])} orçamento(s) válido(s) encontrado(s) para '{item}'", "warn")
+
+        orcamentos_item = atualizar_estado_orcamentos(candidatos_item, max_fontes)["validos"]
         resultados.extend(orcamentos_item)
 
         # Delay maior entre itens diferentes
@@ -1544,10 +1706,12 @@ def gerar_pdf_evidencias(resultados):
                 ev_soup = BS4(ev_html, "html.parser")
                 # Pegar o trecho de contexto
                 contexto_div = ev_soup.select_one(".evidence-context")
-                if contexto_div:
-                    contexto_texto = contexto_div.get_text(strip=True)[:1500]
-                else:
-                    contexto_texto = ev_soup.get_text(separator="\n", strip=True)[:1500]
+                contexto_texto = r.get("contexto_extraido", "")
+                if not contexto_texto and contexto_div:
+                    contexto_texto = contexto_div.get_text("\n", strip=True)
+                if not contexto_texto:
+                    contexto_texto = ev_soup.get_text(separator="\n", strip=True)
+                contexto_texto = normalizar_texto_contexto(contexto_texto)[:1500]
                 contexto_texto = contexto_texto.encode("latin-1", "replace").decode("latin-1")
 
                 pdf.set_font("Helvetica", "B", 10)
@@ -1719,9 +1883,6 @@ if iniciar:
     if not itens:
         st.error("⚠️ Informe pelo menos um item para pesquisa.")
     else:
-        # Atualizar constante global com a config do usuário
-        MAX_FONTES_POR_ITEM_LOCAL = max_fontes
-
         st.markdown("### 📊 Execução do Scraping")
 
         # Área de logs
@@ -1739,167 +1900,215 @@ if iniciar:
             progress_bar=progress_bar,
             log_container=log_container,
             status_text=status_text,
+            max_fontes=max_fontes,
         )
 
         # Armazenar resultados no session_state
         st.session_state["scraping_resultados"] = resultados
         st.session_state["scraping_itens"] = itens
+        st.session_state["scraping_excluir_ids"] = []
 
 # ===================== EXIBIÇÃO DE RESULTADOS =====================
 
 if "scraping_resultados" in st.session_state and st.session_state["scraping_resultados"]:
-    resultados = st.session_state["scraping_resultados"]
+    resultados_brutos = st.session_state["scraping_resultados"]
+    opcoes_exclusao = []
+    labels_exclusao = {}
+    for indice, resultado in enumerate(resultados_brutos, start=1):
+        resultado_id = resultado.get("resultado_id") or f"resultado_{indice}"
+        resultado["resultado_id"] = resultado_id
+        opcoes_exclusao.append(resultado_id)
+        labels_exclusao[resultado_id] = (
+            f"{resultado.get('item', 'Item')} | {resultado.get('dominio', 'Fornecedor')} | "
+            f"{formatar_moeda_br(resultado.get('preco'))}"
+        )
+
+    st.session_state["scraping_excluir_ids"] = [
+        resultado_id
+        for resultado_id in st.session_state.get("scraping_excluir_ids", [])
+        if resultado_id in opcoes_exclusao
+    ]
+
+    st.markdown("#### Ajuste Manual da Composição")
+    st.multiselect(
+        "Selecione os orçamentos que devem sair da composição:",
+        options=opcoes_exclusao,
+        key="scraping_excluir_ids",
+        format_func=lambda resultado_id: labels_exclusao.get(resultado_id, resultado_id),
+        help="Os orçamentos selecionados aqui saem do resumo, das evidências e das exportações desta execução.",
+    )
+
+    resultados = [
+        resultado for resultado in resultados_brutos
+        if resultado.get("resultado_id") not in st.session_state.get("scraping_excluir_ids", [])
+    ]
 
     st.markdown("---")
     st.markdown("### 📋 Resultados")
 
-    tab_tabela, tab_resumo, tab_evidencias, tab_export = st.tabs(
-        ["📊 Tabela Completa", "📈 Resumo", "📸 Evidências", "📥 Exportar"]
+    st.caption(
+        f"{len(resultados)} de {len(resultados_brutos)} orçamento(s) permanecem na composição após os descartes automáticos e manuais."
     )
 
-    with tab_tabela:
-        df = pd.DataFrame(resultados)
-        df_display = df[["item", "dominio", "preco", "url", "data_coleta", "titulo"]].copy()
-        df_display.columns = ["Item", "Fornecedor", "Preço (R$)", "Link", "Data Coleta", "Título"]
-        df_display["Preço (R$)"] = df_display["Preço (R$)"].apply(formatar_moeda_br)
+    if not resultados:
+        st.warning("⚠️ Todos os orçamentos desta execução foram retirados da composição.")
+    else:
 
-        st.dataframe(
-            df_display,
-            use_container_width=True,
-            hide_index=True,
-            column_config={
-                "Link": st.column_config.LinkColumn("Link", display_text="Acessar"),
-            },
+        tab_tabela, tab_resumo, tab_evidencias, tab_export = st.tabs(
+            ["📊 Tabela Completa", "📈 Resumo", "📸 Evidências", "📥 Exportar"]
         )
 
-    with tab_resumo:
-        df = pd.DataFrame(resultados)
+        with tab_tabela:
+            df = pd.DataFrame(resultados)
+            df_display = df[["item", "dominio", "preco", "url", "data_coleta", "titulo"]].copy()
+            df_display.columns = ["Item", "Fornecedor", "Preço (R$)", "Link", "Data Coleta", "Título"]
+            df_display["Preço (R$)"] = df_display["Preço (R$)"].apply(formatar_moeda_br)
 
-        if not df.empty:
-            # Métricas gerais
-            col_m1, col_m2, col_m3, col_m4 = st.columns(4)
-            with col_m1:
-                st.metric("Total de Orçamentos", len(resultados))
-            with col_m2:
-                st.metric("Itens Pesquisados", len(st.session_state.get("scraping_itens", [])))
-            with col_m3:
-                st.metric("Fontes Distintas", df["dominio"].nunique())
-            with col_m4:
-                st.metric("Menor Preço", formatar_moeda_br(df["preco"].min()))
+            st.dataframe(
+                df_display,
+                use_container_width=True,
+                hide_index=True,
+                column_config={
+                    "Link": st.column_config.LinkColumn("Link", display_text="Acessar"),
+                },
+            )
 
-            st.markdown("#### Resumo por Item")
-            resumo = df.groupby("item")["preco"].agg(["count", "min", "max", "mean"]).reset_index()
-            resumo.columns = ["Item", "Qtd. Orçamentos", "Menor Preço", "Maior Preço", "Preço Médio"]
-            resumo["Menor Preço"] = resumo["Menor Preço"].apply(formatar_moeda_br)
-            resumo["Maior Preço"] = resumo["Maior Preço"].apply(formatar_moeda_br)
-            resumo["Preço Médio"] = resumo["Preço Médio"].apply(formatar_moeda_br)
+        with tab_resumo:
+            df = pd.DataFrame(resultados)
 
-            st.dataframe(resumo, use_container_width=True, hide_index=True)
+            if not df.empty:
+                # Métricas gerais
+                col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+                with col_m1:
+                    st.metric("Total de Orçamentos", len(resultados))
+                with col_m2:
+                    st.metric("Itens Pesquisados", len(st.session_state.get("scraping_itens", [])))
+                with col_m3:
+                    st.metric("Fontes Distintas", df["dominio"].nunique())
+                with col_m4:
+                    st.metric("Menor Preço", formatar_moeda_br(df["preco"].min()))
 
-    with tab_evidencias:
-        screenshots = [r for r in resultados if r.get("screenshot") and os.path.exists(r.get("screenshot", ""))]
+                st.markdown("#### Resumo por Item")
+                resumo = df.groupby("item")["preco"].agg(["count", "min", "max", "mean"]).reset_index()
+                resumo.columns = ["Item", "Qtd. Orçamentos", "Menor Preço", "Maior Preço", "Preço Médio"]
+                resumo["Menor Preço"] = resumo["Menor Preço"].apply(formatar_moeda_br)
+                resumo["Maior Preço"] = resumo["Maior Preço"].apply(formatar_moeda_br)
+                resumo["Preço Médio"] = resumo["Preço Médio"].apply(formatar_moeda_br)
 
-        if screenshots:
-            col_ev_info, col_ev_pdf = st.columns([3, 1])
-            with col_ev_info:
-                st.markdown(f"**{len(screenshots)} evidências visuais capturadas**")
-            with col_ev_pdf:
-                pdf_ev_data = gerar_pdf_evidencias(resultados)
+                st.dataframe(resumo, use_container_width=True, hide_index=True)
+
+        with tab_evidencias:
+            screenshots = [r for r in resultados if r.get("screenshot") and os.path.exists(r.get("screenshot", ""))]
+
+            if screenshots:
+                col_ev_info, col_ev_pdf = st.columns([3, 1])
+                with col_ev_info:
+                    st.markdown(f"**{len(screenshots)} evidências visuais capturadas**")
+                with col_ev_pdf:
+                    pdf_ev_data = gerar_pdf_evidencias(resultados)
+                    st.download_button(
+                        label="📑 Exportar Evidências em PDF",
+                        data=pdf_ev_data,
+                        file_name=f"evidencias_scraping_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
+                        mime="application/pdf",
+                        use_container_width=True,
+                        type="primary",
+                    )
+                for r in screenshots:
+                    with st.expander(f"📸 {r['item']} — {r['dominio']} — {formatar_moeda_br(r['preco'])}"):
+                        sc_path = r["screenshot"]
+                        if sc_path.endswith(".html"):
+                            # Renderizar snapshot HTML como evidência
+                            try:
+                                with open(sc_path, "r", encoding="utf-8") as f:
+                                    html_content = f.read()
+                                import streamlit.components.v1 as components
+                                components.html(html_content, height=500, scrolling=True)
+                                # Botão de download do HTML
+                                st.download_button(
+                                    label="⬇️ Baixar evidência",
+                                    data=html_content,
+                                    file_name=f"evidencia_{r['item']}_{r['dominio']}.html",
+                                    mime="text/html",
+                                    key=f"dl_html_{r['item']}_{r['dominio']}_{id(r)}",
+                                )
+                            except Exception:
+                                st.markdown(f"📄 Evidência salva em: {sc_path}")
+                        else:
+                            st.image(sc_path, caption=f"{r['dominio']} - {r['data_coleta']}")
+                            # Botão de download da imagem PNG
+                            try:
+                                with open(sc_path, "rb") as img_file:
+                                    img_bytes = img_file.read()
+                                st.download_button(
+                                    label="⬇️ Baixar screenshot",
+                                    data=img_bytes,
+                                    file_name=f"screenshot_{r['item']}_{r['dominio']}.png",
+                                    mime="image/png",
+                                    key=f"dl_img_{r['item']}_{r['dominio']}_{id(r)}",
+                                )
+                            except Exception:
+                                pass
+                        st.markdown(f"**Link:** [{r['url']}]({r['url']})")
+                        if r.get("contexto_extraido"):
+                            st.text_area(
+                                "Contexto extraído",
+                                value=r["contexto_extraido"],
+                                height=130,
+                                disabled=True,
+                                key=f"contexto_{r['resultado_id']}",
+                            )
+            else:
+                st.info(
+                    "Nenhuma evidência visual capturada nesta execução."
+                )
+
+        with tab_export:
+            st.markdown("#### 📥 Exportar Relatório")
+
+            col_exp1, col_exp2, col_exp3, col_exp4 = st.columns(4)
+
+            with col_exp1:
+                excel_data = gerar_relatorio_excel(resultados)
                 st.download_button(
-                    label="📑 Exportar Evidências em PDF",
-                    data=pdf_ev_data,
+                    label="📊 Baixar Excel",
+                    data=excel_data,
+                    file_name=f"relatorio_scraping_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    type="primary",
+                    use_container_width=True,
+                )
+
+            with col_exp2:
+                csv_data = gerar_relatorio_csv(resultados)
+                if csv_data:
+                    st.download_button(
+                        label="📄 Baixar CSV",
+                        data=csv_data,
+                        file_name=f"relatorio_scraping_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
+                        mime="text/csv",
+                        use_container_width=True,
+                    )
+
+            with col_exp3:
+                json_data = json.dumps(resultados, ensure_ascii=False, indent=2, default=str)
+                st.download_button(
+                    label="🔗 Baixar JSON",
+                    data=json_data,
+                    file_name=f"relatorio_scraping_{datetime.now().strftime('%Y%m%d_%H%M')}.json",
+                    mime="application/json",
+                    use_container_width=True,
+                )
+
+            with col_exp4:
+                pdf_data = gerar_pdf_evidencias(resultados)
+                st.download_button(
+                    label="📑 Baixar Evidências PDF",
+                    data=pdf_data,
                     file_name=f"evidencias_scraping_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
                     mime="application/pdf",
                     use_container_width=True,
-                    type="primary",
                 )
-            for r in screenshots:
-                with st.expander(f"📸 {r['item']} — {r['dominio']} — {formatar_moeda_br(r['preco'])}"):
-                    sc_path = r["screenshot"]
-                    if sc_path.endswith(".html"):
-                        # Renderizar snapshot HTML como evidência
-                        try:
-                            with open(sc_path, "r", encoding="utf-8") as f:
-                                html_content = f.read()
-                            import streamlit.components.v1 as components
-                            components.html(html_content, height=500, scrolling=True)
-                            # Botão de download do HTML
-                            st.download_button(
-                                label="⬇️ Baixar evidência",
-                                data=html_content,
-                                file_name=f"evidencia_{r['item']}_{r['dominio']}.html",
-                                mime="text/html",
-                                key=f"dl_html_{r['item']}_{r['dominio']}_{id(r)}",
-                            )
-                        except Exception:
-                            st.markdown(f"📄 Evidência salva em: `{sc_path}`")
-                    else:
-                        st.image(sc_path, caption=f"{r['dominio']} - {r['data_coleta']}")
-                        # Botão de download da imagem PNG
-                        try:
-                            with open(sc_path, "rb") as img_file:
-                                img_bytes = img_file.read()
-                            st.download_button(
-                                label="⬇️ Baixar screenshot",
-                                data=img_bytes,
-                                file_name=f"screenshot_{r['item']}_{r['dominio']}.png",
-                                mime="image/png",
-                                key=f"dl_img_{r['item']}_{r['dominio']}_{id(r)}",
-                            )
-                        except Exception:
-                            pass
-                    st.markdown(f"**Link:** [{r['url']}]({r['url']})")
-        else:
-            st.info(
-                "Nenhuma evidência visual capturada nesta execução."
-            )
-
-    with tab_export:
-        st.markdown("#### 📥 Exportar Relatório")
-
-        col_exp1, col_exp2, col_exp3, col_exp4 = st.columns(4)
-
-        with col_exp1:
-            excel_data = gerar_relatorio_excel(resultados)
-            st.download_button(
-                label="📊 Baixar Excel",
-                data=excel_data,
-                file_name=f"relatorio_scraping_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                type="primary",
-                use_container_width=True,
-            )
-
-        with col_exp2:
-            csv_data = gerar_relatorio_csv(resultados)
-            if csv_data:
-                st.download_button(
-                    label="📄 Baixar CSV",
-                    data=csv_data,
-                    file_name=f"relatorio_scraping_{datetime.now().strftime('%Y%m%d_%H%M')}.csv",
-                    mime="text/csv",
-                    use_container_width=True,
-                )
-
-        with col_exp3:
-            json_data = json.dumps(resultados, ensure_ascii=False, indent=2, default=str)
-            st.download_button(
-                label="🔗 Baixar JSON",
-                data=json_data,
-                file_name=f"relatorio_scraping_{datetime.now().strftime('%Y%m%d_%H%M')}.json",
-                mime="application/json",
-                use_container_width=True,
-            )
-
-        with col_exp4:
-            pdf_data = gerar_pdf_evidencias(resultados)
-            st.download_button(
-                label="📑 Baixar Evidências PDF",
-                data=pdf_data,
-                file_name=f"evidencias_scraping_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf",
-                mime="application/pdf",
-                use_container_width=True,
-            )
 
 elif "scraping_resultados" in st.session_state and not st.session_state["scraping_resultados"]:
     st.warning("⚠️ O scraping foi executado mas nenhum orçamento foi encontrado. Tente com outros termos.")
