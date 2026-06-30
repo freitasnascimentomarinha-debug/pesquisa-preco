@@ -1197,6 +1197,103 @@ def gerar_html_fornecedores(dataframe, descricao_item=None):
     
     return html_completo, pd.DataFrame(registros)
 
+
+def gerar_excel_fornecedores_formatado(dataframe_fornecedores, descricao_item=None):
+    """Gera Excel formatado para relatório de fornecedores da cotação."""
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Fornecedores"
+
+    if dataframe_fornecedores is None:
+        dataframe_fornecedores = pd.DataFrame()
+
+    max_col = max(1, len(dataframe_fornecedores.columns))
+    last_col = get_column_letter(max_col)
+
+    navy = PatternFill(start_color='001A4D', end_color='001A4D', fill_type='solid')
+    dark_navy = PatternFill(start_color='0A2540', end_color='0A2540', fill_type='solid')
+    light_bg = PatternFill(start_color='F5F8FF', end_color='F5F8FF', fill_type='solid')
+    alt_row = PatternFill(start_color='EDF2FA', end_color='EDF2FA', fill_type='solid')
+
+    title_font = Font(name='Calibri', bold=True, color='D4AF37', size=18)
+    subtitle_font = Font(name='Calibri', bold=True, color='FFFFFF', size=12)
+    info_font = Font(name='Calibri', color='B0B0B0', size=9, italic=True)
+    header_font = Font(name='Calibri', bold=True, color='FFFFFF', size=10)
+    body_font = Font(name='Calibri', size=10, color='333333')
+    stat_font = Font(name='Calibri', bold=True, color='D4AF37', size=10)
+
+    center = Alignment(horizontal='center', vertical='center')
+    left = Alignment(horizontal='left', vertical='center')
+    thin_border = Border(bottom=Side(style='thin', color='D4AF37'))
+
+    ws.merge_cells(f'A1:{last_col}1')
+    ws['A1'] = 'AtaCotada'
+    ws['A1'].font = title_font
+    ws['A1'].fill = navy
+    ws['A1'].alignment = center
+    ws.row_dimensions[1].height = 34
+
+    ws.merge_cells(f'A2:{last_col}2')
+    ws['A2'] = f"Relatório de Fornecedores — {descricao_item[:120] if descricao_item else 'Cotação'}"
+    ws['A2'].font = subtitle_font
+    ws['A2'].fill = navy
+    ws['A2'].alignment = center
+    ws.row_dimensions[2].height = 24
+
+    ws.merge_cells(f'A3:{last_col}3')
+    ws['A3'] = 'Marinha do Brasil - Centro de Operações do Abastecimento'
+    ws['A3'].font = info_font
+    ws['A3'].fill = navy
+    ws['A3'].alignment = center
+    ws.row_dimensions[3].height = 18
+
+    total = len(dataframe_fornecedores)
+    com_email = int((dataframe_fornecedores.get('Email', pd.Series(dtype=str)) != 'Não informado').sum()) if not dataframe_fornecedores.empty else 0
+    com_tel = int((dataframe_fornecedores.get('Telefones', pd.Series(dtype=str)) != 'Não informado').sum()) if not dataframe_fornecedores.empty else 0
+
+    ws.merge_cells(f'A4:{last_col}4')
+    ws['A4'] = f'Total: {total}  |  Com e-mail: {com_email}  |  Com telefone: {com_tel}'
+    ws['A4'].font = stat_font
+    ws['A4'].fill = dark_navy
+    ws['A4'].alignment = center
+    ws.row_dimensions[4].height = 20
+
+    ws.merge_cells(f'A5:{last_col}5')
+    ws['A5'] = f"Gerado em: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}"
+    ws['A5'].font = info_font
+    ws['A5'].fill = light_bg
+    ws['A5'].alignment = left
+    ws.row_dimensions[5].height = 18
+
+    start_row = 7
+    if not dataframe_fornecedores.empty:
+        for c_idx, col in enumerate(dataframe_fornecedores.columns, 1):
+            cell = ws.cell(row=start_row, column=c_idx)
+            cell.value = col
+            cell.font = header_font
+            cell.fill = navy
+            cell.alignment = center
+            cell.border = thin_border
+
+        for r_idx, row_data in enumerate(dataframe_fornecedores.values, start_row + 1):
+            for c_idx, value in enumerate(row_data, 1):
+                cell = ws.cell(row=r_idx, column=c_idx)
+                cell.value = value
+                cell.font = body_font
+                cell.alignment = left
+                if (r_idx - start_row) % 2 == 0:
+                    cell.fill = alt_row
+
+        for c_idx, col in enumerate(dataframe_fornecedores.columns, 1):
+            tam = max(len(str(col)), *(len(str(v)) for v in dataframe_fornecedores[col].fillna('').astype(str).head(200)))
+            ws.column_dimensions[get_column_letter(c_idx)].width = min(max(14, tam + 2), 45)
+
+        ws.freeze_panes = f'A{start_row + 1}'
+
+    output = BytesIO()
+    wb.save(output)
+    return output.getvalue()
+
 # URLs atualizadas
 consultarItemMaterial_base_url = 'https://dadosabertos.compras.gov.br/modulo-pesquisa-preco/1_consultarMaterial'
 consultarItemServico_base_url = 'https://dadosabertos.compras.gov.br/modulo-pesquisa-preco/3_consultarServico'
@@ -1571,6 +1668,7 @@ if st.session_state.get('itens'):
                                 html_fornecedores, df_fornecedores = gerar_html_fornecedores(dataframe_relatorio, descricao_item)
                                 st.session_state["cot_html_fornecedores"] = html_fornecedores
                                 st.session_state["cot_fornecedores_excel"] = df_fornecedores.to_dict(orient="records")
+                                st.session_state["cot_descricao_item_fornecedores"] = descricao_item or "Cotação"
 
                     if "cot_html_fornecedores" in st.session_state:
                         col_dl_html, col_dl_excel, _ = st.columns([1, 1, 1])
@@ -1588,13 +1686,14 @@ if st.session_state.get('itens'):
 
                         with col_dl_excel:
                             df_fornecedores_excel = pd.DataFrame(st.session_state.get("cot_fornecedores_excel", []))
-                            excel_buffer = BytesIO()
-                            df_fornecedores_excel.to_excel(excel_buffer, index=False)
-                            excel_buffer.seek(0)
+                            excel_bytes_forn = gerar_excel_fornecedores_formatado(
+                                df_fornecedores_excel,
+                                st.session_state.get("cot_descricao_item_fornecedores", "Cotação")
+                            )
 
                             st.download_button(
                                 label="📊 Baixar Fornecedores (Excel)",
-                                data=excel_buffer.getvalue(),
+                                data=excel_bytes_forn,
                                 file_name=f"fornecedores_AtaCotada_{data_hora_forn}.xlsx",
                                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                                 use_container_width=True,
