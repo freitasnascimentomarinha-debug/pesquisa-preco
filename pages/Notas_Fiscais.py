@@ -739,6 +739,105 @@ def gerar_html_fornecedores_nf(df_resultado):
     return html, pd.DataFrame(registros)
 
 
+def gerar_excel_fornecedores_nf_formatado(df_fornecedores, item_pesquisado):
+    """Gera Excel formatado para fornecedores de NF com cabeçalho e identidade visual."""
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.utils import get_column_letter
+
+    output = io.BytesIO()
+    item_header = item_pesquisado or "Consulta Geral"
+
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        df_fornecedores.to_excel(writer, index=False, sheet_name='Fornecedores', startrow=6)
+        ws = writer.sheets['Fornecedores']
+
+        max_col = max(1, len(df_fornecedores.columns))
+        last_col = get_column_letter(max_col)
+
+        navy = PatternFill(start_color='001A4D', end_color='001A4D', fill_type='solid')
+        dark_navy = PatternFill(start_color='0A2540', end_color='0A2540', fill_type='solid')
+        light_bg = PatternFill(start_color='F5F8FF', end_color='F5F8FF', fill_type='solid')
+        alt_row = PatternFill(start_color='EDF2FA', end_color='EDF2FA', fill_type='solid')
+
+        title_font = Font(name='Calibri', bold=True, color='D4AF37', size=18)
+        subtitle_font = Font(name='Calibri', bold=True, color='FFFFFF', size=12)
+        info_font = Font(name='Calibri', color='B0B0B0', size=9, italic=True)
+        header_font = Font(name='Calibri', bold=True, color='FFFFFF', size=10)
+        body_font = Font(name='Calibri', size=10, color='333333')
+        stats_font = Font(name='Calibri', bold=True, color='D4AF37', size=10)
+
+        center = Alignment(horizontal='center', vertical='center')
+        left = Alignment(horizontal='left', vertical='center')
+        thin_border = Border(bottom=Side(style='thin', color='D4AF37'))
+
+        ws.merge_cells(f'A1:{last_col}1')
+        ws['A1'].value = 'AtaCotada'
+        ws['A1'].font = title_font
+        ws['A1'].fill = navy
+        ws['A1'].alignment = center
+        ws.row_dimensions[1].height = 34
+
+        ws.merge_cells(f'A2:{last_col}2')
+        ws['A2'].value = f'Fornecedores — Notas Fiscais — {item_header}'
+        ws['A2'].font = subtitle_font
+        ws['A2'].fill = navy
+        ws['A2'].alignment = center
+        ws.row_dimensions[2].height = 24
+
+        ws.merge_cells(f'A3:{last_col}3')
+        ws['A3'].value = 'Marinha do Brasil — Centro de Operações do Abastecimento'
+        ws['A3'].font = info_font
+        ws['A3'].fill = navy
+        ws['A3'].alignment = center
+        ws.row_dimensions[3].height = 18
+
+        total = len(df_fornecedores)
+        com_email = int((df_fornecedores['Email'] != 'Não informado').sum()) if 'Email' in df_fornecedores.columns else 0
+        com_tel = int((df_fornecedores['Telefones'] != 'Não informado').sum()) if 'Telefones' in df_fornecedores.columns else 0
+
+        ws.merge_cells(f'A4:{last_col}4')
+        ws['A4'].value = f'Total: {total}  |  Com e-mail: {com_email}  |  Com telefone: {com_tel}'
+        ws['A4'].font = stats_font
+        ws['A4'].fill = dark_navy
+        ws['A4'].alignment = center
+        ws.row_dimensions[4].height = 20
+
+        ws.merge_cells(f'A5:{last_col}5')
+        ws['A5'].value = f'Gerado em: {datetime.now().strftime("%d/%m/%Y %H:%M:%S")}'
+        ws['A5'].font = info_font
+        ws['A5'].fill = light_bg
+        ws['A5'].alignment = left
+        ws.row_dimensions[5].height = 18
+
+        header_row = 7
+        for c in range(1, max_col + 1):
+            cell = ws.cell(row=header_row, column=c)
+            cell.fill = navy
+            cell.font = header_font
+            cell.alignment = center
+            cell.border = thin_border
+
+        for r in range(header_row + 1, header_row + 1 + len(df_fornecedores)):
+            if (r - header_row) % 2 == 0:
+                for c in range(1, max_col + 1):
+                    ws.cell(row=r, column=c).fill = alt_row
+            for c in range(1, max_col + 1):
+                ws.cell(row=r, column=c).font = body_font
+                ws.cell(row=r, column=c).alignment = left
+
+        for col_idx, col_name in enumerate(df_fornecedores.columns, start=1):
+            max_len = max(
+                len(str(col_name)),
+                *(len(str(v)) for v in df_fornecedores[col_name].fillna('').astype(str).head(200))
+            )
+            ws.column_dimensions[get_column_letter(col_idx)].width = min(max(14, max_len + 2), 45)
+
+        ws.freeze_panes = f'A{header_row + 1}'
+
+    output.seek(0)
+    return output.getvalue()
+
+
 # --- Funções de geração de relatórios formatados ---
 
 def gerar_nome_pesquisa(filtro_produto="", filtro_nome_dest="", filtro_uf_dest="", filtro_uf_emit=""):
@@ -1706,13 +1805,12 @@ with tab_pesquisa:
 
             with col_dl_forn_excel:
                 df_fornecedores_excel = pd.DataFrame(st.session_state.get("nf_fornecedores_excel", []))
-                excel_buffer_nf = io.BytesIO()
-                df_fornecedores_excel.to_excel(excel_buffer_nf, index=False)
-                excel_buffer_nf.seek(0)
+                item_fornecedor_nf = st.session_state.get("nf_item_pesquisado", "Consulta Geral")
+                excel_formatado_nf = gerar_excel_fornecedores_nf_formatado(df_fornecedores_excel, item_fornecedor_nf)
 
                 st.download_button(
                     label="📊 Baixar Relatório de Fornecedores (Excel)",
-                    data=excel_buffer_nf.getvalue(),
+                    data=excel_formatado_nf,
                     file_name=f"fornecedores_NF_{data_hora_arq}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     use_container_width=True,
