@@ -1,6 +1,7 @@
 import base64
 import os
 from datetime import datetime
+import re
 
 import pandas as pd
 import requests
@@ -182,6 +183,65 @@ def _calcular_ipca_acumulado(ipca_dados, data_inicio, data_fim):
 	return fator, percentual, meses_usados
 
 
+def _normalizar_coluna(col: str) -> str:
+	col = col.strip().lower()
+	return re.sub(r"[^a-z0-9]", "", col)
+
+
+def _parse_valor(valor):
+	if pd.isna(valor):
+		return None
+	if isinstance(valor, (int, float)):
+		return float(valor)
+	texto = str(valor).strip()
+	if not texto:
+		return None
+	texto = texto.replace("R$", "").replace(" ", "")
+	if "," in texto and "." in texto:
+		texto = texto.replace(".", "").replace(",", ".")
+	elif "," in texto:
+		texto = texto.replace(",", ".")
+	try:
+		return float(texto)
+	except ValueError:
+		return None
+
+
+def _importar_itens_excel(df: pd.DataFrame):
+	if df is None or df.empty:
+		return [], "A planilha está vazia."
+
+	map_cols = {_normalizar_coluna(c): c for c in df.columns}
+	col_desc = None
+	col_valor = None
+
+	for cand in ["descricao", "descricao", "item", "nome", "produto", "servico"]:
+		if cand in map_cols:
+			col_desc = map_cols[cand]
+			break
+	for cand in ["valor", "valororiginal", "preco", "precooriginal", "precoorig", "valorunitario"]:
+		if cand in map_cols:
+			col_valor = map_cols[cand]
+			break
+
+	if not col_desc or not col_valor:
+		return [], (
+			"Não encontrei as colunas obrigatórias. Use nomes como 'Descrição' e 'Valor'."
+		)
+
+	itens = []
+	for _, row in df.iterrows():
+		desc = str(row[col_desc]).strip() if not pd.isna(row[col_desc]) else ""
+		valor = _parse_valor(row[col_valor])
+		if desc and valor is not None and valor > 0:
+			itens.append({"descricao": desc, "valor": float(valor)})
+
+	if not itens:
+		return [], "Nenhuma linha válida encontrada (descrição preenchida e valor > 0)."
+
+	return itens, None
+
+
 def _gerar_pdf_ipca(itens_resultado, meses_detalhes, data_calc):
 	pdf = FPDF()
 	pdf.add_page()
@@ -342,7 +402,58 @@ st.markdown(
 )
 
 if "ipca_itens" not in st.session_state:
-	st.session_state["ipca_itens"] = [{"descricao": "", "valor": 0.0, "mes": 1, "ano": 2024}]
+	st.session_state["ipca_itens"] = [{"descricao": "", "valor": 0.0}]
+
+if "ipca_mes_global" not in st.session_state:
+	st.session_state["ipca_mes_global"] = 1
+if "ipca_ano_global" not in st.session_state:
+	st.session_state["ipca_ano_global"] = datetime.now().year
+
+st.markdown("#### 📅 Data de Referência (única para todos os itens)")
+col_data_1, col_data_2 = st.columns([1, 1])
+with col_data_1:
+	mes_global = st.selectbox(
+		"Mês",
+		list(range(1, 13)),
+		index=st.session_state["ipca_mes_global"] - 1,
+		format_func=lambda x: f"{x:02d}",
+		key="ipca_mes_global_widget",
+	)
+with col_data_2:
+	ano_global = st.number_input(
+		"Ano",
+		min_value=1995,
+		max_value=datetime.now().year,
+		value=st.session_state["ipca_ano_global"],
+		step=1,
+		key="ipca_ano_global_widget",
+	)
+
+st.session_state["ipca_mes_global"] = int(mes_global)
+st.session_state["ipca_ano_global"] = int(ano_global)
+
+st.markdown("#### 📥 Importar Itens por Excel")
+arquivo_excel = st.file_uploader(
+	"Envie uma planilha .xlsx/.xls com colunas de descrição e valor",
+	type=["xlsx", "xls"],
+	key="ipca_excel_upload",
+)
+if arquivo_excel is not None:
+	try:
+		df_excel = pd.read_excel(arquivo_excel)
+		st.caption(f"Pré-visualização: {len(df_excel)} linhas lidas da planilha")
+		st.dataframe(df_excel.head(10), use_container_width=True, hide_index=True)
+		if st.button("📥 Usar Itens da Planilha", key="ipca_import_excel_btn", use_container_width=True):
+			itens_importados, erro_import = _importar_itens_excel(df_excel)
+			if erro_import:
+				st.error(erro_import)
+			else:
+				st.session_state["ipca_itens"] = itens_importados
+				st.session_state.pop("ipca_resultado", None)
+				st.success(f"{len(itens_importados)} itens importados com sucesso.")
+				st.rerun()
+	except Exception as e:
+		st.error(f"Falha ao ler planilha: {e}")
 
 st.markdown("#### 📝 Itens para Correção")
 
@@ -366,22 +477,9 @@ for i, item in enumerate(itens_ipca):
 			step=0.01,
 		)
 	with cols[2]:
-		itens_ipca[i]["mes"] = st.selectbox(
-			"Mês",
-			list(range(1, 13)),
-			index=item["mes"] - 1,
-			key=f"ipca_mes_{i}",
-			format_func=lambda x: f"{x:02d}",
-		)
+		st.caption(f"Mês/Ano: {st.session_state['ipca_mes_global']:02d}/{st.session_state['ipca_ano_global']}")
 	with cols[3]:
-		itens_ipca[i]["ano"] = st.number_input(
-			"Ano",
-			value=item["ano"],
-			min_value=1995,
-			max_value=datetime.now().year,
-			step=1,
-			key=f"ipca_ano_{i}",
-		)
+		st.write("")
 	with cols[4]:
 		st.markdown("<br>", unsafe_allow_html=True)
 		if len(itens_ipca) > 1 and st.button("🗑️", key=f"ipca_rm_{i}", help="Remover item"):
@@ -391,11 +489,11 @@ for i, item in enumerate(itens_ipca):
 col_add, col_clear = st.columns([1, 1])
 with col_add:
 	if st.button("➕ Adicionar Item", key="ipca_add_item", use_container_width=True):
-		itens_ipca.append({"descricao": "", "valor": 0.0, "mes": 1, "ano": 2024})
+		itens_ipca.append({"descricao": "", "valor": 0.0})
 		st.rerun()
 with col_clear:
 	if st.button("🧹 Limpar Tudo", key="ipca_clear_all", use_container_width=True):
-		st.session_state["ipca_itens"] = [{"descricao": "", "valor": 0.0, "mes": 1, "ano": 2024}]
+		st.session_state["ipca_itens"] = [{"descricao": "", "valor": 0.0}]
 		st.session_state.pop("ipca_resultado", None)
 		st.rerun()
 
@@ -414,23 +512,24 @@ if st.button("🔢 Calcular Correção IPCA", type="primary", use_container_widt
 				else:
 					ultimo_mes = ipca_dados[-1]["data"]
 					data_calc = datetime.now()
+					dt_inicio_global = datetime(st.session_state["ipca_ano_global"], st.session_state["ipca_mes_global"], 1)
 					resultados = []
 					todos_meses = []
+					if dt_inicio_global > ultimo_mes:
+						st.error(
+							f"A data de referência {dt_inicio_global.strftime('%m/%Y')} é posterior ao último IPCA disponível ({ultimo_mes.strftime('%m/%Y')})."
+						)
+						resultados = []
 					for it in itens_validos:
-						dt_inicio = datetime(it["ano"], it["mes"], 1)
-						if dt_inicio > ultimo_mes:
-							st.warning(
-								f"Item '{it['descricao']}': data {it['mes']:02d}/{it['ano']} "
-								f"posterior ao último IPCA disponível ({ultimo_mes.strftime('%m/%Y')}). Ignorado."
-							)
-							continue
-						fator, percentual, meses = _calcular_ipca_acumulado(ipca_dados, dt_inicio, ultimo_mes)
+						if dt_inicio_global > ultimo_mes:
+							break
+						fator, percentual, meses = _calcular_ipca_acumulado(ipca_dados, dt_inicio_global, ultimo_mes)
 						valor_corrigido = it["valor"] * fator
 						resultados.append(
 							{
 								"descricao": it["descricao"],
 								"valor_original": it["valor"],
-								"data_original": dt_inicio,
+								"data_original": dt_inicio_global,
 								"fator": fator,
 								"percentual": percentual,
 								"valor_corrigido": valor_corrigido,
