@@ -3650,6 +3650,3 @@ with tab_checklist:
             key="dl_checklist_pdf",
         )
 
-st.markdown("---")
-st.info("O Cálculo IPCA agora está disponível em uma página dedicada no menu lateral.")
-st.page_link("pages/Calculo_IPCA.py", label="📊 Abrir Cálculo IPCA", use_container_width=True)

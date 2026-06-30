@@ -613,7 +613,7 @@ def gerar_html_fornecedores_nf(df_resultado):
 
     # Obter CNPJs únicos
     if col_cnpj not in df_resultado.columns:
-        return "<h3 style='color:red;'>Coluna CNPJ Emitente não encontrada.</h3>"
+        return "<h3 style='color:red;'>Coluna CNPJ Emitente não encontrada.</h3>", pd.DataFrame()
 
     fornecedores_unicos = df_resultado.drop_duplicates(subset=[col_cnpj])
 
@@ -642,6 +642,7 @@ def gerar_html_fornecedores_nf(df_resultado):
     """
 
     linhas = []
+    registros = []
     com_email = 0
     com_telefone = 0
 
@@ -674,10 +675,17 @@ def gerar_html_fornecedores_nf(df_resultado):
             f"<tr><td>{cnpj}</td><td>{razao}</td><td>{localizacao}</td>"
             f"<td>{email_html}</td><td><span class='phone'>{telefones}</span></td></tr>"
         )
+        registros.append({
+            'CNPJ': cnpj,
+            'Razão Social': razao,
+            'Localização': localizacao,
+            'Email': email,
+            'Telefones': telefones,
+        })
 
     data_hora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
 
-    return f"""<!DOCTYPE html>
+    html = f"""<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
@@ -727,6 +735,8 @@ def gerar_html_fornecedores_nf(df_resultado):
     </div>
 </body>
 </html>"""
+
+    return html, pd.DataFrame(registros)
 
 
 # --- Funções de geração de relatórios formatados ---
@@ -1675,14 +1685,16 @@ with tab_pesquisa:
                     st.warning("⚠️ Nenhum CNPJ encontrado nos resultados filtrados.")
                 else:
                     with st.spinner(f"Consultando dados de {len(cnpjs_unicos)} fornecedor(es) na API..."):
-                        html_fornecedores = gerar_html_fornecedores_nf(df_resultado)
+                        html_fornecedores, df_fornecedores = gerar_html_fornecedores_nf(df_resultado)
                         st.session_state["nf_html_fornecedores"] = html_fornecedores
+                        st.session_state["nf_fornecedores_excel"] = df_fornecedores.to_dict(orient="records")
 
         # Mostrar botão de download do relatório se já foi gerado
         if "nf_html_fornecedores" in st.session_state:
-            col_dl_forn, _ = st.columns([1, 2])
-            with col_dl_forn:
-                data_hora_arq = datetime.now().strftime("%Y%m%d_%H%M%S")
+            col_dl_forn_html, col_dl_forn_excel, _ = st.columns([1, 1, 1])
+            data_hora_arq = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+            with col_dl_forn_html:
                 st.download_button(
                     label="📋 Baixar Relatório de Fornecedores (HTML)",
                     data=st.session_state["nf_html_fornecedores"].encode('utf-8'),
@@ -1690,6 +1702,21 @@ with tab_pesquisa:
                     mime="text/html",
                     use_container_width=True,
                     key="btn_download_fornecedores_nf",
+                )
+
+            with col_dl_forn_excel:
+                df_fornecedores_excel = pd.DataFrame(st.session_state.get("nf_fornecedores_excel", []))
+                excel_buffer_nf = io.BytesIO()
+                df_fornecedores_excel.to_excel(excel_buffer_nf, index=False)
+                excel_buffer_nf.seek(0)
+
+                st.download_button(
+                    label="📊 Baixar Relatório de Fornecedores (Excel)",
+                    data=excel_buffer_nf.getvalue(),
+                    file_name=f"fornecedores_NF_{data_hora_arq}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True,
+                    key="btn_download_fornecedores_nf_excel",
                 )
 
         # --- Informações ---

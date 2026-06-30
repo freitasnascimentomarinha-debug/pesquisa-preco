@@ -1035,7 +1035,7 @@ def gerar_html_fornecedores(dataframe, descricao_item=None):
     col_descricao = encontrar_coluna(dataframe, ['descricaoItem', 'descricao', 'description', 'item_descricao'])
     
     if not col_niFornecedor:
-        return "<h3 style='color: red;'>Erro: Coluna 'niFornecedor' não encontrada no dataframe</h3>"
+        return "<h3 style='color: red;'>Erro: Coluna 'niFornecedor' não encontrada no dataframe</h3>", pd.DataFrame()
     
     # Se não foi passada descrição, tenta extrair do dataframe
     if not descricao_item and col_descricao and len(dataframe) > 0:
@@ -1073,6 +1073,7 @@ def gerar_html_fornecedores(dataframe, descricao_item=None):
     
     # Coletar dados de cada fornecedor
     linhas = []
+    registros = []
     com_email_count = 0
     com_telefone_count = 0
     
@@ -1104,6 +1105,14 @@ def gerar_html_fornecedores(dataframe, descricao_item=None):
         
         linha = f"<tr><td>{ni_fornecedor}</td><td>{cnpj}</td><td>{nome_fornecedor}</td><td>{localizacao}</td><td><span class='contato-info'>{email_html}</span></td><td><span class='contato-info phone'>{telefones}</span></td></tr>"
         linhas.append(linha)
+        registros.append({
+            'NI Fornecedor': ni_fornecedor,
+            'CNPJ': cnpj,
+            'Fornecedor': nome_fornecedor,
+            'Localização': localizacao,
+            'Email': email,
+            'Telefones': telefones,
+        })
     
     linhas_tabela = ''.join(linhas)
     data_hora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
@@ -1161,7 +1170,7 @@ def gerar_html_fornecedores(dataframe, descricao_item=None):
 </body>
 </html>"""
     
-    return html_completo
+    return html_completo, pd.DataFrame(registros)
 
 # URLs atualizadas
 consultarItemMaterial_base_url = 'https://dadosabertos.compras.gov.br/modulo-pesquisa-preco/1_consultarMaterial'
@@ -1533,18 +1542,38 @@ if st.session_state.get('itens'):
                                 if col_descricao and len(dataframe_relatorio) > 0:
                                     descricao_item = str(dataframe_relatorio.iloc[0][col_descricao])
 
-                                html_fornecedores = gerar_html_fornecedores(dataframe_relatorio, descricao_item)
-                                html_bytes = html_fornecedores.encode('utf-8')
-                                html_filename = f"fornecedores_AtaCotada_{data_hora}.html"
+                                html_fornecedores, df_fornecedores = gerar_html_fornecedores(dataframe_relatorio, descricao_item)
+                                st.session_state["cot_html_fornecedores"] = html_fornecedores
+                                st.session_state["cot_fornecedores_excel"] = df_fornecedores.to_dict(orient="records")
 
-                                st.download_button(
-                                    label="📋 Abrir Relatório de Fornecedores",
-                                    data=html_bytes,
-                                    file_name=html_filename,
-                                    mime="text/html",
-                                    use_container_width=True,
-                                    key="btn_download_fornecedores"
-                                )
+                    if "cot_html_fornecedores" in st.session_state:
+                        col_dl_html, col_dl_excel, _ = st.columns([1, 1, 1])
+                        data_hora_forn = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+                        with col_dl_html:
+                            st.download_button(
+                                label="📋 Baixar Fornecedores (HTML)",
+                                data=st.session_state["cot_html_fornecedores"].encode('utf-8'),
+                                file_name=f"fornecedores_AtaCotada_{data_hora_forn}.html",
+                                mime="text/html",
+                                use_container_width=True,
+                                key="btn_download_fornecedores_html"
+                            )
+
+                        with col_dl_excel:
+                            df_fornecedores_excel = pd.DataFrame(st.session_state.get("cot_fornecedores_excel", []))
+                            excel_buffer = BytesIO()
+                            df_fornecedores_excel.to_excel(excel_buffer, index=False)
+                            excel_buffer.seek(0)
+
+                            st.download_button(
+                                label="📊 Baixar Fornecedores (Excel)",
+                                data=excel_buffer.getvalue(),
+                                file_name=f"fornecedores_AtaCotada_{data_hora_forn}.xlsx",
+                                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                use_container_width=True,
+                                key="btn_download_fornecedores_excel"
+                            )
                 else:
                     st.caption('A seleção é mantida na tabela, mas os cálculos do relatório dependem da coluna de preço unitário.')
             else:
