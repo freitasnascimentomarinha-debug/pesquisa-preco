@@ -284,15 +284,10 @@ with st.sidebar:
     st.page_link("pages/Consulta.py", label="Consulta CNPJ", icon="💻")
     st.page_link("pages/Web_Scraping.py", label="Web Scraping", icon="🕷️")
     st.page_link("pages/O_Babilaca_(IA).py", label="O Babilaca (IA)", icon="🧠")
+    st.page_link("pages/Calculo_IPCA.py", label="Cálculo IPCA", icon="📊")
     st.markdown("---")
     st.markdown("## LINKS ÚTEIS")
-    st.markdown("""
-    <div style="margin-bottom: 1rem;">
-        <a href="https://freitasnascimentomarinha-debug.github.io/ShootMail/" target="_blank" style="color: #cbd5e1; text-decoration: none; font-size: 0.9rem; display: flex; align-items: center; gap: 0.5rem;">
-            📧 Disparador de Emails
-        </a>
-    </div>
-    <div style="margin-bottom: 1rem;">
+    st.markdown("""<div style="margin-bottom: 1rem;">
         <a href="https://detetive-obtencao.vercel.app/" target="_blank" style="color: #cbd5e1; text-decoration: none; font-size: 0.9rem; display: flex; align-items: center; gap: 0.5rem;">
             🚨 Detetive Obtenção
         </a>
