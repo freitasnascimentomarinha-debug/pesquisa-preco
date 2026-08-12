@@ -1303,8 +1303,13 @@ def obter_itens(tipo_item, codigo_item_catalogo, pagina, tamanho_pagina):
     params = {
         'pagina': pagina,   
         'tamanhoPagina':tamanho_pagina,  # Ajuste para 500 itens por página
-        'codigoItemCatalogo': codigo_item_catalogo
     }
+    if tipo_item == 'Material':
+        # A API passou a exigir 'tipo' + 'codigo' em vez de 'codigoItemCatalogo' direto
+        params['tipo'] = 'codigoItemCatalogo'
+        params['codigo'] = codigo_item_catalogo
+    else:
+        params['codigoItemCatalogo'] = codigo_item_catalogo
     try:
         response = requests.get(url, params=params)
         if response.status_code == 200:
