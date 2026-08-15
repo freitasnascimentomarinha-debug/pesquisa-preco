@@ -7,6 +7,7 @@ import json
 import os
 import re
 import unicodedata
+import base64
 from datetime import datetime
 from difflib import SequenceMatcher
 
@@ -94,12 +95,22 @@ st.markdown(
             background: rgba(7, 20, 42, .8) !important; border-color: #2b6cb0 !important; color: #f8fafc !important;
         }
         [data-testid="stDataFrame"] { border: 1px solid #1e5b9f; border-radius: 8px; overflow: hidden; }
+        .sidebar-footer { color: #666; font-size: 11px; text-align: center; padding: 1rem 0; border-top: 1px solid #333; margin-top: 2rem; }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
+acanto_path = os.path.join(CATALOGO_DIR, "acanto.png")
+if os.path.exists(acanto_path):
+    with open(acanto_path, "rb") as arquivo_acanto:
+        acanto_b64 = base64.b64encode(arquivo_acanto.read()).decode()
+else:
+    acanto_b64 = None
+
 with st.sidebar:
+    if acanto_b64:
+        st.markdown(f'<div style="text-align:center;padding:1rem 0 0.5rem 0;"><img src="data:image/png;base64,{acanto_b64}" style="max-width:70%;height:auto;"></div>', unsafe_allow_html=True)
     st.markdown("## MENU")
     st.markdown("---")
     st.page_link("streamlit_app.py", label="Cotação", icon="⚓")
@@ -112,6 +123,16 @@ with st.sidebar:
     st.page_link("pages/O_Babilaca_(IA).py", label="O Babilaca (IA)", icon="🧠")
     st.page_link("pages/Calculo_IPCA.py", label="Cálculo IPCA", icon="📊")
     st.page_link("pages/CATMAT_CATSERV_Automatico.py", label="CATMAT/CATSERV", icon="🔎")
+    st.markdown("---")
+    st.markdown("## LINKS ÚTEIS")
+    st.markdown("""<div style="margin-bottom:0.6rem;">
+        <a href="https://detetive-obtencao.vercel.app/" target="_blank" style="color:#cbd5e1;text-decoration:none;font-size:0.9rem;display:flex;align-items:center;gap:0.5rem;">🚨 Detetive Obtenção</a>
+    </div>
+    <div style="margin-bottom:1rem;">
+        <a href="https://depurador.streamlit.app/" target="_blank" style="color:#cbd5e1;text-decoration:none;font-size:0.9rem;display:flex;align-items:center;gap:0.5rem;">🧾 Depurador de Orçamentos</a>
+    </div>""", unsafe_allow_html=True)
+    st.markdown('<div style="text-align:center;color:#d4af37;font-size:10px;font-weight:600;padding:0.3rem 0;white-space:nowrap;">Centro de Operações do Abastecimento</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sidebar-footer">Marinha do Brasil<br>AtaCotada v1.0</div>', unsafe_allow_html=True)
 
 
 def _normalizar(texto: str) -> str:
@@ -457,7 +478,6 @@ if st.button("🔎 Encontrar códigos sugeridos", type="primary", use_container_
                         "Código": sugestao["codigo"],
                         "Descrição sugerida": sugestao["descricao_catalogo"],
                         "Similaridade (%)": sugestao["similaridade"],
-                        "Origem": sugestao["origem"],
                         "Unidade de fornecimento": sugestao["unidade_fornecimento"],
                         "Código PDM": sugestao["codigo_pdm"],
                         "Descrição PDM": sugestao["descricao_pdm"],
