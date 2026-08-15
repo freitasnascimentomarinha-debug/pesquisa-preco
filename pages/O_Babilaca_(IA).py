@@ -75,11 +75,13 @@ st.markdown("""
         background: linear-gradient(135deg, #1a1a1a 0%, #252525 100%) !important;
         color: #ffffff !important;
         border: 1px solid #333333 !important;
-        border-radius: 10px !important;
-        margin: 0.4rem 0 !important;
-        padding: 0.85rem 1.2rem !important;
+        border-radius: 8px !important;
+        margin: 0.2rem 0 !important;
+        padding: 0.45rem 0.7rem !important;
         font-weight: 600 !important;
-        font-size: 15px !important;
+        font-size: 12.5px !important;
+        line-height: 1.2 !important;
+        min-height: 0 !important;
         transition: all 0.3s ease !important;
         text-decoration: none !important;
         display: flex !important;

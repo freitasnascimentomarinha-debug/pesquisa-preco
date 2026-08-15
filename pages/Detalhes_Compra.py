@@ -72,9 +72,10 @@ st.markdown("""
     [data-testid="stSidebar"] a[data-testid="stPageLink-NavLink"] {
         background: linear-gradient(135deg, #1a1a1a 0%, #252525 100%) !important;
         color: #fff !important; border: 1px solid #333 !important;
-        border-radius: 10px !important; margin: .4rem 0 !important;
-        padding: .85rem 1.2rem !important; font-weight: 600 !important;
-        font-size: 15px !important; transition: all .3s ease !important;
+        border-radius: 8px !important; margin: .2rem 0 !important;
+        padding: .45rem .7rem !important; font-weight: 600 !important;
+        font-size: 12.5px !important; line-height: 1.2 !important;
+        min-height: 0 !important; transition: all .3s ease !important;
         text-decoration: none !important; display: flex !important;
         align-items: center !important; justify-content: center !important;
     }
