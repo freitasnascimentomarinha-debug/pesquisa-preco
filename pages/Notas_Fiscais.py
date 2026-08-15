@@ -287,6 +287,7 @@ with st.sidebar:
     st.page_link("pages/Web_Scraping.py", label="Web Scraping", icon="🕷️")
     st.page_link("pages/O_Babilaca_(IA).py", label="O Babilaca (IA)", icon="🧠")
     st.page_link("pages/Calculo_IPCA.py", label="Cálculo IPCA", icon="📊")
+    st.page_link("pages/CATMAT_CATSERV_Automatico.py", label="CATMAT/CATSERV", icon="🔎")
     st.markdown("---")
     st.markdown("## LINKS ÚTEIS")
     st.markdown("""<div style="margin-bottom: 0.6rem;">
