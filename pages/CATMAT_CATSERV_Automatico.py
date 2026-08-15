@@ -59,6 +59,17 @@ st.markdown(
             border-right: 3px solid #d4af37 !important;
         }
         [data-testid="stSidebarNav"] { display: none !important; }
+        [data-testid="stSidebar"] .stMarkdown h2 {
+            color: #d4af37 !important;
+            font-family: 'Arial Black', sans-serif;
+            font-size: 22px;
+            text-align: center;
+            letter-spacing: 2px;
+            text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.8);
+            border-bottom: 2px solid #d4af37;
+            padding-bottom: 0.75rem;
+            margin-bottom: 1.5rem;
+        }
         [data-testid="stSidebar"] a[data-testid="stPageLink-NavLink"] {
             background: linear-gradient(135deg, #1a1a1a, #252525) !important;
             border: 1px solid #333 !important; border-radius: 8px !important;
