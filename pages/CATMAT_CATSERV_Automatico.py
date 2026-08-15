@@ -27,6 +27,7 @@ st.set_page_config(
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CATALOGO_DIR = os.path.join(BASE_DIR, "Projeto Adesões")
+PDM_PATH = os.path.join(CATALOGO_DIR, "catalogo_pdm.json")
 CATSERV_PATH = os.path.join(CATALOGO_DIR, "catalogo_servicos.json")
 CATMAT_API_URL = "https://dadosabertos.compras.gov.br/modulo-material/4_consultarItemMaterial"
 STOP_WORDS = {"a", "as", "com", "da", "das", "de", "do", "dos", "e", "em", "para", "por", "sem", "um", "uma"}
@@ -37,6 +38,10 @@ TERMOS_RESTRITIVOS = {
 EXPANSOES_DE_BUSCA = {
     "caneta": "caneta esferografica",
     "fita crepe": "fita crepe adesiva",
+}
+FALLBACKS_GENERICOS = {
+    "caneta": {"codigo_pdm": "99", "termos_preferidos": {"esferografica"}},
+    "fita crepe": {"codigo_pdm": "18071", "termos_preferidos": {"papel", "crepado"}},
 }
 LIMIAR_SIMILARIDADE = 45.0
 
@@ -171,6 +176,26 @@ def buscar_catmat_api(consulta: str) -> list[dict[str, str]]:
     return list(candidatos.values())
 
 
+@st.cache_data(ttl=3600, show_spinner=False)
+def buscar_itens_catmat_por_pdm(codigo_pdm: str) -> list[dict[str, str]]:
+    """Retorna itens CATMAT oficiais associados a um PDM, sem expor o PDM como resultado."""
+    try:
+        resposta = requests.get(
+            CATMAT_API_URL,
+            params={"pagina": 1, "tamanhoPagina": 100, "codigoPdm": codigo_pdm, "statusItem": "true"},
+            timeout=15,
+        )
+        if resposta.status_code != 200:
+            return []
+        return [
+            {"codigo": str(item.get("codigoItem", "")), "descricao": item.get("descricaoItem", "")}
+            for item in resposta.json().get("resultado", [])
+            if item.get("codigoItem") and item.get("descricaoItem")
+        ]
+    except requests.RequestException:
+        return []
+
+
 def calcular_similaridade(descricao: str, candidato: str) -> float:
     origem = _tokens(descricao)
     destino = _tokens(candidato)
@@ -199,33 +224,73 @@ def melhores_do_catalogo(descricao: str, catalogo: list[dict[str, object]], limi
     return [item for _, item in candidatos[:limite]]
 
 
-def sugerir_codigo(descricao: str, catalogo_servico: list[dict[str, object]], tipo: str) -> dict[str, object]:
+def _pdm_generico(descricao: str, catalogo_pdm: list[dict[str, object]]) -> dict[str, object] | None:
+    descricao_normalizada = _normalizar(descricao)
+    tokens_descricao = set(descricao_normalizada.split())
+    perfis_compativeis = [
+        (set(chave.split()), fallback)
+        for chave, fallback in FALLBACKS_GENERICOS.items()
+        if set(chave.split()).issubset(tokens_descricao)
+    ]
+    if perfis_compativeis:
+        _, fallback = max(perfis_compativeis, key=lambda perfil: len(perfil[0]))
+        return {
+            "codigo": fallback["codigo_pdm"],
+            "descricao": descricao_normalizada,
+            "termos_preferidos": fallback["termos_preferidos"],
+        }
+    if len(_tokens(descricao)) > 3:
+        return None
+    candidatos = melhores_do_catalogo(descricao, catalogo_pdm, limite=30)
+    if not candidatos:
+        return None
+    return max(candidatos, key=lambda candidato: calcular_similaridade(descricao, str(candidato["descricao"])))
+
+
+def sugerir_codigo(descricao: str, catalogo_pdm: list[dict[str, object]], catalogo_servico: list[dict[str, object]], tipo: str) -> dict[str, object]:
     opcoes: list[dict[str, object]] = []
     tipos_consulta = [tipo] if tipo != "Automático" else ["Material", "Serviço"]
     for tipo_atual in tipos_consulta:
+        origem = "CATMAT específico"
+        termos_preferidos = set()
         if tipo_atual == "Material":
             candidatos = buscar_catmat_api(descricao)
+            pdm = _pdm_generico(descricao, catalogo_pdm) if not candidatos else None
+            if pdm:
+                candidatos = buscar_itens_catmat_por_pdm(str(pdm["codigo"]))
+                origem = "CATMAT genérico"
+                termos_preferidos = set(pdm.get("termos_preferidos", []))
         else:
             candidatos = melhores_do_catalogo(descricao, catalogo_servico)
+            origem = "CATSERV"
         vistos = set()
         for candidato in candidatos:
             codigo = str(candidato["codigo"])
             if codigo in vistos:
                 continue
             vistos.add(codigo)
+            tokens_candidato = _tokens(str(candidato["descricao"]))
+            termos_restritivos_ausentes = (tokens_candidato - _tokens(descricao)) & TERMOS_RESTRITIVOS
+            if origem == "CATMAT genérico" and termos_restritivos_ausentes:
+                continue
+            similaridade = calcular_similaridade(descricao, str(candidato["descricao"]))
+            if termos_preferidos:
+                similaridade = min(100, similaridade + 18 * len(tokens_candidato & termos_preferidos))
             opcoes.append(
                 {
                     "tipo": tipo_atual,
                     "codigo": codigo,
                     "descricao_catalogo": str(candidato["descricao"]),
-                    "similaridade": calcular_similaridade(descricao, str(candidato["descricao"])),
+                    "similaridade": similaridade,
+                    "origem": origem,
                 }
             )
     if not opcoes:
-        return {"tipo": "-", "codigo": "-", "descricao_catalogo": "Nenhuma correspondência encontrada", "similaridade": 0.0}
+        return {"tipo": "-", "codigo": "-", "descricao_catalogo": "Nenhuma correspondência encontrada", "similaridade": 0.0, "origem": "-"}
     melhor_opcao = max(opcoes, key=lambda opcao: opcao["similaridade"])
-    if melhor_opcao["similaridade"] < LIMIAR_SIMILARIDADE:
-        return {"tipo": "-", "codigo": "-", "descricao_catalogo": "Descrição insuficiente para sugerir um código com segurança", "similaridade": melhor_opcao["similaridade"]}
+    limiar = 35.0 if melhor_opcao["origem"] == "CATMAT genérico" else LIMIAR_SIMILARIDADE
+    if melhor_opcao["similaridade"] < limiar:
+        return {"tipo": "-", "codigo": "-", "descricao_catalogo": "Descrição insuficiente para sugerir um código com segurança", "similaridade": melhor_opcao["similaridade"], "origem": "-"}
     return melhor_opcao
 
 
@@ -308,6 +373,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+catalogo_pdm = carregar_catalogo(PDM_PATH)
 catalogo_servico = carregar_catalogo(CATSERV_PATH)
 
 st.markdown('<div class="input-panel"><h3>Lista de itens</h3><p>Digite ou cole uma descrição por linha. Você também pode importar uma planilha CSV ou Excel.</p></div>', unsafe_allow_html=True)
@@ -342,7 +408,7 @@ if st.button("🔎 Encontrar códigos sugeridos", type="primary", use_container_
         with st.spinner(f"Analisando {len(itens)} item(ns) nos catálogos oficiais..."):
             resultados_brutos = []
             for item in itens:
-                sugestao = sugerir_codigo(item, catalogo_servico, tipo_busca)
+                sugestao = sugerir_codigo(item, catalogo_pdm, catalogo_servico, tipo_busca)
                 resultados_brutos.append(
                     {
                         "Descrição informada": item,
@@ -350,6 +416,7 @@ if st.button("🔎 Encontrar códigos sugeridos", type="primary", use_container_
                         "Código": sugestao["codigo"],
                         "Descrição sugerida": sugestao["descricao_catalogo"],
                         "Similaridade (%)": sugestao["similaridade"],
+                        "Origem": sugestao["origem"],
                     }
                 )
         st.session_state["catmat_catserv_resultados"] = resultados_brutos
