@@ -250,23 +250,7 @@ def _incrementar_req_count(api_key: str = "") -> int:
     return data["total"]
 
 MODELOS_DISPONIVEIS = {
-    # ===== PAGOS (ordenados por popularidade) =====
-    "💰 OpenAI GPT-4o Mini — $0.15/1M in | $0.60/1M out": "openai/gpt-4o-mini",
-    "💰 DeepSeek V3.2 — $0.14/1M in | $0.28/1M out": "deepseek/deepseek-v3.2",
-    "💰 Gemini 2.5 Flash Lite — $0.02/1M in | $0.10/1M out": "google/gemini-2.5-flash-lite",
-    "💰 Llama 3.1 8B — $0.02/1M in | $0.05/1M out": "meta-llama/llama-3.1-8b-instruct",
-    "💰 Mistral Nemo — $0.03/1M in | $0.03/1M out": "mistralai/mistral-nemo",
-    "💰 OpenAI GPT-OSS 120B — $0.20/1M in | $0.60/1M out": "openai/gpt-oss-120b",
-    "💰 OpenAI GPT-OSS 20B — $0.06/1M in | $0.18/1M out": "openai/gpt-oss-20b",
-    "💰 Qwen 3.5 Flash — $0.05/1M in | $0.30/1M out": "qwen/qwen3.5-flash-02-23",
-    "💰 Xiaomi MiMo V2 Flash — $0.04/1M in | $0.11/1M out": "xiaomi/mimo-v2-flash",
-    # ===== GRÁTIS (ordenados por popularidade) =====
-    "🆓 Google Gemma 4 26B A4B (grátis)": "google/gemma-4-26b-a4b-it:free",
-    "🆓 Qwen 3.6 Plus (grátis)": "qwen/qwen3.6-plus:free",
-    "🆓 NVIDIA Nemotron Super 120B (grátis)": "nvidia/nemotron-3-super-120b-a12b:free",
-    "🆓 StepFun 3.5 Flash (grátis)": "stepfun/step-3.5-flash:free",
-    "🆓 Arcee Trinity Large (grátis)": "arcee-ai/trinity-large-preview:free",
-    "🆓 Z-AI GLM 4.5 Air (grátis)": "z-ai/glm-4.5-air:free",
+    "DeepSeek V4 Flash": "deepseek/deepseek-v4-flash-0731",
 }
 
 # ============================================================
@@ -293,7 +277,7 @@ def _get_api_key():
 _defaults = {
     "babilaca_messages": [],
     "babilaca_api_key": _get_api_key(),
-    "babilaca_modelo": "openai/gpt-4o-mini",
+    "babilaca_modelo": "deepseek/deepseek-v4-flash-0731",
     "babilaca_alertas": [],
     "babilaca_docs_gerados": [],
     "babilaca_preferencias": {},
@@ -651,7 +635,7 @@ def chamar_ia(
     api_key = st.session_state.get("babilaca_api_key", "")
     if not api_key:
         return "⚠️ Chave de API não configurada. Acesse a aba **Configurações**."
-    model = modelo or st.session_state.get("babilaca_modelo", "openai/gpt-4o-mini")
+    model = modelo or st.session_state.get("babilaca_modelo", "deepseek/deepseek-v4-flash-0731")
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
