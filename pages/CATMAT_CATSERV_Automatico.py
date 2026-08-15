@@ -170,7 +170,12 @@ def buscar_catmat_api(consulta: str) -> list[dict[str, str]]:
                 codigo = str(item.get("codigoItem", ""))
                 descricao = item.get("descricaoItem", "")
                 if codigo and descricao:
-                    candidatos[codigo] = {"codigo": codigo, "descricao": descricao}
+                    candidatos[codigo] = {
+                        "codigo": codigo,
+                        "descricao": descricao,
+                        "codigo_pdm": str(item.get("codigoPdm", "")),
+                        "descricao_pdm": item.get("nomePdm", ""),
+                    }
         except requests.RequestException:
             continue
     return list(candidatos.values())
@@ -188,12 +193,39 @@ def buscar_itens_catmat_por_pdm(codigo_pdm: str) -> list[dict[str, str]]:
         if resposta.status_code != 200:
             return []
         return [
-            {"codigo": str(item.get("codigoItem", "")), "descricao": item.get("descricaoItem", "")}
+            {
+                "codigo": str(item.get("codigoItem", "")),
+                "descricao": item.get("descricaoItem", ""),
+                "codigo_pdm": str(item.get("codigoPdm", "")),
+                "descricao_pdm": item.get("nomePdm", ""),
+            }
             for item in resposta.json().get("resultado", [])
             if item.get("codigoItem") and item.get("descricaoItem")
         ]
     except requests.RequestException:
         return []
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def buscar_unidade_fornecimento(codigo_pdm: str) -> str:
+    """Retorna a primeira unidade de fornecimento ativa associada ao PDM informado."""
+    try:
+        resposta = requests.get(
+            "https://dadosabertos.compras.gov.br/modulo-material/6_consultarMaterialUnidadeFornecimento",
+            params={"pagina": 1, "tamanhoPagina": 100, "codigoPdm": codigo_pdm, "statusUnidadeFornecimentoPdm": "true"},
+            timeout=15,
+        )
+        if resposta.status_code != 200:
+            return ""
+        unidades = resposta.json().get("resultado", [])
+        if not unidades:
+            return ""
+        unidade = unidades[0]
+        sigla = unidade.get("siglaUnidadeFornecimento", "")
+        nome = unidade.get("nomeUnidadeFornecimento", "")
+        return f"{sigla} - {nome}".strip(" -")
+    except requests.RequestException:
+        return ""
 
 
 def calcular_similaridade(descricao: str, candidato: str) -> float:
@@ -276,6 +308,7 @@ def sugerir_codigo(descricao: str, catalogo_pdm: list[dict[str, object]], catalo
             similaridade = calcular_similaridade(descricao, str(candidato["descricao"]))
             if termos_preferidos:
                 similaridade = min(100, similaridade + 18 * len(tokens_candidato & termos_preferidos))
+            codigo_pdm = str(candidato.get("codigo_pdm", "")) if tipo_atual == "Material" else ""
             opcoes.append(
                 {
                     "tipo": tipo_atual,
@@ -283,14 +316,17 @@ def sugerir_codigo(descricao: str, catalogo_pdm: list[dict[str, object]], catalo
                     "descricao_catalogo": str(candidato["descricao"]),
                     "similaridade": similaridade,
                     "origem": origem,
+                    "unidade_fornecimento": buscar_unidade_fornecimento(codigo_pdm) if codigo_pdm else "",
+                    "codigo_pdm": codigo_pdm,
+                    "descricao_pdm": str(candidato.get("descricao_pdm", "")) if codigo_pdm else "",
                 }
             )
     if not opcoes:
-        return {"tipo": "-", "codigo": "-", "descricao_catalogo": "Nenhuma correspondência encontrada", "similaridade": 0.0, "origem": "-"}
+        return {"tipo": "-", "codigo": "-", "descricao_catalogo": "Nenhuma correspondência encontrada", "similaridade": 0.0, "origem": "-", "unidade_fornecimento": "", "codigo_pdm": "", "descricao_pdm": ""}
     melhor_opcao = max(opcoes, key=lambda opcao: opcao["similaridade"])
     limiar = 35.0 if melhor_opcao["origem"] == "CATMAT genérico" else LIMIAR_SIMILARIDADE
     if melhor_opcao["similaridade"] < limiar:
-        return {"tipo": "-", "codigo": "-", "descricao_catalogo": "Descrição insuficiente para sugerir um código com segurança", "similaridade": melhor_opcao["similaridade"], "origem": "-"}
+        return {"tipo": "-", "codigo": "-", "descricao_catalogo": "Descrição insuficiente para sugerir um código com segurança", "similaridade": melhor_opcao["similaridade"], "origem": "-", "unidade_fornecimento": "", "codigo_pdm": "", "descricao_pdm": ""}
     return melhor_opcao
 
 
@@ -343,6 +379,11 @@ def gerar_pdf(resultados: pd.DataFrame) -> bytes:
         pdf.multi_cell(0, 5, _texto_pdf_quebravel(f"{linha['Tipo']} {linha['Código']}  |  Similaridade: {linha['Similaridade (%)']}%"))
         pdf.set_x(pdf.l_margin)
         pdf.multi_cell(0, 5, _texto_pdf_quebravel(f"Sugestao: {linha['Descrição sugerida']}"))
+        if linha.get("Código PDM", ""):
+            pdf.set_x(pdf.l_margin)
+            pdf.multi_cell(0, 5, _texto_pdf_quebravel(f"PDM: {linha['Código PDM']} - {linha['Descrição PDM']}"))
+            pdf.set_x(pdf.l_margin)
+            pdf.multi_cell(0, 5, _texto_pdf_quebravel(f"Unidade de fornecimento: {linha['Unidade de fornecimento']}"))
         pdf.ln(3)
     pdf.set_font("Helvetica", "I", 7)
     pdf.set_text_color(100, 100, 100)
@@ -417,6 +458,9 @@ if st.button("🔎 Encontrar códigos sugeridos", type="primary", use_container_
                         "Descrição sugerida": sugestao["descricao_catalogo"],
                         "Similaridade (%)": sugestao["similaridade"],
                         "Origem": sugestao["origem"],
+                        "Unidade de fornecimento": sugestao["unidade_fornecimento"],
+                        "Código PDM": sugestao["codigo_pdm"],
+                        "Descrição PDM": sugestao["descricao_pdm"],
                     }
                 )
         st.session_state["catmat_catserv_resultados"] = resultados_brutos
