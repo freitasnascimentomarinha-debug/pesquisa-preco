@@ -144,6 +144,11 @@ def _tokens(texto: str) -> set[str]:
     return {token for token in _normalizar(texto).split() if len(token) > 1 and token not in STOP_WORDS}
 
 
+def _termo_principal(texto: str) -> str:
+    """Retorna o primeiro termo informativo, que representa a categoria principal do item."""
+    return next((token for token in _normalizar(texto).split() if len(token) > 1 and token not in STOP_WORDS), "")
+
+
 def _texto_pdf(texto: object) -> str:
     """Converte texto do catálogo para caracteres aceitos pela fonte padrão do PDF."""
     return unicodedata.normalize("NFKD", str(texto)).encode("ascii", "ignore").decode("ascii")
@@ -258,10 +263,12 @@ def calcular_similaridade(descricao: str, candidato: str) -> float:
     cobertura = len(em_comum) / len(origem)
     precisao = len(em_comum) / len(destino)
     sequencia = SequenceMatcher(None, _normalizar(descricao), _normalizar(candidato)).ratio()
+    termo_principal = _termo_principal(descricao)
     restritivos_ausentes = (destino - origem) & TERMOS_RESTRITIVOS
     termos_extras = len(destino - origem) / len(destino)
     penalidade = min(36, len(restritivos_ausentes) * 18) + (termos_extras * 12)
-    pontuacao = cobertura * 65 + precisao * 25 + sequencia * 10 - penalidade
+    bonus_principal = 25 if termo_principal in destino else -50
+    pontuacao = cobertura * 65 + precisao * 25 + sequencia * 10 + bonus_principal - penalidade
     return round(max(0, min(100, pontuacao)), 1)
 
 
@@ -279,6 +286,7 @@ def melhores_do_catalogo(descricao: str, catalogo: list[dict[str, object]], limi
 
 def _pdm_generico(descricao: str, catalogo_pdm: list[dict[str, object]]) -> dict[str, object] | None:
     descricao_normalizada = _normalizar(descricao)
+    termo_principal = _termo_principal(descricao)
     tokens_descricao = set(descricao_normalizada.split())
     perfis_compativeis = [
         (set(chave.split()), fallback)
@@ -292,6 +300,12 @@ def _pdm_generico(descricao: str, catalogo_pdm: list[dict[str, object]]) -> dict
             "descricao": descricao_normalizada,
             "termos_preferidos": fallback["termos_preferidos"],
         }
+    pdm_exato = next(
+        (item for item in catalogo_pdm if _normalizar(str(item["descricao"])) == termo_principal),
+        None,
+    )
+    if pdm_exato:
+        return {**pdm_exato, "termos_preferidos": {termo_principal}}
     if len(_tokens(descricao)) > 3:
         return None
     candidatos = melhores_do_catalogo(descricao, catalogo_pdm, limite=30)
@@ -308,6 +322,11 @@ def sugerir_codigo(descricao: str, catalogo_pdm: list[dict[str, object]], catalo
         termos_preferidos = set()
         if tipo_atual == "Material":
             candidatos = buscar_catmat_api(descricao)
+            termo_principal = _termo_principal(descricao)
+            candidatos = [
+                candidato for candidato in candidatos
+                if termo_principal in _tokens(str(candidato["descricao"]))
+            ]
             pdm = _pdm_generico(descricao, catalogo_pdm) if not candidatos else None
             if pdm:
                 candidatos = buscar_itens_catmat_por_pdm(str(pdm["codigo"]))
