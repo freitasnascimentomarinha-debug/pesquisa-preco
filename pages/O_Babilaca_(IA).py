@@ -154,7 +154,44 @@ st.markdown("""
     .stat-card .valor { color: #d4af37; font-size: 1.8rem; font-weight: bold; }
     .stat-card .label { color: #94a3b8; font-size: 0.8rem; }
 
-    div[data-testid="stChatMessage"] { background: rgba(10,22,40,0.6) !important; border-radius: 10px; }
+    .chat-console {
+        background: linear-gradient(135deg, rgba(10, 22, 40, 0.96), rgba(10, 42, 91, 0.84));
+        border: 1px solid #1e5b9f;
+        border-radius: 10px;
+        padding: 1rem 1.2rem;
+        margin-bottom: 0.7rem;
+        box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
+    }
+    .chat-console-top { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+    .chat-console-title { display: flex; align-items: center; gap: 0.75rem; }
+    .chat-console-avatar {
+        width: 2.35rem; height: 2.35rem; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+        background: #d4af37; color: #001a4d; font-size: 1.2rem; box-shadow: 0 0 0 4px rgba(212, 175, 55, 0.13);
+    }
+    .chat-console h3 { color: #f8fafc; font-size: 1rem; margin: 0; }
+    .chat-console p { color: #a8c6e8; font-size: 0.78rem; margin: 0.1rem 0 0; }
+    .online-indicator { color: #86efac; font-size: 0.74rem; font-weight: 700; }
+    .online-indicator::before {
+        content: ""; display: inline-block; width: 0.45rem; height: 0.45rem; margin-right: 0.38rem;
+        background: #22c55e; border-radius: 50%; box-shadow: 0 0 8px rgba(34, 197, 94, 0.8);
+    }
+    .chat-metrics { display: flex; gap: 0.45rem; flex-wrap: wrap; }
+    .chat-metric { background: rgba(0, 12, 34, 0.46); border: 1px solid rgba(96, 165, 250, 0.25); border-radius: 6px; padding: 0.32rem 0.55rem; }
+    .chat-metric-label { color: #94a3b8; font-size: 0.65rem; text-transform: uppercase; }
+    .chat-metric-value { color: #e2e8f0; font-size: 0.78rem; font-weight: 700; margin-left: 0.28rem; }
+    .chat-actions { margin-bottom: 0.8rem; }
+    .chat-actions [data-testid="stButton"] button, .chat-actions [data-testid="stFileUploader"] button {
+        border-color: #2b6cb0 !important;
+    }
+    div[data-testid="stChatMessage"] {
+        background: rgba(10,22,40,0.6) !important;
+        border: 1px solid rgba(59, 130, 246, 0.18);
+        border-radius: 10px;
+        padding: 0.35rem 0.55rem;
+        margin-bottom: 0.45rem;
+    }
+    div[data-testid="stChatMessage"] [data-testid="stChatMessageAvatarUser"] { background: #d4af37; }
+    div[data-testid="stChatMessage"] [data-testid="stChatMessageAvatarAssistant"] { background: #1d4ed8; }
 
     /* Auto-scroll chat to bottom */
     .stChatFloatingInputContainer { position: sticky; bottom: 0; z-index: 100; }
@@ -248,10 +285,6 @@ def _incrementar_req_count(api_key: str = "") -> int:
     except Exception:
         pass
     return data["total"]
-
-MODELOS_DISPONIVEIS = {
-    "DeepSeek V4 Flash": "deepseek/deepseek-v4-flash-0731",
-}
 
 # ============================================================
 # INICIALIZAÇÃO DO SESSION STATE
@@ -684,10 +717,8 @@ def chamar_ia(
                     continue  # retry com menos tokens
                 return (
                     "⚠️ **Créditos insuficientes** na conta OpenRouter.\n\n"
-                    "O modelo selecionado é pago e sua conta não tem saldo suficiente. "
-                    "Opções:\n"
-                    "- Troque para um modelo **grátis** (marcados com ⚠️ no seletor)\n"
-                    "- Adicione créditos em https://openrouter.ai/settings/credits"
+                    "Adicione créditos em https://openrouter.ai/settings/credits "
+                    "e tente novamente."
                 )
 
             if resp.status_code == 404:
@@ -696,23 +727,20 @@ def chamar_ia(
                     "Possíveis causas:\n"
                     "- Restrições de privacidade/política de dados na sua conta OpenRouter\n"
                     "- Modelo temporariamente fora do ar\n\n"
-                    "Troque para outro modelo no seletor acima. "
                     "Se persistir, verifique suas configurações em https://openrouter.ai/settings/privacy"
                 )
 
             if resp.status_code == 403:
                 return (
-                    "⚠️ **Limite diário atingido** para o modelo pago selecionado.\n\n"
+                    "⚠️ **Limite diário atingido**.\n\n"
                     "Sua chave de API alcançou o limite de uso do dia. "
-                    "Por favor, selecione um **modelo gratuito** no seletor acima "
-                    "(marcados com ⚠️) para continuar utilizando o Babilaca hoje.\n\n"
-                    "Você também pode gerenciar seus limites em https://openrouter.ai/settings/keys"
+                    "Gerencie seus limites em https://openrouter.ai/settings/keys"
                 )
 
             if resp.status_code == 429:
                 return (
                     "⚠️ **Limite de requisições atingido**. "
-                    "Aguarde alguns segundos e tente novamente, ou troque para outro modelo."
+                    "Aguarde alguns segundos e tente novamente."
                 )
 
             return f"⚠️ Erro na API (HTTP {resp.status_code}): {resp.text[:300]}"
@@ -2223,8 +2251,6 @@ tab_chat, tab_docs, tab_checklist = st.tabs([
 # TAB 1 — CHAT IA
 # ============================================================
 with tab_chat:
-    st.markdown("### 💬 Converse com o Babilaca")
-
     # Contador de sessão
     _s_reqs = st.session_state.get("babilaca_sessao_reqs", 0)
     _s_custo = st.session_state.get("babilaca_sessao_custo", 0.0)
@@ -2232,28 +2258,31 @@ with tab_chat:
     _s_tk_out = st.session_state.get("babilaca_sessao_tokens_out", 0)
     _cor_custo = "#22c55e" if _s_custo < 0.01 else "#f59e0b" if _s_custo < 0.10 else "#ef4444"
     st.markdown(f"""
-    <div style="background:rgba(10,22,40,0.7);border:1px solid #1e3a5f;border-radius:8px;padding:0.4rem 1rem;margin-bottom:0.6rem;display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
-        <span style="color:#d4af37;font-weight:bold;font-size:0.82rem;">Selecione seu Modelo Treinado para Licitações</span>
-        <span style="color:#60a5fa;font-size:0.75rem;font-weight:bold;">Sessão: {_s_reqs} req</span>
-        <span style="color:{_cor_custo};font-size:0.75rem;font-weight:bold;">Gasto: ${_s_custo:.6f}</span>
-        <span style="color:#94a3b8;font-size:0.72rem;">Tokens: {_s_tk_in:,} in | {_s_tk_out:,} out</span>
+    <div class="chat-console">
+        <div class="chat-console-top">
+            <div class="chat-console-title">
+                <div class="chat-console-avatar">🧠</div>
+                <div>
+                    <h3>Babilaca</h3>
+                    <p>Assistente para licitações e contratações públicas</p>
+                </div>
+            </div>
+            <span class="online-indicator">Pronto para ajudar</span>
+            <div class="chat-metrics">
+                <div class="chat-metric"><span class="chat-metric-label">Sessão</span><span class="chat-metric-value">{_s_reqs} req</span></div>
+                <div class="chat-metric"><span class="chat-metric-label">Gasto</span><span class="chat-metric-value" style="color:{_cor_custo};">${_s_custo:.6f}</span></div>
+                <div class="chat-metric"><span class="chat-metric-label">Tokens</span><span class="chat-metric-value">{_s_tk_in:,} in · {_s_tk_out:,} out</span></div>
+            </div>
+        </div>
     </div>
     """, unsafe_allow_html=True)
 
-    # Barra de ferramentas: Modelo | Limpar conversa | Anexar arquivo
-    tb_col1, tb_col2, tb_col3 = st.columns([3, 1.3, 1.3])
+    # Barra de ações da conversa
+    st.markdown('<div class="chat-actions">', unsafe_allow_html=True)
+    tb_col1, tb_col2, tb_col3 = st.columns([4, 1.3, 1.3])
 
     with tb_col1:
-        modelo_nome = st.selectbox(
-            "Modelo de IA",
-            list(MODELOS_DISPONIVEIS.keys()),
-            index=list(MODELOS_DISPONIVEIS.values()).index(st.session_state["babilaca_modelo"])
-            if st.session_state["babilaca_modelo"] in MODELOS_DISPONIVEIS.values()
-            else 0,
-            key="toolbar_modelo",
-            label_visibility="collapsed",
-        )
-        st.session_state["babilaca_modelo"] = MODELOS_DISPONIVEIS[modelo_nome]
+        st.markdown('<p style="color:#93c5fd;font-size:0.8rem;margin:0.45rem 0;">Converse, envie documentos e receba orientações com base na legislação aplicável.</p>', unsafe_allow_html=True)
     with tb_col2:
         if st.button("🗑️ Limpar conversa", use_container_width=True):
             st.session_state["babilaca_messages"] = []
@@ -2267,6 +2296,7 @@ with tab_chat:
             key="chat_upload",
             label_visibility="collapsed",
         )
+    st.markdown('</div>', unsafe_allow_html=True)
 
     texto_arquivo = ""
     if arquivo_chat:
