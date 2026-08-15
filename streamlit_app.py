@@ -393,9 +393,14 @@ with st.sidebar:
     st.page_link("pages/Calculo_IPCA.py", label="Cálculo IPCA", icon="📊")
     st.markdown("---")
     st.markdown("## LINKS ÚTEIS")
-    st.markdown("""<div style="margin-bottom: 1rem;">
+    st.markdown("""<div style="margin-bottom: 0.8rem;">
         <a href="https://detetive-obtencao.vercel.app/" target="_blank" style="color: #cbd5e1; text-decoration: none; font-size: 0.9rem; display: flex; align-items: center; gap: 0.5rem;">
             🚨 Detetive Obtenção
+        </a>
+    </div>
+    <div style="margin-bottom: 1rem;">
+        <a href="https://depurador.streamlit.app/" target="_blank" style="color: #cbd5e1; text-decoration: none; font-size: 0.9rem; display: flex; align-items: center; gap: 0.5rem;">
+            🧾 Depurador de Orçamentos
         </a>
     </div>
     """, unsafe_allow_html=True)
