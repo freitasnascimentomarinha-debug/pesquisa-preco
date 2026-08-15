@@ -183,6 +183,41 @@ st.markdown("""
     .chat-actions [data-testid="stButton"] button, .chat-actions [data-testid="stFileUploader"] button {
         border-color: #2b6cb0 !important;
     }
+    .workspace-console {
+        background: linear-gradient(135deg, rgba(10, 22, 40, 0.96), rgba(10, 42, 91, 0.84));
+        border: 1px solid #1e5b9f;
+        border-radius: 10px;
+        padding: 1.1rem 1.25rem;
+        margin-bottom: 1rem;
+        box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
+    }
+    .workspace-console-content { display: flex; align-items: center; gap: 0.85rem; }
+    .workspace-console-icon {
+        width: 2.5rem; height: 2.5rem; display: flex; align-items: center; justify-content: center;
+        border-radius: 7px; background: rgba(212, 175, 55, 0.16); border: 1px solid rgba(212, 175, 55, 0.45);
+        font-size: 1.2rem;
+    }
+    .workspace-console h3 { color: #f8fafc; font-size: 1rem; margin: 0; }
+    .workspace-console p { color: #a8c6e8; font-size: 0.8rem; margin: 0.15rem 0 0; }
+    .workspace-console-badge { color: #d4af37; font-size: 0.72rem; font-weight: 700; margin-left: auto; }
+    .document-workspace [data-testid="stSelectbox"] > div > div,
+    .checklist-workspace [data-testid="stSelectbox"] > div > div {
+        border-color: #2b6cb0 !important;
+        background: rgba(10, 22, 40, 0.78) !important;
+    }
+    .checklist-progress {
+        background: rgba(7, 20, 42, 0.7); border: 1px solid #1e5b9f; border-radius: 8px;
+        padding: 0.85rem 1rem; margin: 0.8rem 0 1rem;
+    }
+    .checklist-progress-head { display: flex; justify-content: space-between; gap: 1rem; align-items: baseline; }
+    .checklist-progress-title { color: #dbeafe; font-size: 0.82rem; font-weight: 700; }
+    .checklist-progress-value { color: #d4af37; font-size: 0.95rem; font-weight: 800; }
+    .checklist-progress-track { background: #10284a; border-radius: 999px; height: 0.42rem; margin-top: 0.55rem; overflow: hidden; }
+    .checklist-progress-fill { background: linear-gradient(90deg, #3b82f6, #d4af37); height: 100%; border-radius: inherit; }
+    .checklist-workspace [data-testid="stCheckbox"] {
+        background: rgba(10, 22, 40, 0.42); border: 1px solid rgba(59, 130, 246, 0.16);
+        border-radius: 6px; padding: 0.38rem 0.55rem; margin-bottom: 0.2rem;
+    }
     div[data-testid="stChatMessage"] {
         background: rgba(10,22,40,0.6) !important;
         border: 1px solid rgba(59, 130, 246, 0.18);
@@ -2406,14 +2441,22 @@ with tab_chat:
 # TAB 2 — DOCUMENTOS
 # ============================================================
 with tab_docs:
-    st.markdown("### 📄 Gerar Documentos com IA")
-    st.markdown("Gere documentos administrativos para facilitar a montagem do processo de licitação.")
-    st.markdown("---")
+    st.markdown("""
+    <div class="workspace-console document-workspace">
+        <div class="workspace-console-content">
+            <div class="workspace-console-icon">📄</div>
+            <div><h3>Central de Documentos</h3><p>Estruture peças do processo com dados, anexos e contexto jurídico.</p></div>
+            <span class="workspace-console-badge">GERAÇÃO ASSISTIDA</span>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
     tipo_doc = st.selectbox(
-        "Selecione o tipo de documento",
+        "Documento que deseja preparar",
         ["DFD — Documento de Formalização de Demanda",
          "Termo de Referência",
          "Justificativa de Contratação",
+         "Outras justificativas",
+         "Outros documentos",
          "Mapa Comparativo de Preços",
          "Cronograma Físico-Financeiro",
          "Memória de Cálculo",
@@ -2623,6 +2666,87 @@ with tab_docs:
                         st.download_button("📝 Baixar em Word", docx_bytes, "justificativa_ia.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
                 else:
                     st.warning("Descreva o cenário.")
+
+    # ---- OUTRAS JUSTIFICATIVAS E DOCUMENTOS LIVRES ----
+    elif tipo_doc in ("Outras justificativas", "Outros documentos"):
+        is_justificativa = tipo_doc == "Outras justificativas"
+        titulo_livre = "Outras Justificativas" if is_justificativa else "Outros Documentos"
+        st.markdown(f"#### ✨ {titulo_livre}")
+        st.markdown(
+            "Explique o que precisa elaborar e anexe os materiais disponíveis. "
+            "O Babilaca organizará as informações e gerará um documento editável, com as ressalvas necessárias."
+        )
+        necessidade_livre = st.text_area(
+            "Qual documento você precisa? Descreva a finalidade, o contexto e os pontos que devem constar.",
+            height=160,
+            key="documento_livre_necessidade",
+            placeholder=(
+                "Ex: Preciso justificar a prorrogação de um contrato de manutenção. "
+                "O documento deve abordar a continuidade do serviço, a vantajosidade e o histórico de execução."
+            ),
+        )
+        arquivos_livres = st.file_uploader(
+            "Anexe documentos de apoio (opcional)",
+            type=["pdf", "xlsx", "xls", "csv", "docx"],
+            accept_multiple_files=True,
+            key="documento_livre_upload",
+            help="Os anexos são usados somente como contexto para a geração deste documento.",
+        )
+        if arquivos_livres:
+            st.caption(f"{len(arquivos_livres)} arquivo(s) pronto(s) para análise.")
+
+        if st.button(f"✨ Gerar {titulo_livre} com IA", key="btn_documento_livre", use_container_width=True):
+            contexto_arquivos = []
+            for arquivo_livre in arquivos_livres or []:
+                try:
+                    nome_arquivo = arquivo_livre.name
+                    nome_minusculo = nome_arquivo.lower()
+                    if nome_minusculo.endswith(".pdf"):
+                        texto_extraido = extrair_texto_pdf(arquivo_livre)
+                    elif nome_minusculo.endswith((".xlsx", ".xls")):
+                        texto_extraido, _ = extrair_dados_excel(arquivo_livre)
+                    elif nome_minusculo.endswith(".csv"):
+                        dataframe_csv = pd.read_csv(arquivo_livre)
+                        texto_extraido = dataframe_csv.head(100).to_string(index=False)
+                    else:
+                        documento_word = DocxDocument(arquivo_livre)
+                        texto_extraido = "\n".join(paragrafo.text for paragrafo in documento_word.paragraphs)
+                    if texto_extraido:
+                        contexto_arquivos.append(f"[ARQUIVO: {nome_arquivo}]\n{texto_extraido[:4000]}")
+                except Exception as erro:
+                    st.warning(f"Não foi possível ler o arquivo {arquivo_livre.name}: {erro}")
+
+            if necessidade_livre or contexto_arquivos:
+                with st.spinner(f"Elaborando {titulo_livre.lower()} com IA..."):
+                    orientacao = (
+                        "Gere uma justificativa administrativa completa, objetiva e formal, adequada ao contexto descrito. "
+                        "Estruture com título, contextualização, fatos e evidências, análise, fundamentação aplicável, "
+                        "conclusão e encaminhamento. Não invente fatos, dados, normas ou fontes ausentes."
+                        if is_justificativa
+                        else "Gere o documento administrativo solicitado, em linguagem formal e com estrutura adequada à finalidade. "
+                        "Defina um título coerente e organize o conteúdo em seções. Use exclusivamente as informações fornecidas; "
+                        "quando faltar um dado essencial, indique-o como campo a completar, sem inventar informações."
+                    )
+                    prompt_livre = (
+                        f"{orientacao}\n\n"
+                        f"SOLICITAÇÃO DO USUÁRIO:\n{necessidade_livre or 'Não informada; utilize os anexos.'}\n\n"
+                    )
+                    if contexto_arquivos:
+                        prompt_livre += "MATERIAIS DE APOIO:\n" + "\n\n".join(contexto_arquivos)
+                    consulta = "justificativa contratação processo administrativo" if is_justificativa else "documento processo administrativo contratação pública"
+                    system = _build_system_prompt(buscar_base_juridica(consulta))
+                    resultado = chamar_ia([{"role": "user", "content": prompt_livre}], system)
+                st.markdown(resultado)
+                nome_base = "outra_justificativa" if is_justificativa else "outro_documento"
+                pdf_bytes = gerar_pdf_documento(titulo_livre.upper(), resultado)
+                docx_bytes = gerar_docx_documento(titulo_livre.upper(), resultado)
+                col_pdf, col_docx = st.columns(2)
+                with col_pdf:
+                    st.download_button("⬇️ Baixar em PDF", pdf_bytes, f"{nome_base}.pdf", "application/pdf")
+                with col_docx:
+                    st.download_button("📝 Baixar em Word", docx_bytes, f"{nome_base}.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+            else:
+                st.warning("Descreva a necessidade ou anexe ao menos um documento de apoio.")
 
     # ---- MAPA COMPARATIVO ----
     elif "Mapa Comparativo" in tipo_doc:
@@ -3621,11 +3745,18 @@ Confirmar sempre nas fontes oficiais.
 # TAB 3 — CHECKLIST DE PROCESSO
 # ============================================================
 with tab_checklist:
-    st.markdown("### 📋 Checklist de Processo")
-    st.markdown("Selecione a modalidade do processo e confira os documentos necessários. Marque os que já possui e imprima a capa do processo.")
+    st.markdown("""
+    <div class="workspace-console checklist-workspace">
+        <div class="workspace-console-content">
+            <div class="workspace-console-icon">📋</div>
+            <div><h3>Painel de Conferência do Processo</h3><p>Acompanhe a documentação essencial antes de formalizar ou encaminhar a contratação.</p></div>
+            <span class="workspace-console-badge">CONTROLE DE ETAPAS</span>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
     modalidade_sel = st.selectbox(
-        "Modalidade / Tipo de processo",
+        "Modalidade ou tipo de processo",
         list(CHECKLIST_MODALIDADES.keys()),
         key="checklist_modalidade",
     )
@@ -3640,8 +3771,7 @@ with tab_checklist:
             st.markdown(f"**📋 Como montar o processo (Lei 14.133/2021)**\n\n{info['como_montar']}")
 
     itens_checklist = CHECKLIST_MODALIDADES[modalidade_sel]
-    st.markdown(f"**{len(itens_checklist)} documentos necessários:**")
-    st.markdown("---")
+    st.caption(f"{len(itens_checklist)} itens para conferência nesta modalidade.")
 
     status_checks = {}
     for item_ck in itens_checklist:
@@ -3651,7 +3781,16 @@ with tab_checklist:
     # Resumo
     marcados = sum(1 for v in status_checks.values() if v)
     total = len(itens_checklist)
-    st.markdown("---")
+    percentual = round((marcados / total) * 100) if total else 0
+    st.markdown(f"""
+    <div class="checklist-progress">
+        <div class="checklist-progress-head">
+            <span class="checklist-progress-title">Andamento da documentação</span>
+            <span class="checklist-progress-value">{marcados}/{total} · {percentual}%</span>
+        </div>
+        <div class="checklist-progress-track"><div class="checklist-progress-fill" style="width:{percentual}%;"></div></div>
+    </div>
+    """, unsafe_allow_html=True)
     if marcados == total:
         st.success(f"✅ Processo completo! {marcados}/{total} documentos presentes.")
     elif marcados > 0:
