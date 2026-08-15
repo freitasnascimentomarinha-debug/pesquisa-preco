@@ -115,6 +115,18 @@ def _texto_pdf(texto: object) -> str:
     return unicodedata.normalize("NFKD", str(texto)).encode("ascii", "ignore").decode("ascii")
 
 
+def _texto_pdf_quebravel(texto: object, tamanho_maximo: int = 45) -> str:
+    """Insere espaços em tokens longos para que o FPDF consiga quebrar as linhas."""
+    linhas = []
+    for linha in _texto_pdf(texto).splitlines() or [""]:
+        palavras = []
+        for palavra in linha.split(" "):
+            partes = [palavra[indice:indice + tamanho_maximo] for indice in range(0, len(palavra), tamanho_maximo)]
+            palavras.append(" ".join(partes))
+        linhas.append(" ".join(palavras))
+    return "\n".join(linhas)
+
+
 @st.cache_data(show_spinner=False)
 def carregar_catalogo(caminho: str) -> list[dict[str, object]]:
     with open(caminho, "r", encoding="utf-8") as arquivo:
@@ -233,15 +245,19 @@ def gerar_pdf(resultados: pd.DataFrame) -> bytes:
     pdf.add_page()
     pdf.set_text_color(40, 40, 40)
     pdf.set_font("Helvetica", "", 9)
+    pdf.set_x(pdf.l_margin)
     pdf.multi_cell(0, 5, "Sugestoes calculadas a partir do catalogo publico do Compras.gov. Revise a descricao e o codigo antes de utilizar no processo.")
     pdf.ln(3)
     for indice, linha in resultados.iterrows():
         pdf.set_fill_color(235, 242, 252)
         pdf.set_font("Helvetica", "B", 10)
-        pdf.cell(0, 7, _texto_pdf(f"{indice + 1}. {linha['Descrição informada'][:105]}"), fill=True, ln=True)
+        pdf.set_x(pdf.l_margin)
+        pdf.multi_cell(0, 7, _texto_pdf_quebravel(f"{indice + 1}. {linha['Descrição informada']}"), fill=True)
         pdf.set_font("Helvetica", "", 9)
-        pdf.multi_cell(0, 5, _texto_pdf(f"{linha['Tipo']} {linha['Código']}  |  Similaridade: {linha['Similaridade (%)']}%"))
-        pdf.multi_cell(0, 5, _texto_pdf(f"Sugestao: {linha['Descrição sugerida']}"))
+        pdf.set_x(pdf.l_margin)
+        pdf.multi_cell(0, 5, _texto_pdf_quebravel(f"{linha['Tipo']} {linha['Código']}  |  Similaridade: {linha['Similaridade (%)']}%"))
+        pdf.set_x(pdf.l_margin)
+        pdf.multi_cell(0, 5, _texto_pdf_quebravel(f"Sugestao: {linha['Descrição sugerida']}"))
         pdf.ln(3)
     pdf.set_font("Helvetica", "I", 7)
     pdf.set_text_color(100, 100, 100)
