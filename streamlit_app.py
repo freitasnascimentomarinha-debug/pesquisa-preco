@@ -303,16 +303,18 @@ st.markdown("""
             background: linear-gradient(135deg, #1a1a1a 0%, #252525 100%) !important;
             color: #ffffff !important;
             border: 1px solid #333333 !important;
-            border-radius: 10px !important;
-            margin: 0.4rem 0 !important;
-            padding: 0.85rem 1.2rem !important;
+            border-radius: 8px !important;
+            margin: 0.2rem 0 !important;
+            padding: 0.55rem 0.8rem !important;
             font-weight: 600 !important;
-            font-size: 15px !important;
+            font-size: 13px !important;
+            line-height: 1.2 !important;
             transition: all 0.3s ease !important;
             text-decoration: none !important;
             display: flex !important;
             align-items: center !important;
             justify-content: center !important;
+            min-height: 0 !important;
         }
 
         [data-testid="stSidebar"] a[data-testid="stPageLink-NavLink"] span {
@@ -393,14 +395,9 @@ with st.sidebar:
     st.page_link("pages/Calculo_IPCA.py", label="Cálculo IPCA", icon="📊")
     st.markdown("---")
     st.markdown("## LINKS ÚTEIS")
-    st.markdown("""<div style="margin-bottom: 0.8rem;">
+    st.markdown("""<div style="margin-bottom: 1rem;">
         <a href="https://detetive-obtencao.vercel.app/" target="_blank" style="color: #cbd5e1; text-decoration: none; font-size: 0.9rem; display: flex; align-items: center; gap: 0.5rem;">
             🚨 Detetive Obtenção
-        </a>
-    </div>
-    <div style="margin-bottom: 1rem;">
-        <a href="https://depurador.streamlit.app/" target="_blank" style="color: #cbd5e1; text-decoration: none; font-size: 0.9rem; display: flex; align-items: center; gap: 0.5rem;">
-            🧾 Depurador de Orçamentos
         </a>
     </div>
     """, unsafe_allow_html=True)
