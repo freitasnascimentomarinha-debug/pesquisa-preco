@@ -458,7 +458,10 @@ def _dedup_urls(urls, num_results=8):
     return unique[:num_results]
 
 
-MOTORES_DDGS = ("auto", "duckduckgo", "bing", "brave")  # "auto" primeiro (o que sempre funcionou); os demais só se vier vazio
+# Motores gratuitos do pacote ddgs, em ordem. O DuckDuckGo (e o "auto", que cai em resultados aleatórios quando ele falha)
+# ficam por último porque o servidor da nuvem costuma ter o DuckDuckGo bloqueado/lento.
+MOTORES_DDGS = ("mojeek", "brave", "yahoo", "bing", "yandex", "duckduckgo", "auto")
+FALHAS_MOTOR = {}  # motores que deram timeout/limite nesta execução: depois de 2 falhas são pulados (evita esperar 30 s por busca)
 DIAG_BUSCA = {}  # o que cada buscador respondeu na última busca (aparece no log quando nada é encontrado)
 
 
@@ -498,14 +501,21 @@ def buscar_ddgs_api(query, num_results=8, item=None):
             return []
     sobras = []
     for motor in MOTORES_DDGS:
+        if FALHAS_MOTOR.get(motor, 0) >= 2:
+            DIAG_BUSCA[f"ddgs/{motor}"] = "pulado (falhou 2 vezes nesta execução)"
+            continue
         try:
             try:
-                resultados = list(DDGS(timeout=10).text(query, region="br-pt", max_results=num_results * 2, backend=motor))
+                resultados = list(DDGS(timeout=8).text(query, region="br-pt", max_results=num_results * 2, backend=motor))
             except TypeError:  # versão antiga sem o parâmetro backend/timeout
                 resultados = list(DDGS().text(query, region="br-pt", max_results=num_results * 2))
         except Exception as erro:
-            DIAG_BUSCA[f"ddgs/{motor}"] = f"erro {type(erro).__name__}: {str(erro)[:80]}"
+            nome_erro = type(erro).__name__
+            DIAG_BUSCA[f"ddgs/{motor}"] = f"erro {nome_erro}: {str(erro)[:80]}"
+            if any(marca in nome_erro for marca in ("Timeout", "Ratelimit", "Connect")):
+                FALHAS_MOTOR[motor] = FALHAS_MOTOR.get(motor, 0) + 1
             continue
+        FALHAS_MOTOR[motor] = 0
         validos = [r for r in resultados if r.get("href") and dominio_valido(r["href"])]
         DIAG_BUSCA[f"ddgs/{motor}"] = f"{len(resultados)} resultados, {len(validos)} após filtro de domínios"
         relevantes = _dedup_urls([r["href"] for r in validos if _resultado_relevante(r, termos)], num_results)
@@ -514,6 +524,31 @@ def buscar_ddgs_api(query, num_results=8, item=None):
         if not sobras:
             sobras = _dedup_urls([r["href"] for r in validos], num_results)
     return sobras[:3]  # nenhum motor trouxe resultado do assunto: tenta só os 3 primeiros
+
+
+def buscar_mojeek(session, query, headers, num_results=8, item=None):
+    """Busca no Mojeek (HTML simples, gratuito e tolerante a robôs) como alternativa ao DuckDuckGo."""
+    from bs4 import BeautifulSoup
+
+    termos = _termos_do_item(item) if item else []
+    url = f"https://www.mojeek.com/search?q={quote_plus(query)}&lb=pt&arc=br"
+    try:
+        resp = session.get(url, headers=headers, timeout=(5, 10))
+        if resp.status_code != 200:
+            DIAG_BUSCA["mojeek html"] = f"HTTP {resp.status_code}"
+            return []
+        soup = BeautifulSoup(resp.text, "html.parser")
+        achados = []
+        for a_tag in soup.select("ul.results-standard li a.title, a.title"):
+            href = a_tag.get("href", "")
+            if href.startswith("http") and dominio_valido(href):
+                achados.append({"href": href, "title": a_tag.get_text(" ", strip=True), "body": a_tag.find_parent("li").get_text(" ", strip=True) if a_tag.find_parent("li") else ""})
+        DIAG_BUSCA["mojeek html"] = f"{len(achados)} resultados"
+        relevantes = [r["href"] for r in achados if _resultado_relevante(r, termos)]
+        return _dedup_urls(relevantes, num_results)
+    except Exception as erro:
+        DIAG_BUSCA["mojeek html"] = f"erro {type(erro).__name__}"
+        return []
 
 
 def buscar_duckduckgo(session, query, headers, num_results=8):
@@ -682,12 +717,16 @@ def buscar_searchapi(query, num_results=8):
 
 def buscar_urls(session, query, headers, num_results=8, item=None):
     """Busca combinada: DDGS API > DuckDuckGo HTML > Google > Bing."""
-    DIAG_BUSCA.clear()
+    DIAG_BUSCA.clear()  # (FALHAS_MOTOR só é zerado no início de cada execução)
     # 1. Tentar DDGS API (mais confiável em ambientes de servidor)
     urls = buscar_ddgs_api(query, num_results, item)
     if urls:
         return urls, "DDGS API"
-    # 2. DuckDuckGo HTML scraping
+    # 2. Mojeek (HTML simples)
+    urls = buscar_mojeek(session, query, headers, num_results, item)
+    if urls:
+        return urls, "Mojeek"
+    # 3. DuckDuckGo HTML scraping
     urls = buscar_duckduckgo(session, query, headers, num_results)
     if urls:
         return urls, "DuckDuckGo HTML"
@@ -700,6 +739,41 @@ def buscar_urls(session, query, headers, num_results=8, item=None):
     if urls:
         return urls, "Bing"
     return [], "nenhum"
+
+
+def testar_buscadores(query, item=None):
+    """Diagnóstico: roda a mesma busca em cada motor e devolve tempo, nº de resultados e os primeiros títulos."""
+    import requests as req
+
+    termos = _termos_do_item(item or query)
+    linhas = []
+    try:
+        from ddgs import DDGS
+    except ImportError:
+        DDGS = None
+    for motor in MOTORES_DDGS:
+        inicio = time.time()
+        try:
+            if DDGS is None:
+                raise ImportError("pacote ddgs não instalado")
+            resultados = list(DDGS(timeout=8).text(query, region="br-pt", max_results=10, backend=motor))
+            relevantes = [r for r in resultados if _resultado_relevante(r, termos)]
+            linhas.append({"Buscador": f"ddgs/{motor}", "Tempo (s)": round(time.time() - inicio, 1), "Resultados": len(resultados), "Do assunto": len(relevantes),
+                           "Primeiros": " | ".join(f"{extrair_dominio(r.get('href', ''))}: {str(r.get('title', ''))[:40]}" for r in (relevantes or resultados)[:3])})
+        except Exception as erro:
+            linhas.append({"Buscador": f"ddgs/{motor}", "Tempo (s)": round(time.time() - inicio, 1), "Resultados": 0, "Do assunto": 0, "Primeiros": f"erro {type(erro).__name__}: {str(erro)[:70]}"})
+    sessao = req.Session()
+    cabecalhos = gerar_headers()
+    sessao.headers.update(cabecalhos)
+    for nome, funcao in (("Mojeek (HTML)", lambda: buscar_mojeek(sessao, query, cabecalhos, 8, item or query)),
+                         ("DuckDuckGo (HTML)", lambda: buscar_duckduckgo(sessao, query, cabecalhos, 8)),
+                         ("Bing (HTML)", lambda: buscar_bing_requests(sessao, query, cabecalhos, 8))):
+        inicio = time.time()
+        DIAG_BUSCA.clear()
+        urls = funcao()
+        linhas.append({"Buscador": nome, "Tempo (s)": round(time.time() - inicio, 1), "Resultados": len(urls), "Do assunto": len(urls) if nome.startswith("Mojeek") else "-",
+                       "Primeiros": " | ".join(extrair_dominio(u) for u in urls[:3]) or "; ".join(f"{k}: {v}" for k, v in DIAG_BUSCA.items())})
+    return linhas
 
 
 def extrair_precos_pagina(html_content):
@@ -1341,6 +1415,7 @@ def executar_scraping(itens, usar_playwright, progress_bar, log_container, statu
 
     os.makedirs(SCREENSHOT_DIR, exist_ok=True)
     buscas_google = 0
+    FALHAS_MOTOR.clear()
 
     for idx, item in enumerate(itens):
         item = item.strip()
@@ -1893,6 +1968,13 @@ _como_funciona_html = """
 """
 with st.expander("⚙️ Como Funciona o Web Scraping", expanded=False):
     _components.html(_como_funciona_html, height=700, scrolling=True)
+
+with st.expander("🔧 Diagnóstico dos buscadores (se a pesquisa não encontrar nada)", expanded=False):
+    st.caption("Roda uma busca de teste em cada buscador gratuito e mostra qual responde, em quanto tempo e se os resultados são do assunto.")
+    consulta_teste = st.text_input("Busca de teste", value="fita crepe preço", key="consulta_teste_buscadores")
+    if st.button("Testar buscadores agora", key="botao_teste_buscadores"):
+        with st.spinner("Testando (pode levar até 1 minuto)..."):
+            st.dataframe(pd.DataFrame(testar_buscadores(consulta_teste)), use_container_width=True, hide_index=True)
 
 # Formulário de entrada
 st.markdown("### 📝 Itens para Pesquisa")
