@@ -343,22 +343,3 @@ def analisar_todos(itens: list[str], ofertas: list[dict], remover: bool = True, 
     """Um resultado por item pesquisado, na ordem digitada (itens sem página aparecem como 'sem páginas')."""
     return [analisar_item_web(item, [o for o in ofertas if o.get("item") == item], remover, max_precos) for item in itens if item.strip()]
 
-
-ITEM_DOS_LINKS_SEM_NOME = "Links colados"
-RE_URL = re.compile(r"https?://[^\s<>\"']+", re.IGNORECASE)
-
-
-def ler_links_colados(texto: str) -> list[tuple[str, str]]:
-    """Linhas como 'fita isolante | https://loja.com.br/produto' (ou só o link) -> [(item, url)].
-    O nome do item é o texto antes do link (separado por | ; , - ou espaços); sem nome, o item é 'Links colados'."""
-    pares, vistos = [], set()
-    for linha in str(texto or "").splitlines():
-        achado = RE_URL.search(linha)
-        if not achado:
-            continue
-        url = achado.group(0).rstrip(".,;)")
-        item = re.sub(r"^[\s|;,:\-–—>]+|[\s|;,:\-–—>]+$", "", linha[:achado.start()]).strip() or ITEM_DOS_LINKS_SEM_NOME
-        if (item.lower(), url) not in vistos:
-            vistos.add((item.lower(), url))
-            pares.append((item, url))
-    return pares
