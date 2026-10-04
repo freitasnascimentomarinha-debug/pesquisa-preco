@@ -3,16 +3,29 @@ import base64
 import json
 import os
 import re
+import sys
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime as dt, timedelta as td
 from typing import Dict, List, Optional, Tuple
 
 import aiohttp
 import folium
+import requests
 import streamlit as st
 from streamlit_folium import st_folium
 
 # ── Caminhos dos dados do Projeto Adesões ──────────────────────────────────
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "Projeto Adesões")
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # catmat_busca.py (raiz do projeto)
+from catmat_busca import (  # noqa: E402
+    CATMAT_PATH,
+    CATSERV_PATH,
+    atualizado_em,
+    buscar_familias,
+    buscar_servicos,
+    carregar_catalogo,
+    carregar_indice_catmat,
+)
 
 # ── Constantes da API ──────────────────────────────────────────────────────
 API_URL = "https://dadosabertos.compras.gov.br/modulo-arp/2_consultarARPItem"
@@ -439,6 +452,35 @@ def _data_path(filename: str) -> str:
 def load_catalog(path: str) -> Dict[str, str]:
     with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def contar_atas(tipo: str, codigo: str) -> Optional[int]:
+    """Quantidade de itens de ata vigentes no período da busca para o código (None se a API falhar)."""
+    fim = dt.today().date()
+    parametros = {
+        "pagina": 1,
+        "tamanhoPagina": 10,
+        "dataVigenciaInicialMin": (fim - td(days=DATE_RANGE_DAYS - 1)).strftime("%Y-%m-%d"),
+        "dataVigenciaInicialMax": fim.strftime("%Y-%m-%d"),
+        "codigoPdm" if tipo == "Material" else "codigoItem": codigo,
+    }
+    try:
+        resposta = requests.get(API_URL, params=parametros, timeout=20)
+        return int(resposta.json()["totalRegistros"]) if resposta.status_code == 200 else None
+    except (requests.RequestException, ValueError, KeyError):
+        return None
+
+
+def contar_atas_em_paralelo(tipo: str, codigos: List[str]) -> Dict[str, Optional[int]]:
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        return dict(zip(codigos, executor.map(lambda codigo: contar_atas(tipo, codigo), codigos)))
+
+
+def texto_atas(quantidade: Optional[int]) -> str:
+    if quantidade is None:
+        return "atas: indisponível"
+    return "sem atas no período" if quantidade == 0 else f"{quantidade} itens de ata"
 
 
 def build_ata_url(identifier: str) -> str:
@@ -1145,27 +1187,75 @@ codigo = None
 federal_only = False
 uasg_sphere: Dict[str, str] = {}
 
-if tipo == "Material":
-    materiais = load_catalog(_data_path("catalogo_pdm.json"))
-    selected_label = st.selectbox(
-        "Material",
-        sorted(materiais.keys()),
-        index=None,
-        placeholder="Pesquise pelo nome do material",
+if tipo:
+    data_catalogo = atualizado_em()
+    st.caption(
+        "Pesquise pelo nome, por uma descrição (ex.: resma de papel a4) ou pelo código "
+        + ("CATMAT/PDM" if tipo == "Material" else "do serviço")
+        + (f" — catálogo oficial atualizado em {data_catalogo}." if data_catalogo else ".")
     )
-    if selected_label:
-        codigo = materiais[selected_label]
+    consulta = st.text_input(
+        "Pesquisar material" if tipo == "Material" else "Pesquisar serviço",
+        placeholder="Ex.: notebook, luva de procedimento, resma de papel a4" if tipo == "Material" else "Ex.: manutenção de ar condicionado",
+    ).strip()
+
+if tipo == "Material":
+    catmat = carregar_indice_catmat(CATMAT_PATH)
+    if consulta:
+        familias = buscar_familias(consulta, catmat)
+        atas = contar_atas_em_paralelo(tipo, [f["codigo"] for f in familias])
+        so_com_atas = st.checkbox("Mostrar apenas famílias com atas vigentes", value=True, key="familias_so_com_atas")
+        if so_com_atas and any(atas.values()):
+            familias = [f for f in familias if atas[f["codigo"]]]
+        elif so_com_atas and familias:
+            st.info("Nenhuma das famílias encontradas tem atas vigentes no período; mostrando todas.")
+        rotulos = {
+            f"{f['nome']} · PDM {f['codigo']} · {texto_atas(atas[f['codigo']])} · {f['nota']:.0f}%": f for f in familias
+        }
+        if rotulos:
+            selected_label = st.selectbox(
+                "Famílias de material encontradas (a busca de atas é feita pela família)", list(rotulos), index=0
+            )
+            escolhida = rotulos[selected_label]
+            st.caption(f"Classe: {escolhida['classe']} — {escolhida['exemplo']}")
+            codigo = escolhida["codigo"]
+        else:
+            st.warning("Nenhuma família de material encontrada. Tente outras palavras ou o código CATMAT do item.")
+    else:
+        materiais = load_catalog(_data_path("catalogo_pdm.json"))
+        selected_label = st.selectbox(
+            "Ou escolha na lista completa de famílias",
+            sorted(materiais.keys()),
+            index=None,
+            placeholder="Selecione uma família de material",
+        )
+        if selected_label:
+            codigo = materiais[selected_label]
 
 if tipo == "Serviço":
-    servicos = load_catalog(_data_path("catalogo_servicos.json"))
-    selected_label = st.selectbox(
-        "Serviço",
-        sorted(servicos.keys()),
-        index=None,
-        placeholder="Pesquise pelo nome do serviço",
-    )
-    if selected_label:
-        codigo = servicos[selected_label]
+    catalogo_servico = carregar_catalogo(CATSERV_PATH)
+    if consulta:
+        servicos_encontrados = buscar_servicos(consulta, catalogo_servico)
+        atas = contar_atas_em_paralelo(tipo, [s["codigo"] for s in servicos_encontrados])
+        rotulos = {
+            f"{s['nome']} · cód. {s['codigo']} · {texto_atas(atas[s['codigo']])} · {s['nota']:.0f}%": s
+            for s in servicos_encontrados
+        }
+        if rotulos:
+            selected_label = st.selectbox("Serviços encontrados", list(rotulos), index=0)
+            codigo = rotulos[selected_label]["codigo"]
+        else:
+            st.warning("Nenhum serviço encontrado. Tente outras palavras ou o código do serviço.")
+    else:
+        servicos = load_catalog(_data_path("catalogo_servicos.json"))
+        selected_label = st.selectbox(
+            "Ou escolha na lista completa de serviços",
+            sorted(servicos.keys()),
+            index=None,
+            placeholder="Selecione um serviço",
+        )
+        if selected_label:
+            codigo = servicos[selected_label]
 
 if selected_label:
     federal_only = st.checkbox("Buscar somente atas da esfera federal", value=True)
