@@ -468,7 +468,22 @@ def intervalo_entre_buscas():
 
 DIAG_BUSCA = {}  # o que cada buscador respondeu na última busca (erro, HTTP ou nº de sites): aparece no log quando o DuckDuckGo falha
 DDG_PROXIMA_TENTATIVA = {"ate": 0.0}  # depois de um bloqueio suspeito, o DuckDuckGo descansa um pouco antes de ser consultado de novo
-PAUSA_APOS_BLOQUEIO_DDG = 60  # segundos
+PAUSA_APOS_BLOQUEIO_DDG = 60  # segundos (o descanso dobra a cada bloqueio seguido, até PAUSA_MAXIMA_DDG)
+PAUSA_MAXIMA_DDG = 600
+DDG_BLOQUEIOS_SEGUIDOS = {"n": 0}
+
+
+def descansar_ddg():
+    """Marca o descanso do DuckDuckGo: 60 s no 1º bloqueio, depois 120, 240... (insistir cedo demais renova o bloqueio). Devolve os segundos."""
+    pausa = min(PAUSA_APOS_BLOQUEIO_DDG * (2 ** DDG_BLOQUEIOS_SEGUIDOS["n"]), PAUSA_MAXIMA_DDG)
+    DDG_BLOQUEIOS_SEGUIDOS["n"] += 1
+    DDG_PROXIMA_TENTATIVA["ate"] = time.time() + pausa
+    return pausa
+
+
+def ddg_voltou():
+    DDG_PROXIMA_TENTATIVA["ate"] = 0.0
+    DDG_BLOQUEIOS_SEGUIDOS["n"] = 0
 
 
 def buscar_ddgs_api(query, num_results=8):
@@ -653,7 +668,7 @@ def buscar_na_loja(session, item, site, headers, num_results=8):
             urls = [u for u in buscar_duckduckgo(session, query, headers, num_results) if da_loja(u)]
         sinais = [v for k, v in DIAG_BUSCA.items() if k in ("DDGS", "DuckDuckGo HTML")]
         if not urls and any(str(v).startswith(("erro", "HTTP 202", "HTTP 403", "HTTP 429", "HTTP 5")) for v in sinais):
-            DDG_PROXIMA_TENTATIVA["ate"] = time.time() + PAUSA_APOS_BLOQUEIO_DDG
+            descansar_ddg()
     if not urls:  # DuckDuckGo descansando ou sem resposta: o Bing também aceita "site:"
         urls = [u for u in buscar_bing_requests(session, query, headers, num_results) if da_loja(u)]
     return list(dict.fromkeys(urls))[:3]
@@ -671,17 +686,17 @@ def buscar_urls(session, query, headers, num_results=8):
         # 1. Tentar DDGS API (mais confiável em ambientes de servidor)
         urls = buscar_ddgs_api(query, num_results)
         if urls:
-            DDG_PROXIMA_TENTATIVA["ate"] = 0.0
+            ddg_voltou()
             return urls, "DDGS API"
         # 2. DuckDuckGo HTML scraping
         urls = buscar_duckduckgo(session, query, headers, num_results)
         if urls:
-            DDG_PROXIMA_TENTATIVA["ate"] = 0.0
+            ddg_voltou()
             return urls, "DuckDuckGo HTML"
         sinais = [v for k, v in DIAG_BUSCA.items() if k in ("DDGS", "DuckDuckGo HTML")]
         if any(str(v).startswith(("erro", "HTTP 202", "HTTP 403", "HTTP 429", "HTTP 5")) for v in sinais):
-            DDG_PROXIMA_TENTATIVA["ate"] = time.time() + PAUSA_APOS_BLOQUEIO_DDG
-            nota = "DuckDuckGo sem resposta (" + "; ".join(f"{k}: {v}" for k, v in DIAG_BUSCA.items() if k in ("DDGS", "DuckDuckGo HTML")) + f"); descansa {PAUSA_APOS_BLOQUEIO_DDG} s"
+            pausa = descansar_ddg()
+            nota = "DuckDuckGo sem resposta (" + "; ".join(f"{k}: {v}" for k, v in DIAG_BUSCA.items() if k in ("DDGS", "DuckDuckGo HTML")) + f"); descansa {pausa} s"
         else:
             nota = "DuckDuckGo sem resultados para esta frase"
     # 3. Google
@@ -692,6 +707,8 @@ def buscar_urls(session, query, headers, num_results=8):
     urls = buscar_bing_requests(session, query, headers, num_results)
     if urls:
         return urls, f"Bing — {nota}" if nota else "Bing"
+    outros = "; ".join(f"{k}: {v}" for k, v in DIAG_BUSCA.items() if k in ("Google", "Bing"))
+    nota = "; ".join(x for x in (nota, outros) if x)
     return [], f"nenhum ({nota})" if nota else "nenhum"
 
 
