@@ -9,7 +9,9 @@ import re
 import unicodedata
 import base64
 from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor
 from difflib import SequenceMatcher
+from functools import lru_cache
 
 import pandas as pd
 import requests
@@ -31,20 +33,47 @@ CATALOGO_DIR = os.path.join(BASE_DIR, "Projeto Adesões")
 PDM_PATH = os.path.join(CATALOGO_DIR, "catalogo_pdm.json")
 CATSERV_PATH = os.path.join(CATALOGO_DIR, "catalogo_servicos.json")
 CATMAT_API_URL = "https://dadosabertos.compras.gov.br/modulo-material/4_consultarItemMaterial"
-STOP_WORDS = {"a", "as", "com", "da", "das", "de", "do", "dos", "e", "em", "para", "por", "sem", "um", "uma"}
+STOP_WORDS = {"a", "as", "com", "da", "das", "de", "do", "dos", "e", "em", "o", "os", "para", "por", "sem", "um", "uma", "tipo"}
+# Termos de embalagem/unidade: descrevem como o item é comprado, não o que ele é.
+# Entram na comparação com peso baixo e nunca definem o "termo principal" do item.
+TERMOS_EMBALAGEM = {
+    "caixa", "cx", "fardo", "folha", "pacote", "pct", "resma", "und", "unid", "unidade",
+    "kg", "ml", "mm", "cm", "m2", "gr", "lt", "litro", "metro",
+}
 TERMOS_RESTRITIVOS = {
     "automotivo", "cartucho", "descartavel", "hospitalar", "impressora", "industrial",
     "infantil", "medico", "odontologico", "recarga", "refil", "tinteiro", "toner",
 }
-EXPANSOES_DE_BUSCA = {
-    "caneta": "caneta esferografica",
-    "fita crepe": "fita crepe adesiva",
+# Termo da descrição -> grupos de termos que o catálogo usa para dizer a mesma coisa.
+# Um grupo só vale se TODOS os seus termos estiverem na descrição do catálogo.
+EQUIVALENCIAS = {
+    "a4": [{"210", "297"}],
+    "a3": [{"297", "420"}],
+    "oficio": [{"216", "330"}],
+    "carta": [{"216", "279"}],
+    "sulfite": [{"alcalino"}, {"reprografico"}],
+    "reprografico": [{"sulfite"}],
 }
+# Termos que, presentes na descrição do catálogo, indicam o produto usual daquela compra.
+PREFERENCIAS = [
+    ({"papel", "resma"}, {"sulfite", "alcalino", "reprografico"}),
+    ({"papel", "a4"}, {"sulfite", "alcalino", "reprografico"}),
+]
+# Termos da descrição -> consultas adicionais enviadas ao catálogo (a API busca por trecho).
+EXPANSOES_DE_BUSCA = [
+    ({"caneta"}, ["caneta esferografica"]),
+    ({"fita", "crepe"}, ["fita crepe adesiva"]),
+    ({"papel", "a4"}, ["papel sulfite", "papel alcalino", "papel impressao"]),
+    ({"papel", "resma"}, ["papel sulfite", "papel alcalino", "papel impressao"]),
+    ({"papel", "sulfite"}, ["papel alcalino", "papel impressao"]),
+]
 FALLBACKS_GENERICOS = {
     "caneta": {"codigo_pdm": "99", "termos_preferidos": {"esferografica"}},
     "fita crepe": {"codigo_pdm": "18071", "termos_preferidos": {"papel", "crepado"}},
 }
 LIMIAR_SIMILARIDADE = 45.0
+PAGINAS_POR_CONSULTA = 3
+TAMANHO_PAGINA = 100
 
 
 st.markdown(
@@ -147,17 +176,65 @@ with st.sidebar:
 
 
 def _normalizar(texto: str) -> str:
-    texto = unicodedata.normalize("NFKD", str(texto)).encode("ASCII", "ignore").decode("ASCII")
-    return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9]+", " ", texto.lower())).strip()
+    texto = unicodedata.normalize("NFKD", str(texto)).encode("ASCII", "ignore").decode("ASCII").lower()
+    texto = re.sub(r"(\d)([a-z])", r"\1 \2", texto)  # "75g" -> "75 g"
+    return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9]+", " ", texto)).strip()
+
+
+def _radical(token: str) -> str:
+    """Remove o plural simples para que 'canetas' e 'caneta' sejam o mesmo termo."""
+    if len(token) > 4 and token.endswith(("oes", "aes")):
+        return token[:-3] + "ao"
+    if len(token) > 3 and token.endswith("s") and not token.endswith("ss"):
+        return token[:-1]
+    return token
+
+
+@lru_cache(maxsize=100_000)
+def _tokens_ordenados(texto: str) -> tuple[str, ...]:
+    vistos: dict[str, None] = {}
+    for token in _normalizar(texto).split():
+        if len(token) > 1 and token not in STOP_WORDS:
+            vistos.setdefault(_radical(token), None)
+    return tuple(vistos)
 
 
 def _tokens(texto: str) -> set[str]:
-    return {token for token in _normalizar(texto).split() if len(token) > 1 and token not in STOP_WORDS}
+    return set(_tokens_ordenados(texto))
+
+
+def _tem_numero(token: str) -> bool:
+    return any(caractere.isdigit() for caractere in token)
+
+
+def _perfil(descricao: str) -> dict[str, object]:
+    """Separa a descrição em núcleo (o que o item é), especificações (a4, 75...) e embalagem (resma, caixa...)."""
+    ordem = list(_tokens_ordenados(descricao))
+    macios = [token for token in ordem if token in TERMOS_EMBALAGEM]
+    especificos = [token for token in ordem if token not in macios and _tem_numero(token)]
+    nucleo = [token for token in ordem if token not in macios and token not in especificos] or ordem
+    return {"ordem": ordem, "macios": macios, "especificos": especificos, "nucleo": nucleo, "cabeca": nucleo[0] if nucleo else ""}
 
 
 def _termo_principal(texto: str) -> str:
-    """Retorna o primeiro termo informativo, que representa a categoria principal do item."""
-    return next((token for token in _normalizar(texto).split() if len(token) > 1 and token not in STOP_WORDS), "")
+    """Retorna o termo que diz o que o item é, ignorando embalagem ('resma de papel' -> 'papel')."""
+    return str(_perfil(texto)["cabeca"])
+
+
+def _forca_termo(token: str, destino: set[str]) -> float:
+    """1.0 = termo presente; menos que isso = equivalente ou variação do mesmo termo; 0 = ausente."""
+    if token in destino:
+        return 1.0
+    if any(grupo <= destino for grupo in EQUIVALENCIAS.get(token, [])):
+        return 0.85
+    if len(token) >= 5 and not _tem_numero(token):
+        for candidato in destino:
+            menor = min(len(token), len(candidato))
+            if menor >= 5 and not _tem_numero(candidato):
+                comum = len(os.path.commonprefix([token, candidato]))
+                if comum >= menor - 1:
+                    return 0.7
+    return 0.0
 
 
 def _texto_pdf(texto: object) -> str:
@@ -187,60 +264,61 @@ def carregar_catalogo(caminho: str) -> list[dict[str, object]]:
     ]
 
 
-@st.cache_data(ttl=3600, show_spinner=False)
-def buscar_catmat_api(consulta: str) -> list[dict[str, str]]:
-    """Busca candidatos do catálogo público do Compras.gov por descrição."""
-    termos = list(_tokens(consulta))
-    consultas = [consulta, EXPANSOES_DE_BUSCA.get(_normalizar(consulta), "")]
-    consultas.extend(termo for termo in termos if len(termo) >= 4)
-    candidatos = {}
-    for texto_consulta in dict.fromkeys(texto for texto in consultas if texto):
+def _itens_da_resposta(resultado: list[dict]) -> list[dict[str, str]]:
+    return [
+        {
+            "codigo": str(item.get("codigoItem", "")),
+            "descricao": item.get("descricaoItem", ""),
+            "codigo_pdm": str(item.get("codigoPdm", "")),
+            "descricao_pdm": item.get("nomePdm", ""),
+        }
+        for item in resultado
+        if item.get("codigoItem") and item.get("descricaoItem")
+    ]
+
+
+def _consultar_catmat(parametros: dict[str, object]) -> tuple[list[dict[str, str]], bool]:
+    """Consulta o catálogo paginando (até PAGINAS_POR_CONSULTA). Retorna (itens, houve_falha)."""
+    itens: list[dict[str, str]] = []
+    for pagina in range(1, PAGINAS_POR_CONSULTA + 1):
         try:
             resposta = requests.get(
                 CATMAT_API_URL,
-                params={"pagina": 1, "tamanhoPagina": 100, "descricaoItem": texto_consulta[:180], "statusItem": "true"},
+                params={**parametros, "pagina": pagina, "tamanhoPagina": TAMANHO_PAGINA, "statusItem": "true"},
                 timeout=15,
             )
             if resposta.status_code != 200:
-                continue
-            for item in resposta.json().get("resultado", []):
-                codigo = str(item.get("codigoItem", ""))
-                descricao = item.get("descricaoItem", "")
-                if codigo and descricao:
-                    candidatos[codigo] = {
-                        "codigo": codigo,
-                        "descricao": descricao,
-                        "codigo_pdm": str(item.get("codigoPdm", "")),
-                        "descricao_pdm": item.get("nomePdm", ""),
-                    }
-        except requests.RequestException:
-            continue
-    return list(candidatos.values())
+                return itens, True
+            resultado = resposta.json().get("resultado", [])
+        except (requests.RequestException, ValueError):
+            return itens, True
+        itens.extend(_itens_da_resposta(resultado))
+        if len(resultado) < TAMANHO_PAGINA:
+            break
+    return itens, False
+
+
+def _consultar_em_paralelo(lista_parametros: list[dict[str, object]]) -> tuple[list[dict[str, str]], int]:
+    if not lista_parametros:
+        return [], 0
+    with ThreadPoolExecutor(max_workers=min(8, len(lista_parametros))) as executor:
+        respostas = list(executor.map(_consultar_catmat, lista_parametros))
+    itens = [item for lote, _ in respostas for item in lote]
+    return itens, sum(1 for _, falhou in respostas if falhou)
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
-def buscar_itens_catmat_por_pdm(codigo_pdm: str) -> list[dict[str, str]]:
-    """Retorna itens CATMAT oficiais associados a um PDM, sem expor o PDM como resultado."""
-    try:
-        resposta = requests.get(
-            CATMAT_API_URL,
-            params={"pagina": 1, "tamanhoPagina": 100, "codigoPdm": codigo_pdm, "statusItem": "true"},
-            timeout=15,
-        )
-        if resposta.status_code != 200:
-            return []
-        return [
-            {
-                "codigo": str(item.get("codigoItem", "")),
-                "descricao": item.get("descricaoItem", ""),
-                "codigo_pdm": str(item.get("codigoPdm", "")),
-                "descricao_pdm": item.get("nomePdm", ""),
-            }
-            for item in resposta.json().get("resultado", [])
-            if item.get("codigoItem") and item.get("descricaoItem")
-        ]
-    except requests.RequestException:
-        return []
+def buscar_catmat_api(consultas: tuple[str, ...]) -> tuple[list[dict[str, str]], int]:
+    """Busca candidatos do catálogo público do Compras.gov por trecho de descrição."""
+    itens, falhas = _consultar_em_paralelo([{"descricaoItem": consulta[:180]} for consulta in consultas])
+    return list({item["codigo"]: item for item in itens}.values()), falhas
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def buscar_itens_catmat_por_pdm(codigos_pdm: tuple[str, ...]) -> tuple[list[dict[str, str]], int]:
+    """Retorna itens CATMAT oficiais associados aos PDMs informados."""
+    itens, falhas = _consultar_em_paralelo([{"codigoPdm": codigo} for codigo in codigos_pdm])
+    return list({item["codigo"]: item for item in itens}.values()), falhas
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
@@ -261,124 +339,179 @@ def buscar_unidade_fornecimento(codigo_pdm: str) -> str:
         sigla = unidade.get("siglaUnidadeFornecimento", "")
         nome = unidade.get("nomeUnidadeFornecimento", "")
         return f"{sigla} - {nome}".strip(" -")
-    except requests.RequestException:
+    except (requests.RequestException, ValueError):
         return ""
 
 
-def calcular_similaridade(descricao: str, candidato: str) -> float:
-    origem = _tokens(descricao)
-    destino = _tokens(candidato)
-    if not origem or not destino:
+def calcular_similaridade(descricao: str, candidato: str, nome_pdm: str = "", preferidos: frozenset[str] = frozenset()) -> float:
+    """Pontua de 0 a 100 o quanto o item do catálogo corresponde à descrição informada.
+
+    O que pesa: o termo principal ("papel"), os demais termos do núcleo, as especificações
+    (a4 casa com 210 x 297 mm) e o item do catálogo começar pelo termo principal. Embalagem
+    ("resma") pesa pouco. Descrições longas de catálogo não são punidas por terem mais atributos.
+    """
+    perfil = _perfil(descricao)
+    ordem_destino = list(_tokens_ordenados(f"{nome_pdm} {candidato}"))
+    if not perfil["ordem"] or not ordem_destino:
         return 0.0
-    em_comum = origem & destino
-    cobertura = len(em_comum) / len(origem)
-    precisao = len(em_comum) / len(destino)
-    sequencia = SequenceMatcher(None, _normalizar(descricao), _normalizar(candidato)).ratio()
-    termo_principal = _termo_principal(descricao)
-    restritivos_ausentes = (destino - origem) & TERMOS_RESTRITIVOS
-    termos_extras = len(destino - origem) / len(destino)
-    penalidade = min(36, len(restritivos_ausentes) * 18) + (termos_extras * 12)
-    bonus_principal = 25 if termo_principal in destino else -50
-    pontuacao = cobertura * 65 + precisao * 25 + sequencia * 10 + bonus_principal - penalidade
+    destino = set(ordem_destino)
+    cabeca = str(perfil["cabeca"])
+    nucleo = list(perfil["nucleo"])
+
+    pesos = [(token, 2.0 if token == cabeca else 1.0) for token in nucleo]
+    pesos += [(token, 0.6) for token in perfil["especificos"]] + [(token, 0.1) for token in perfil["macios"]]
+    forcas = {token: _forca_termo(token, destino) for token, _ in pesos}
+    cobertura = sum(peso * forcas[token] for token, peso in pesos) / sum(peso for _, peso in pesos)
+
+    forca_cabeca = forcas.get(cabeca, 0.0)
+    comeco = ordem_destino[:3]
+    bonus_inicio = 12 if any(_forca_termo(cabeca, {token}) >= 0.7 for token in comeco) else 0
+    nucleo_completo = 8 if all(forcas[token] >= 0.7 for token in nucleo) else 0
+
+    nome = _tokens_ordenados(re.split(r"[,;:(]", nome_pdm or candidato, maxsplit=1)[0])
+    sequencia = SequenceMatcher(None, " ".join(nucleo), " ".join(nome[:6])).ratio()
+    extras_no_nome = [token for token in nome if _forca_termo(token, set(perfil["ordem"])) == 0 and all(_forca_termo(t, {token}) == 0 for t in nucleo)]
+
+    termos_preferidos = set(preferidos)
+    for chave, preferencia in PREFERENCIAS:
+        if chave <= set(perfil["ordem"]):
+            termos_preferidos |= preferencia
+    bonus_preferencia = min(20, 10 * len(termos_preferidos & destino))
+    restritivos_ausentes = (destino - set(perfil["ordem"])) & TERMOS_RESTRITIVOS
+    penalidade = min(36, len(restritivos_ausentes) * 18) + min(16, len(extras_no_nome) * 4)
+
+    pontuacao = cobertura * 72 + bonus_inicio + nucleo_completo + sequencia * 8 + bonus_preferencia - penalidade
+    if perfil["especificos"]:
+        atendidas = sum(forcas[token] for token in perfil["especificos"]) / len(perfil["especificos"])
+        pontuacao *= 0.8 + 0.2 * atendidas
+    if not nucleo_completo:
+        pontuacao *= 0.85
+    if forca_cabeca == 0:
+        pontuacao *= 0.35
     return round(max(0, min(100, pontuacao)), 1)
 
 
 def melhores_do_catalogo(descricao: str, catalogo: list[dict[str, object]], limite: int = 40) -> list[dict[str, object]]:
-    tokens_origem = _tokens(descricao)
+    """Pré-seleciona entradas do catálogo local que compartilham termos do núcleo com a descrição."""
+    perfil = _perfil(descricao)
+    cabeca = str(perfil["cabeca"])
     candidatos = []
     for item in catalogo:
-        tokens_destino = set(item["tokens"])
-        em_comum = len(tokens_origem & tokens_destino)
-        if em_comum:
-            candidatos.append((em_comum / len(tokens_origem), item))
+        destino = set(item["tokens"])
+        pontos = sum((2.0 if token == cabeca else 1.0) * _forca_termo(token, destino) for token in perfil["nucleo"])
+        if pontos:
+            candidatos.append((pontos, item))
     candidatos.sort(key=lambda candidato: candidato[0], reverse=True)
     return [item for _, item in candidatos[:limite]]
 
 
-def _pdm_generico(descricao: str, catalogo_pdm: list[dict[str, object]]) -> dict[str, object] | None:
+def _gerar_consultas(descricao: str) -> list[str]:
+    """Várias formas de perguntar ao catálogo: a API busca trecho exato, então uma frase longa quase nunca acha."""
+    perfil = _perfil(descricao)
+    nucleo, cabeca = list(perfil["nucleo"]), str(perfil["cabeca"])
+    tokens_descricao = set(perfil["ordem"])
+    consultas = [cabeca] if cabeca else []
+    consultas += [f"{cabeca} {token}" for token in nucleo[1:5]]
+    consultas += [token for token in nucleo if len(token) >= 4]
+    for chave, adicionais in EXPANSOES_DE_BUSCA:
+        if chave <= tokens_descricao:
+            consultas.extend(adicionais)
+    consultas.append(" ".join(nucleo))
+    return list(dict.fromkeys(consulta for consulta in consultas if consulta))
+
+
+def _pdms_candidatos(descricao: str, catalogo_pdm: list[dict[str, object]], limite: int = 5) -> list[dict[str, object]]:
+    """Escolhe os PDMs (famílias do catálogo) mais próximos da descrição para buscar seus itens."""
     descricao_normalizada = _normalizar(descricao)
-    termo_principal = _termo_principal(descricao)
     tokens_descricao = set(descricao_normalizada.split())
-    perfis_compativeis = [
-        (set(chave.split()), fallback)
+    escolhidos = [
+        {"codigo": fallback["codigo_pdm"], "preferidos": frozenset(fallback["termos_preferidos"]), "pontuacao": 100.0}
         for chave, fallback in FALLBACKS_GENERICOS.items()
-        if set(chave.split()).issubset(tokens_descricao)
+        if set(chave.split()) <= tokens_descricao
     ]
-    if perfis_compativeis:
-        _, fallback = max(perfis_compativeis, key=lambda perfil: len(perfil[0]))
-        return {
-            "codigo": fallback["codigo_pdm"],
-            "descricao": descricao_normalizada,
-            "termos_preferidos": fallback["termos_preferidos"],
+    pontuados = [
+        (calcular_similaridade(descricao, str(pdm["descricao"])), pdm)
+        for pdm in melhores_do_catalogo(descricao, catalogo_pdm, limite=150)
+    ]
+    pontuados.sort(key=lambda par: par[0], reverse=True)
+    escolhidos += [
+        {"codigo": str(pdm["codigo"]), "preferidos": frozenset(), "pontuacao": pontuacao}
+        for pontuacao, pdm in pontuados[:limite]
+        if pontuacao >= 30
+    ]
+    return list({pdm["codigo"]: pdm for pdm in reversed(escolhidos)}.values())
+
+
+def _opcoes_material(descricao: str, catalogo_pdm: list[dict[str, object]]) -> tuple[list[dict[str, object]], int]:
+    candidatos, falhas = buscar_catmat_api(tuple(_gerar_consultas(descricao)))
+    pdms = _pdms_candidatos(descricao, catalogo_pdm)
+    preferidos_por_pdm = {pdm["codigo"]: pdm["preferidos"] for pdm in pdms}
+    itens_pdm, falhas_pdm = buscar_itens_catmat_por_pdm(tuple(pdm["codigo"] for pdm in pdms))
+    opcoes: dict[str, dict[str, object]] = {}
+    for origem, lote in (("CATMAT específico", candidatos), ("CATMAT via PDM", itens_pdm)):
+        for item in lote:
+            codigo = str(item["codigo"])
+            if codigo in opcoes:
+                continue
+            opcoes[codigo] = {
+                "tipo": "Material",
+                "codigo": codigo,
+                "descricao_catalogo": str(item["descricao"]),
+                "similaridade": calcular_similaridade(
+                    descricao, str(item["descricao"]), str(item.get("descricao_pdm", "")),
+                    preferidos_por_pdm.get(str(item.get("codigo_pdm", "")), frozenset()),
+                ),
+                "origem": origem,
+                "codigo_pdm": str(item.get("codigo_pdm", "")),
+                "descricao_pdm": str(item.get("descricao_pdm", "")),
+            }
+    return list(opcoes.values()), falhas + falhas_pdm
+
+
+def _opcoes_servico(descricao: str, catalogo_servico: list[dict[str, object]]) -> list[dict[str, object]]:
+    return [
+        {
+            "tipo": "Serviço",
+            "codigo": str(item["codigo"]),
+            "descricao_catalogo": str(item["descricao"]),
+            "similaridade": calcular_similaridade(descricao, str(item["descricao"])),
+            "origem": "CATSERV",
+            "codigo_pdm": "",
+            "descricao_pdm": "",
         }
-    pdm_exato = next(
-        (item for item in catalogo_pdm if _normalizar(str(item["descricao"])) == termo_principal),
-        None,
-    )
-    if pdm_exato:
-        return {**pdm_exato, "termos_preferidos": {termo_principal}}
-    if len(_tokens(descricao)) > 3:
-        return None
-    candidatos = melhores_do_catalogo(descricao, catalogo_pdm, limite=30)
-    if not candidatos:
-        return None
-    return max(candidatos, key=lambda candidato: calcular_similaridade(descricao, str(candidato["descricao"])))
+        for item in melhores_do_catalogo(descricao, catalogo_servico)
+    ]
+
+
+def _resumo_alternativa(opcao: dict[str, object]) -> str:
+    descricao = str(opcao["descricao_catalogo"])
+    return f"{opcao['codigo']} ({opcao['similaridade']:.0f}%) {descricao[:90]}{'…' if len(descricao) > 90 else ''}"
 
 
 def sugerir_codigo(descricao: str, catalogo_pdm: list[dict[str, object]], catalogo_servico: list[dict[str, object]], tipo: str) -> dict[str, object]:
     opcoes: list[dict[str, object]] = []
-    tipos_consulta = [tipo] if tipo != "Automático" else ["Material", "Serviço"]
-    for tipo_atual in tipos_consulta:
-        origem = "CATMAT específico"
-        termos_preferidos = set()
-        if tipo_atual == "Material":
-            candidatos = buscar_catmat_api(descricao)
-            termo_principal = _termo_principal(descricao)
-            candidatos = [
-                candidato for candidato in candidatos
-                if termo_principal in _tokens(str(candidato["descricao"]))
-            ]
-            pdm = _pdm_generico(descricao, catalogo_pdm) if not candidatos else None
-            if pdm:
-                candidatos = buscar_itens_catmat_por_pdm(str(pdm["codigo"]))
-                origem = "CATMAT genérico"
-                termos_preferidos = set(pdm.get("termos_preferidos", []))
-        else:
-            candidatos = melhores_do_catalogo(descricao, catalogo_servico)
-            origem = "CATSERV"
-        vistos = set()
-        for candidato in candidatos:
-            codigo = str(candidato["codigo"])
-            if codigo in vistos:
-                continue
-            vistos.add(codigo)
-            tokens_candidato = _tokens(str(candidato["descricao"]))
-            termos_restritivos_ausentes = (tokens_candidato - _tokens(descricao)) & TERMOS_RESTRITIVOS
-            if origem == "CATMAT genérico" and termos_restritivos_ausentes:
-                continue
-            similaridade = calcular_similaridade(descricao, str(candidato["descricao"]))
-            if termos_preferidos:
-                similaridade = min(100, similaridade + 18 * len(tokens_candidato & termos_preferidos))
-            codigo_pdm = str(candidato.get("codigo_pdm", "")) if tipo_atual == "Material" else ""
-            opcoes.append(
-                {
-                    "tipo": tipo_atual,
-                    "codigo": codigo,
-                    "descricao_catalogo": str(candidato["descricao"]),
-                    "similaridade": similaridade,
-                    "origem": origem,
-                    "unidade_fornecimento": buscar_unidade_fornecimento(codigo_pdm) if codigo_pdm else "",
-                    "codigo_pdm": codigo_pdm,
-                    "descricao_pdm": str(candidato.get("descricao_pdm", "")) if codigo_pdm else "",
-                }
-            )
+    falhas = 0
+    if tipo in ("Automático", "Material"):
+        material, falhas = _opcoes_material(descricao, catalogo_pdm)
+        opcoes += material
+    if tipo in ("Automático", "Serviço"):
+        opcoes += _opcoes_servico(descricao, catalogo_servico)
+
+    vazio = {"tipo": "-", "codigo": "-", "similaridade": 0.0, "origem": "-", "unidade_fornecimento": "", "codigo_pdm": "", "descricao_pdm": "", "alternativas": "", "falhas_api": falhas}
     if not opcoes:
-        return {"tipo": "-", "codigo": "-", "descricao_catalogo": "Nenhuma correspondência encontrada", "similaridade": 0.0, "origem": "-", "unidade_fornecimento": "", "codigo_pdm": "", "descricao_pdm": ""}
-    melhor_opcao = max(opcoes, key=lambda opcao: opcao["similaridade"])
-    limiar = 35.0 if melhor_opcao["origem"] == "CATMAT genérico" else LIMIAR_SIMILARIDADE
-    if melhor_opcao["similaridade"] < limiar:
-        return {"tipo": "-", "codigo": "-", "descricao_catalogo": "Descrição insuficiente para sugerir um código com segurança", "similaridade": melhor_opcao["similaridade"], "origem": "-", "unidade_fornecimento": "", "codigo_pdm": "", "descricao_pdm": ""}
-    return melhor_opcao
+        aviso = "Catálogo do Compras.gov indisponível no momento; tente novamente" if falhas else "Nenhuma correspondência encontrada"
+        return {**vazio, "descricao_catalogo": aviso}
+    opcoes.sort(key=lambda opcao: opcao["similaridade"], reverse=True)
+    melhor = opcoes[0]
+    if melhor["similaridade"] < LIMIAR_SIMILARIDADE:
+        return {**vazio, "descricao_catalogo": "Descrição insuficiente para sugerir um código com segurança", "similaridade": melhor["similaridade"]}
+    alternativas = [opcao for opcao in opcoes[1:4] if opcao["similaridade"] >= LIMIAR_SIMILARIDADE - 10]
+    return {
+        **melhor,
+        "unidade_fornecimento": buscar_unidade_fornecimento(str(melhor["codigo_pdm"])) if melhor["codigo_pdm"] else "",
+        "alternativas": "\n".join(_resumo_alternativa(opcao) for opcao in alternativas),
+        "falhas_api": falhas,
+    }
 
 
 def gerar_excel(resultados: pd.DataFrame) -> bytes:
@@ -435,6 +568,9 @@ def gerar_pdf(resultados: pd.DataFrame) -> bytes:
             pdf.multi_cell(0, 5, _texto_pdf_quebravel(f"PDM: {linha['Código PDM']} - {linha['Descrição PDM']}"))
             pdf.set_x(pdf.l_margin)
             pdf.multi_cell(0, 5, _texto_pdf_quebravel(f"Unidade de fornecimento: {linha['Unidade de fornecimento']}"))
+        if linha.get("Outras opções", ""):
+            pdf.set_x(pdf.l_margin)
+            pdf.multi_cell(0, 5, _texto_pdf_quebravel(f"Outras opcoes:\n{linha['Outras opções']}"))
         pdf.ln(3)
     pdf.set_font("Helvetica", "I", 7)
     pdf.set_text_color(100, 100, 100)
@@ -499,6 +635,7 @@ if st.button("🔎 Encontrar códigos sugeridos", type="primary", use_container_
     else:
         with st.spinner(f"Analisando {len(itens)} item(ns) nos catálogos oficiais..."):
             resultados_brutos = []
+            falhas_api = 0
             for item in itens:
                 sugestao = sugerir_codigo(item, catalogo_pdm, catalogo_servico, tipo_busca)
                 resultados_brutos.append(
@@ -511,12 +648,17 @@ if st.button("🔎 Encontrar códigos sugeridos", type="primary", use_container_
                         "Unidade de fornecimento": sugestao["unidade_fornecimento"],
                         "Código PDM": sugestao["codigo_pdm"],
                         "Descrição PDM": sugestao["descricao_pdm"],
+                        "Outras opções": sugestao["alternativas"],
                     }
                 )
+                falhas_api += int(sugestao["falhas_api"])
         st.session_state["catmat_catserv_resultados"] = resultados_brutos
+        st.session_state["catmat_catserv_falhas_api"] = falhas_api
 
 resultados_salvos = st.session_state.get("catmat_catserv_resultados")
 if resultados_salvos:
+    if st.session_state.get("catmat_catserv_falhas_api"):
+        st.warning("Parte das consultas ao catálogo do Compras.gov falhou (instabilidade ou limite de acesso). Os resultados podem estar incompletos; execute novamente para conferir.")
     resultados = pd.DataFrame(resultados_salvos)
     alta = int((resultados["Similaridade (%)"] >= 70).sum())
     media = int(((resultados["Similaridade (%)"] >= 45) & (resultados["Similaridade (%)"] < 70)).sum())
