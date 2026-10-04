@@ -1,11 +1,12 @@
 {
  "versao": 1,
- "atualizado": "2026-10-04T17:04:08",
+ "atualizado": "2026-10-04T17:11:38",
  "lojas": {
   "lojadomecanico.com.br": {
-   "acertos": 1,
+   "acertos": 2,
    "ultimo": "2026-10-04",
    "itens": [
+    "tomada 20a",
     "fita isolante"
    ]
   },
@@ -38,15 +39,69 @@
    ]
   },
   "kalunga.com.br": {
+   "acertos": 2,
+   "ultimo": "2026-10-04",
+   "itens": [
+    "borracha escolar",
+    "caneta esferográfica azul"
+   ]
+  },
+  "lojascacula.com.br": {
    "acertos": 1,
    "ultimo": "2026-10-04",
    "itens": [
-    "caneta esferográfica azul"
+    "borracha escolar"
+   ]
+  },
+  "leonorashop.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-04",
+   "itens": [
+    "borracha escolar"
+   ]
+  },
+  "casadastomadas.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-04",
+   "itens": [
+    "tomada 20a"
    ]
   }
  },
  "falhas": {
   "alltape.com.br": {
+   "falhas": 1,
+   "ultimo": "2026-10-04"
+  },
+  "gimba.com.br": {
+   "falhas": 1,
+   "ultimo": "2026-10-04"
+  },
+  "tilibraexpress.com.br": {
+   "falhas": 1,
+   "ultimo": "2026-10-04"
+  },
+  "tris.com.br": {
+   "falhas": 1,
+   "ultimo": "2026-10-04"
+  },
+  "leroymerlin.com.br": {
+   "falhas": 1,
+   "ultimo": "2026-10-04"
+  },
+  "bing.com": {
+   "falhas": 1,
+   "ultimo": "2026-10-04"
+  },
+  "ilumi.com.br": {
+   "falhas": 1,
+   "ultimo": "2026-10-04"
+  },
+  "se.com": {
+   "falhas": 1,
+   "ultimo": "2026-10-04"
+  },
+  "enerbras.com.br": {
    "falhas": 1,
    "ultimo": "2026-10-04"
   }
