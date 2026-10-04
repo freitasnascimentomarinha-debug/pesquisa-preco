@@ -14,9 +14,10 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # módulos da raiz do projeto
 from atualizar_modulos import recarregar_se_mudou  # noqa: E402
-recarregar_se_mudou('cotacao_rapida', 'relatorio_cotacao_rapida', 'relatorio_nf_lote', 'web_precos', 'relatorio_web')
+recarregar_se_mudou('cotacao_rapida', 'relatorio_cotacao_rapida', 'relatorio_nf_lote', 'web_precos', 'relatorio_web', 'memoria_lojas')
 import web_precos  # noqa: E402  (escolha do preço da página)
 import relatorio_web  # noqa: E402  (relatório padrão da Cotação Rápida)
+import memoria_lojas  # noqa: E402  (lojas aprendidas com o uso)
 
 # Configuração da página
 st.set_page_config(
@@ -627,6 +628,37 @@ def buscar_searchapi(query, num_results=8):
 
     except Exception:
         return []
+
+
+def buscar_na_loja(session, item, site, headers, num_results=8):
+    """Procura o item dentro de uma loja da memória ("item site:loja"), com a mesma busca da página (ddgs > DuckDuckGo HTML).
+    Devolve só páginas da própria loja (até 3)."""
+    from bs4 import BeautifulSoup
+    from urllib.parse import unquote
+
+    def da_loja(url):
+        return memoria_lojas.dominio(url) == site or memoria_lojas.dominio(url).endswith("." + site)
+
+    query = f"{item} site:{site}"
+    urls = []
+    try:
+        from ddgs import DDGS
+        urls = [r["href"] for r in DDGS().text(query, region="br-pt", max_results=num_results) if r.get("href") and da_loja(r["href"])]
+    except Exception:
+        urls = []
+    if not urls:
+        try:
+            resp = session.get(f"https://html.duckduckgo.com/html/?q={quote_plus(query)}", headers=headers, timeout=15)
+            if resp.status_code == 200:
+                for a_tag in BeautifulSoup(resp.text, "html.parser").select("a.result__a"):
+                    href = a_tag.get("href", "")
+                    if "uddg=" in href:
+                        href = unquote(href.split("uddg=")[1].split("&")[0])
+                    if href.startswith("http") and da_loja(href):
+                        urls.append(href)
+        except Exception:
+            pass
+    return list(dict.fromkeys(urls))[:3]
 
 
 def buscar_urls(session, query, headers, num_results=8):
@@ -1263,6 +1295,13 @@ def scraping_playwright(url, item_nome, screenshot_path=None):
 
 # ===================== ORQUESTRADOR DE SCRAPING =====================
 
+def _tem_secrets():
+    try:
+        return len(st.secrets) >= 0
+    except Exception:
+        return False
+
+
 def executar_scraping(itens, usar_playwright, progress_bar, log_container, status_text, max_fontes):
     """Executa o scraping completo para todos os itens."""
     import requests as req
@@ -1279,6 +1318,10 @@ def executar_scraping(itens, usar_playwright, progress_bar, log_container, statu
     session.headers.update(headers)
 
     os.makedirs(SCREENSHOT_DIR, exist_ok=True)
+
+    # Memória de lojas: lojas que já deram preço para itens parecidos são tentadas primeiro; sites que sempre falham são pulados
+    memoria, onde_memoria = memoria_lojas.carregar(st.secrets if _tem_secrets() else {})
+    log_msg(log_container, logs, f"🧠 Memória de lojas: {len(memoria['lojas'])} loja(s) aprendida(s), {len(memoria['falhas'])} site(s) com falha — {onde_memoria}", "info")
 
     for idx, item in enumerate(itens):
         item = item.strip()
@@ -1298,6 +1341,30 @@ def executar_scraping(itens, usar_playwright, progress_bar, log_container, statu
 
         # Selecionar variantes de busca aleatoriamente (usar mais variantes para maximizar cobertura)
         variantes = random.sample(VARIANTES_BUSCA, min(5, len(VARIANTES_BUSCA)))
+        dominios_falhos = set()  # site que falhou neste item não é tentado de novo nas outras buscas do mesmo item
+
+        # 1º: lojas da memória que já deram preço para itens parecidos (cada uma uma vez só)
+        for site_memoria, item_parecido in memoria_lojas.lojas_para_item(memoria, item):
+            if len(atualizar_estado_orcamentos(candidatos_item, max_fontes)["validos"]) >= max_fontes:
+                break
+            log_msg(log_container, logs, f"🧠 Loja da memória: {site_memoria} (já deu preço para '{item_parecido}')", "info")
+            time.sleep(gerar_delay(1.5, 3.0))
+            for url in buscar_na_loja(session, item, site_memoria, headers):
+                time.sleep(gerar_delay(1.5, 3.5))
+                resultado = scraping_requests(session, url, headers, item_nome=item)
+                if resultado:
+                    contador_item += 1
+                    resultado["resultado_id"] = f"{item_slug}_{contador_item}_{abs(hash(url)) % 10000}"
+                    resultado["item"] = item
+                    resultado["data_coleta"] = datetime.now().strftime("%d/%m/%Y %H:%M")
+                    candidatos_item.append(resultado)
+                    dominios_usados.add(extrair_dominio(url))
+                    memoria_lojas.registrar_acerto(memoria, url, item)
+                    log_msg(log_container, logs, f"💰 Orçamento da memória — {formatar_moeda_br(resultado['preco'])} em {extrair_dominio(url)}", "orcamento")
+                    break
+            else:
+                log_msg(log_container, logs, f"✗ {site_memoria} não teve preço para '{item}' desta vez", "warn")
+            dominios_falhos.update({site_memoria, "www." + site_memoria})
 
         for variante in variantes:
             estado_item = atualizar_estado_orcamentos(candidatos_item, max_fontes)
@@ -1328,7 +1395,11 @@ def executar_scraping(itens, usar_playwright, progress_bar, log_container, statu
                     break
 
                 dominio = extrair_dominio(url)
-                if dominio in dominios_usados:
+                if dominio in dominios_usados or dominio in dominios_falhos:
+                    continue
+                if memoria_lojas.deve_pular(memoria, url):
+                    log_msg(log_container, logs, f"⏭ {dominio} pulado (falhou {memoria_lojas.FALHAS_PARA_PULAR}+ vezes em pesquisas anteriores)", "info")
+                    dominios_falhos.add(dominio)
                     continue
 
                 log_msg(log_container, logs, f"🌐 Acessando: {dominio}", "info")
@@ -1385,6 +1456,7 @@ def executar_scraping(itens, usar_playwright, progress_bar, log_container, statu
 
                     candidatos_item.append(resultado)
                     dominios_usados.add(dominio)
+                    memoria_lojas.registrar_acerto(memoria, url, item)
                     estado_item = atualizar_estado_orcamentos(candidatos_item, max_fontes)
 
                     for descartado in estado_item["descartados"]:
@@ -1415,6 +1487,8 @@ def executar_scraping(itens, usar_playwright, progress_bar, log_container, statu
                         reservas_logadas.add(resultado["resultado_id"])
                 else:
                     log_msg(log_container, logs, f"✗ Sem preço extraível de {dominio}", "error")
+                    dominios_falhos.add(dominio)
+                    memoria_lojas.registrar_falha(memoria, url)
 
         # Complemento: se não atingiu o mínimo de fontes, usar SearchAPI (Google Shopping)
         estado_item = atualizar_estado_orcamentos(candidatos_item, max_fontes)
@@ -1475,6 +1549,7 @@ def executar_scraping(itens, usar_playwright, progress_bar, log_container, statu
             time.sleep(delay)
 
     progress_bar.progress(1.0)
+    log_msg(log_container, logs, "🧠 Memória de lojas: " + memoria_lojas.salvar(memoria, st.secrets if _tem_secrets() else {}), "info")
     log_msg(log_container, logs, f"━━━ Scraping concluído! {len(resultados)} orçamentos coletados ━━━", "success")
     status_text.text("Scraping concluído!")
 
@@ -1845,6 +1920,24 @@ _como_funciona_html = """
     </div>
 </div>
 """
+with st.expander("🧠 Memória de lojas (aprende com o uso)", expanded=False):
+    st.caption("A cada pesquisa o sistema guarda as lojas que deram preço e os itens que cada uma cotou; nas próximas, tenta primeiro "
+               f"essas lojas para itens parecidos. Sites que falharam {memoria_lojas.FALHAS_PARA_PULAR} vezes sem nunca dar preço são pulados.")
+    if st.button("Ver o que o sistema já aprendeu", key="ver_memoria_lojas"):
+        memoria_vista, onde_vista = memoria_lojas.carregar(st.secrets if _tem_secrets() else {})
+        st.caption(f"Onde está guardada: {onde_vista}")
+        if memoria_vista["lojas"]:
+            st.dataframe(pd.DataFrame([{"Loja": site, "Preços encontrados": l["acertos"], "Último": l["ultimo"], "Itens cotados": ", ".join(l["itens"][:15])}
+                                       for site, l in sorted(memoria_vista["lojas"].items(), key=lambda x: -x[1]["acertos"])]),
+                         hide_index=True, use_container_width=True)
+        else:
+            st.info("Nenhuma loja aprendida ainda: a memória se forma com as próximas pesquisas.")
+        puladas = [{"Site": site, "Falhas": f["falhas"], "Última": f["ultimo"]} for site, f in memoria_vista["falhas"].items()
+                   if f["falhas"] >= memoria_lojas.FALHAS_PARA_PULAR]
+        if puladas:
+            st.markdown("**Sites pulados por falhar sempre**")
+            st.dataframe(pd.DataFrame(puladas), hide_index=True, use_container_width=True)
+
 with st.expander("⚙️ Como Funciona o Web Scraping", expanded=False):
     _components.html(_como_funciona_html, height=700, scrolling=True)
 
