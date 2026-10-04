@@ -10,6 +10,13 @@ import html as html_lib
 from datetime import datetime
 from io import BytesIO
 from urllib.parse import urlparse, quote_plus
+import sys
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # módulos da raiz do projeto
+from atualizar_modulos import recarregar_se_mudou  # noqa: E402
+recarregar_se_mudou('cotacao_rapida', 'relatorio_cotacao_rapida', 'relatorio_nf_lote', 'web_precos', 'relatorio_web')
+import web_precos  # noqa: E402
+import relatorio_web  # noqa: E402
 
 # Configuração da página
 st.set_page_config(
@@ -238,9 +245,19 @@ SCREENSHOT_DIR = "/tmp/scraping_screenshots"
 OUTLIER_MULTIPLIER = 1.6
 MIN_ORCAMENTOS_PARA_ANALISE_OUTLIER = 3
 
-# SearchAPI.io (Google Shopping) — fallback quando DDGS falha
-SEARCHAPI_KEY = "wZb2W9zvLh3gPziTp2639VCr"
+# SearchAPI.io (Google Shopping) — opcional e PAGO: só funciona se a chave estiver nos Secrets do Streamlit
+# (SEARCHAPI_KEY = "...") ou na variável de ambiente SEARCHAPI_KEY. Nunca escreva a chave no código.
 SEARCHAPI_URL = "https://www.searchapi.io/api/v1/search"
+
+
+def _chave_searchapi():
+    chave = os.environ.get("SEARCHAPI_KEY", "")
+    if not chave:
+        try:
+            chave = str(st.secrets.get("SEARCHAPI_KEY", ""))
+        except Exception:
+            chave = ""
+    return chave.strip()
 
 
 # ===================== FUNÇÕES AUXILIARES =====================
@@ -573,14 +590,15 @@ def buscar_searchapi(query, num_results=8):
     Retorna resultados diretos com preços já extraídos."""
     import requests as req
 
-    if not SEARCHAPI_KEY:
+    chave = _chave_searchapi()
+    if not chave:
         return []
 
     try:
         params = {
             "engine": "google_shopping",
             "q": query,
-            "api_key": SEARCHAPI_KEY,
+            "api_key": chave,
             "location": "Brazil",
             "gl": "br",
             "hl": "pt",
@@ -870,11 +888,13 @@ def scraping_requests(session, url, headers, item_nome=None):
 
         precos = extrair_precos_pagina(html)
 
-        if not precos:
+        # Preço do produto anunciado: oferta em JSON-LD > metadados > mediana dos valores do texto
+        principal = web_precos.preco_principal(html, extrair_precos_pagina)
+        if not principal:
             return None
-
-        # Pegar o preço mais provável (mediana dos encontrados)
-        preco_medio = sorted(precos)[len(precos) // 2]
+        preco_medio = principal["preco"]
+        if preco_medio not in precos:
+            precos = sorted(set(precos) | {preco_medio})
 
         # Gerar screenshot HTML como evidência (sem precisar de Playwright)
         screenshot_path = None
@@ -958,6 +978,8 @@ body {{ font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 20px; ba
             "screenshot": screenshot_path,
             "precos_detectados": precos,
             "contexto_extraido": contexto_extraido,
+            "origem_preco": principal["origem"],
+            "confianca": principal["confianca"],
         }
     except Exception:
         return None
@@ -1247,7 +1269,7 @@ def scraping_playwright(url, item_nome, screenshot_path=None):
 
 # ===================== ORQUESTRADOR DE SCRAPING =====================
 
-def executar_scraping(itens, usar_playwright, progress_bar, log_container, status_text, max_fontes):
+def executar_scraping(itens, usar_playwright, progress_bar, log_container, status_text, max_fontes, usar_google_shopping=False, limite_google=10):
     """Executa o scraping completo para todos os itens."""
     import requests as req
 
@@ -1263,6 +1285,7 @@ def executar_scraping(itens, usar_playwright, progress_bar, log_container, statu
     session.headers.update(headers)
 
     os.makedirs(SCREENSHOT_DIR, exist_ok=True)
+    buscas_google = 0
 
     for idx, item in enumerate(itens):
         item = item.strip()
@@ -1403,8 +1426,9 @@ def executar_scraping(itens, usar_playwright, progress_bar, log_container, statu
         # Complemento: se não atingiu o mínimo de fontes, usar SearchAPI (Google Shopping)
         estado_item = atualizar_estado_orcamentos(candidatos_item, max_fontes)
         faltam = max_fontes - len(estado_item["validos"])
-        if faltam > 0:
-            log_msg(log_container, logs, f"🛒 Faltam {faltam} orçamento(s) para '{item}'. Tentando Google Shopping (SearchAPI)...", "info")
+        if faltam > 0 and usar_google_shopping and buscas_google < limite_google:
+            buscas_google += 1
+            log_msg(log_container, logs, f"🛒 Faltam {faltam} orçamento(s) para '{item}'. Google Shopping (SearchAPI, pago): busca {buscas_google}/{limite_google}...", "info")
             searchapi_results = buscar_searchapi(item, faltam + 2)  # pedir extras para compensar duplicados
             if searchapi_results:
                 dominios_ja = {r['dominio'] for r in candidatos_item}
@@ -1420,6 +1444,8 @@ def executar_scraping(itens, usar_playwright, progress_bar, log_container, statu
                     sr["data_coleta"] = datetime.now().strftime("%d/%m/%Y %H:%M")
                     sr["precos_detectados"] = [sr.get("preco")] if sr.get("preco") else []
                     sr["contexto_extraido"] = "Preço complementar obtido no Google Shopping (SearchAPI)."
+                    sr["origem_preco"] = "Google Shopping (SearchAPI)"
+                    sr["confianca"] = "média"
                     candidatos_item.append(sr)
                     dominios_ja.add(sr.get('dominio', ''))
                     estado_item = atualizar_estado_orcamentos(candidatos_item, max_fontes)
@@ -1443,9 +1469,9 @@ def executar_scraping(itens, usar_playwright, progress_bar, log_container, statu
                             "orcamento",
                         )
 
-            estado_item = atualizar_estado_orcamentos(candidatos_item, max_fontes)
-            if len(estado_item["validos"]) < max_fontes:
-                log_msg(log_container, logs, f"⚠ Apenas {len(estado_item['validos'])} orçamento(s) válido(s) encontrado(s) para '{item}'", "warn")
+        estado_item = atualizar_estado_orcamentos(candidatos_item, max_fontes)
+        if len(estado_item["validos"]) < max_fontes:
+            log_msg(log_container, logs, f"⚠ Apenas {len(estado_item['validos'])} orçamento(s) válido(s) encontrado(s) para '{item}'", "warn")
 
         orcamentos_item = atualizar_estado_orcamentos(candidatos_item, max_fontes)["validos"]
         resultados.extend(orcamentos_item)
@@ -1806,9 +1832,9 @@ _como_funciona_html = """
             <br><b>DDGS API → DuckDuckGo HTML → Google → Bing</b></div>
         <div style="margin-bottom:0.3rem;">4. Acessa cada site encontrado e extrai preços usando <b>4 estratégias de detecção</b>:
             <br>dados estruturados (JSON-LD) → meta tags → classes de preço no HTML → regex em R$</div>
-        <div style="margin-bottom:0.3rem;">5. Se ao final não atingir o mínimo de orçamentos por item, complementa automaticamente com o <b>Google Shopping (SearchAPI)</b>, que retorna preços de lojas cadastradas no Google</div>
+        <div style="margin-bottom:0.3rem;">5. Se ao final não atingir o mínimo de orçamentos por item, pode complementar com o <b>Google Shopping (SearchAPI)</b>, serviço <b>pago</b> que fica desligado por padrão e só aparece se houver chave nos Secrets</div>
         <div style="margin-bottom:0.3rem;">6. Salva uma evidência formatada (snapshot) de cada página com preço encontrado</div>
-        <div style="margin-bottom:0.3rem;">7. Gera relatório exportável em <b>Excel, CSV, JSON ou PDF de evidências</b></div>
+        <div style="margin-bottom:0.3rem;">7. Gera o <b>relatório padrão da Cotação Rápida</b> (PDF e Excel, com mapa comparativo) e exporta também CSV, JSON e PDF de evidências</div>
     </div>
 
     <div style="font-weight:bold; color:#d4af37; margin-bottom: 0.5rem;">⚙️ Configurações Disponíveis:</div>
@@ -1864,9 +1890,22 @@ with col2:
         "Máx. fontes por item",
         min_value=1,
         max_value=5,
-        value=3,
-        help="Número máximo de orçamentos por item.",
+        value=5,
+        help="Número máximo de orçamentos por item. O relatório padrão usa até 5 preços por item.",
     )
+    usar_google_shopping = False
+    limite_google = 0
+    if _chave_searchapi():
+        usar_google_shopping = st.checkbox(
+            "Complementar com Google Shopping (pago)",
+            value=False,
+            help="Só é usado quando faltam orçamentos para um item. Cada busca consome a cota da sua conta SearchAPI.",
+        )
+        if usar_google_shopping:
+            limite_google = st.number_input("Máx. buscas Google Shopping", min_value=1, max_value=100, value=10,
+                                            help="Limite de buscas pagas nesta execução, para você nunca gastar além do previsto.")
+    else:
+        st.caption("Google Shopping: desligado (sem chave nos Secrets). Pesquisa gratuita via DuckDuckGo.")
     delay_min = st.number_input("Delay mín. (seg)", min_value=1.0, max_value=15.0, value=2.0, step=0.5)
     delay_max = st.number_input("Delay máx. (seg)", min_value=2.0, max_value=30.0, value=6.0, step=0.5)
 
@@ -1905,6 +1944,8 @@ if iniciar:
             log_container=log_container,
             status_text=status_text,
             max_fontes=max_fontes,
+            usar_google_shopping=usar_google_shopping,
+            limite_google=int(limite_google),
         )
 
         # Armazenar resultados no session_state
@@ -1958,9 +1999,31 @@ if "scraping_resultados" in st.session_state and st.session_state["scraping_resu
         st.warning("⚠️ Todos os orçamentos desta execução foram retirados da composição.")
     else:
 
-        tab_tabela, tab_resumo, tab_evidencias, tab_export = st.tabs(
-            ["📊 Tabela Completa", "📈 Resumo", "📸 Evidências", "📥 Exportar"]
+        tab_relatorio, tab_tabela, tab_resumo, tab_evidencias, tab_export = st.tabs(
+            ["📑 Relatório Padrão", "📊 Tabela Completa", "📈 Resumo", "📸 Evidências", "📥 Exportar"]
         )
+
+        with tab_relatorio:
+            itens_pesquisados = st.session_state.get("scraping_itens", [])
+            analise = web_precos.analisar_todos(itens_pesquisados, resultados)
+            info_relatorio = {"motores": "DuckDuckGo" + (" e Google Shopping" if any("Google" in str(r.get("origem_preco", "")) for r in resultados) else ""),
+                              "gerado_em": datetime.now().strftime("%d/%m/%Y %H:%M")}
+            st.caption("Mesmas regras da Cotação Rápida: sem outliers, até 5 preços a ±30% da média, mapa comparativo na 1ª página, "
+                       "endereço e data/hora do acesso de cada preço.")
+            st.dataframe(relatorio_web.tabela_mapa_web(analise), use_container_width=True, hide_index=True)
+            baixas = [r for r in resultados if r.get("confianca") == "baixa"]
+            if baixas:
+                st.warning(f"{len(baixas)} preço(s) vieram da leitura do texto da página (confiança baixa): confira o anúncio antes de usar.")
+            col_r1, col_r2 = st.columns(2)
+            col_r1.download_button(
+                "📄 Baixar relatório PDF (padrão Cotação Rápida)", data=relatorio_web.gerar_pdf_mapa(analise, info_relatorio),
+                file_name=f"pesquisa_web_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf", mime="application/pdf", type="primary", use_container_width=True,
+            )
+            col_r2.download_button(
+                "📊 Baixar relatório Excel", data=relatorio_web.gerar_excel_mapa(analise, info_relatorio),
+                file_name=f"pesquisa_web_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True,
+            )
 
         with tab_tabela:
             df = pd.DataFrame(resultados)
