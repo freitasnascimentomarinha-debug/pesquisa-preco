@@ -487,12 +487,12 @@ def _resultado_relevante(resultado, termos):
 
 
 def buscar_ddgs_api(query, num_results=8, item=None):
-    """Busca usando o pacote ddgs (DuckDuckGo Search) — mesma chamada de antes das mudanças."""
+    """Busca usando o pacote ddgs no modo automático — a chamada de antes das mudanças (o pacote pode usar outro buscador por trás)."""
     try:
         from ddgs import DDGS
         results = list(DDGS().text(query, region="br-pt", max_results=num_results))
         urls = [r["href"] for r in results if r.get("href") and dominio_valido(r["href"])]
-        DIAG_BUSCA["DuckDuckGo (ddgs)"] = f"{len(results)} resultados, {len(urls)} após filtro de domínios"
+        DIAG_BUSCA["ddgs automático"] = f"{len(results)} resultados, {len(urls)} após filtro de domínios"
         return _dedup_urls(urls, num_results)
     except ImportError:
         try:
@@ -500,13 +500,13 @@ def buscar_ddgs_api(query, num_results=8, item=None):
             with DDGS() as ddgs:
                 results = list(ddgs.text(query, region="br-pt", max_results=num_results))
             urls = [r["href"] for r in results if r.get("href") and dominio_valido(r["href"])]
-            DIAG_BUSCA["DuckDuckGo (ddgs)"] = f"{len(results)} resultados, {len(urls)} após filtro de domínios"
+            DIAG_BUSCA["ddgs automático"] = f"{len(results)} resultados, {len(urls)} após filtro de domínios"
             return _dedup_urls(urls, num_results)
         except Exception as erro:
-            DIAG_BUSCA["DuckDuckGo (ddgs)"] = f"erro {type(erro).__name__}: {str(erro)[:80]}"
+            DIAG_BUSCA["ddgs automático"] = f"erro {type(erro).__name__}: {str(erro)[:80]}"
             return []
     except Exception as erro:
-        DIAG_BUSCA["DuckDuckGo (ddgs)"] = f"erro {type(erro).__name__}: {str(erro)[:80]}"
+        DIAG_BUSCA["ddgs automático"] = f"erro {type(erro).__name__}: {str(erro)[:80]}"
         return []
 
 
@@ -515,7 +515,7 @@ def buscar_duckduckgo(session, query, headers, num_results=8):
     from bs4 import BeautifulSoup
     from urllib.parse import unquote
 
-    url = f"https://html.duckduckgo.com/html/?q={quote_plus(query)}"
+    url = f"https://html.duckduckgo.com/html/?q={quote_plus(query)}&kl=br-pt"
     try:
         resp = session.get(url, headers=headers, timeout=(5, 10))
         if resp.status_code != 200:
@@ -674,18 +674,57 @@ def buscar_searchapi(query, num_results=8):
         return []
 
 
+def buscar_ddgs_duckduckgo(query, num_results=8):
+    """DuckDuckGo explícito pelo pacote ddgs (backend="duckduckgo"), sem deixar o pacote trocar de buscador."""
+    try:
+        from ddgs import DDGS
+        results = list(DDGS().text(query, region="br-pt", max_results=num_results, backend="duckduckgo"))
+        urls = [r["href"] for r in results if r.get("href") and dominio_valido(r["href"])]
+        DIAG_BUSCA["DuckDuckGo (ddgs, backend duckduckgo)"] = f"{len(results)} resultados, {len(urls)} após filtro de domínios"
+        return _dedup_urls(urls, num_results)
+    except Exception as erro:
+        DIAG_BUSCA["DuckDuckGo (ddgs, backend duckduckgo)"] = f"erro {type(erro).__name__}: {str(erro)[:80]}"
+        return []
+
+
+def buscar_duckduckgo_lite(session, query, headers, num_results=8):
+    """DuckDuckGo Lite (lite.duckduckgo.com): versão leve do DuckDuckGo, outra porta de entrada quando a HTML falha."""
+    from bs4 import BeautifulSoup
+    from urllib.parse import unquote
+
+    try:
+        resp = session.post("https://lite.duckduckgo.com/lite/", data={"q": query, "kl": "br-pt"}, headers=headers, timeout=(5, 12))
+        if resp.status_code != 200:
+            DIAG_BUSCA["DuckDuckGo Lite"] = f"HTTP {resp.status_code}"
+            return []
+        soup = BeautifulSoup(resp.text, "html.parser")
+        urls = []
+        for a_tag in soup.select("a.result-link, a[href*='uddg=']"):
+            href = a_tag.get("href", "")
+            if "uddg=" in href:
+                href = unquote(href.split("uddg=")[1].split("&")[0])
+            if href.startswith("http") and dominio_valido(href):
+                urls.append(href)
+        DIAG_BUSCA["DuckDuckGo Lite"] = f"{len(urls)} sites após filtro de domínios"
+        return _dedup_urls(urls, num_results)
+    except Exception as erro:
+        DIAG_BUSCA["DuckDuckGo Lite"] = f"erro {type(erro).__name__}"
+        return []
+
+
 def buscar_urls(session, query, headers, num_results=8, item=None):
-    """Busca combinada, só DuckDuckGo e Bing: DuckDuckGo (pacote ddgs) > DuckDuckGo HTML > Bing HTML."""
+    """DuckDuckGo é o principal (4 formas de acesso); o Bing só entra se todas falharem."""
     DIAG_BUSCA.clear()
-    urls = buscar_ddgs_api(query, num_results)
-    if urls:
-        return urls, "DuckDuckGo (ddgs)"
-    urls = buscar_duckduckgo(session, query, headers, num_results)
-    if urls:
-        return urls, "DuckDuckGo HTML"
-    urls = buscar_bing_requests(session, query, headers, num_results)
-    if urls:
-        return urls, "Bing"
+    for nome, funcao in (
+        ("DuckDuckGo (ddgs)", lambda: buscar_ddgs_duckduckgo(query, num_results)),
+        ("DuckDuckGo HTML", lambda: buscar_duckduckgo(session, query, headers, num_results)),
+        ("DuckDuckGo Lite", lambda: buscar_duckduckgo_lite(session, query, headers, num_results)),
+        ("DuckDuckGo (ddgs automático)", lambda: buscar_ddgs_api(query, num_results)),
+        ("Bing", lambda: buscar_bing_requests(session, query, headers, num_results)),
+    ):
+        urls = funcao()
+        if urls:
+            return urls, nome
     return [], "nenhum"
 
 
@@ -697,8 +736,10 @@ def testar_buscadores(query, item=None):
     cabecalhos = gerar_headers()
     sessao.headers.update(cabecalhos)
     linhas = []
-    for nome, funcao in (("DuckDuckGo (ddgs)", lambda: buscar_ddgs_api(query, 8)),
+    for nome, funcao in (("DuckDuckGo (ddgs)", lambda: buscar_ddgs_duckduckgo(query, 8)),
                          ("DuckDuckGo (HTML)", lambda: buscar_duckduckgo(sessao, query, cabecalhos, 8)),
+                         ("DuckDuckGo (Lite)", lambda: buscar_duckduckgo_lite(sessao, query, cabecalhos, 8)),
+                         ("DuckDuckGo (ddgs automático)", lambda: buscar_ddgs_api(query, 8)),
                          ("Bing (HTML)", lambda: buscar_bing_requests(sessao, query, cabecalhos, 8))):
         inicio = time.time()
         DIAG_BUSCA.clear()
