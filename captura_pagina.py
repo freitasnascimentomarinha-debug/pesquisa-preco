@@ -19,12 +19,44 @@ CAMINHOS_CHROMIUM = ("/usr/bin/chromium", "/usr/bin/chromium-browser", "/usr/bin
 ARGUMENTOS_NAVEGADOR = ["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu", "--disable-extensions", "--mute-audio"]
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
 
-SELETORES_FECHAR = (
-    'button:has-text("Aceitar")', 'button:has-text("Aceito")', 'button:has-text("Concordo")', 'button:has-text("Entendi")',
-    'button:has-text("Continuar")', 'button:has-text("Accept")', '[class*="cookie"] button', '[id*="cookie"] button',
-    '[class*="lgpd"] button', '[class*="consent"] button', '[aria-label="Fechar"]', '[aria-label="Close"]',
-    '[class*="modal"] [class*="close"]', '[class*="popup"] [class*="close"]', 'button.close',
+# Botões de aviso/popup que podem ser clicados (texto inteiro do botão, sem diferenciar maiúsculas/acentos)
+TEXTOS_FECHAR = re.compile(
+    r"^\s*(aceitar( todos)?( os)?( cookies)?|aceito|aceitar e fechar|concordo|concordar|entendi|ok|fechar|agora n[aã]o|n[aã]o,? obrigad[oa]|"
+    r"n[aã]o,? agora|dispensar|depois|mais tarde|recusar|rejeitar|continuar e fechar|prosseguir|pular|skip|close|got it|accept( all)?|no,? thanks|x|×|✕)\s*$",
+    re.IGNORECASE,
 )
+SELETORES_FECHAR = (
+    '[class*="cookie"] button', '[id*="cookie"] button', '[class*="lgpd"] button', '[id*="lgpd"] button', '[class*="consent"] button',
+    '[aria-label="Fechar"]', '[aria-label="fechar"]', '[aria-label="Close"]', '[aria-label="close"]', 'button[title="Fechar"]', 'button[title="Close"]',
+    '[class*="modal"] [class*="close"]', '[class*="popup"] [class*="close"]', '[class*="overlay"] [class*="close"]', '[class*="newsletter"] [class*="close"]',
+    'button.close', '.modal .close', '[data-dismiss="modal"]', '[class*="CloseButton"]', '[class*="closeButton"]', '[class*="icon-close"]',
+)
+# Esconde, pelo JavaScript da própria página, o que ainda cobre o conteúdo: diálogos, avisos fixos e camadas sobrepostas (menos o cabeçalho do site)
+JS_LIMPAR_SOBREPOSICOES = """
+() => {
+  const largura = window.innerWidth, altura = window.innerHeight;
+  const ehCabecalho = (e, r) => /^(HEADER|NAV)$/.test(e.tagName) || e.closest('header, nav') || (r.top <= 8 && r.height < 190 && r.width > largura * 0.6);
+  const palavras = /(cookie|lgpd|consent|gdpr|modal|popup|pop-up|overlay|newsletter|lightbox|dialog|banner-?promo|region|regiao|geoloc|cep|app-?banner|chat-?widget)/i;
+  let removidos = 0;
+  document.querySelectorAll('body *').forEach(e => {
+    const css = getComputedStyle(e);
+    if (!['fixed', 'sticky', 'absolute'].includes(css.position) || css.display === 'none' || css.visibility === 'hidden') return;
+    const r = e.getBoundingClientRect();
+    if (r.width < 40 || r.height < 24 || r.bottom < 0 || r.top > altura) return;
+    if (ehCabecalho(e, r)) return;
+    const id = (e.id || '') + ' ' + (typeof e.className === 'string' ? e.className : '');
+    const dialogo = e.matches('[role=dialog], [role=alertdialog], [aria-modal=true], dialog');
+    const z = parseInt(css.zIndex) || 0;
+    const cobre = r.width >= largura * 0.9 && r.height >= altura * 0.5;           // camada sobre a tela inteira
+    const barra = css.position === 'fixed' && (r.bottom >= altura - 4 || r.top <= 4) && r.width >= largura * 0.6 && r.height < altura * 0.4 && z >= 10; // faixa fixa
+    const flutuante = z >= 100 && palavras.test(id);
+    if (dialogo || cobre || barra || flutuante || (css.position !== 'sticky' && z >= 1000 && palavras.test(id))) { e.style.setProperty('display', 'none', 'important'); removidos++; }
+  });
+  document.documentElement.style.setProperty('overflow', 'auto', 'important');
+  document.body.style.setProperty('overflow', 'auto', 'important');
+  return removidos;
+}
+"""
 
 
 def caminho_chromium() -> str | None:
@@ -83,21 +115,46 @@ def _rodape(png: bytes, url: str, capturado_em: str, preco: float | None) -> byt
     return saida.getvalue()
 
 
-def _preparar_pagina(page, preco: float | None) -> None:
-    """Fecha avisos de cookies/popups e leva a tela até o preço, marcando-o com um contorno."""
-    for seletor in SELETORES_FECHAR:
+def _fechar_avisos(page) -> None:
+    """Fecha avisos de cookies, escolha de região, newsletter e popups: clica nos botões de dispensar, tecla Esc e, por fim, esconde o que ainda cobre a tela."""
+    for _ in range(2):  # alguns sites abrem um segundo aviso depois de fechar o primeiro
+        for alvo in (page.get_by_role("button", name=TEXTOS_FECHAR), page.get_by_role("link", name=TEXTOS_FECHAR)):
+            try:
+                for i in range(min(alvo.count(), 3)):
+                    botao = alvo.nth(i)
+                    if botao.is_visible(timeout=200):
+                        botao.click(timeout=800)
+                        page.wait_for_timeout(250)
+            except Exception:
+                pass
+        for seletor in SELETORES_FECHAR:
+            try:
+                alvo = page.locator(seletor).first
+                if alvo.is_visible(timeout=150):
+                    alvo.click(timeout=700)
+                    page.wait_for_timeout(200)
+            except Exception:
+                pass
         try:
-            alvo = page.locator(seletor).first
-            if alvo.is_visible(timeout=200):
-                alvo.click(timeout=800)
-                page.wait_for_timeout(200)
+            page.keyboard.press("Escape")
         except Exception:
             pass
+        page.wait_for_timeout(300)
+    try:
+        page.evaluate(JS_LIMPAR_SOBREPOSICOES)
+    except Exception:
+        pass
+
+
+def _preparar_pagina(page, preco: float | None) -> None:
+    """Fecha os avisos e leva a tela até o preço, marcando-o com um contorno."""
+    _fechar_avisos(page)
     for formato in _formatos_preco(preco):
         try:
             elemento = page.locator(f"text=/{re.escape(formato)}/").first
             if elemento.count() and elemento.is_visible(timeout=500):
                 elemento.scroll_into_view_if_needed(timeout=1500)
+                page.evaluate("window.scrollBy(0, -120)")  # deixa o preço um pouco abaixo do topo, longe do cabeçalho fixo
                 elemento.evaluate("e => { e.style.outline = '3px solid #d4af37'; e.style.outlineOffset = '3px'; }")
                 page.wait_for_timeout(300)
                 return
