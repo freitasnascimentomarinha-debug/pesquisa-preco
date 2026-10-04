@@ -491,8 +491,12 @@ def buscar_ddgs_api(query, num_results=8, item=None):
     try:
         from ddgs import DDGS
         results = list(DDGS().text(query, region="br-pt", max_results=num_results))
-        urls = [r["href"] for r in results if r.get("href") and dominio_valido(r["href"])]
-        DIAG_BUSCA["ddgs automático"] = f"{len(results)} resultados, {len(urls)} após filtro de domínios"
+        termos = _termos_do_item(item) if item else []
+        validos = [r for r in results if r.get("href") and dominio_valido(r["href"])]
+        urls = [r["href"] for r in validos if _resultado_relevante(r, termos)]
+        # o modo automático às vezes responde com outro buscador que ignora a busca (ex.: restaurantes para "fita isolante"):
+        # nesse caso não usa nada e deixa o Bing tentar
+        DIAG_BUSCA["ddgs automático"] = f"{len(results)} resultados, {len(validos)} após filtro de domínios, {len(urls)} sobre o item"
         return _dedup_urls(urls, num_results)
     except ImportError:
         try:
@@ -592,7 +596,7 @@ def buscar_bing_requests(session, query, headers, num_results=8):
     """Busca no Bing como fallback adicional."""
     from bs4 import BeautifulSoup
 
-    url = f"https://www.bing.com/search?q={quote_plus(query)}&setlang=pt-BR&count={num_results}"
+    url = f"https://www.bing.com/search?q={quote_plus(query)}&setlang=pt-BR&cc=BR&mkt=pt-BR&count=20"
     bing_headers = dict(headers)
     bing_headers["Referer"] = "https://www.bing.com/"
     try:
@@ -617,6 +621,7 @@ def buscar_bing_requests(session, query, headers, num_results=8):
                 if href.startswith("http") and dominio_valido(href):
                     urls.append(href)
 
+        DIAG_BUSCA["bing html"] = f"{len(urls)} sites após filtro de domínios"
         return _dedup_urls(urls, num_results)
 
     except Exception as erro:
@@ -719,7 +724,7 @@ def buscar_urls(session, query, headers, num_results=8, item=None):
         ("DuckDuckGo (ddgs)", lambda: buscar_ddgs_duckduckgo(query, num_results)),
         ("DuckDuckGo HTML", lambda: buscar_duckduckgo(session, query, headers, num_results)),
         ("DuckDuckGo Lite", lambda: buscar_duckduckgo_lite(session, query, headers, num_results)),
-        ("DuckDuckGo (ddgs automático)", lambda: buscar_ddgs_api(query, num_results)),
+        ("DuckDuckGo (ddgs automático)", lambda: buscar_ddgs_api(query, num_results, item)),
         ("Bing", lambda: buscar_bing_requests(session, query, headers, num_results)),
     ):
         urls = funcao()
@@ -1450,7 +1455,7 @@ def executar_scraping(itens, usar_playwright, progress_bar, log_container, statu
                 time.sleep(gerar_delay(delay_min, delay_max))  # pausa curta entre buscas, para não ser bloqueado
 
             # Buscar URLs (DDGS API > DuckDuckGo HTML > Google > Bing)
-            urls, engine = buscar_urls(session, query, headers)
+            urls, engine = buscar_urls(session, query, headers, item=item)
 
             if not urls:
                 buscas_sem_resultado += 1
