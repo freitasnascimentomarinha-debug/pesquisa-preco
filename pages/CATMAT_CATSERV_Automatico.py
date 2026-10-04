@@ -2,24 +2,14 @@
 
 from __future__ import annotations
 
-import csv
-import gzip
-import heapq
 import io
-import json
-import math
+import sys
 import os
-import re
 import unicodedata
 import base64
 from datetime import datetime
-from array import array
-from collections import defaultdict
-from difflib import SequenceMatcher
-from functools import lru_cache
 
 import pandas as pd
-import requests
 import streamlit as st
 from fpdf import FPDF
 from openpyxl.styles import Alignment, Font, PatternFill
@@ -35,38 +25,8 @@ st.set_page_config(
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CATALOGO_DIR = os.path.join(BASE_DIR, "Projeto Adesões")
-CATSERV_PATH = os.path.join(CATALOGO_DIR, "catalogo_servicos.json")
-CATMAT_PATH = os.path.join(CATALOGO_DIR, "catalogo_catmat.csv.gz")
-STOP_WORDS = {"a", "as", "com", "da", "das", "de", "do", "dos", "e", "em", "o", "os", "para", "por", "sem", "um", "uma", "tipo"}
-# Termos de embalagem/unidade: descrevem como o item é comprado, não o que ele é.
-# Entram na comparação com peso baixo e nunca definem o "termo principal" do item.
-TERMOS_EMBALAGEM = {
-    "caixa", "cx", "fardo", "folha", "pacote", "pct", "resma", "und", "unid", "unidade",
-    "kg", "ml", "mm", "cm", "m2", "gr", "lt", "litro", "metro",
-}
-TERMOS_RESTRITIVOS = {
-    "automotivo", "cartucho", "descartavel", "hospitalar", "impressora", "industrial",
-    "infantil", "medico", "odontologico", "recarga", "refil", "tinteiro", "toner",
-}
-# Termo da descrição -> grupos de termos que o catálogo usa para dizer a mesma coisa.
-# Um grupo só vale se TODOS os seus termos estiverem na descrição do catálogo.
-EQUIVALENCIAS = {
-    "a4": [{"210", "297"}],
-    "a3": [{"297", "420"}],
-    "oficio": [{"216", "330"}],
-    "carta": [{"216", "279"}],
-    "sulfite": [{"alcalino"}, {"reprografico"}],
-    "reprografico": [{"sulfite"}],
-}
-# Quando a descrição traz estes termos, o catálogo é ranqueado preferindo o produto usual da compra
-# (termo -> bônus). Ex.: "resma de papel A4" sem outros detalhes = papel de escritório branco de 75 g/m².
-_PAPEL_ESCRITORIO = {"sulfite": 4, "alcalino": 4, "reprografico": 4, "celulose": 3, "branca": 4, "75": 8}
-PREFERENCIAS = [
-    ({"papel", "resma"}, _PAPEL_ESCRITORIO),
-    ({"papel", "a4"}, _PAPEL_ESCRITORIO),
-]
-LIMIAR_SIMILARIDADE = 45.0
-CANDIDATOS_POR_CONSULTA = 200
+sys.path.insert(0, BASE_DIR)  # permite importar catmat_busca.py (raiz do projeto)
+from catmat_busca import CATMAT_PATH, CATSERV_PATH, carregar_catalogo, carregar_indice_catmat, sugerir_codigo  # noqa: E402
 
 
 st.markdown(
@@ -168,69 +128,6 @@ with st.sidebar:
     st.markdown('<div class="sidebar-footer">Marinha do Brasil<br>AtaCotada v1.0</div>', unsafe_allow_html=True)
 
 
-def _normalizar(texto: str) -> str:
-    texto = unicodedata.normalize("NFKD", str(texto)).encode("ASCII", "ignore").decode("ASCII").lower()
-    texto = re.sub(r"(\d)([a-z])", r"\1 \2", texto)  # "75g" -> "75 g"
-    return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9]+", " ", texto)).strip()
-
-
-def _radical(token: str) -> str:
-    """Remove o plural simples para que 'canetas' e 'caneta' sejam o mesmo termo."""
-    if len(token) > 4 and token.endswith(("oes", "aes")):
-        return token[:-3] + "ao"
-    if len(token) > 3 and token.endswith("s") and not token.endswith("ss"):
-        return token[:-1]
-    return token
-
-
-def _calcular_tokens(texto: str) -> tuple[str, ...]:
-    vistos: dict[str, None] = {}
-    for token in _normalizar(texto).split():
-        if len(token) > 1 and token not in STOP_WORDS:
-            vistos.setdefault(_radical(token), None)
-    return tuple(vistos)
-
-
-_tokens_ordenados = lru_cache(maxsize=100_000)(_calcular_tokens)
-
-
-def _tokens(texto: str) -> set[str]:
-    return set(_tokens_ordenados(texto))
-
-
-def _tem_numero(token: str) -> bool:
-    return any(caractere.isdigit() for caractere in token)
-
-
-def _perfil(descricao: str) -> dict[str, object]:
-    """Separa a descrição em núcleo (o que o item é), especificações (a4, 75...) e embalagem (resma, caixa...)."""
-    ordem = list(_tokens_ordenados(descricao))
-    macios = [token for token in ordem if token in TERMOS_EMBALAGEM]
-    especificos = [token for token in ordem if token not in macios and _tem_numero(token)]
-    nucleo = [token for token in ordem if token not in macios and token not in especificos] or ordem
-    return {"ordem": ordem, "macios": macios, "especificos": especificos, "nucleo": nucleo, "cabeca": nucleo[0] if nucleo else ""}
-
-
-def _termo_principal(texto: str) -> str:
-    """Retorna o termo que diz o que o item é, ignorando embalagem ('resma de papel' -> 'papel')."""
-    return str(_perfil(texto)["cabeca"])
-
-
-def _forca_termo(token: str, destino: set[str]) -> float:
-    """1.0 = termo presente; menos que isso = equivalente ou variação do mesmo termo; 0 = ausente."""
-    if token in destino:
-        return 1.0
-    if any(grupo <= destino for grupo in EQUIVALENCIAS.get(token, [])):
-        return 0.85
-    if len(token) >= 5 and not _tem_numero(token):
-        for candidato in destino:
-            menor = min(len(token), len(candidato))
-            if menor >= 5 and not _tem_numero(candidato):
-                comum = len(os.path.commonprefix([token, candidato]))
-                if comum >= menor - 1:
-                    return 0.7
-    return 0.0
-
 
 def _texto_pdf(texto: object) -> str:
     """Converte texto do catálogo para caracteres aceitos pela fonte padrão do PDF."""
@@ -248,209 +145,6 @@ def _texto_pdf_quebravel(texto: object, tamanho_maximo: int = 45) -> str:
         linhas.append(" ".join(palavras))
     return "\n".join(linhas)
 
-
-@st.cache_data(show_spinner=False)
-def carregar_catalogo(caminho: str) -> list[dict[str, object]]:
-    with open(caminho, "r", encoding="utf-8") as arquivo:
-        catalogo = json.load(arquivo)
-    return [
-        {"codigo": str(codigo), "descricao": descricao, "tokens": sorted(_tokens(descricao))}
-        for descricao, codigo in catalogo.items()
-    ]
-
-
-@st.cache_resource(show_spinner="Carregando o catálogo CATMAT (apenas na primeira vez, ~15 s)...")
-def carregar_indice_catmat(caminho: str) -> tuple[list[tuple[str, str, str, str]], dict[str, array]]:
-    """Lê o catálogo CATMAT local e monta um índice palavra -> itens (a API do Compras.gov não busca por texto)."""
-    itens: list[tuple[str, str, str, str]] = []
-    indice: dict[str, array] = defaultdict(lambda: array("I"))
-    with gzip.open(caminho, "rt", encoding="utf-8", newline="") as arquivo:
-        for posicao, linha in enumerate(csv.DictReader(arquivo)):
-            nome_pdm = linha["nome_pdm"].strip('" ')
-            itens.append((linha["codigo"], linha["codigo_pdm"], nome_pdm, linha["descricao"]))
-            for token in set(_calcular_tokens(f"{nome_pdm} {linha['descricao']}")):
-                indice[token].append(posicao)
-    return itens, dict(indice)
-
-
-def _buscar_no_catmat(descricao: str, catmat: tuple[list, dict[str, array]], limite: int = CANDIDATOS_POR_CONSULTA) -> list[int]:
-    """Primeira etapa: ranqueia por palavras em comum (mais raras valem mais) e devolve as posições dos melhores itens."""
-    itens, indice = catmat
-    perfil = _perfil(descricao)
-    cabeca = str(perfil["cabeca"])
-    termos: dict[str, float] = {}
-    pesos = [(token, 2.0 if token == cabeca else 1.0) for token in perfil["nucleo"]]
-    pesos += [(token, 0.8) for token in perfil["especificos"]] + [(token, 0.2) for token in perfil["macios"]]
-    for token, peso in pesos:
-        termos[token] = max(termos.get(token, 0), peso)
-        for grupo in EQUIVALENCIAS.get(token, []):
-            for equivalente in grupo:
-                termos[equivalente] = max(termos.get(equivalente, 0), peso * 0.5 / len(grupo))
-    pontos: dict[int, float] = defaultdict(float)
-    for token, peso in termos.items():
-        posicoes = indice.get(token)
-        if not posicoes or (len(posicoes) > 60_000 and token != cabeca):
-            continue
-        idf = math.log(1 + len(itens) / len(posicoes))
-        for posicao in posicoes:
-            pontos[posicao] += peso * idf
-    return heapq.nlargest(limite, pontos, key=pontos.__getitem__)
-
-
-def _opcoes_material(descricao: str, catmat: tuple[list, dict[str, array]]) -> list[dict[str, object]]:
-    itens, _ = catmat
-    opcoes = []
-    for posicao in _buscar_no_catmat(descricao, catmat):
-        codigo, codigo_pdm, nome_pdm, descricao_item = itens[posicao]
-        bruta = _pontuar(descricao, descricao_item, nome_pdm)
-        opcoes.append(
-            {
-                "tipo": "Material",
-                "codigo": codigo,
-                "descricao_catalogo": descricao_item,
-                "bruta": bruta,
-                "similaridade": round(max(0, min(100, bruta)), 1),
-                "origem": "CATMAT",
-                "codigo_pdm": codigo_pdm,
-                "descricao_pdm": nome_pdm,
-            }
-        )
-    return opcoes
-
-
-@st.cache_data(ttl=3600, show_spinner=False)
-def buscar_unidade_fornecimento(codigo_pdm: str) -> str:
-    """Retorna a primeira unidade de fornecimento ativa associada ao PDM informado."""
-    try:
-        resposta = requests.get(
-            "https://dadosabertos.compras.gov.br/modulo-material/6_consultarMaterialUnidadeFornecimento",
-            params={"pagina": 1, "tamanhoPagina": 100, "codigoPdm": codigo_pdm, "statusUnidadeFornecimentoPdm": "true"},
-            timeout=15,
-        )
-        if resposta.status_code != 200:
-            return ""
-        unidades = resposta.json().get("resultado", [])
-        if not unidades:
-            return ""
-        unidade = unidades[0]
-        sigla = unidade.get("siglaUnidadeFornecimento", "")
-        nome = unidade.get("nomeUnidadeFornecimento", "")
-        return f"{sigla} - {nome}".strip(" -")
-    except (requests.RequestException, ValueError):
-        return ""
-
-
-def calcular_similaridade(descricao: str, candidato: str, nome_pdm: str = "") -> float:
-    """Nota de 0 a 100 exibida ao usuário (ver _pontuar)."""
-    return round(max(0, min(100, _pontuar(descricao, candidato, nome_pdm))), 1)
-
-
-def _pontuar(descricao: str, candidato: str, nome_pdm: str = "") -> float:
-    """Pontua o quanto o item do catálogo corresponde à descrição (sem teto, para desempatar; 100 = excelente) o quanto o item do catálogo corresponde à descrição informada.
-
-    O que pesa: o termo principal ("papel"), os demais termos do núcleo, as especificações
-    (a4 casa com 210 x 297 mm) e o item do catálogo começar pelo termo principal. Embalagem
-    ("resma") pesa pouco. Descrições longas de catálogo não são punidas por terem mais atributos.
-    """
-    perfil = _perfil(descricao)
-    ordem_destino = list(_tokens_ordenados(f"{nome_pdm} {candidato}"))
-    if not perfil["ordem"] or not ordem_destino:
-        return 0.0
-    destino = set(ordem_destino)
-    cabeca = str(perfil["cabeca"])
-    nucleo = list(perfil["nucleo"])
-
-    pesos = [(token, 2.0 if token == cabeca else 1.0) for token in nucleo]
-    pesos += [(token, 0.6) for token in perfil["especificos"]] + [(token, 0.1) for token in perfil["macios"]]
-    forcas = {token: _forca_termo(token, destino) for token, _ in pesos}
-    cobertura = sum(peso * forcas[token] for token, peso in pesos) / sum(peso for _, peso in pesos)
-
-    forca_cabeca = forcas.get(cabeca, 0.0)
-    comeco = ordem_destino[:3]
-    bonus_inicio = 12 if any(_forca_termo(cabeca, {token}) >= 0.7 for token in comeco) else 0
-    nucleo_completo = 8 if all(forcas[token] >= 0.7 for token in nucleo) else 0
-
-    nome = _tokens_ordenados(re.split(r"[,;:(]", nome_pdm or candidato, maxsplit=1)[0])
-    sequencia = SequenceMatcher(None, " ".join(nucleo), " ".join(nome[:6])).ratio()
-    extras_no_nome = [token for token in nome if _forca_termo(token, set(perfil["ordem"])) == 0 and all(_forca_termo(t, {token}) == 0 for t in nucleo)]
-
-    bonus_preferencia = 0
-    gramatura_informada = any(token.isdigit() for token in perfil["especificos"])
-    for chave, preferencia in PREFERENCIAS:
-        if chave <= set(perfil["ordem"]):
-            bonus_preferencia += sum(
-                bonus for termo, bonus in preferencia.items()
-                if termo in destino and not (termo == "75" and gramatura_informada)
-            )
-    restritivos_ausentes = (destino - set(perfil["ordem"])) & TERMOS_RESTRITIVOS
-    penalidade = min(36, len(restritivos_ausentes) * 18) + min(30, len(extras_no_nome) * 10)
-
-    pontuacao = cobertura * 72 + bonus_inicio + nucleo_completo + sequencia * 8 + bonus_preferencia - penalidade
-    if perfil["especificos"]:
-        atendidas = sum(forcas[token] for token in perfil["especificos"]) / len(perfil["especificos"])
-        pontuacao *= 0.8 + 0.2 * atendidas
-    if not nucleo_completo:
-        pontuacao *= 0.85
-    if forca_cabeca == 0:
-        pontuacao *= 0.35
-    return pontuacao
-
-
-def melhores_do_catalogo(descricao: str, catalogo: list[dict[str, object]], limite: int = 40) -> list[dict[str, object]]:
-    """Pré-seleciona entradas do catálogo local que compartilham termos do núcleo com a descrição."""
-    perfil = _perfil(descricao)
-    cabeca = str(perfil["cabeca"])
-    candidatos = []
-    for item in catalogo:
-        destino = set(item["tokens"])
-        pontos = sum((2.0 if token == cabeca else 1.0) * _forca_termo(token, destino) for token in perfil["nucleo"])
-        if pontos:
-            candidatos.append((pontos, item))
-    candidatos.sort(key=lambda candidato: candidato[0], reverse=True)
-    return [item for _, item in candidatos[:limite]]
-
-
-def _opcoes_servico(descricao: str, catalogo_servico: list[dict[str, object]]) -> list[dict[str, object]]:
-    return [
-        {
-            "tipo": "Serviço",
-            "codigo": str(item["codigo"]),
-            "descricao_catalogo": str(item["descricao"]),
-            "bruta": (bruta := _pontuar(descricao, str(item["descricao"]))),
-            "similaridade": round(max(0, min(100, bruta)), 1),
-            "origem": "CATSERV",
-            "codigo_pdm": "",
-            "descricao_pdm": "",
-        }
-        for item in melhores_do_catalogo(descricao, catalogo_servico)
-    ]
-
-
-def _resumo_alternativa(opcao: dict[str, object]) -> str:
-    descricao = str(opcao["descricao_catalogo"])
-    return f"{opcao['codigo']} ({opcao['similaridade']:.0f}%) {descricao[:90]}{'…' if len(descricao) > 90 else ''}"
-
-
-def sugerir_codigo(descricao: str, catmat: tuple[list, dict[str, array]], catalogo_servico: list[dict[str, object]], tipo: str) -> dict[str, object]:
-    opcoes: list[dict[str, object]] = []
-    if tipo in ("Automático", "Material"):
-        opcoes += _opcoes_material(descricao, catmat)
-    if tipo in ("Automático", "Serviço"):
-        opcoes += _opcoes_servico(descricao, catalogo_servico)
-
-    vazio = {"tipo": "-", "codigo": "-", "similaridade": 0.0, "origem": "-", "unidade_fornecimento": "", "codigo_pdm": "", "descricao_pdm": "", "alternativas": ""}
-    if not opcoes:
-        return {**vazio, "descricao_catalogo": "Nenhuma correspondência encontrada"}
-    opcoes.sort(key=lambda opcao: opcao["bruta"], reverse=True)
-    melhor = opcoes[0]
-    if melhor["similaridade"] < LIMIAR_SIMILARIDADE:
-        return {**vazio, "descricao_catalogo": "Descrição insuficiente para sugerir um código com segurança", "similaridade": melhor["similaridade"]}
-    alternativas = [opcao for opcao in opcoes[1:4] if opcao["similaridade"] >= LIMIAR_SIMILARIDADE - 10]
-    return {
-        **melhor,
-        "unidade_fornecimento": buscar_unidade_fornecimento(str(melhor["codigo_pdm"])) if melhor["codigo_pdm"] else "",
-        "alternativas": "\n".join(_resumo_alternativa(opcao) for opcao in alternativas),
-    }
 
 
 def gerar_excel(resultados: pd.DataFrame) -> bytes:
