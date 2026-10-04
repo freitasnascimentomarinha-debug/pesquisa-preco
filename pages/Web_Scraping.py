@@ -241,7 +241,7 @@ DOMINIOS_IGNORADOS = [
 
 MAX_FONTES_POR_ITEM = 3
 MAX_RETRIES = 2
-TEMPO_MAX_POR_ITEM = 120  # segundos de busca por item, para a pesquisa nunca ficar presa
+TEMPO_MAX_POR_ITEM = 240  # segundos de busca por item, para a pesquisa nunca ficar presa
 SCREENSHOT_DIR = "/tmp/scraping_screenshots"
 OUTLIER_MULTIPLIER = 1.6
 MIN_ORCAMENTOS_PARA_ANALISE_OUTLIER = 3
@@ -459,13 +459,7 @@ def _dedup_urls(urls, num_results=8):
     return unique[:num_results]
 
 
-# Motores gratuitos do pacote ddgs, em ordem. O DuckDuckGo (e o "auto", que cai em resultados aleatórios quando ele falha)
-# ficam por último porque o servidor da nuvem costuma ter o DuckDuckGo bloqueado/lento.
-MOTORES_DDGS = ("bing", "mojeek", "brave", "yahoo", "yandex", "duckduckgo", "auto")
-# Pede aos buscadores só lojas que não sejam marketplaces (que o sistema ignora): sem isso os 10 primeiros resultados são todos descartados
-EXCLUSOES_SITE = " " + " ".join(f"-site:{d}" for d in ("mercadolivre.com.br", "amazon.com.br", "shopee.com.br", "magazineluiza.com.br"))
-FALHAS_MOTOR = {}  # motores que deram timeout/limite nesta execução: depois de 2 falhas são pulados (evita esperar 30 s por busca)
-MOTOR_USADO = {"nome": ""}  # qual motor do ddgs respondeu na última busca (para o log)
+FALHAS_MOTOR = {}  # mantido por compatibilidade (não usado)
 DIAG_BUSCA = {}  # o que cada buscador respondeu na última busca (aparece no log quando nada é encontrado)
 
 
@@ -493,89 +487,26 @@ def _resultado_relevante(resultado, termos):
 
 
 def buscar_ddgs_api(query, num_results=8, item=None):
-    """Busca usando o pacote ddgs. Prefere resultados que falem do item, mas não descarta os demais:
-    a leitura da página já confere a relevância."""
-    termos = _termos_do_item(item) if item else []
+    """Busca usando o pacote ddgs (DuckDuckGo Search) — mesma chamada de antes das mudanças."""
     try:
         from ddgs import DDGS
+        results = list(DDGS().text(query, region="br-pt", max_results=num_results))
+        urls = [r["href"] for r in results if r.get("href") and dominio_valido(r["href"])]
+        DIAG_BUSCA["DuckDuckGo (ddgs)"] = f"{len(results)} resultados, {len(urls)} após filtro de domínios"
+        return _dedup_urls(urls, num_results)
     except ImportError:
         try:
             from duckduckgo_search import DDGS
-        except ImportError:
-            DIAG_BUSCA["ddgs"] = "pacote ddgs não instalado"
-            return []
-    # 0) A chamada original, idêntica à de antes das mudanças (sem backend, sem exclusões, sem filtro de assunto)
-    sobras = []
-    if FALHAS_MOTOR.get("classico", 0) < 2:
-        try:
-            resultados = list(DDGS().text(query, region="br-pt", max_results=num_results))
-            FALHAS_MOTOR["classico"] = 0
-            validos = [r for r in resultados if r.get("href") and dominio_valido(r["href"])]
-            relevantes = _dedup_urls([r["href"] for r in validos if _resultado_relevante(r, termos)], num_results)
-            DIAG_BUSCA["ddgs/clássico"] = f"{len(resultados)} resultados, {len(validos)} após filtro de domínios, {len(relevantes)} do assunto"
-            if relevantes:
-                MOTOR_USADO["nome"] = "clássico (o pacote escolhe o buscador)"
-                return relevantes
-            sobras = _dedup_urls([r["href"] for r in validos], num_results)
+            with DDGS() as ddgs:
+                results = list(ddgs.text(query, region="br-pt", max_results=num_results))
+            urls = [r["href"] for r in results if r.get("href") and dominio_valido(r["href"])]
+            DIAG_BUSCA["DuckDuckGo (ddgs)"] = f"{len(results)} resultados, {len(urls)} após filtro de domínios"
+            return _dedup_urls(urls, num_results)
         except Exception as erro:
-            nome_erro = type(erro).__name__
-            DIAG_BUSCA["ddgs/clássico"] = f"erro {nome_erro}: {str(erro)[:80]}"
-            if any(marca in nome_erro for marca in ("Timeout", "Ratelimit", "Connect")):
-                FALHAS_MOTOR["classico"] = FALHAS_MOTOR.get("classico", 0) + 1
-    # 1ª passada sem marketplaces; se nada do assunto vier, 2ª passada com a frase pura
-    for sufixo in (EXCLUSOES_SITE, ""):
-        for motor in MOTORES_DDGS:
-            if FALHAS_MOTOR.get(motor, 0) >= 2:
-                DIAG_BUSCA[f"ddgs/{motor}"] = "pulado (falhou 2 vezes nesta execução)"
-                continue
-            try:
-                try:
-                    resultados = list(DDGS(timeout=8).text(query + sufixo, region="br-pt", max_results=num_results * 2, backend=motor))
-                except TypeError:  # versão antiga sem o parâmetro backend/timeout
-                    resultados = list(DDGS().text(query + sufixo, region="br-pt", max_results=num_results * 2))
-            except Exception as erro:
-                nome_erro = type(erro).__name__
-                DIAG_BUSCA[f"ddgs/{motor}"] = f"erro {nome_erro}: {str(erro)[:80]}"
-                if any(marca in nome_erro for marca in ("Timeout", "Ratelimit", "Connect")):
-                    FALHAS_MOTOR[motor] = FALHAS_MOTOR.get(motor, 0) + 1
-                continue
-            FALHAS_MOTOR[motor] = 0
-            validos = [r for r in resultados if r.get("href") and dominio_valido(r["href"])]
-            descartados = sorted({extrair_dominio(r["href"]) for r in resultados if r.get("href") and not dominio_valido(r["href"])})
-            relevantes = _dedup_urls([r["href"] for r in validos if _resultado_relevante(r, termos)], num_results)
-            DIAG_BUSCA[f"ddgs/{motor}{'' if sufixo else ' (sem exclusões)'}"] = (
-                f"{len(resultados)} resultados, {len(validos)} após filtro de domínios, {len(relevantes)} do assunto"
-                + (f" (domínios ignorados: {', '.join(descartados[:4])})" if descartados and not validos else ""))
-            if relevantes:
-                MOTOR_USADO["nome"] = motor + ("" if sufixo else ", sem exclusões")
-                return relevantes
-    # nenhum motor trouxe algo do assunto: devolve o que o ddgs clássico trouxe (como antes), a leitura da página confere a relevância
-    MOTOR_USADO["nome"] = "clássico, sem resultados do assunto (usando o que veio)"
-    return sobras[:5]
-
-
-def buscar_mojeek(session, query, headers, num_results=8, item=None):
-    """Busca no Mojeek (HTML simples, gratuito e tolerante a robôs) como alternativa ao DuckDuckGo."""
-    from bs4 import BeautifulSoup
-
-    termos = _termos_do_item(item) if item else []
-    url = f"https://www.mojeek.com/search?q={quote_plus(query)}&lb=pt&arc=br"
-    try:
-        resp = session.get(url, headers=headers, timeout=(5, 10))
-        if resp.status_code != 200:
-            DIAG_BUSCA["mojeek html"] = f"HTTP {resp.status_code}"
+            DIAG_BUSCA["DuckDuckGo (ddgs)"] = f"erro {type(erro).__name__}: {str(erro)[:80]}"
             return []
-        soup = BeautifulSoup(resp.text, "html.parser")
-        achados = []
-        for a_tag in soup.select("ul.results-standard li a.title, a.title"):
-            href = a_tag.get("href", "")
-            if href.startswith("http") and dominio_valido(href):
-                achados.append({"href": href, "title": a_tag.get_text(" ", strip=True), "body": a_tag.find_parent("li").get_text(" ", strip=True) if a_tag.find_parent("li") else ""})
-        DIAG_BUSCA["mojeek html"] = f"{len(achados)} resultados"
-        relevantes = [r["href"] for r in achados if _resultado_relevante(r, termos)]
-        return _dedup_urls(relevantes, num_results)
     except Exception as erro:
-        DIAG_BUSCA["mojeek html"] = f"erro {type(erro).__name__}"
+        DIAG_BUSCA["DuckDuckGo (ddgs)"] = f"erro {type(erro).__name__}: {str(erro)[:80]}"
         return []
 
 
@@ -743,118 +674,37 @@ def buscar_searchapi(query, num_results=8):
         return []
 
 
-SEARCHAPI_USO = {"buscas": 0, "limite": 0}  # buscas SearchAPI (DuckDuckGo) feitas/permitidas nesta execução
-
-
-def buscar_searchapi_web(query, num_results=8, item=None):
-    """Busca web via SearchAPI (engine=duckduckgo): o DuckDuckGo é consultado pelos servidores deles, sem o bloqueio do IP do Streamlit.
-    Usa a cota da sua conta SearchAPI; só roda com chave nos Secrets e dentro do limite definido na tela."""
-    import requests as req
-
-    chave = _chave_searchapi()
-    if not chave or SEARCHAPI_USO["buscas"] >= SEARCHAPI_USO["limite"]:
-        return []
-    SEARCHAPI_USO["buscas"] += 1
-    termos = _termos_do_item(item) if item else []
-    try:
-        resp = req.get(SEARCHAPI_URL, params={"engine": "duckduckgo", "q": query, "api_key": chave}, timeout=20)
-        dados = resp.json() if resp.content else {}
-        if resp.status_code != 200:
-            DIAG_BUSCA["searchapi/duckduckgo"] = f"HTTP {resp.status_code}: {str(dados.get('error', ''))[:80]}"
-            return []
-        brutos = dados.get("organic_results") or dados.get("results") or []
-        achados = [{"href": r.get("link") or r.get("url") or "", "title": r.get("title", ""), "body": r.get("snippet", "")} for r in brutos if isinstance(r, dict)]
-        validos = [r for r in achados if r["href"].startswith("http") and dominio_valido(r["href"])]
-        DIAG_BUSCA["searchapi/duckduckgo"] = f"{len(achados)} resultados, {len(validos)} após filtro de domínios (busca {SEARCHAPI_USO['buscas']}/{SEARCHAPI_USO['limite']})"
-        relevantes = _dedup_urls([r["href"] for r in validos if _resultado_relevante(r, termos)], num_results)
-        return relevantes or _dedup_urls([r["href"] for r in validos], 3)
-    except Exception as erro:
-        DIAG_BUSCA["searchapi/duckduckgo"] = f"erro {type(erro).__name__}"
-        return []
-
-
 def buscar_urls(session, query, headers, num_results=8, item=None):
-    """Busca combinada: DDGS API > DuckDuckGo HTML > Google > Bing."""
+    """Busca combinada, só DuckDuckGo e Bing: DuckDuckGo (pacote ddgs) > DuckDuckGo HTML > Bing HTML."""
     DIAG_BUSCA.clear()
-    MOTOR_USADO["nome"] = ""  # (FALHAS_MOTOR só é zerado no início de cada execução)
-    # 1. Tentar DDGS API (mais confiável em ambientes de servidor)
-    urls = buscar_ddgs_api(query, num_results, item)
+    urls = buscar_ddgs_api(query, num_results)
     if urls:
-        return urls, f"ddgs → {MOTOR_USADO['nome'] or 'motor não identificado'}"
-    # 2. Mojeek (HTML simples)
-    urls = buscar_mojeek(session, query, headers, num_results, item)
-    if urls:
-        return urls, "Mojeek"
-    # 3. DuckDuckGo HTML scraping
+        return urls, "DuckDuckGo (ddgs)"
     urls = buscar_duckduckgo(session, query, headers, num_results)
     if urls:
         return urls, "DuckDuckGo HTML"
-    # 3. Google
-    urls = buscar_google_requests(session, query, headers, num_results)
-    if urls:
-        return urls, "Google"
-    # 4. Bing
     urls = buscar_bing_requests(session, query, headers, num_results)
     if urls:
         return urls, "Bing"
-    # 5. SearchAPI (DuckDuckGo pelos servidores deles): opcional e limitado pela cota definida na tela
-    urls = buscar_searchapi_web(query, num_results, item)
-    if urls:
-        return urls, "SearchAPI (DuckDuckGo)"
     return [], "nenhum"
 
 
-def _instant_answer_ddg(session, query):
-    """API 'Instant Answer' do DuckDuckGo: devolve resumos de enciclopédia (entidades), não resultados de lojas; entra só no diagnóstico."""
-    try:
-        resp = session.get("https://api.duckduckgo.com/", params={"q": query, "format": "json", "no_html": 1, "skip_disambig": 1}, timeout=(5, 10))
-        if resp.status_code != 200:
-            DIAG_BUSCA["instant answer"] = f"HTTP {resp.status_code}"
-            return []
-        dados = resp.json()
-        links = [t.get("FirstURL") for t in dados.get("RelatedTopics", []) if isinstance(t, dict) and t.get("FirstURL")]
-        resumo = (dados.get("AbstractText") or "")[:60]
-        DIAG_BUSCA["instant answer"] = f"{len(links)} tópicos; resumo: {resumo or 'vazio'}"
-        return links
-    except Exception as erro:
-        DIAG_BUSCA["instant answer"] = f"erro {type(erro).__name__}"
-        return []
-
-
 def testar_buscadores(query, item=None):
-    """Diagnóstico: roda a mesma busca em cada motor e devolve tempo, nº de resultados e os primeiros títulos."""
+    """Diagnóstico: roda a mesma busca no DuckDuckGo (ddgs e HTML) e no Bing e mostra tempo, nº de resultados e os primeiros sites."""
     import requests as req
 
-    termos = _termos_do_item(item or query)
-    linhas = []
-    try:
-        from ddgs import DDGS
-    except ImportError:
-        DDGS = None
-    for motor in MOTORES_DDGS:
-        inicio = time.time()
-        try:
-            if DDGS is None:
-                raise ImportError("pacote ddgs não instalado")
-            resultados = list(DDGS(timeout=8).text(query + EXCLUSOES_SITE, region="br-pt", max_results=10, backend=motor))
-            relevantes = [r for r in resultados if _resultado_relevante(r, termos)]
-            linhas.append({"Buscador": f"ddgs/{motor}", "Tempo (s)": round(time.time() - inicio, 1), "Resultados": len(resultados), "Do assunto": len(relevantes),
-                           "Primeiros": " | ".join(f"{extrair_dominio(r.get('href', ''))}: {str(r.get('title', ''))[:40]}" for r in (relevantes or resultados)[:3])})
-        except Exception as erro:
-            linhas.append({"Buscador": f"ddgs/{motor}", "Tempo (s)": round(time.time() - inicio, 1), "Resultados": 0, "Do assunto": 0, "Primeiros": f"erro {type(erro).__name__}: {str(erro)[:70]}"})
     sessao = req.Session()
     cabecalhos = gerar_headers()
     sessao.headers.update(cabecalhos)
-    for nome, funcao in (("Mojeek (HTML)", lambda: buscar_mojeek(sessao, query, cabecalhos, 8, item or query)),
+    linhas = []
+    for nome, funcao in (("DuckDuckGo (ddgs)", lambda: buscar_ddgs_api(query, 8)),
                          ("DuckDuckGo (HTML)", lambda: buscar_duckduckgo(sessao, query, cabecalhos, 8)),
-                         ("Bing (HTML)", lambda: buscar_bing_requests(sessao, query, cabecalhos, 8)),
-                         ("DuckDuckGo Instant Answer (api.duckduckgo.com)", lambda: _instant_answer_ddg(sessao, query)),
-                         ("SearchAPI (DuckDuckGo)", lambda: (SEARCHAPI_USO.update({"buscas": 0, "limite": 1}), buscar_searchapi_web(query, 8, item or query))[1])):
+                         ("Bing (HTML)", lambda: buscar_bing_requests(sessao, query, cabecalhos, 8))):
         inicio = time.time()
         DIAG_BUSCA.clear()
         urls = funcao()
-        linhas.append({"Buscador": nome, "Tempo (s)": round(time.time() - inicio, 1), "Resultados": len(urls), "Do assunto": len(urls) if nome.startswith("Mojeek") else "-",
-                       "Primeiros": " | ".join(extrair_dominio(u) for u in urls[:3]) or "; ".join(f"{k}: {v}" for k, v in DIAG_BUSCA.items())})
+        linhas.append({"Buscador": nome, "Tempo (s)": round(time.time() - inicio, 1), "Sites": len(urls),
+                       "Primeiros sites": " | ".join(extrair_dominio(u) for u in urls[:4]) or "; ".join(f"{k}: {v}" for k, v in DIAG_BUSCA.items()) or "nenhum"})
     return linhas
 
 
@@ -1498,7 +1348,6 @@ def executar_scraping(itens, usar_playwright, progress_bar, log_container, statu
     os.makedirs(SCREENSHOT_DIR, exist_ok=True)
     buscas_google = 0
     FALHAS_MOTOR.clear()
-    SEARCHAPI_USO.update({"buscas": 0, "limite": int(limite_searchapi_busca)})
 
     for idx, item in enumerate(itens):
         item = item.strip()
@@ -1517,7 +1366,7 @@ def executar_scraping(itens, usar_playwright, progress_bar, log_container, statu
         item_slug = re.sub(r'[^a-zA-Z0-9]', '_', item)[:40] or "item"
 
         # Poucas variantes de busca; cada uma traz URLs novas e o tempo por item é limitado
-        variantes = VARIANTES_BUSCA[:4]  # em ordem: a mais simples (item + comprar) primeiro
+        variantes = random.sample(VARIANTES_BUSCA, min(5, len(VARIANTES_BUSCA)))
         inicio_item = time.time()
         urls_tentadas = set()
         motivos_falha = Counter()
@@ -1560,7 +1409,7 @@ def executar_scraping(itens, usar_playwright, progress_bar, log_container, statu
                 time.sleep(gerar_delay(delay_min, delay_max))  # pausa curta entre buscas, para não ser bloqueado
 
             # Buscar URLs (DDGS API > DuckDuckGo HTML > Google > Bing)
-            urls, engine = buscar_urls(session, query, headers, item=item)
+            urls, engine = buscar_urls(session, query, headers)
 
             if not urls:
                 buscas_sem_resultado += 1
@@ -2063,7 +1912,7 @@ with st.expander("⚙️ Como Funciona o Web Scraping", expanded=False):
     _components.html(_como_funciona_html, height=700, scrolling=True)
 
 with st.expander("🔧 Diagnóstico dos buscadores (se a pesquisa não encontrar nada)", expanded=False):
-    st.caption("Roda uma busca de teste em cada buscador gratuito e mostra qual responde, em quanto tempo e se os resultados são do assunto. O teste da SearchAPI usa 1 busca da sua cota (só se houver chave).")
+    st.caption("Roda uma busca de teste no DuckDuckGo e no Bing e mostra qual responde, em quanto tempo e se os resultados são do assunto.")
     consulta_teste = st.text_input("Busca de teste", value="fita crepe preço", key="consulta_teste_buscadores")
     if st.button("Testar buscadores agora", key="botao_teste_buscadores"):
         with st.spinner("Testando (pode levar até 1 minuto)..."):
@@ -2110,13 +1959,6 @@ with col2:
     limite_google = 0
     limite_searchapi_busca = 0
     if _chave_searchapi():
-        if st.checkbox(
-            "Usar SearchAPI (DuckDuckGo) se os gratuitos falharem",
-            value=False,
-            help="O DuckDuckGo é consultado pelos servidores da SearchAPI (sem o bloqueio do servidor do app). Cada busca consome a cota da sua conta SearchAPI.",
-        ):
-            limite_searchapi_busca = st.number_input("Máx. buscas SearchAPI (DuckDuckGo)", min_value=1, max_value=200, value=15,
-                                                     help="Limite de buscas desta execução, para nunca gastar além do previsto.")
         usar_google_shopping = st.checkbox(
             "Complementar com Google Shopping (pago)",
             value=False,
