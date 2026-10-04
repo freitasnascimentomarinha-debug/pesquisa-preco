@@ -1,2 +1,2 @@
-# Lojas preferidas da página Web Scraping: um site por linha (ex.: kalunga.com.br).
-# Linhas com # são ignoradas. Os sites aqui aparecem já preenchidos na página.
+# Lojas preferidas da página Web Scraping: um nome ou site por linha (ex.: Kalunga, Leroy Merlin, www.loja.com.br).
+# Linhas com # são ignoradas. As lojas aqui aparecem já preenchidas na página.
