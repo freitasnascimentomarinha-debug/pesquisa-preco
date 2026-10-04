@@ -5,8 +5,14 @@ import pandas as pd
 import os
 import re
 import io
+import sys
 import tempfile
 from datetime import datetime
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # módulos da raiz do projeto
+from atualizar_modulos import recarregar_se_mudou  # noqa: E402
+recarregar_se_mudou('catmat_busca', 'cotacao_rapida', 'relatorio_cotacao_rapida', 'fornecedores_nf', 'nf_lote', 'relatorio_nf_lote', 'nf_lote_ui')
+from nf_lote_ui import renderizar_lote  # noqa: E402
 
 # Configuração da página
 st.set_page_config(
@@ -319,8 +325,9 @@ st.title("📄 Notas Fiscais")
 st.markdown("Consulta de notas fiscais eletrônicas a partir dos dados abertos do **Portal da Transparência**.")
 
 # ===== ABAS PRINCIPAIS =====
-tab_pesquisa, tab_consulta_nfe = st.tabs([
+tab_pesquisa, tab_lote, tab_consulta_nfe = st.tabs([
     "🔍 Pesquisa de NF (Portal da Transparência)",
+    "⚡ Pesquisa em Lote (vários itens)",
     "📋 Consulta / Download NFe (Receita Federal)"
 ])
 
@@ -1844,3 +1851,13 @@ with tab_pesquisa:
             </p>
         </div>
         """, unsafe_allow_html=True)
+
+
+# ==================== ABA: PESQUISA EM LOTE (vários itens, todos os arquivos) ====================
+def _arquivos_do_portal():
+    """{id: nome} dos arquivos mensais (lista do Drive, com o fallback conhecido se a listagem falhar)."""
+    return listar_arquivos_disponiveis(PASTA_ID) or ARQUIVOS_FALLBACK.copy()
+
+
+with tab_lote:
+    renderizar_lote(_arquivos_do_portal, baixar_arquivo_csv, CACHE_DIR)
