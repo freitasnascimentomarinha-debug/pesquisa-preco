@@ -1322,6 +1322,8 @@ def executar_scraping(itens, usar_playwright, progress_bar, log_container, statu
     # Memória de lojas: lojas que já deram preço para itens parecidos são tentadas primeiro; sites que sempre falham são pulados
     memoria, onde_memoria = memoria_lojas.carregar(st.secrets if _tem_secrets() else {})
     log_msg(log_container, logs, f"🧠 Memória de lojas: {len(memoria['lojas'])} loja(s) aprendida(s), {len(memoria['falhas'])} site(s) com falha — {onde_memoria}", "info")
+    if not onde_memoria.startswith("GitHub"):
+        log_msg(log_container, logs, "🧠 " + memoria_lojas.diagnostico_secrets(st.secrets if _tem_secrets() else {}), "warn")
 
     for idx, item in enumerate(itens):
         item = item.strip()
@@ -1926,6 +1928,8 @@ with st.expander("🧠 Memória de lojas (aprende com o uso)", expanded=False):
     if st.button("Ver o que o sistema já aprendeu", key="ver_memoria_lojas"):
         memoria_vista, onde_vista = memoria_lojas.carregar(st.secrets if _tem_secrets() else {})
         st.caption(f"Onde está guardada: {onde_vista}")
+        if not onde_vista.startswith("GitHub"):
+            st.warning(memoria_lojas.diagnostico_secrets(st.secrets if _tem_secrets() else {}))
         if memoria_vista["lojas"]:
             st.dataframe(pd.DataFrame([{"Loja": site, "Preços encontrados": l["acertos"], "Último": l["ultimo"], "Itens cotados": ", ".join(l["itens"][:15])}
                                        for site, l in sorted(memoria_vista["lojas"].items(), key=lambda x: -x[1]["acertos"])]),
