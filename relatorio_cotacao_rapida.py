@@ -28,10 +28,11 @@ JUSTIFICATIVA_COTACAO = (
     "Dessa forma, entende-se que a metodologia adotada atende aos princípios da razoabilidade, "
     "economicidade e motivação do ato administrativo, conferindo robustez à formação do preço estimado."
 )
-METODOLOGIA = (
+def metodologia(limiar: float) -> str:
+    return (
     "Metodologia da Cotação Rápida\n\n"
     f"1. Para cada descrição informada, foram localizados até {MAX_CATMAT} itens do catálogo CATMAT (materiais) ou CATSERV (serviços) "
-    f"com correspondência igual ou superior a {LIMIAR_CORRESPONDENCIA:.0f}% e que possuem preços praticados no período.\n\n"
+    f"com correspondência igual ou superior a {limiar:.0f}% e que possuem preços praticados no período.\n\n"
     f"2. Os preços foram obtidos no módulo Pesquisa de Preço do Compras.gov (dados abertos), considerando compras dos "
     f"últimos {JANELA_DIAS} dias, e comparados apenas dentro da mesma unidade de fornecimento (materiais) ou de medida (serviços).\n\n"
     "3. Foram descartados preços inexequíveis ou extremos (abaixo de 30% ou acima de 300% da mediana) e os valores atípicos "
@@ -263,7 +264,7 @@ def _pagina_item(pdf: FPDF, numero: int, r: dict) -> None:
         pdf.set_font("Helvetica", "B", 7)
         pdf.set_text_color(*AZUL)
         rotulo_codigo = "CATSERV" if r.get("tipo") == "Serviço" else "CATMAT"
-        pdf.cell(0, 5, f"{rotulo_codigo} correspondentes (>= {LIMIAR_CORRESPONDENCIA:.0f}%) - confira a descricao antes de usar no processo", ln=True)
+        pdf.cell(0, 5, f"{rotulo_codigo} correspondentes (>= {r.get('limiar', LIMIAR_CORRESPONDENCIA):.0f}%) - confira a descricao antes de usar no processo", ln=True)
         _cabecalho_tabela(pdf, [(rotulo_codigo, 20), ("Corresp.", 18), ("Registros", 18), ("Descricao no catalogo", LARGURA - 56)], 6)
         pdf.set_font("Helvetica", "", 6.5)
         pdf.set_text_color(51, 51, 51)
@@ -278,10 +279,10 @@ def _pagina_item(pdf: FPDF, numero: int, r: dict) -> None:
         pdf.set_font("Helvetica", "", 9)
         pdf.set_text_color(150, 30, 30)
         if r["status"] == "sem_catmat":
-            texto = f"Nenhum item CATMAT/CATSERV com {LIMIAR_CORRESPONDENCIA:.0f}% ou mais de correspondencia e precos praticados nos ultimos {JANELA_DIAS} dias."
-            if r.get("melhor_proximo"):
-                proximo = r["melhor_proximo"]
-                texto += f" Mais proximo: codigo {proximo['codigo']} ({proximo['correspondencia']:.0f}%) - {proximo['descricao']}"
+            texto = f"Nenhum item CATMAT/CATSERV com {r.get('limiar', LIMIAR_CORRESPONDENCIA):.0f}% ou mais de correspondencia e precos praticados nos ultimos {JANELA_DIAS} dias."
+            if r.get("proximos"):
+                texto += " Codigos mais proximos (nao atingiram o minimo" + (" ou nao tem precos no periodo): " if r.get("tipo") == "Serviço" else "): ")
+                texto += " | ".join(f"{p['codigo']} ({p['correspondencia']:.0f}%) {p['descricao'][:70]}" for p in r["proximos"])
         else:
             texto = "Os precos encontrados nao formaram um conjunto coerente (a ate 30% da media) apos a remocao de outliers."
         pdf.multi_cell(LARGURA, 5, _seguro(texto), new_x="LMARGIN", new_y="NEXT")
@@ -328,7 +329,8 @@ def gerar_pdf(resultados: list[dict]) -> bytes:
         _pagina_item(pdf, numero, resultado)
     pdf.add_page()
     pdf.ln(5)
-    for texto in (JUSTIFICATIVA_COTACAO, METODOLOGIA):
+    limiar = resultados[0].get("limiar", LIMIAR_CORRESPONDENCIA) if resultados else LIMIAR_CORRESPONDENCIA
+    for texto in (JUSTIFICATIVA_COTACAO, metodologia(limiar)):
         titulo, *paragrafos = texto.split("\n\n")
         pdf.set_font("Helvetica", "B", 12)
         pdf.set_text_color(*AZUL)

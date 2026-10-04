@@ -26,6 +26,8 @@ st.set_page_config(
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CATALOGO_DIR = os.path.join(BASE_DIR, "Projeto Adesões")
 sys.path.insert(0, BASE_DIR)  # permite importar catmat_busca.py (raiz do projeto)
+from atualizar_modulos import recarregar_se_mudou  # noqa: E402
+recarregar_se_mudou('catmat_busca')  # evita módulo antigo em memória após deploy
 from catmat_busca import CATMAT_PATH, CATSERV_PATH, carregar_catalogo, carregar_indice_catmat, sugerir_codigo  # noqa: E402
 
 

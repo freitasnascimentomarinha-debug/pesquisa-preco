@@ -17,6 +17,8 @@ from streamlit_folium import st_folium
 # ── Caminhos dos dados do Projeto Adesões ──────────────────────────────────
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "Projeto Adesões")
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # catmat_busca.py (raiz do projeto)
+from atualizar_modulos import recarregar_se_mudou  # noqa: E402
+recarregar_se_mudou('catmat_busca')  # evita módulo antigo em memória após deploy
 from catmat_busca import (  # noqa: E402
     CATMAT_PATH,
     CATSERV_PATH,

@@ -44,6 +44,8 @@ TERMOS_RESTRITIVOS = {
     "automotivo", "cartucho", "descartavel", "hospitalar", "impressora", "industrial",
     "infantil", "medico", "odontologico", "recarga", "refil", "tinteiro", "toner",
 }
+# Verbos/ações de serviço: dizem o que se faz, não o objeto ("troca de PISO", "manutenção de AR CONDICIONADO").
+TERMOS_ACAO = {"troca", "manutencao", "instalacao", "reparo", "conserto", "substituicao", "remocao", "recuperacao", "reforma"}
 # Termo da descrição -> grupos de termos que o catálogo usa para dizer a mesma coisa.
 # Um grupo só vale se TODOS os seus termos estiverem na descrição do catálogo.
 EQUIVALENCIAS = {
@@ -54,6 +56,11 @@ EQUIVALENCIAS = {
     "sulfite": [{"alcalino"}, {"reprografico"}],
     "reprografico": [{"sulfite"}],
     "split": [{"parede"}],
+    "troca": [{"substituicao"}, {"instalacao"}, {"manutencao"}],
+    "substituicao": [{"troca"}, {"instalacao"}, {"manutencao"}],
+    "reparo": [{"manutencao"}],
+    "conserto": [{"manutencao"}],
+    "reforma": [{"manutencao"}, {"recuperacao"}],
 }
 # Quando a descrição traz estes termos, o catálogo é ranqueado preferindo o produto usual da compra
 # (termo -> bônus). Ex.: "resma de papel A4" sem outros detalhes = papel de escritório branco de 75 g/m².
@@ -109,7 +116,8 @@ def _perfil(descricao: str) -> dict[str, object]:
     macios = [token for token in ordem if token in TERMOS_EMBALAGEM]
     especificos = [token for token in ordem if token not in macios and _tem_numero(token)]
     nucleo = [token for token in ordem if token not in macios and token not in especificos] or ordem
-    return {"ordem": ordem, "macios": macios, "especificos": especificos, "nucleo": nucleo, "cabeca": nucleo[0] if nucleo else ""}
+    objeto = [token for token in nucleo if token not in TERMOS_ACAO] or nucleo
+    return {"ordem": ordem, "macios": macios, "especificos": especificos, "nucleo": nucleo, "cabeca": objeto[0] if objeto else ""}
 
 
 def _termo_principal(texto: str) -> str:
@@ -148,6 +156,7 @@ class IndiceCatmat(NamedTuple):
     indice: dict[str, array]  # palavra -> posições em `itens`
     por_codigo: dict[str, int]  # código do item -> posição em `itens`
     pdms: dict[str, dict[str, object]]  # código PDM -> {nome, classe, itens}
+    tokens_pdm: dict[str, frozenset[str]]  # código PDM -> palavras do nome da família
 
 
 @st.cache_resource(show_spinner="Carregando o catálogo CATMAT (apenas na primeira vez, ~15 s)...")
@@ -166,7 +175,8 @@ def carregar_indice_catmat(caminho: str) -> IndiceCatmat:
             familia["itens"] += 1
             for token in set(_calcular_tokens(f"{nome_pdm} {linha['descricao']}")):
                 indice[token].append(posicao)
-    return IndiceCatmat(itens, dict(indice), por_codigo, pdms)
+    tokens_pdm = {codigo: frozenset(_calcular_tokens(str(familia["nome"]))) for codigo, familia in pdms.items()}
+    return IndiceCatmat(itens, dict(indice), por_codigo, pdms, tokens_pdm)
 
 
 def _buscar_no_catmat(descricao: str, catmat: IndiceCatmat, limite: int = CANDIDATOS_POR_CONSULTA) -> list[int]:
@@ -190,6 +200,16 @@ def _buscar_no_catmat(descricao: str, catmat: IndiceCatmat, limite: int = CANDID
         idf = math.log(1 + len(itens) / len(posicoes))
         for posicao in posicoes:
             pontos[posicao] += peso * idf
+    # Desempate da 1ª etapa: itens cuja família tem só os termos pedidos (família NOTEBOOK p/ "notebook") vêm antes
+    # dos de famílias que apenas citam a palavra (TAMPA NOTEBOOK); sem isso, o corte de `limite` itens é arbitrário.
+    consulta = set(perfil["ordem"]) | {equivalente for token in perfil["ordem"] for grupo in EQUIVALENCIAS.get(token, []) for equivalente in grupo}
+    bonus_familia: dict[str, float] = {}
+    for posicao in pontos:
+        codigo_pdm = itens[posicao][1]
+        if codigo_pdm not in bonus_familia:
+            nome = catmat.tokens_pdm.get(codigo_pdm, frozenset())
+            bonus_familia[codigo_pdm] = 6.0 if nome and nome <= consulta else (1.5 if cabeca in nome else 0.0)
+        pontos[posicao] += bonus_familia[codigo_pdm]
     return heapq.nlargest(limite, pontos, key=pontos.__getitem__)
 
 
@@ -238,10 +258,10 @@ def buscar_unidade_fornecimento(codigo_pdm: str) -> str:
         return ""
 
 
-def calcular_similaridade(descricao: str, candidato: str, nome_pdm: str = "") -> float:
+def calcular_similaridade(descricao: str, candidato: str, nome_pdm: str = "", servico: bool = False) -> float:
     """Nota de 0 a 100 exibida ao usuário (ver _pontuar)."""
-    return round(max(0, min(100, _pontuar(descricao, candidato, nome_pdm))), 1)
-def _pontuar(descricao: str, candidato: str, nome_pdm: str = "") -> float:
+    return round(max(0, min(100, _pontuar(descricao, candidato, nome_pdm, servico))), 1)
+def _pontuar(descricao: str, candidato: str, nome_pdm: str = "", servico: bool = False) -> float:
     """Pontua o quanto o item do catálogo corresponde à descrição (sem teto, para desempatar; 100 = excelente) o quanto o item do catálogo corresponde à descrição informada.
 
     O que pesa: o termo principal ("papel"), os demais termos do núcleo, as especificações
@@ -256,17 +276,20 @@ def _pontuar(descricao: str, candidato: str, nome_pdm: str = "") -> float:
     cabeca = str(perfil["cabeca"])
     nucleo = list(perfil["nucleo"])
 
-    pesos = [(token, 2.0 if token == cabeca else 1.0) for token in nucleo]
+    # Nomes do CATSERV são enxutos ("PISO EM GERAL"): qualificadores do pedido (vinílico, split...) pesam menos.
+    peso_demais = 0.8 if servico else 1.0
+    pesos = [(token, 2.0 if token == cabeca else peso_demais) for token in nucleo]
     pesos += [(token, 0.6) for token in perfil["especificos"]] + [(token, 0.1) for token in perfil["macios"]]
     forcas = {token: _forca_termo(token, destino) for token, _ in pesos}
     cobertura = sum(peso * forcas[token] for token, peso in pesos) / sum(peso for _, peso in pesos)
 
     forca_cabeca = forcas.get(cabeca, 0.0)
-    comeco = ordem_destino[:3]
+    comeco = ordem_destino[:5 if servico else 3]
     bonus_inicio = 12 if any(_forca_termo(cabeca, {token}) >= 0.7 for token in comeco) else 0
     if ordem_destino and _forca_termo(cabeca, {ordem_destino[0]}) >= 0.7:
         bonus_inicio += 6  # o item começa pelo termo principal (CANETA ... e não PORTA-CANETA)
-    nucleo_completo = 8 if all(forcas[token] >= 0.7 for token in nucleo) else 0
+    obrigatorios = [cabeca] if servico else nucleo
+    nucleo_completo = 8 if all(_forca_termo(token, destino) >= 0.7 for token in obrigatorios) else 0
 
     nome = _tokens_ordenados(re.split(r"[,;:(]", nome_pdm or candidato, maxsplit=1)[0])
     nome_completo = 15 if all(_forca_termo(token, set(nome)) >= 0.7 for token in nucleo) else 0
@@ -282,7 +305,7 @@ def _pontuar(descricao: str, candidato: str, nome_pdm: str = "") -> float:
                 if termo in destino and not (termo == "75" and gramatura_informada)
             )
     restritivos_ausentes = (destino - set(perfil["ordem"])) & TERMOS_RESTRITIVOS
-    penalidade = min(20, len(restritivos_ausentes) * 10) + min(24, len(extras_no_nome) * 6)
+    penalidade = min(20, len(restritivos_ausentes) * 10) + (min(16, len(extras_no_nome) * 4) if servico else min(24, len(extras_no_nome) * 6))
 
     pontuacao = cobertura * 72 + bonus_inicio + nucleo_completo + nome_completo + sequencia * 8 + bonus_preferencia - penalidade
     if perfil["especificos"]:
@@ -315,7 +338,7 @@ def _opcoes_servico(descricao: str, catalogo_servico: list[dict[str, object]]) -
             "tipo": "Serviço",
             "codigo": str(item["codigo"]),
             "descricao_catalogo": str(item["descricao"]),
-            "bruta": (bruta := _pontuar(descricao, str(item["descricao"]))),
+            "bruta": (bruta := _pontuar(descricao, str(item["descricao"]), "", True)),
             "similaridade": round(max(0, min(100, bruta)), 1),
             "origem": "CATSERV",
             "codigo_pdm": "",
