@@ -197,12 +197,12 @@ USER_AGENTS = [
 ]
 
 VARIANTES_BUSCA = [
-    "{item} preço brasil",
-    "{item} comprar brasil",
-    "{item} fornecedor brasil",
-    "comprar {item} online brasil",
-    "{item} valor unitário loja brasileira",
-    "{item} loja online brasil",
+    "{item} preço R$",
+    "comprar {item} loja online",
+    "{item} fornecedor preço unitário",
+    "{item} valor R$ comprar agora",
+    "{item} atacado preço",
+    "{item} loja",
 ]
 
 # Domínios a ignorar nos resultados
@@ -458,24 +458,54 @@ def _dedup_urls(urls, num_results=8):
     return unique[:num_results]
 
 
-def buscar_ddgs_api(query, num_results=8):
-    """Busca usando o pacote ddgs (DuckDuckGo Search) — mais confiável em servidores."""
+MOTORES_DDGS = ("duckduckgo", "bing", "brave", "google")  # tentados em ordem até um devolver resultados do assunto
+
+
+def _sem_acento(texto):
+    import unicodedata
+    return "".join(c for c in unicodedata.normalize("NFD", str(texto).lower()) if unicodedata.category(c) != "Mn")
+
+
+def _termos_do_item(item):
+    """Palavras do item sem acento e sem plural simples ('fitas crepe' -> fita, crep...)."""
+    termos = []
+    for palavra in re.findall(r"[a-z0-9]+", _sem_acento(item)):
+        if len(palavra) > 2 or palavra.isdigit():
+            termos.append(palavra[:-1] if len(palavra) > 3 and palavra.endswith("s") else palavra)
+    return termos
+
+
+def _resultado_relevante(resultado, termos):
+    """O título/trecho/endereço do resultado cita todas as palavras do item (descarta buscas fora do assunto)."""
+    if not termos:
+        return True
+    texto = _sem_acento(f"{resultado.get('title', '')} {resultado.get('body', '')} {resultado.get('href', '')}")
+    return all(t in texto for t in termos)
+
+
+def buscar_ddgs_api(query, num_results=8, item=None):
+    """Busca usando o pacote ddgs. Tenta vários motores e só aceita resultados que falem do item."""
+    termos = _termos_do_item(item) if item else []
     try:
         from ddgs import DDGS
-        results = list(DDGS(timeout=10).text(query, region="br-pt", max_results=num_results))
-        urls = [r["href"] for r in results if r.get("href") and dominio_valido(r["href"])]
-        return _dedup_urls(urls, num_results)
     except ImportError:
         try:
             from duckduckgo_search import DDGS
-            with DDGS() as ddgs:
-                results = list(ddgs.text(query, region="br-pt", max_results=num_results))
-            urls = [r["href"] for r in results if r.get("href") and dominio_valido(r["href"])]
-            return _dedup_urls(urls, num_results)
-        except Exception:
+        except ImportError:
             return []
-    except Exception:
-        return []
+    for motor in MOTORES_DDGS:
+        try:
+            try:
+                resultados = list(DDGS(timeout=8).text(query, region="br-pt", max_results=num_results * 2, backend=motor))
+            except TypeError:  # versão antiga sem o parâmetro backend/timeout
+                resultados = list(DDGS().text(query, region="br-pt", max_results=num_results * 2))
+        except Exception:
+            continue
+        urls = [r["href"] for r in resultados if r.get("href") and dominio_valido(r["href"]) and _resultado_relevante(r, termos)]
+        urls = _dedup_urls(urls, num_results)
+        if urls:
+            return urls
+    return []
 
 
 def buscar_duckduckgo(session, query, headers, num_results=8):
@@ -636,10 +666,10 @@ def buscar_searchapi(query, num_results=8):
         return []
 
 
-def buscar_urls(session, query, headers, num_results=8):
+def buscar_urls(session, query, headers, num_results=8, item=None):
     """Busca combinada: DDGS API > DuckDuckGo HTML > Google > Bing."""
     # 1. Tentar DDGS API (mais confiável em ambientes de servidor)
-    urls = buscar_ddgs_api(query, num_results)
+    urls = buscar_ddgs_api(query, num_results, item)
     if urls:
         return urls, "DDGS API"
     # 2. DuckDuckGo HTML scraping
@@ -1348,7 +1378,7 @@ def executar_scraping(itens, usar_playwright, progress_bar, log_container, statu
                 time.sleep(gerar_delay(delay_min, delay_max))  # pausa curta entre buscas, para não ser bloqueado
 
             # Buscar URLs (DDGS API > DuckDuckGo HTML > Google > Bing)
-            urls, engine = buscar_urls(session, query, headers)
+            urls, engine = buscar_urls(session, query, headers, item=item)
 
             if not urls:
                 buscas_sem_resultado += 1
