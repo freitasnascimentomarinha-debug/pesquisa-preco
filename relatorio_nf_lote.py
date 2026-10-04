@@ -248,6 +248,7 @@ def _faixa(linha: pd.Series) -> str:
 def gerar_pdf_fornecedores(tabelas: dict, info: dict) -> bytes:
     """Fornecedores agrupados pelo item que vendem: um bloco por item pesquisado, com os fornecedores daquele item."""
     por_item, unica = tabelas["por_item"], tabelas["unica"]
+    totais, limite = tabelas.get("totais", {}), tabelas.get("max_por_item")
     pdf = PDFCotacaoRapida(orientation="L", unit="mm", format="A4", titulo=TITULO_FORNECEDORES)
     pdf.set_margins(8, 35, 8)
     pdf.alias_nb_pages()
@@ -258,15 +259,18 @@ def gerar_pdf_fornecedores(tabelas: dict, info: dict) -> bytes:
     pdf.set_font("Helvetica", "", 6.5)
     pdf.set_text_color(90, 90, 90)
     pdf.multi_cell(LARGURA, 3.6, _seguro(f"Fornecedores agrupados pelo que vendem (item pesquisado). Um fornecedor que vende mais de um item aparece em cada grupo. "
+                                         f"Ate {limite or 10} fornecedores por item; havendo mais, priorizados os que tem e-mail e telefone, depois situacao cadastral ativa e mais notas. "
                                          f"Notas fiscais: {info.get('filtros', 'sem filtros')}. Dados cadastrais: OpenCNPJ (Receita Federal)."), new_x="LMARGIN", new_y="NEXT")
     pdf.ln(1)
     colunas = [(rotulo, largura) for rotulo, largura, _ in COLUNAS_PDF_FORNECEDORES]
 
     def faixa_do_grupo(descricao: str, quantidade: int, continuacao: bool) -> None:
+        total = totais.get(descricao, quantidade)
+        contagem = f"{quantidade} de {total} fornecedores" if total > quantidade else f"{quantidade} fornecedor(es)"
         pdf.set_fill_color(*AZUL_CARTAO)
         pdf.set_text_color(*DOURADO)
         pdf.set_font("Helvetica", "B", 8)
-        pdf.cell(LARGURA, 6, _truncar(pdf, f"  VENDEM: {descricao}" + (" (continuacao)" if continuacao else f"  -  {quantidade} fornecedor(es)"), LARGURA - 4), 0, 1, "L", True)
+        pdf.cell(LARGURA, 6, _truncar(pdf, f"  VENDEM: {descricao}" + (" (continuacao)" if continuacao else f"  -  {contagem}"), LARGURA - 4), 0, 1, "L", True)
         _cabecalho_tabela(pdf, colunas, 6)
 
     for descricao, grupo in por_item.groupby("Item que vende", sort=False):
@@ -320,7 +324,9 @@ def gerar_excel_fornecedores(tabelas: dict) -> bytes:
         celula.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
     linha_atual = 2
     for descricao, grupo in por_item.groupby("Item que vende", sort=False):
-        planilha.cell(row=linha_atual, column=1, value=f"VENDEM: {descricao}  -  {len(grupo)} fornecedor(es)").font = Font(bold=True, color="001A4D")
+        total = tabelas.get("totais", {}).get(descricao, len(grupo))
+        contagem = f"{len(grupo)} de {total} fornecedores (priorizados: e-mail e telefone)" if total > len(grupo) else f"{len(grupo)} fornecedor(es)"
+        planilha.cell(row=linha_atual, column=1, value=f"VENDEM: {descricao}  -  {contagem}").font = Font(bold=True, color="001A4D")
         for j in range(1, len(colunas) + 1):
             planilha.cell(row=linha_atual, column=j).fill = grupo_fill
         planilha.merge_cells(start_row=linha_atual, start_column=1, end_row=linha_atual, end_column=len(colunas))

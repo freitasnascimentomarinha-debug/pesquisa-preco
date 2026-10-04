@@ -16,7 +16,9 @@ import requests
 
 API_CNPJ = "https://api.opencnpj.org/{cnpj}"
 CAMINHO_CNAES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cnaes_completo.json")
-MAX_FORNECEDORES_TODOS = 300
+MAX_FORNECEDORES_POR_ITEM = 10  # o relatório traz até este número de fornecedores por item pesquisado
+MAX_CANDIDATOS_POR_ITEM = 150  # candidatos considerados por item antes de escolher os melhores
+MAX_CONSULTAS_CNPJ = 500  # teto de consultas à API por relatório
 NAO_INFORMADO = "Não informado"
 _CACHE: dict[str, dict | None] = {}
 
@@ -123,8 +125,7 @@ def _moeda(valor: float) -> str:
 def agregar_fornecedores(resultados: list[dict], escopo: str = "mapa") -> list[dict]:
     """Um registro por fornecedor (CNPJ) com o que ele vendeu nas notas encontradas.
 
-    escopo="mapa": só os fornecedores dos preços listados no mapa; "todos": todos os que venderam os itens (até
-    MAX_FORNECEDORES_TODOS, os de mais notas primeiro)."""
+    escopo="mapa": só os fornecedores dos preços listados no mapa; "todos": todos os que venderam os itens."""
     por_cnpj: dict[str, dict] = {}
     for resultado in resultados:
         origem = resultado["precos"] if escopo == "mapa" else resultado.get("registros", [])
@@ -142,7 +143,7 @@ def agregar_fornecedores(resultados: list[dict], escopo: str = "mapa") -> list[d
             if registro["natureza"]:
                 forn["natureza"][registro["natureza"]] += 1
     fornecedores = sorted(por_cnpj.values(), key=lambda f: (-len(f["notas"]), f["razao_nf"]))
-    return fornecedores[:MAX_FORNECEDORES_TODOS] if escopo != "mapa" else fornecedores
+    return fornecedores
 
 
 def resumo_da_natureza(fornecedor: dict) -> str:
@@ -165,59 +166,82 @@ COLUNAS_POR_ITEM = ["Item que vende", "CNPJ", "Razão social", "Situação cadas
                     "Notas do item", "Preço mínimo", "Preço médio", "Preço máximo", "Exemplo de produto na nota"]
 
 
-def montar_tabelas(resultados: list[dict], escopo: str = "mapa", progresso: Callable[[int, int], None] | None = None) -> dict:
-    """Consulta o cadastro de cada fornecedor (uma vez por CNPJ) e monta duas tabelas:
+def tem_contatos(cadastro: dict) -> int:
+    """2 = tem e-mail e telefone; 1 = tem um dos dois; 0 = nenhum."""
+    return int(cadastro["email"] != NAO_INFORMADO) + int(cadastro["telefones"] != NAO_INFORMADO)
 
-    - "por_item": fornecedores agrupados pelo item pesquisado (um fornecedor aparece em cada item que vende);
-    - "unica": lista única de fornecedores, com o resumo da natureza dos itens que vendem.
-    Também devolve "sem_consulta": quantos CNPJs não puderam ser consultados."""
-    fornecedores = agregar_fornecedores(resultados, escopo)
-    cadastros: dict[int, dict] = {}
+
+def _ativa(cadastro: dict) -> int:
+    return int(cadastro["situacao"].strip().lower() in ("ativa", "02", "2"))
+
+
+def montar_tabelas(
+    resultados: list[dict],
+    escopo: str = "todos",
+    max_por_item: int = MAX_FORNECEDORES_POR_ITEM,
+    progresso: Callable[[int, int], None] | None = None,
+) -> dict:
+    """Escolhe os melhores fornecedores de cada item e monta duas tabelas:
+
+    - "por_item": fornecedores agrupados pelo item pesquisado (um fornecedor aparece em cada item que vende), até
+      `max_por_item` por item. Se há mais candidatos, vêm primeiro os que têm **e-mail e telefone**, depois os que
+      têm um dos dois; em seguida situação cadastral ativa e maior número de notas do item;
+    - "unica": lista única dos fornecedores escolhidos, com o resumo da natureza dos itens que vendem.
+    O cadastro (OpenCNPJ) é consultado por lotes e só até achar `max_por_item` fornecedores com contatos completos
+    em cada item. Retorna também "totais" ({item: candidatos encontrados}) e "sem_consulta"."""
+    fornecedores = {(f["cnpj"] or f["razao_nf"]): f for f in agregar_fornecedores(resultados, escopo)}
+    candidatos: dict[str, list[tuple[str, int]]] = {}
+    for resultado in resultados:
+        do_item = [(chave, len({r["id_compra"] or r["id_item"] for r in f["itens"][resultado["descricao"]]}))
+                   for chave, f in fornecedores.items() if resultado["descricao"] in f["itens"]]
+        candidatos[resultado["descricao"]] = sorted(do_item, key=lambda par: (-par[1], fornecedores[par[0]]["razao_nf"]))[:MAX_CANDIDATOS_POR_ITEM]
+
+    cadastros: dict[str, dict] = {}
+    consultados = 0
     with ThreadPoolExecutor(max_workers=6) as executor:
-        futuros = {i: executor.submit(consultar_cnpj, f["cnpj"]) for i, f in enumerate(fornecedores)}
-        for feitos, (i, futuro) in enumerate(futuros.items(), start=1):
-            cadastros[i] = interpretar_dados(futuro.result())
+        while consultados < MAX_CONSULTAS_CNPJ:
+            pendentes: list[str] = []
+            for lista in candidatos.values():
+                completos = sum(1 for chave, _ in lista if chave in cadastros and tem_contatos(cadastros[chave]) == 2)
+                faltam = max_por_item - completos
+                novos = [chave for chave, _ in lista if chave not in cadastros and chave not in pendentes]
+                pendentes += novos[:max(faltam, 0)]
+            if not pendentes:
+                break
+            pendentes = pendentes[:MAX_CONSULTAS_CNPJ - consultados]
+            for chave, dados in zip(pendentes, executor.map(lambda c: consultar_cnpj(fornecedores[c]["cnpj"]), pendentes)):
+                cadastros[chave] = interpretar_dados(dados)
+            consultados += len(pendentes)
             if progresso:
-                progresso(feitos, len(fornecedores))
-    unica, sem_consulta = [], 0
-    dados_por_chave: dict[str, tuple[dict, dict]] = {}
-    for i, forn in enumerate(fornecedores):
-        cad = cadastros[i]
-        sem_consulta += not cad["razao_social"]
-        dados_por_chave[forn["cnpj"] or forn["razao_nf"]] = (forn, cad)
-        unica.append({
-            "CNPJ": formatar_cnpj(forn["cnpj"]) or NAO_INFORMADO,
-            "Razão social": cad["razao_social"] or forn["razao_nf"] or NAO_INFORMADO,
-            "Nome fantasia": cad["nome_fantasia"] or "",
-            "Situação cadastral": cad["situacao"] or NAO_INFORMADO,
-            "UF": cad["uf"] or forn["uf_nf"] or NAO_INFORMADO,
-            "Município": cad["municipio"] or forn["municipio_nf"] or "",
-            "Telefones": cad["telefones"],
-            "E-mail": cad["email"],
-            "CNAE principal": cad["cnae"],
-            "Natureza dos itens que vende": resumo_da_natureza(forn),
-            "Notas encontradas": len(forn["notas"]),
-        })
-    por_item = []
+                progresso(consultados, consultados + 1)  # o total não é conhecido de antemão: a barra avança até concluir
+
+    por_item, escolhidos, totais = [], {}, {}
     for resultado in resultados:  # na ordem em que os itens foram pedidos
-        linhas_item = []
-        for forn, cad in dados_por_chave.values():
-            regs = forn["itens"].get(resultado["descricao"])
-            if not regs:
-                continue
+        descricao = resultado["descricao"]
+        totais[descricao] = len(candidatos[descricao])
+        consultaveis = [(chave, notas) for chave, notas in candidatos[descricao] if chave in cadastros]
+        melhores = sorted(consultaveis, key=lambda par: (-tem_contatos(cadastros[par[0]]), -_ativa(cadastros[par[0]]), -par[1], fornecedores[par[0]]["razao_nf"]))[:max_por_item]
+        for chave, notas in melhores:
+            forn, cad = fornecedores[chave], cadastros[chave]
+            escolhidos[chave] = (forn, cad)
+            regs = forn["itens"][descricao]
             precos = [r["preco"] for r in regs]
-            exemplo = Counter(r["descricao"] for r in regs).most_common(1)[0][0]
-            linhas_item.append({
-                "Item que vende": resultado["descricao"],
-                "CNPJ": formatar_cnpj(forn["cnpj"]) or NAO_INFORMADO,
-                "Razão social": cad["razao_social"] or forn["razao_nf"] or NAO_INFORMADO,
-                "Situação cadastral": cad["situacao"] or NAO_INFORMADO,
-                "UF": cad["uf"] or forn["uf_nf"] or NAO_INFORMADO,
-                "Município": cad["municipio"] or forn["municipio_nf"] or "",
-                "Telefones": cad["telefones"], "E-mail": cad["email"], "CNAE principal": cad["cnae"],
-                "Notas do item": len({r["id_compra"] or r["id_item"] for r in regs}),
+            por_item.append({
+                "Item que vende": descricao, "CNPJ": formatar_cnpj(forn["cnpj"]) or NAO_INFORMADO,
+                "Razão social": cad["razao_social"] or forn["razao_nf"] or NAO_INFORMADO, "Situação cadastral": cad["situacao"] or NAO_INFORMADO,
+                "UF": cad["uf"] or forn["uf_nf"] or NAO_INFORMADO, "Município": cad["municipio"] or forn["municipio_nf"] or "",
+                "Telefones": cad["telefones"], "E-mail": cad["email"], "CNAE principal": cad["cnae"], "Notas do item": notas,
                 "Preço mínimo": min(precos), "Preço médio": sum(precos) / len(precos), "Preço máximo": max(precos),
-                "Exemplo de produto na nota": exemplo,
+                "Exemplo de produto na nota": Counter(r["descricao"] for r in regs).most_common(1)[0][0],
             })
-        por_item.extend(sorted(linhas_item, key=lambda l: (-l["Notas do item"], l["Razão social"])))
-    return {"por_item": pd.DataFrame(por_item, columns=COLUNAS_POR_ITEM), "unica": pd.DataFrame(unica, columns=COLUNAS_FORNECEDORES), "sem_consulta": sem_consulta}
+    unica = [{
+        "CNPJ": formatar_cnpj(forn["cnpj"]) or NAO_INFORMADO, "Razão social": cad["razao_social"] or forn["razao_nf"] or NAO_INFORMADO,
+        "Nome fantasia": cad["nome_fantasia"] or "", "Situação cadastral": cad["situacao"] or NAO_INFORMADO,
+        "UF": cad["uf"] or forn["uf_nf"] or NAO_INFORMADO, "Município": cad["municipio"] or forn["municipio_nf"] or "",
+        "Telefones": cad["telefones"], "E-mail": cad["email"], "CNAE principal": cad["cnae"],
+        "Natureza dos itens que vende": resumo_da_natureza(forn), "Notas encontradas": len(forn["notas"]),
+    } for forn, cad in escolhidos.values()]
+    unica.sort(key=lambda l: (-int(l["E-mail"] != NAO_INFORMADO) - int(l["Telefones"] != NAO_INFORMADO), -l["Notas encontradas"]))
+    sem_consulta = sum(1 for _, cad in escolhidos.values() if not cad["razao_social"])
+    return {"por_item": pd.DataFrame(por_item, columns=COLUNAS_POR_ITEM), "unica": pd.DataFrame(unica, columns=COLUNAS_FORNECEDORES),
+            "sem_consulta": sem_consulta, "totais": totais, "max_por_item": max_por_item}

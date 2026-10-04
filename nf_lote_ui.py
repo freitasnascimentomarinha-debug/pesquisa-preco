@@ -9,7 +9,7 @@ import pandas as pd
 import streamlit as st
 
 from cotacao_rapida import MAX_PRECOS, MIN_PRECOS, TOLERANCIA
-from fornecedores_nf import MAX_FORNECEDORES_TODOS, montar_tabelas
+from fornecedores_nf import MAX_FORNECEDORES_POR_ITEM, montar_tabelas
 from nf_lote import analisar_item, limitar_cache, pesquisar_em_lote, registros_das_linhas
 from relatorio_nf_lote import (
     STATUS_TEXTO, URL_PORTAL_NFE, gerar_excel_fornecedores, gerar_excel_mapa, gerar_pdf_fornecedores, gerar_pdf_mapa, tabela_mapa_nf, tabela_notas,
@@ -174,13 +174,16 @@ def _assinatura(resultados: list[dict]) -> int:
 def _secao_fornecedores(resultados: list[dict], dados: dict, info: dict, carimbo: str) -> None:
     st.markdown("---")
     st.markdown("#### 🏢 Fornecedores encontrados")
-    escopo = st.radio(
-        "Quais fornecedores incluir", ["mapa", "todos"], horizontal=True, key="nf_lote_escopo",
-        format_func=lambda v: "Os dos preços do mapa (rápido)" if v == "mapa" else f"Todos que venderam os itens (até {MAX_FORNECEDORES_TODOS}, mais lento)",
+    c_escopo, c_max = st.columns([3, 1])
+    escopo = c_escopo.radio(
+        "Quais fornecedores considerar", ["todos", "mapa"], horizontal=True, key="nf_lote_escopo",
+        format_func=lambda v: "Todos que venderam o item (escolhe os melhores)" if v == "todos" else "Só os dos preços do mapa (mais rápido)",
+        help="Havendo mais fornecedores que o limite, vêm primeiro os que têm e-mail e telefone; depois situação ativa e mais notas.",
     )
+    max_por_item = int(c_max.number_input("Fornecedores por item (máx.)", 1, 50, MAX_FORNECEDORES_POR_ITEM, 1, key="nf_lote_max_forn"))
     if st.button("📞 Gerar relatório de fornecedores", use_container_width=True, key="nf_lote_forn"):
         barra = st.progress(0.0, text="Consultando o cadastro dos fornecedores (OpenCNPJ)…")
-        tabelas = montar_tabelas(resultados, escopo, lambda feitos, total: barra.progress(feitos / max(total, 1), text=f"{feitos}/{total} fornecedores consultados"))
+        tabelas = montar_tabelas(resultados, escopo, max_por_item, lambda feitos, total: barra.progress(0.5, text=f"{feitos} fornecedores consultados…"))
         barra.empty()
         st.session_state["nf_lote_fornecedores"] = {"tabelas": tabelas, "assinatura": _assinatura(resultados), "escopo": escopo}
     forn = st.session_state.get("nf_lote_fornecedores")
@@ -194,9 +197,11 @@ def _secao_fornecedores(resultados: list[dict], dados: dict, info: dict, carimbo
         st.warning("Os filtros ou a seleção de preços mudaram depois de gerar este relatório. Gere novamente para atualizá-lo.")
     if tabelas["sem_consulta"]:
         st.caption(f"⚠️ {tabelas['sem_consulta']} fornecedor(es) sem dados cadastrais na API (aparecem com os dados da nota: razão social, UF e município).")
-    st.caption(f"{len(tabelas['unica'])} fornecedor(es) distintos, agrupados abaixo pelo item que vendem (um fornecedor aparece em cada item que vende).")
+    st.caption(f"{len(tabelas['unica'])} fornecedor(es) distintos, até {tabelas['max_por_item']} por item, agrupados pelo que vendem "
+               "(um fornecedor aparece em cada item que vende). Havendo mais candidatos, priorizados os que têm e-mail e telefone.")
     for descricao, grupo in tabelas["por_item"].groupby("Item que vende", sort=False):
-        with st.expander(f"Vendem: {descricao} — {len(grupo)} fornecedor(es)", expanded=len(tabelas["por_item"]) <= 15):
+        total = tabelas["totais"].get(descricao, len(grupo))
+        with st.expander(f"Vendem: {descricao} — {len(grupo)}" + (f" de {total}" if total > len(grupo) else "") + " fornecedor(es)", expanded=len(tabelas["por_item"]) <= 15):
             st.dataframe(grupo.drop(columns=["Item que vende"]), hide_index=True, use_container_width=True,
                          column_config={c: st.column_config.NumberColumn(format="R$ %.2f") for c in ("Preço mínimo", "Preço médio", "Preço máximo")})
     f1, f2 = st.columns(2)
