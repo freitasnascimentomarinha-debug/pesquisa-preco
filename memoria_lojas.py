@@ -116,13 +116,53 @@ def lojas_para_item(memoria: dict, item: str, limite: int = MAX_LOJAS_POR_ITEM) 
 
 # ---------- gravação (GitHub ou arquivo local) ----------
 
-def _config(segredos) -> tuple[str, str]:
+def _procurar(segredos, nome: str, caminho: str = ""):
+    """Procura a chave no 1º nível dos Secrets e dentro das seções ([secao]), sem diferenciar maiúsculas.
+    Devolve (valor, onde) ou ("", "")."""
     try:
-        token = str(segredos.get("GITHUB_TOKEN", "") or "")
-        repositorio = str(segredos.get("GITHUB_REPO", "") or REPOSITORIO_PADRAO)
+        itens = list(segredos.items())
     except Exception:
-        token, repositorio = "", REPOSITORIO_PADRAO
-    return token.strip(), repositorio  # só a chave dos Secrets do Streamlit
+        return "", ""
+    for chave, valor in itens:
+        if str(chave).strip().lower() == nome.lower() and isinstance(valor, str):
+            return valor, (caminho + "." if caminho else "") + str(chave)
+    for chave, valor in itens:
+        if hasattr(valor, "items"):
+            achado = _procurar(valor, nome, (caminho + "." if caminho else "") + str(chave))
+            if achado[0]:
+                return achado
+    return "", ""
+
+
+def _config(segredos) -> tuple[str, str]:
+    token, _ = _procurar(segredos, "GITHUB_TOKEN")
+    repositorio, _ = _procurar(segredos, "GITHUB_REPO")
+    return str(token or "").strip().strip('"').strip(), str(repositorio or "").strip() or REPOSITORIO_PADRAO
+
+
+def diagnostico_secrets(segredos) -> str:
+    """Texto para a tela: onde a chave foi achada e quais nomes existem nos Secrets (nunca mostra valores)."""
+    _, onde = _procurar(segredos, "GITHUB_TOKEN")
+    nomes = []
+
+    def listar(dados, caminho=""):
+        try:
+            for chave, valor in dados.items():
+                nome = (caminho + "." if caminho else "") + str(chave)
+                if hasattr(valor, "items"):
+                    listar(valor, nome)
+                else:
+                    nomes.append(nome)
+        except Exception:
+            pass
+
+    listar(segredos)
+    if onde:
+        return f"GITHUB_TOKEN encontrado em: {onde}."
+    if not nomes:
+        return "Nenhum Secret encontrado (os Secrets estão vazios ou não foram carregados; confira se o texto foi salvo e se o app reiniciou)."
+    return ("GITHUB_TOKEN não encontrado. Nomes que existem nos Secrets: " + ", ".join(nomes[:30])
+            + ". Coloque a linha GITHUB_TOKEN = \"...\" no início do texto dos Secrets, antes de qualquer [seção].")
 
 
 def _cabecalhos(token: str) -> dict:
