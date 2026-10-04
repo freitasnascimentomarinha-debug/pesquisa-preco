@@ -1,14 +1,14 @@
 {
  "versao": 1,
- "atualizado": "2026-10-04T18:19:57",
+ "atualizado": "2026-10-04T18:44:58",
  "lojas": {
   "lojadomecanico.com.br": {
-   "acertos": 7,
+   "acertos": 9,
    "ultimo": "2026-10-04",
    "itens": [
+    "tomada 20a",
     "fita isolante",
-    "chave de fenda",
-    "tomada 20a"
+    "chave de fenda"
    ]
   },
   "eletricaarea.com.br": {
@@ -19,7 +19,7 @@
    ]
   },
   "telhanorte.com.br": {
-   "acertos": 3,
+   "acertos": 4,
    "ultimo": "2026-10-04",
    "itens": [
     "fita isolante"
@@ -33,7 +33,7 @@
    ]
   },
   "copafer.com.br": {
-   "acertos": 6,
+   "acertos": 7,
    "ultimo": "2026-10-04",
    "itens": [
     "fita isolante",
@@ -66,7 +66,7 @@
    ]
   },
   "casadastomadas.com.br": {
-   "acertos": 1,
+   "acertos": 2,
    "ultimo": "2026-10-04",
    "itens": [
     "tomada 20a"
@@ -145,7 +145,7 @@
    ]
   },
   "jambo.com.br": {
-   "acertos": 1,
+   "acertos": 2,
    "ultimo": "2026-10-04",
    "itens": [
     "papel crepom"
@@ -159,10 +159,17 @@
    ]
   },
   "tkshopping.com.br": {
-   "acertos": 1,
+   "acertos": 2,
    "ultimo": "2026-10-04",
    "itens": [
     "papel crepom"
+   ]
+  },
+  "atacadodolojista.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-04",
+   "itens": [
+    "tomada 20a"
    ]
   }
  },
@@ -236,7 +243,7 @@
    "ultimo": "2026-10-04"
   },
   "artfloc.com.br": {
-   "falhas": 1,
+   "falhas": 2,
    "ultimo": "2026-10-04"
   },
   "atacadoideal.com.br": {
@@ -244,14 +251,14 @@
    "ultimo": "2026-10-04"
   },
   "papelariariomadeira.com.br": {
-   "falhas": 1,
-   "ultimo": "2026-10-04"
-  },
-  "atacadodolojista.com.br": {
-   "falhas": 1,
+   "falhas": 2,
    "ultimo": "2026-10-04"
   },
   "feraatacado.com": {
+   "falhas": 1,
+   "ultimo": "2026-10-04"
+  },
+  "martinsatacado.com.br": {
    "falhas": 1,
    "ultimo": "2026-10-04"
   }
