@@ -1,18 +1,22 @@
 {
  "versao": 1,
- "atualizado": "2026-10-04T21:20:52",
+ "atualizado": "2026-10-04T21:26:35",
  "lojas": {
   "lojadomecanico.com.br": {
-   "acertos": 12,
+   "acertos": 13,
    "ultimo": "2026-10-04",
    "itens": [
+    "grampeador",
     "fita isolante",
     "tomada 20a",
     "chave de fenda"
    ],
    "metodos": {
-    "navegador": 2,
+    "navegador": 3,
     "texto": 0
+   },
+   "paginas": {
+    "grampeador": "https://www.lojadomecanico.com.br/subcategorias/37/501/grampeador-manual"
    }
   },
   "eletricaarea.com.br": {
@@ -57,9 +61,10 @@
    }
   },
   "kalunga.com.br": {
-   "acertos": 8,
+   "acertos": 9,
    "ultimo": "2026-10-04",
    "itens": [
+    "grampeador",
     "caneta esferográfica azul",
     "papel a4",
     "papel crepom",
@@ -68,8 +73,11 @@
     "borracha escolar"
    ],
    "metodos": {
-    "navegador": 3,
+    "navegador": 4,
     "texto": 0
+   },
+   "paginas": {
+    "grampeador": "https://www.kalunga.com.br/depto/suprimentos-para-escritorio/grampeadores/26/1104"
    }
   },
   "lojascacula.com.br": {
@@ -115,15 +123,19 @@
    ]
   },
   "br.my-best.com": {
-   "acertos": 3,
+   "acertos": 4,
    "ultimo": "2026-10-04",
    "itens": [
+    "grampeador",
     "luva de limpeza",
     "fita isolante"
    ],
    "metodos": {
     "navegador": 0,
-    "texto": 1
+    "texto": 2
+   },
+   "paginas": {
+    "grampeador": "https://br.my-best.com/18618"
    }
   },
   "tendaatacado.com.br": {
@@ -414,6 +426,48 @@
     "navegador": 0,
     "texto": 1
    }
+  },
+  "casadosgrampos.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-04",
+   "itens": [
+    "grampeador"
+   ],
+   "metodos": {
+    "navegador": 1,
+    "texto": 0
+   },
+   "paginas": {
+    "grampeador": "https://casadosgrampos.com.br/tapecaria/grampeadores/"
+   }
+  },
+  "sodimac.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-04",
+   "itens": [
+    "grampeador"
+   ],
+   "metodos": {
+    "navegador": 1,
+    "texto": 0
+   },
+   "paginas": {
+    "grampeador": "https://www.sodimac.com.br/sodimac-br/category/cat460255/grampeadores/"
+   }
+  },
+  "tbsbrasil.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-04",
+   "itens": [
+    "grampeador"
+   ],
+   "metodos": {
+    "navegador": 1,
+    "texto": 0
+   },
+   "paginas": {
+    "grampeador": "https://tbsbrasil.com.br/grampeadores/"
+   }
   }
  },
  "falhas": {
@@ -566,22 +620,47 @@
    "navegador": 1,
    "texto": 1,
    "ultimo": "2026-10-04"
+  },
+  "molinahealthcare.gcs-web.com": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-04"
+  },
+  "investors.molinahealthcare.com": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-04"
+  },
+  "molinahealthcare.com": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-04"
+  },
+  "theofficialboard.com": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-04"
+  },
+  "beckerspayer.com": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-04"
   }
  },
  "frases": {
   "{item} comprar": {
-   "usos": 8.6239,
-   "acertos": 1.4373,
+   "usos": 9.1927,
+   "acertos": 1.3654,
    "ultimo": "2026-10-04"
   },
   "{item} preço": {
-   "usos": 8.6239,
-   "acertos": 2.0689,
+   "usos": 9.1927,
+   "acertos": 3.9655,
    "ultimo": "2026-10-04"
   },
   "venda de {item}": {
-   "usos": 8.6239,
-   "acertos": 0.5987,
+   "usos": 9.1927,
+   "acertos": 1.5688,
    "ultimo": "2026-10-04"
   },
   "{item} valor": {
@@ -590,8 +669,8 @@
    "ultimo": "2026-10-04"
   },
   "{item} atacado": {
-   "usos": 8.6239,
-   "acertos": 4.8589,
+   "usos": 9.1927,
+   "acertos": 4.616,
    "ultimo": "2026-10-04"
   },
   "{item} preço brasil": {
@@ -605,10 +684,10 @@
    "ultimo": "2026-10-04"
   },
   "comprar {item} online brasil": {
-   "usos": 8.6239,
-   "acertos": 0.6302,
+   "usos": 9.1927,
+   "acertos": 3.5987,
    "ultimo": "2026-10-04"
   }
  },
- "buscas": 12
+ "buscas": 13
 }
