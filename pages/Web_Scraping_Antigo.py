@@ -10,17 +10,10 @@ import html as html_lib
 from datetime import datetime
 from io import BytesIO
 from urllib.parse import urlparse, quote_plus
-import sys
-
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # módulos da raiz do projeto
-from atualizar_modulos import recarregar_se_mudou  # noqa: E402
-recarregar_se_mudou('cotacao_rapida', 'relatorio_cotacao_rapida', 'relatorio_nf_lote', 'web_precos', 'relatorio_web')
-import web_precos  # noqa: E402
-import relatorio_web  # noqa: E402
 
 # Configuração da página
 st.set_page_config(
-    page_title="AtaCotada - Web Scraping",
+    page_title="AtaCotada - Web Scraping (versão antiga)",
     page_icon="⚓",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -197,13 +190,13 @@ USER_AGENTS = [
 ]
 
 VARIANTES_BUSCA = [
-    "{item} comprar",
-    "{item}",
-    "{item} preço",
-    "{item} loja",
-    "comprar {item} online",
-    "{item} atacado",
-]  # o peso fica no item: a região (Brasil) já é pedida ao buscador e as palavras extras só indicam compra
+    "{item} preço brasil",
+    "{item} comprar brasil",
+    "{item} fornecedor brasil",
+    "comprar {item} online brasil",
+    "{item} valor unitário loja brasileira",
+    "{item} loja online brasil",
+]
 
 # Domínios a ignorar nos resultados
 DOMINIOS_IGNORADOS = [
@@ -241,24 +234,18 @@ DOMINIOS_IGNORADOS = [
 
 MAX_FONTES_POR_ITEM = 3
 MAX_RETRIES = 2
-TEMPO_MAX_POR_ITEM = 240  # segundos de busca por item, para a pesquisa nunca ficar presa
 SCREENSHOT_DIR = "/tmp/scraping_screenshots"
 OUTLIER_MULTIPLIER = 1.6
 MIN_ORCAMENTOS_PARA_ANALISE_OUTLIER = 3
 
-# SearchAPI.io (Google Shopping) — opcional e PAGO: só funciona se a chave estiver nos Secrets do Streamlit
-# (SEARCHAPI_KEY = "...") ou na variável de ambiente SEARCHAPI_KEY. Nunca escreva a chave no código.
+# SearchAPI.io (Google Shopping) — fallback quando DDGS falha
+# Versão antiga da página, guardada só para comparação. Única diferença: a chave não fica mais escrita no código
+# (vem dos Secrets do Streamlit, se existir; sem chave, o complemento pelo Google Shopping é pulado, como no código original).
+try:
+    SEARCHAPI_KEY = str(st.secrets.get("SEARCHAPI_KEY", ""))
+except Exception:
+    SEARCHAPI_KEY = ""
 SEARCHAPI_URL = "https://www.searchapi.io/api/v1/search"
-
-
-def _chave_searchapi():
-    chave = os.environ.get("SEARCHAPI_KEY", "")
-    if not chave:
-        try:
-            chave = str(st.secrets.get("SEARCHAPI_KEY", ""))
-        except Exception:
-            chave = ""
-    return chave.strip()
 
 
 # ===================== FUNÇÕES AUXILIARES =====================
@@ -302,8 +289,7 @@ def dominio_valido(url):
     try:
         dominio = urlparse(url).netloc.lower()
         # Rejeitar domínios na lista de ignorados
-        # (terminações de país como ".es" só valem no fim do domínio: ".es" não pode barrar "loja.escolar.com.br")
-        if any((dominio.endswith(d) if d.startswith(".") and len(d) <= 4 else d in dominio) for d in DOMINIOS_IGNORADOS):
+        if any(d in dominio for d in DOMINIOS_IGNORADOS):
             return False
         # Aceitar apenas domínios brasileiros (.com.br, .br) ou .com genéricos
         if dominio.endswith('.br') or dominio.endswith('.com') or dominio.endswith('.net') or dominio.endswith('.org'):
@@ -459,44 +445,12 @@ def _dedup_urls(urls, num_results=8):
     return unique[:num_results]
 
 
-FALHAS_MOTOR = {}  # mantido por compatibilidade (não usado)
-DIAG_BUSCA = {}  # o que cada buscador respondeu na última busca (aparece no log quando nada é encontrado)
-
-
-def _sem_acento(texto):
-    import unicodedata
-    return "".join(c for c in unicodedata.normalize("NFD", str(texto).lower()) if unicodedata.category(c) != "Mn")
-
-
-def _termos_do_item(item):
-    """Palavras do item sem acento e sem plural simples ('fitas crepe' -> fita, crep...)."""
-    termos = []
-    for palavra in re.findall(r"[a-z0-9]+", _sem_acento(item)):
-        if len(palavra) > 2 or palavra.isdigit():
-            termos.append(palavra[:-1] if len(palavra) > 3 and palavra.endswith("s") else palavra)
-    return termos
-
-
-def _resultado_relevante(resultado, termos):
-    """O título/trecho/endereço do resultado cita todas as palavras do item (descarta buscas fora do assunto)."""
-    if not termos:
-        return True
-    texto = _sem_acento(f"{resultado.get('title', '')} {resultado.get('body', '')} {resultado.get('href', '')}")
-    minimo = len(termos) if len(termos) <= 2 else len(termos) - 1  # com 3+ palavras tolera uma ausente
-    return sum(t in texto for t in termos) >= minimo
-
-
-def buscar_ddgs_api(query, num_results=8, item=None):
-    """Busca usando o pacote ddgs no modo automático — a chamada de antes das mudanças (o pacote pode usar outro buscador por trás)."""
+def buscar_ddgs_api(query, num_results=8):
+    """Busca usando o pacote ddgs (DuckDuckGo Search) — mais confiável em servidores."""
     try:
         from ddgs import DDGS
         results = list(DDGS().text(query, region="br-pt", max_results=num_results))
-        termos = _termos_do_item(item) if item else []
-        validos = [r for r in results if r.get("href") and dominio_valido(r["href"])]
-        urls = [r["href"] for r in validos if _resultado_relevante(r, termos)]
-        # o modo automático às vezes responde com outro buscador que ignora a busca (ex.: restaurantes para "fita isolante"):
-        # nesse caso não usa nada e deixa o Bing tentar
-        DIAG_BUSCA["ddgs automático"] = f"{len(results)} resultados, {len(validos)} após filtro de domínios, {len(urls)} sobre o item"
+        urls = [r["href"] for r in results if r.get("href") and dominio_valido(r["href"])]
         return _dedup_urls(urls, num_results)
     except ImportError:
         try:
@@ -504,13 +458,10 @@ def buscar_ddgs_api(query, num_results=8, item=None):
             with DDGS() as ddgs:
                 results = list(ddgs.text(query, region="br-pt", max_results=num_results))
             urls = [r["href"] for r in results if r.get("href") and dominio_valido(r["href"])]
-            DIAG_BUSCA["ddgs automático"] = f"{len(results)} resultados, {len(urls)} após filtro de domínios"
             return _dedup_urls(urls, num_results)
-        except Exception as erro:
-            DIAG_BUSCA["ddgs automático"] = f"erro {type(erro).__name__}: {str(erro)[:80]}"
+        except Exception:
             return []
-    except Exception as erro:
-        DIAG_BUSCA["ddgs automático"] = f"erro {type(erro).__name__}: {str(erro)[:80]}"
+    except Exception:
         return []
 
 
@@ -519,11 +470,10 @@ def buscar_duckduckgo(session, query, headers, num_results=8):
     from bs4 import BeautifulSoup
     from urllib.parse import unquote
 
-    url = f"https://html.duckduckgo.com/html/?q={quote_plus(query)}&kl=br-pt"
+    url = f"https://html.duckduckgo.com/html/?q={quote_plus(query)}"
     try:
-        resp = session.get(url, headers=headers, timeout=(5, 10))
+        resp = session.get(url, headers=headers, timeout=15)
         if resp.status_code != 200:
-            DIAG_BUSCA["duckduckgo html"] = f"HTTP {resp.status_code}"
             return []
 
         soup = BeautifulSoup(resp.text, "html.parser")
@@ -549,8 +499,7 @@ def buscar_duckduckgo(session, query, headers, num_results=8):
 
         return _dedup_urls(urls, num_results)
 
-    except Exception as erro:
-        DIAG_BUSCA["duckduckgo html"] = f"erro {type(erro).__name__}"
+    except Exception:
         return []
 
 
@@ -566,7 +515,6 @@ def buscar_google_requests(session, query, headers, num_results=8):
     try:
         resp = session.get(url, headers=google_headers, timeout=15)
         if resp.status_code != 200:
-            DIAG_BUSCA["google html"] = f"HTTP {resp.status_code}"
             return []
 
         soup = BeautifulSoup(resp.text, "html.parser")
@@ -587,8 +535,7 @@ def buscar_google_requests(session, query, headers, num_results=8):
 
         return _dedup_urls(urls, num_results)
 
-    except Exception as erro:
-        DIAG_BUSCA["google html"] = f"erro {type(erro).__name__}"
+    except Exception:
         return []
 
 
@@ -596,13 +543,12 @@ def buscar_bing_requests(session, query, headers, num_results=8):
     """Busca no Bing como fallback adicional."""
     from bs4 import BeautifulSoup
 
-    url = f"https://www.bing.com/search?q={quote_plus(query)}&setlang=pt-BR&cc=BR&mkt=pt-BR&count=20"
+    url = f"https://www.bing.com/search?q={quote_plus(query)}&setlang=pt-BR&count={num_results}"
     bing_headers = dict(headers)
     bing_headers["Referer"] = "https://www.bing.com/"
     try:
         resp = session.get(url, headers=bing_headers, timeout=15)
         if resp.status_code != 200:
-            DIAG_BUSCA["bing html"] = f"HTTP {resp.status_code}"
             return []
 
         soup = BeautifulSoup(resp.text, "html.parser")
@@ -621,11 +567,9 @@ def buscar_bing_requests(session, query, headers, num_results=8):
                 if href.startswith("http") and dominio_valido(href):
                     urls.append(href)
 
-        DIAG_BUSCA["bing html"] = f"{len(urls)} sites após filtro de domínios"
         return _dedup_urls(urls, num_results)
 
-    except Exception as erro:
-        DIAG_BUSCA["bing html"] = f"erro {type(erro).__name__}"
+    except Exception:
         return []
 
 
@@ -634,15 +578,14 @@ def buscar_searchapi(query, num_results=8):
     Retorna resultados diretos com preços já extraídos."""
     import requests as req
 
-    chave = _chave_searchapi()
-    if not chave:
+    if not SEARCHAPI_KEY:
         return []
 
     try:
         params = {
             "engine": "google_shopping",
             "q": query,
-            "api_key": chave,
+            "api_key": SEARCHAPI_KEY,
             "location": "Brazil",
             "gl": "br",
             "hl": "pt",
@@ -679,79 +622,25 @@ def buscar_searchapi(query, num_results=8):
         return []
 
 
-def buscar_ddgs_duckduckgo(query, num_results=8):
-    """DuckDuckGo explícito pelo pacote ddgs (backend="duckduckgo"), sem deixar o pacote trocar de buscador."""
-    try:
-        from ddgs import DDGS
-        results = list(DDGS().text(query, region="br-pt", max_results=num_results, backend="duckduckgo"))
-        urls = [r["href"] for r in results if r.get("href") and dominio_valido(r["href"])]
-        DIAG_BUSCA["DuckDuckGo (ddgs, backend duckduckgo)"] = f"{len(results)} resultados, {len(urls)} após filtro de domínios"
-        return _dedup_urls(urls, num_results)
-    except Exception as erro:
-        DIAG_BUSCA["DuckDuckGo (ddgs, backend duckduckgo)"] = f"erro {type(erro).__name__}: {str(erro)[:80]}"
-        return []
-
-
-def buscar_duckduckgo_lite(session, query, headers, num_results=8):
-    """DuckDuckGo Lite (lite.duckduckgo.com): versão leve do DuckDuckGo, outra porta de entrada quando a HTML falha."""
-    from bs4 import BeautifulSoup
-    from urllib.parse import unquote
-
-    try:
-        resp = session.post("https://lite.duckduckgo.com/lite/", data={"q": query, "kl": "br-pt"}, headers=headers, timeout=(5, 12))
-        if resp.status_code != 200:
-            DIAG_BUSCA["DuckDuckGo Lite"] = f"HTTP {resp.status_code}"
-            return []
-        soup = BeautifulSoup(resp.text, "html.parser")
-        urls = []
-        for a_tag in soup.select("a.result-link, a[href*='uddg=']"):
-            href = a_tag.get("href", "")
-            if "uddg=" in href:
-                href = unquote(href.split("uddg=")[1].split("&")[0])
-            if href.startswith("http") and dominio_valido(href):
-                urls.append(href)
-        DIAG_BUSCA["DuckDuckGo Lite"] = f"{len(urls)} sites após filtro de domínios"
-        return _dedup_urls(urls, num_results)
-    except Exception as erro:
-        DIAG_BUSCA["DuckDuckGo Lite"] = f"erro {type(erro).__name__}"
-        return []
-
-
-def buscar_urls(session, query, headers, num_results=8, item=None):
-    """DuckDuckGo é o principal (4 formas de acesso); o Bing só entra se todas falharem."""
-    DIAG_BUSCA.clear()
-    for nome, funcao in (
-        ("DuckDuckGo (ddgs)", lambda: buscar_ddgs_duckduckgo(query, num_results)),
-        ("DuckDuckGo HTML", lambda: buscar_duckduckgo(session, query, headers, num_results)),
-        ("DuckDuckGo Lite", lambda: buscar_duckduckgo_lite(session, query, headers, num_results)),
-        ("DuckDuckGo (ddgs automático)", lambda: buscar_ddgs_api(query, num_results, item)),
-        ("Bing", lambda: buscar_bing_requests(session, query, headers, num_results)),
-    ):
-        urls = funcao()
-        if urls:
-            return urls, nome
+def buscar_urls(session, query, headers, num_results=8):
+    """Busca combinada: DDGS API > DuckDuckGo HTML > Google > Bing."""
+    # 1. Tentar DDGS API (mais confiável em ambientes de servidor)
+    urls = buscar_ddgs_api(query, num_results)
+    if urls:
+        return urls, "DDGS API"
+    # 2. DuckDuckGo HTML scraping
+    urls = buscar_duckduckgo(session, query, headers, num_results)
+    if urls:
+        return urls, "DuckDuckGo HTML"
+    # 3. Google
+    urls = buscar_google_requests(session, query, headers, num_results)
+    if urls:
+        return urls, "Google"
+    # 4. Bing
+    urls = buscar_bing_requests(session, query, headers, num_results)
+    if urls:
+        return urls, "Bing"
     return [], "nenhum"
-
-
-def testar_buscadores(query, item=None):
-    """Diagnóstico: roda a mesma busca no DuckDuckGo (ddgs e HTML) e no Bing e mostra tempo, nº de resultados e os primeiros sites."""
-    import requests as req
-
-    sessao = req.Session()
-    cabecalhos = gerar_headers()
-    sessao.headers.update(cabecalhos)
-    linhas = []
-    for nome, funcao in (("DuckDuckGo (ddgs)", lambda: buscar_ddgs_duckduckgo(query, 8)),
-                         ("DuckDuckGo (HTML)", lambda: buscar_duckduckgo(sessao, query, cabecalhos, 8)),
-                         ("DuckDuckGo (Lite)", lambda: buscar_duckduckgo_lite(sessao, query, cabecalhos, 8)),
-                         ("DuckDuckGo (ddgs automático)", lambda: buscar_ddgs_api(query, 8)),
-                         ("Bing (HTML)", lambda: buscar_bing_requests(sessao, query, cabecalhos, 8))):
-        inicio = time.time()
-        DIAG_BUSCA.clear()
-        urls = funcao()
-        linhas.append({"Buscador": nome, "Tempo (s)": round(time.time() - inicio, 1), "Sites": len(urls),
-                       "Primeiros sites": " | ".join(extrair_dominio(u) for u in urls[:4]) or "; ".join(f"{k}: {v}" for k, v in DIAG_BUSCA.items()) or "nenhum"})
-    return linhas
 
 
 def extrair_precos_pagina(html_content):
@@ -964,15 +853,13 @@ def _eh_pagina_produto(html, titulo):
     return True
 
 
-def scraping_requests(session, url, headers, item_nome=None, motivo=None):
+def scraping_requests(session, url, headers, item_nome=None):
     """Acessa uma página via requests e extrai informações."""
     from bs4 import BeautifulSoup
 
     try:
-        motivo = motivo if motivo is not None else {}
-        resp = session.get(url, headers=headers, timeout=(5, 10), allow_redirects=True)
+        resp = session.get(url, headers=headers, timeout=15, allow_redirects=True)
         if resp.status_code != 200:
-            motivo["motivo"] = "site bloqueou o acesso (HTTP %d)" % resp.status_code if resp.status_code in (401, 403, 429) else f"HTTP {resp.status_code}"
             return None
 
         html = resp.text
@@ -980,24 +867,19 @@ def scraping_requests(session, url, headers, item_nome=None, motivo=None):
 
         # Verificar se é uma página de produto antes de gastar tempo extraindo preços
         if not _eh_pagina_produto(html, titulo):
-            motivo["motivo"] = "não é página de produto"
             return None
 
         # Verificar se o conteúdo é relevante para o item buscado
         if item_nome and not _conteudo_relevante(html, titulo, item_nome):
-            motivo["motivo"] = "página não corresponde ao item (busca/categoria)"
             return None
 
         precos = extrair_precos_pagina(html)
 
-        # Preço do produto anunciado: oferta em JSON-LD > metadados > mediana dos valores do texto
-        principal = web_precos.preco_principal(html, extrair_precos_pagina)
-        if not principal:
-            motivo["motivo"] = "sem preço identificável (página dinâmica ou listagem)"
+        if not precos:
             return None
-        preco_medio = principal["preco"]
-        if preco_medio not in precos:
-            precos = sorted(set(precos) | {preco_medio})
+
+        # Pegar o preço mais provável (mediana dos encontrados)
+        preco_medio = sorted(precos)[len(precos) // 2]
 
         # Gerar screenshot HTML como evidência (sem precisar de Playwright)
         screenshot_path = None
@@ -1081,12 +963,8 @@ body {{ font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 20px; ba
             "screenshot": screenshot_path,
             "precos_detectados": precos,
             "contexto_extraido": contexto_extraido,
-            "origem_preco": principal["origem"],
-            "confianca": principal["confianca"],
         }
-    except Exception as erro:
-        if motivo is not None:
-            motivo["motivo"] = f"erro de conexão ({type(erro).__name__})"
+    except Exception:
         return None
 
 
@@ -1374,11 +1252,9 @@ def scraping_playwright(url, item_nome, screenshot_path=None):
 
 # ===================== ORQUESTRADOR DE SCRAPING =====================
 
-def executar_scraping(itens, usar_playwright, progress_bar, log_container, status_text, max_fontes, usar_google_shopping=False, limite_google=10, delay_min=2.0, delay_max=5.0, limite_searchapi_busca=0):
+def executar_scraping(itens, usar_playwright, progress_bar, log_container, status_text, max_fontes):
     """Executa o scraping completo para todos os itens."""
     import requests as req
-    from collections import Counter
-    from concurrent.futures import ThreadPoolExecutor
 
     logs = []
     resultados = []
@@ -1392,8 +1268,6 @@ def executar_scraping(itens, usar_playwright, progress_bar, log_container, statu
     session.headers.update(headers)
 
     os.makedirs(SCREENSHOT_DIR, exist_ok=True)
-    buscas_google = 0
-    FALHAS_MOTOR.clear()
 
     for idx, item in enumerate(itens):
         item = item.strip()
@@ -1411,127 +1285,131 @@ def executar_scraping(itens, usar_playwright, progress_bar, log_container, statu
         contador_item = 0
         item_slug = re.sub(r'[^a-zA-Z0-9]', '_', item)[:40] or "item"
 
-        # Poucas variantes de busca; cada uma traz URLs novas e o tempo por item é limitado
+        # Selecionar variantes de busca aleatoriamente (usar mais variantes para maximizar cobertura)
         variantes = random.sample(VARIANTES_BUSCA, min(5, len(VARIANTES_BUSCA)))
-        inicio_item = time.time()
-        urls_tentadas = set()
-        motivos_falha = Counter()
-        buscas_sem_resultado = 0
 
-        def _acessar(url, item=item, item_slug=item_slug):
-            """Acessa uma página (uma tentativa, sem esperas artificiais) e devolve (resultado, motivo da falha)."""
-            motivo = {}
-            sessao_local = req.Session()
-            cabecalhos = gerar_headers()
-            sessao_local.headers.update(cabecalhos)
-            resultado_pagina = None
-            if playwright_disponivel:
-                resultado_pagina = scraping_playwright(url, item, os.path.join(SCREENSHOT_DIR, f"{item_slug}_{abs(hash(url)) % 10000}.png"))
-            for tentativa in range(MAX_RETRIES + 1):
-                if resultado_pagina:
-                    break
-                motivo.clear()
-                resultado_pagina = scraping_requests(sessao_local, url, cabecalhos, item_nome=item, motivo=motivo)
-                # só vale tentar de novo quando foi bloqueio/limite/falha de rede (outro User-Agent e uma pausa curta)
-                if resultado_pagina or not any(m in motivo.get("motivo", "") for m in ("bloqueou", "conexão", "HTTP 5")):
-                    break
-                time.sleep(gerar_delay(1.0, 2.5))
-                cabecalhos = gerar_headers()
-                sessao_local.headers.update(cabecalhos)
-            return resultado_pagina, motivo.get("motivo", "sem preço extraível")
-
-        for numero_variante, variante in enumerate(variantes):
+        for variante in variantes:
             estado_item = atualizar_estado_orcamentos(candidatos_item, max_fontes)
             if len(estado_item["validos"]) >= max_fontes:
                 log_msg(log_container, logs, f"✓ {max_fontes} orçamentos válidos encontrados para '{item}'. Avançando.", "success")
                 break
-            if time.time() - inicio_item > TEMPO_MAX_POR_ITEM:
-                log_msg(log_container, logs, f"⏱ Tempo máximo de {TEMPO_MAX_POR_ITEM}s por item atingido para '{item}'. Avançando.", "warn")
-                break
 
             query = variante.format(item=item)
             log_msg(log_container, logs, f"🔍 Buscando: \"{query}\"", "info")
-            if numero_variante:
-                time.sleep(gerar_delay(delay_min, delay_max))  # pausa curta entre buscas, para não ser bloqueado
+
+            # Delay antes da busca
+            delay = gerar_delay(2.0, 5.0)
+            log_msg(log_container, logs, f"⏳ Aguardando {delay:.1f}s...", "info")
+            time.sleep(delay)
 
             # Buscar URLs (DDGS API > DuckDuckGo HTML > Google > Bing)
-            urls, engine = buscar_urls(session, query, headers, item=item)
+            urls, engine = buscar_urls(session, query, headers)
 
             if not urls:
-                buscas_sem_resultado += 1
-                detalhe = "; ".join(f"{k}: {v}" for k, v in DIAG_BUSCA.items()) or "sem detalhes"
-                log_msg(log_container, logs, f"⚠ Nenhum resultado para \"{query}\" → {detalhe}", "warn")
+                log_msg(log_container, logs, f"⚠ Nenhum resultado encontrado para \"{query}\"", "warn")
                 continue
 
-            novas = []
+            log_msg(log_container, logs, f"📋 {len(urls)} resultados encontrados via {engine}", "info")
+
             for url in urls:
-                dominio = extrair_dominio(url)
-                if dominio in dominios_usados or url in urls_tentadas or any(extrair_dominio(u) == dominio for u in novas):
-                    continue
-                novas.append(url)
-            log_msg(log_container, logs, f"📋 {len(urls)} resultados via {engine}; acessando {len(novas)} site(s) novo(s)", "info")
-            log_msg(log_container, logs, "🧭 Buscadores: " + ("; ".join(f"{k}: {v}" for k, v in DIAG_BUSCA.items()) or "sem detalhes"), "info")
-            if not novas:
-                continue
-
-            with ThreadPoolExecutor(max_workers=1 if playwright_disponivel else 5) as executor:
-                respostas = list(executor.map(_acessar, novas))
-
-            for url, (resultado, motivo) in zip(novas, respostas):
-                urls_tentadas.add(url)
-                dominio = extrair_dominio(url)
-                if not resultado:
-                    motivos_falha[motivo] += 1
-                    log_msg(log_container, logs, f"✗ {dominio}: {motivo}", "error")
-                    continue
-
-                contador_item += 1
-                resultado["resultado_id"] = f"{item_slug}_{contador_item}_{abs(hash(url)) % 10000}"
-                resultado["item"] = item
-                resultado["data_coleta"] = datetime.now().strftime("%d/%m/%Y %H:%M")
-                candidatos_item.append(resultado)
-                dominios_usados.add(dominio)
                 estado_item = atualizar_estado_orcamentos(candidatos_item, max_fontes)
+                if len(estado_item["validos"]) >= max_fontes:
+                    break
 
-                for descartado in estado_item["descartados"]:
-                    if descartado["resultado_id"] in outliers_logados:
-                        continue
-                    log_msg(
-                        log_container,
-                        logs,
-                        f"🚫 Outlier descartado em {descartado['dominio']}: {formatar_moeda_br(descartado['preco'])} acima do limite de {formatar_moeda_br(descartado['limite_superior'])} para '{item}'. Buscando reposição.",
-                        "warn",
-                    )
-                    outliers_logados.add(descartado["resultado_id"])
+                dominio = extrair_dominio(url)
+                if dominio in dominios_usados:
+                    continue
 
-                if resultado["resultado_id"] in estado_item["ids_validos"]:
-                    log_msg(
-                        log_container,
-                        logs,
-                        f"💰 Orçamento [{len(estado_item['validos'])}/{max_fontes}] — {formatar_moeda_br(resultado['preco'])} em {dominio} ({resultado.get('origem_preco', '')})",
-                        "orcamento",
-                    )
-                elif resultado["resultado_id"] not in estado_item["ids_descartados"] and resultado["resultado_id"] not in reservas_logadas:
-                    log_msg(
-                        log_container,
-                        logs,
-                        f"📌 Cotação extra mantida em reserva: {formatar_moeda_br(resultado['preco'])} em {dominio}",
-                        "info",
-                    )
-                    reservas_logadas.add(resultado["resultado_id"])
+                log_msg(log_container, logs, f"🌐 Acessando: {dominio}", "info")
 
-        if not candidatos_item:
-            resumo_falhas = "; ".join(f"{n}× {m}" for m, n in motivos_falha.most_common(4)) or "nenhuma página foi acessada"
-            log_msg(log_container, logs, f"❌ Nenhum preço para '{item}' ({resumo_falhas}).", "error")
-            if buscas_sem_resultado == len(variantes):
-                log_msg(log_container, logs, "ℹ️ Os buscadores gratuitos não responderam: servidores em nuvem costumam ser bloqueados. Veja a orientação abaixo do log.", "warn")
+                # Delay entre acessos a sites
+                delay = gerar_delay(2.5, 6.0)
+                log_msg(log_container, logs, f"⏳ Delay de navegação: {delay:.1f}s", "info")
+                time.sleep(delay)
+
+                resultado = None
+                screenshot_path = os.path.join(
+                    SCREENSHOT_DIR,
+                    f"{item_slug}_{contador_item + 1}.png",
+                )
+
+                # Se Playwright selecionado e disponível, usar primeiro
+                if playwright_disponivel:
+                    log_msg(log_container, logs, f"🎭 Tentando com navegador automatizado: {dominio}", "info")
+                    time.sleep(gerar_delay(1.5, 3.5))
+                    resultado = scraping_playwright(url, item, screenshot_path)
+
+                # Se Playwright não disponível ou falhou, tentar com requests
+                if not resultado:
+                    for tentativa in range(MAX_RETRIES + 1):
+                        # Simular tempo de leitura
+                        time.sleep(gerar_delay_leitura())
+
+                        resultado = scraping_requests(session, url, headers, item_nome=item)
+                        if resultado:
+                            break
+
+                        if tentativa < MAX_RETRIES:
+                            retry_delay = gerar_delay(3.0, 7.0)
+                            log_msg(log_container, logs, f"🔄 Retry {tentativa+1}/{MAX_RETRIES} em {retry_delay:.1f}s...", "warn")
+                            time.sleep(retry_delay)
+                            # Trocar User-Agent no retry
+                            headers = gerar_headers()
+                            session.headers.update(headers)
+
+                if resultado:
+                    contador_item += 1
+                    resultado["resultado_id"] = f"{item_slug}_{contador_item}_{abs(hash(url)) % 10000}"
+                    resultado["item"] = item
+                    resultado["data_coleta"] = datetime.now().strftime("%d/%m/%Y %H:%M")
+
+                    # Capturar screenshot via Playwright se ainda não temos
+                    if playwright_disponivel and not resultado.get("screenshot"):
+                        try:
+                            _resultado_pw = scraping_playwright(url, item, screenshot_path)
+                            if _resultado_pw and _resultado_pw.get("screenshot"):
+                                resultado["screenshot"] = _resultado_pw["screenshot"]
+                        except Exception:
+                            pass
+
+                    candidatos_item.append(resultado)
+                    dominios_usados.add(dominio)
+                    estado_item = atualizar_estado_orcamentos(candidatos_item, max_fontes)
+
+                    for descartado in estado_item["descartados"]:
+                        if descartado["resultado_id"] in outliers_logados:
+                            continue
+                        log_msg(
+                            log_container,
+                            logs,
+                            f"🚫 Outlier descartado em {descartado['dominio']}: {formatar_moeda_br(descartado['preco'])} acima do limite de {formatar_moeda_br(descartado['limite_superior'])} para '{item}'. Buscando reposição.",
+                            "warn",
+                        )
+                        outliers_logados.add(descartado["resultado_id"])
+
+                    if resultado["resultado_id"] in estado_item["ids_validos"]:
+                        log_msg(
+                            log_container,
+                            logs,
+                            f"💰 Orçamento [{len(estado_item['validos'])}/{max_fontes}] — {formatar_moeda_br(resultado['preco'])} em {dominio}",
+                            "orcamento",
+                        )
+                    elif resultado["resultado_id"] not in estado_item["ids_descartados"] and resultado["resultado_id"] not in reservas_logadas:
+                        log_msg(
+                            log_container,
+                            logs,
+                            f"📌 Cotação extra mantida em reserva: {formatar_moeda_br(resultado['preco'])} em {dominio}",
+                            "info",
+                        )
+                        reservas_logadas.add(resultado["resultado_id"])
+                else:
+                    log_msg(log_container, logs, f"✗ Sem preço extraível de {dominio}", "error")
 
         # Complemento: se não atingiu o mínimo de fontes, usar SearchAPI (Google Shopping)
         estado_item = atualizar_estado_orcamentos(candidatos_item, max_fontes)
         faltam = max_fontes - len(estado_item["validos"])
-        if faltam > 0 and usar_google_shopping and buscas_google < limite_google:
-            buscas_google += 1
-            log_msg(log_container, logs, f"🛒 Faltam {faltam} orçamento(s) para '{item}'. Google Shopping (SearchAPI, pago): busca {buscas_google}/{limite_google}...", "info")
+        if faltam > 0:
+            log_msg(log_container, logs, f"🛒 Faltam {faltam} orçamento(s) para '{item}'. Tentando Google Shopping (SearchAPI)...", "info")
             searchapi_results = buscar_searchapi(item, faltam + 2)  # pedir extras para compensar duplicados
             if searchapi_results:
                 dominios_ja = {r['dominio'] for r in candidatos_item}
@@ -1547,8 +1425,6 @@ def executar_scraping(itens, usar_playwright, progress_bar, log_container, statu
                     sr["data_coleta"] = datetime.now().strftime("%d/%m/%Y %H:%M")
                     sr["precos_detectados"] = [sr.get("preco")] if sr.get("preco") else []
                     sr["contexto_extraido"] = "Preço complementar obtido no Google Shopping (SearchAPI)."
-                    sr["origem_preco"] = "Google Shopping (SearchAPI)"
-                    sr["confianca"] = "média"
                     candidatos_item.append(sr)
                     dominios_ja.add(sr.get('dominio', ''))
                     estado_item = atualizar_estado_orcamentos(candidatos_item, max_fontes)
@@ -1572,16 +1448,18 @@ def executar_scraping(itens, usar_playwright, progress_bar, log_container, statu
                             "orcamento",
                         )
 
-        estado_item = atualizar_estado_orcamentos(candidatos_item, max_fontes)
-        if len(estado_item["validos"]) < max_fontes:
-            log_msg(log_container, logs, f"⚠ Apenas {len(estado_item['validos'])} orçamento(s) válido(s) encontrado(s) para '{item}'", "warn")
+            estado_item = atualizar_estado_orcamentos(candidatos_item, max_fontes)
+            if len(estado_item["validos"]) < max_fontes:
+                log_msg(log_container, logs, f"⚠ Apenas {len(estado_item['validos'])} orçamento(s) válido(s) encontrado(s) para '{item}'", "warn")
 
         orcamentos_item = atualizar_estado_orcamentos(candidatos_item, max_fontes)["validos"]
         resultados.extend(orcamentos_item)
 
         # Delay maior entre itens diferentes
         if idx < total_itens - 1:
-            time.sleep(gerar_delay(delay_min, delay_max))
+            delay = gerar_delay(4.0, 8.0)
+            log_msg(log_container, logs, f"⏳ Intervalo entre itens: {delay:.1f}s", "info")
+            time.sleep(delay)
 
     progress_bar.progress(1.0)
     log_msg(log_container, logs, f"━━━ Scraping concluído! {len(resultados)} orçamentos coletados ━━━", "success")
@@ -1908,7 +1786,7 @@ st.markdown("""
     <div class="header-container">
         <div class="logo-text">MARINHA DO BRASIL</div>
         <div class="sistema-nome">ATACOTADA</div>
-        <div class="subtitulo">🕷️ Web Scraping — Pesquisa de Preços Automatizada</div>
+        <div class="subtitulo">🕰️ Web Scraping — VERSÃO ANTIGA (temporária, para comparação)</div>
     </div>
 """, unsafe_allow_html=True)
 
@@ -1933,9 +1811,9 @@ _como_funciona_html = """
             <br><b>DDGS API → DuckDuckGo HTML → Google → Bing</b></div>
         <div style="margin-bottom:0.3rem;">4. Acessa cada site encontrado e extrai preços usando <b>4 estratégias de detecção</b>:
             <br>dados estruturados (JSON-LD) → meta tags → classes de preço no HTML → regex em R$</div>
-        <div style="margin-bottom:0.3rem;">5. Se ao final não atingir o mínimo de orçamentos por item, pode complementar com o <b>Google Shopping (SearchAPI)</b>, serviço <b>pago</b> que fica desligado por padrão e só aparece se houver chave nos Secrets</div>
+        <div style="margin-bottom:0.3rem;">5. Se ao final não atingir o mínimo de orçamentos por item, complementa automaticamente com o <b>Google Shopping (SearchAPI)</b>, que retorna preços de lojas cadastradas no Google</div>
         <div style="margin-bottom:0.3rem;">6. Salva uma evidência formatada (snapshot) de cada página com preço encontrado</div>
-        <div style="margin-bottom:0.3rem;">7. Gera o <b>relatório padrão da Cotação Rápida</b> (PDF e Excel, com mapa comparativo) e exporta também CSV, JSON e PDF de evidências</div>
+        <div style="margin-bottom:0.3rem;">7. Gera relatório exportável em <b>Excel, CSV, JSON ou PDF de evidências</b></div>
     </div>
 
     <div style="font-weight:bold; color:#d4af37; margin-bottom: 0.5rem;">⚙️ Configurações Disponíveis:</div>
@@ -1956,15 +1834,6 @@ _como_funciona_html = """
 """
 with st.expander("⚙️ Como Funciona o Web Scraping", expanded=False):
     _components.html(_como_funciona_html, height=700, scrolling=True)
-
-st.page_link("pages/Web_Scraping_Antigo.py", label="Abrir a versão antiga desta página (temporária, para comparar)", icon="🕰️")
-
-with st.expander("🔧 Diagnóstico dos buscadores (se a pesquisa não encontrar nada)", expanded=False):
-    st.caption("Roda uma busca de teste no DuckDuckGo e no Bing e mostra qual responde, em quanto tempo e se os resultados são do assunto.")
-    consulta_teste = st.text_input("Busca de teste", value="fita crepe preço", key="consulta_teste_buscadores")
-    if st.button("Testar buscadores agora", key="botao_teste_buscadores"):
-        with st.spinner("Testando (pode levar até 1 minuto)..."):
-            st.dataframe(pd.DataFrame(testar_buscadores(consulta_teste)), use_container_width=True, hide_index=True)
 
 # Formulário de entrada
 st.markdown("### 📝 Itens para Pesquisa")
@@ -2001,24 +1870,10 @@ with col2:
         min_value=1,
         max_value=5,
         value=3,
-        help="Número máximo de orçamentos por item (padrão 3). O relatório padrão aproveita até 5 preços por item, se você aumentar.",
+        help="Número máximo de orçamentos por item.",
     )
-    usar_google_shopping = False
-    limite_google = 0
-    limite_searchapi_busca = 0
-    if _chave_searchapi():
-        usar_google_shopping = st.checkbox(
-            "Complementar com Google Shopping (pago)",
-            value=False,
-            help="Só é usado quando faltam orçamentos para um item. Cada busca consome a cota da sua conta SearchAPI.",
-        )
-        if usar_google_shopping:
-            limite_google = st.number_input("Máx. buscas Google Shopping", min_value=1, max_value=100, value=10,
-                                            help="Limite de buscas pagas nesta execução, para você nunca gastar além do previsto.")
-    else:
-        st.caption("Google Shopping: desligado (sem chave nos Secrets). Pesquisa gratuita via DuckDuckGo.")
-    delay_min = st.number_input("Pausa mín. entre buscas (seg)", min_value=0.5, max_value=15.0, value=2.0, step=0.5)
-    delay_max = st.number_input("Pausa máx. entre buscas (seg)", min_value=1.0, max_value=30.0, value=5.0, step=0.5)
+    delay_min = st.number_input("Delay mín. (seg)", min_value=1.0, max_value=15.0, value=2.0, step=0.5)
+    delay_max = st.number_input("Delay máx. (seg)", min_value=2.0, max_value=30.0, value=6.0, step=0.5)
 
 # Validação
 if delay_min >= delay_max:
@@ -2055,11 +1910,6 @@ if iniciar:
             log_container=log_container,
             status_text=status_text,
             max_fontes=max_fontes,
-            usar_google_shopping=usar_google_shopping,
-            limite_google=int(limite_google),
-            delay_min=float(delay_min),
-            delay_max=float(delay_max),
-            limite_searchapi_busca=int(limite_searchapi_busca),
         )
 
         # Armazenar resultados no session_state
@@ -2113,31 +1963,9 @@ if "scraping_resultados" in st.session_state and st.session_state["scraping_resu
         st.warning("⚠️ Todos os orçamentos desta execução foram retirados da composição.")
     else:
 
-        tab_relatorio, tab_tabela, tab_resumo, tab_evidencias, tab_export = st.tabs(
-            ["📑 Relatório Padrão", "📊 Tabela Completa", "📈 Resumo", "📸 Evidências", "📥 Exportar"]
+        tab_tabela, tab_resumo, tab_evidencias, tab_export = st.tabs(
+            ["📊 Tabela Completa", "📈 Resumo", "📸 Evidências", "📥 Exportar"]
         )
-
-        with tab_relatorio:
-            itens_pesquisados = st.session_state.get("scraping_itens", [])
-            analise = web_precos.analisar_todos(itens_pesquisados, resultados)
-            info_relatorio = {"motores": "DuckDuckGo" + (" e Google Shopping" if any("Google" in str(r.get("origem_preco", "")) for r in resultados) else ""),
-                              "gerado_em": datetime.now().strftime("%d/%m/%Y %H:%M")}
-            st.caption("Mesmas regras da Cotação Rápida: sem outliers, até 5 preços a ±30% da média, mapa comparativo na 1ª página, "
-                       "endereço e data/hora do acesso de cada preço.")
-            st.dataframe(relatorio_web.tabela_mapa_web(analise), use_container_width=True, hide_index=True)
-            baixas = [r for r in resultados if r.get("confianca") == "baixa"]
-            if baixas:
-                st.warning(f"{len(baixas)} preço(s) vieram da leitura do texto da página (confiança baixa): confira o anúncio antes de usar.")
-            col_r1, col_r2 = st.columns(2)
-            col_r1.download_button(
-                "📄 Baixar relatório PDF (padrão Cotação Rápida)", data=relatorio_web.gerar_pdf_mapa(analise, info_relatorio),
-                file_name=f"pesquisa_web_{datetime.now().strftime('%Y%m%d_%H%M')}.pdf", mime="application/pdf", type="primary", use_container_width=True,
-            )
-            col_r2.download_button(
-                "📊 Baixar relatório Excel", data=relatorio_web.gerar_excel_mapa(analise, info_relatorio),
-                file_name=f"pesquisa_web_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True,
-            )
 
         with tab_tabela:
             df = pd.DataFrame(resultados)
@@ -2293,9 +2121,3 @@ if "scraping_resultados" in st.session_state and st.session_state["scraping_resu
 
 elif "scraping_resultados" in st.session_state and not st.session_state["scraping_resultados"]:
     st.warning("⚠️ O scraping foi executado mas nenhum orçamento foi encontrado. Tente com outros termos.")
-    st.info(
-        "**Se o log mostra que os buscadores não responderam**, o servidor da nuvem foi bloqueado (acontece com buscas gratuitas). Opções:\n\n"
-        "1. **Google Shopping (pago, opcional):** cadastre `SEARCHAPI_KEY` nos *Secrets* do Streamlit; a opção aparece ao lado e você define o limite de buscas.\n"
-        "2. **Rodar no seu computador** (`streamlit run streamlit_app.py`): o IP residencial raramente é bloqueado.\n\n"
-        "**Se o log mostra sites acessados sem preço** (`✗ site: motivo`), o motivo aparece em cada linha: páginas dinâmicas, listagens ou bloqueio do site."
-    )
