@@ -29,7 +29,7 @@ API = "https://api.github.com"
 
 
 def vazia() -> dict:
-    return {"versao": 1, "lojas": {}, "falhas": {}}
+    return {"versao": 1, "lojas": {}, "falhas": {}, "frases": {}, "buscas": 0}
 
 
 def dominio(url_ou_site: str) -> str:
@@ -121,6 +121,62 @@ def deve_pular(memoria: dict, url: str, metodo: str = "texto") -> bool:
     return idade <= DIAS_PARA_ESQUECER_FALHAS
 
 
+def metodo_preferido(memoria: dict, url: str) -> str:
+    """Por qual método a loja costuma dar preço: 'texto' se só deu por texto; 'navegador' se deu pelo navegador (ou se é desconhecida,
+    porque o navegador tem mais chance). Com os dois, vale o que mais deu certo."""
+    loja = memoria["lojas"].get(dominio(url))
+    if not loja:
+        return "navegador"
+    metodos = loja.get("metodos", {})
+    n_navegador, n_texto = metodos.get("navegador", 0), metodos.get("texto", 0)
+    return "texto" if n_texto > n_navegador else "navegador"
+
+
+# ---------- aprendizado das frases de busca ----------
+
+PESO_DO_PASSADO = 0.95  # a cada uso da frase, o histórico dela vale um pouco menos (o que aconteceu há pouco pesa mais)
+PRIOR_ACERTOS, PRIOR_USOS = 3.0, 3.0  # frase nova começa com nota 1,0 (1 preço por busca) e vai se afastando com os dados
+USOS_MINIMOS = 5  # abaixo disso a nota ainda não é confiável: a frase fica na ordem original
+EXPLORAR_A_CADA = 5  # a cada N pesquisas, a frase de pior nota passa na frente para ter nova chance
+
+
+def nota_da_frase(memoria: dict, frase: str) -> float:
+    dados = memoria.get("frases", {}).get(frase)
+    if not dados:
+        return PRIOR_ACERTOS / PRIOR_USOS
+    return (dados.get("acertos", 0) + PRIOR_ACERTOS) / (dados.get("usos", 0) + PRIOR_USOS)
+
+
+def registrar_busca(memoria: dict, frase: str, acertos: int) -> None:
+    """Uma busca feita com a frase (modelo, com {item}) e quantos preços válidos ela rendeu."""
+    dados = memoria.setdefault("frases", {}).setdefault(frase, {"usos": 0.0, "acertos": 0.0, "ultimo": ""})
+    dados["usos"] = round(dados["usos"] * PESO_DO_PASSADO + 1, 4)  # o histórico da própria frase perde um pouco de peso a cada uso
+    dados["acertos"] = round(dados["acertos"] * PESO_DO_PASSADO + acertos, 4)
+    dados["ultimo"] = _hoje()
+    memoria["_mudou"] = True
+
+
+def ordenar_frases(memoria: dict, frases: list[str]) -> tuple[list[str], str]:
+    """Ordem de uso das frases: as de melhor nota primeiro. Só reordena frases com USOS_MINIMOS usos ou mais (as demais mantêm o lugar);
+    a cada EXPLORAR_A_CADA pesquisas a de pior nota vai para a frente. Devolve (ordem, explicação para o log)."""
+    memoria["buscas"] = memoria.get("buscas", 0) + 1
+    memoria["_mudou"] = True
+    dados = memoria.get("frases", {})
+    conhecidas = [f for f in frases if dados.get(f, {}).get("usos", 0) >= USOS_MINIMOS]
+    if len(conhecidas) < 2:
+        return list(frases), "poucos dados ainda: ordem original"
+    ordenadas = sorted(conhecidas, key=lambda f: -nota_da_frase(memoria, f))
+    lugares = iter(ordenadas)
+    ordem = [next(lugares) if f in conhecidas else f for f in frases]  # as frases sem dados ficam onde estavam
+    explicacao = "melhores: " + ", ".join(f"'{f}' ({nota_da_frase(memoria, f):.2f})" for f in ordenadas[:2])
+    if memoria["buscas"] % EXPLORAR_A_CADA == 0:
+        pior = ordenadas[-1]
+        ordem.remove(pior)
+        ordem.insert(0, pior)
+        explicacao += f"; teste de rotina da pior: '{pior}'"
+    return ordem, explicacao
+
+
 def lojas_para_item(memoria: dict, item: str, limite: int = MAX_LOJAS_POR_ITEM) -> list[tuple[str, str]]:
     """Lojas que já deram preço para itens parecidos: [(site, item parecido)], das mais parecidas/mais acertos para as menos."""
     candidatas = []
@@ -196,6 +252,8 @@ def _normalizar(dados: dict) -> dict:
     if isinstance(dados, dict):
         memoria["lojas"] = dict(dados.get("lojas") or {})
         memoria["falhas"] = {k: _migrar_falha(v) for k, v in dict(dados.get("falhas") or {}).items()}
+        memoria["frases"] = dict(dados.get("frases") or {})
+        memoria["buscas"] = int(dados.get("buscas") or 0)
     return memoria
 
 
@@ -228,7 +286,7 @@ def carregar(segredos=None, requisicoes=None) -> tuple[dict, str]:
 
 def _para_gravar(memoria: dict) -> dict:
     return {"versao": 1, "atualizado": dt.datetime.now().isoformat(timespec="seconds"),
-            "lojas": memoria["lojas"], "falhas": memoria["falhas"]}
+            "lojas": memoria["lojas"], "falhas": memoria["falhas"], "frases": memoria.get("frases", {}), "buscas": memoria.get("buscas", 0)}
 
 
 def _juntar(local: dict, remota: dict) -> dict:
@@ -248,6 +306,12 @@ def _juntar(local: dict, remota: dict) -> dict:
             nova, atual = _migrar_falha(falha), _migrar_falha(junta["falhas"].get(site, _falha_nova()))
             junta["falhas"][site] = {"navegador": max(atual["navegador"], nova["navegador"]), "texto": max(atual["texto"], nova["texto"]),
                                      "ultimo": max(atual["ultimo"], nova["ultimo"])}
+    for frase, dados in local.get("frases", {}).items():
+        atual = junta["frases"].setdefault(frase, {"usos": 0.0, "acertos": 0.0, "ultimo": ""})
+        atual["usos"] = max(atual.get("usos", 0), dados.get("usos", 0))
+        atual["acertos"] = max(atual.get("acertos", 0), dados.get("acertos", 0))
+        atual["ultimo"] = max(atual.get("ultimo", ""), dados.get("ultimo", ""))
+    junta["buscas"] = max(junta.get("buscas", 0), local.get("buscas", 0))
     return junta
 
 
