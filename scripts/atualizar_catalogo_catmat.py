@@ -13,6 +13,7 @@ Uso:
 
 import csv
 import gzip
+import io
 import json
 import os
 import sys
@@ -29,6 +30,8 @@ URL_SERVICO = f"{API}/modulo-servico/6_consultarItemServico"
 PASTA = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "Projeto Adesões")
 CSV_MATERIAL = os.path.join(PASTA, "catalogo_catmat.csv.gz")
 TAMANHO_PAGINA = 500
+MINIMO_ITENS_MATERIAL = 200_000  # trava: abaixo disso a API respondeu algo errado e o catálogo atual é mantido
+MINIMO_SERVICOS = 2_500
 
 
 def baixar_pagina(url: str, pagina: int, parametros: dict) -> dict:
@@ -73,14 +76,19 @@ def _rotulos_unicos(pares: list[tuple[str, object]], prefixo: str) -> dict[str, 
 def atualizar_materiais() -> None:
     itens = baixar_tudo(URL_MATERIAL, {"statusItem": "true"})
     vistos: set[int] = set()
-    with gzip.open(CSV_MATERIAL, "wt", encoding="utf-8", newline="") as arquivo:
-        escritor = csv.writer(arquivo)
-        escritor.writerow(["codigo", "codigo_pdm", "nome_pdm", "descricao", "nome_classe"])
-        for item in itens:
-            if item["codigoItem"] in vistos or not item.get("descricaoItem"):
-                continue
-            vistos.add(item["codigoItem"])
-            escritor.writerow([item["codigoItem"], item["codigoPdm"], item["nomePdm"], item["descricaoItem"].strip(), item.get("nomeClasse", "")])
+    texto = io.StringIO()
+    escritor = csv.writer(texto)
+    escritor.writerow(["codigo", "codigo_pdm", "nome_pdm", "descricao", "nome_classe"])
+    for item in sorted(itens, key=lambda item: item["codigoItem"]):
+        if item["codigoItem"] in vistos or not item.get("descricaoItem"):
+            continue
+        vistos.add(item["codigoItem"])
+        escritor.writerow([item["codigoItem"], item["codigoPdm"], item["nomePdm"], item["descricaoItem"].strip(), item.get("nomeClasse", "")])
+    if len(vistos) < MINIMO_ITENS_MATERIAL:
+        raise RuntimeError(f"Catálogo de materiais incompleto ({len(vistos)} itens); nada foi alterado.")
+    # mtime=0 e ordem fixa: sem mudanças no catálogo, o arquivo sai idêntico byte a byte (o Git não registra nada).
+    with open(CSV_MATERIAL, "wb") as saida, gzip.GzipFile(fileobj=saida, mode="wb", mtime=0) as compactado:
+        compactado.write(texto.getvalue().encode("utf-8"))
     print(f"{len(vistos)} itens salvos ({os.path.getsize(CSV_MATERIAL) / 1e6:.1f} MB)")
 
 
@@ -95,6 +103,8 @@ def atualizar_lista_pdm() -> None:
 def atualizar_servicos() -> None:
     itens = baixar_tudo(URL_SERVICO, {"statusServico": "true"})
     lista = _rotulos_unicos([(item["nomeServico"].strip(), item["codigoServico"]) for item in itens], "serviço")
+    if len(lista) < MINIMO_SERVICOS:
+        raise RuntimeError(f"Catálogo de serviços incompleto ({len(lista)}); nada foi alterado.")
     _salvar_json("catalogo_servicos.json", lista)
     print(f"{len(lista)} serviços")
 
@@ -103,7 +113,7 @@ def main() -> None:
     if "--sem-materiais" not in sys.argv:
         atualizar_materiais()
     atualizar_lista_pdm()
-    atualizar_servicos()
+    atualizar_servicos()  # as travas acima interrompem antes de gravar o que estiver incompleto
     _salvar_json("catalogo_meta.json", {"atualizado_em": datetime.now().isoformat(timespec="seconds")})
 
 
