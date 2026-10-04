@@ -197,13 +197,13 @@ USER_AGENTS = [
 ]
 
 VARIANTES_BUSCA = [
-    "{item} preço brasil",
-    "{item} comprar brasil",
-    "{item} fornecedor brasil",
-    "comprar {item} online brasil",
-    "{item} valor unitário loja brasileira",
-    "{item} loja online brasil",
-]
+    "{item} comprar",
+    "{item}",
+    "{item} preço",
+    "{item} loja",
+    "comprar {item} online",
+    "{item} atacado",
+]  # o peso fica no item: a região (Brasil) já é pedida ao buscador e as palavras extras só indicam compra
 
 # Domínios a ignorar nos resultados
 DOMINIOS_IGNORADOS = [
@@ -463,9 +463,7 @@ def _dedup_urls(urls, num_results=8):
 # ficam por último porque o servidor da nuvem costuma ter o DuckDuckGo bloqueado/lento.
 MOTORES_DDGS = ("bing", "mojeek", "brave", "yahoo", "yandex", "duckduckgo", "auto")
 # Pede aos buscadores só lojas que não sejam marketplaces (que o sistema ignora): sem isso os 10 primeiros resultados são todos descartados
-EXCLUSOES_SITE = " " + " ".join(f"-site:{d}" for d in (
-    "mercadolivre.com.br", "amazon.com.br", "shopee.com.br", "magazineluiza.com.br", "aliexpress.com", "olx.com.br",
-    "casasbahia.com.br", "americanas.com.br", "youtube.com", "facebook.com", "instagram.com"))
+EXCLUSOES_SITE = " " + " ".join(f"-site:{d}" for d in ("mercadolivre.com.br", "amazon.com.br", "shopee.com.br", "magazineluiza.com.br"))
 FALHAS_MOTOR = {}  # motores que deram timeout/limite nesta execução: depois de 2 falhas são pulados (evita esperar 30 s por busca)
 DIAG_BUSCA = {}  # o que cada buscador respondeu na última busca (aparece no log quando nada é encontrado)
 
@@ -505,29 +503,32 @@ def buscar_ddgs_api(query, num_results=8, item=None):
         except ImportError:
             DIAG_BUSCA["ddgs"] = "pacote ddgs não instalado"
             return []
-    for motor in MOTORES_DDGS:
-        if FALHAS_MOTOR.get(motor, 0) >= 2:
-            DIAG_BUSCA[f"ddgs/{motor}"] = "pulado (falhou 2 vezes nesta execução)"
-            continue
-        try:
+    # 1ª passada sem marketplaces; se nada do assunto vier, 2ª passada com a frase pura
+    for sufixo in (EXCLUSOES_SITE, ""):
+        for motor in MOTORES_DDGS:
+            if FALHAS_MOTOR.get(motor, 0) >= 2:
+                DIAG_BUSCA[f"ddgs/{motor}"] = "pulado (falhou 2 vezes nesta execução)"
+                continue
             try:
-                resultados = list(DDGS(timeout=8).text(query + EXCLUSOES_SITE, region="br-pt", max_results=num_results * 2, backend=motor))
-            except TypeError:  # versão antiga sem o parâmetro backend/timeout
-                resultados = list(DDGS().text(query + EXCLUSOES_SITE, region="br-pt", max_results=num_results * 2))
-        except Exception as erro:
-            nome_erro = type(erro).__name__
-            DIAG_BUSCA[f"ddgs/{motor}"] = f"erro {nome_erro}: {str(erro)[:80]}"
-            if any(marca in nome_erro for marca in ("Timeout", "Ratelimit", "Connect")):
-                FALHAS_MOTOR[motor] = FALHAS_MOTOR.get(motor, 0) + 1
-            continue
-        FALHAS_MOTOR[motor] = 0
-        validos = [r for r in resultados if r.get("href") and dominio_valido(r["href"])]
-        descartados = sorted({extrair_dominio(r["href"]) for r in resultados if r.get("href") and not dominio_valido(r["href"])})
-        relevantes = _dedup_urls([r["href"] for r in validos if _resultado_relevante(r, termos)], num_results)
-        DIAG_BUSCA[f"ddgs/{motor}"] = (f"{len(resultados)} resultados, {len(validos)} após filtro de domínios, {len(relevantes)} do assunto"
-                                      + (f" (domínios ignorados: {', '.join(descartados[:4])})" if descartados and not validos else ""))
-        if relevantes:
-            return relevantes
+                try:
+                    resultados = list(DDGS(timeout=8).text(query + sufixo, region="br-pt", max_results=num_results * 2, backend=motor))
+                except TypeError:  # versão antiga sem o parâmetro backend/timeout
+                    resultados = list(DDGS().text(query + sufixo, region="br-pt", max_results=num_results * 2))
+            except Exception as erro:
+                nome_erro = type(erro).__name__
+                DIAG_BUSCA[f"ddgs/{motor}"] = f"erro {nome_erro}: {str(erro)[:80]}"
+                if any(marca in nome_erro for marca in ("Timeout", "Ratelimit", "Connect")):
+                    FALHAS_MOTOR[motor] = FALHAS_MOTOR.get(motor, 0) + 1
+                continue
+            FALHAS_MOTOR[motor] = 0
+            validos = [r for r in resultados if r.get("href") and dominio_valido(r["href"])]
+            descartados = sorted({extrair_dominio(r["href"]) for r in resultados if r.get("href") and not dominio_valido(r["href"])})
+            relevantes = _dedup_urls([r["href"] for r in validos if _resultado_relevante(r, termos)], num_results)
+            DIAG_BUSCA[f"ddgs/{motor}{'' if sufixo else ' (sem exclusões)'}"] = (
+                f"{len(resultados)} resultados, {len(validos)} após filtro de domínios, {len(relevantes)} do assunto"
+                + (f" (domínios ignorados: {', '.join(descartados[:4])})" if descartados and not validos else ""))
+            if relevantes:
+                return relevantes
     return []
 
 
@@ -1475,7 +1476,7 @@ def executar_scraping(itens, usar_playwright, progress_bar, log_container, statu
         item_slug = re.sub(r'[^a-zA-Z0-9]', '_', item)[:40] or "item"
 
         # Poucas variantes de busca; cada uma traz URLs novas e o tempo por item é limitado
-        variantes = random.sample(VARIANTES_BUSCA, min(4, len(VARIANTES_BUSCA)))
+        variantes = VARIANTES_BUSCA[:4]  # em ordem: a mais simples (item + comprar) primeiro
         inicio_item = time.time()
         urls_tentadas = set()
         motivos_falha = Counter()
