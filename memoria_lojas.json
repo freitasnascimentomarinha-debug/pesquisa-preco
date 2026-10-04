@@ -1,9 +1,9 @@
 {
  "versao": 1,
- "atualizado": "2026-10-04T17:56:53",
+ "atualizado": "2026-10-04T18:02:27",
  "lojas": {
   "lojadomecanico.com.br": {
-   "acertos": 5,
+   "acertos": 6,
    "ultimo": "2026-10-04",
    "itens": [
     "fita isolante",
@@ -12,14 +12,14 @@
    ]
   },
   "eletricaarea.com.br": {
-   "acertos": 3,
+   "acertos": 4,
    "ultimo": "2026-10-04",
    "itens": [
     "fita isolante"
    ]
   },
   "telhanorte.com.br": {
-   "acertos": 2,
+   "acertos": 3,
    "ultimo": "2026-10-04",
    "itens": [
     "fita isolante"
@@ -33,7 +33,7 @@
    ]
   },
   "copafer.com.br": {
-   "acertos": 4,
+   "acertos": 5,
    "ultimo": "2026-10-04",
    "itens": [
     "fita isolante",
@@ -204,7 +204,7 @@
    "ultimo": "2026-10-04"
   },
   "nortonabrasives.com": {
-   "falhas": 2,
+   "falhas": 3,
    "ultimo": "2026-10-04"
   },
   "sobradeestoque.com.br": {
