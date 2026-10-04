@@ -1,17 +1,18 @@
 {
  "versao": 1,
- "atualizado": "2026-10-04T17:11:38",
+ "atualizado": "2026-10-04T17:38:49",
  "lojas": {
   "lojadomecanico.com.br": {
-   "acertos": 2,
+   "acertos": 4,
    "ultimo": "2026-10-04",
    "itens": [
-    "tomada 20a",
-    "fita isolante"
+    "fita isolante",
+    "chave de fenda",
+    "tomada 20a"
    ]
   },
   "eletricaarea.com.br": {
-   "acertos": 1,
+   "acertos": 2,
    "ultimo": "2026-10-04",
    "itens": [
     "fita isolante"
@@ -32,16 +33,19 @@
    ]
   },
   "copafer.com.br": {
-   "acertos": 1,
+   "acertos": 3,
    "ultimo": "2026-10-04",
    "itens": [
+    "lâmpada",
     "fita isolante"
    ]
   },
   "kalunga.com.br": {
-   "acertos": 2,
+   "acertos": 4,
    "ultimo": "2026-10-04",
    "itens": [
+    "apontador",
+    "papel a4 sulfite",
     "borracha escolar",
     "caneta esferográfica azul"
    ]
@@ -66,6 +70,77 @@
    "itens": [
     "tomada 20a"
    ]
+  },
+  "fermaquinas.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-04",
+   "itens": [
+    "chave de fenda"
+   ]
+  },
+  "barzel.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-04",
+   "itens": [
+    "chave de fenda"
+   ]
+  },
+  "jofepar.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-04",
+   "itens": [
+    "chave de fenda"
+   ]
+  },
+  "br.my-best.com": {
+   "acertos": 1,
+   "ultimo": "2026-10-04",
+   "itens": [
+    "fita isolante"
+   ]
+  },
+  "tendaatacado.com.br": {
+   "acertos": 2,
+   "ultimo": "2026-10-04",
+   "itens": [
+    "lâmpada",
+    "papel a4 sulfite"
+   ]
+  },
+  "atacadosaopaulo.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-04",
+   "itens": [
+    "papel a4 sulfite"
+   ]
+  },
+  "hp.com": {
+   "acertos": 1,
+   "ultimo": "2026-10-04",
+   "itens": [
+    "papel a4 sulfite"
+   ]
+  },
+  "microtecpapelaria.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-04",
+   "itens": [
+    "apontador"
+   ]
+  },
+  "meninodalampada.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-04",
+   "itens": [
+    "lâmpada"
+   ]
+  },
+  "lojadaslampadas.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-04",
+   "itens": [
+    "lâmpada"
+   ]
   }
  },
  "falhas": {
@@ -86,7 +161,7 @@
    "ultimo": "2026-10-04"
   },
   "leroymerlin.com.br": {
-   "falhas": 1,
+   "falhas": 3,
    "ultimo": "2026-10-04"
   },
   "bing.com": {
@@ -102,6 +177,38 @@
    "ultimo": "2026-10-04"
   },
   "enerbras.com.br": {
+   "falhas": 1,
+   "ultimo": "2026-10-04"
+  },
+  "nortonabrasives.com": {
+   "falhas": 1,
+   "ultimo": "2026-10-04"
+  },
+  "sobradeestoque.com.br": {
+   "falhas": 1,
+   "ultimo": "2026-10-04"
+  },
+  "summit.com.br": {
+   "falhas": 1,
+   "ultimo": "2026-10-04"
+  },
+  "lyke.com.br": {
+   "falhas": 1,
+   "ultimo": "2026-10-04"
+  },
+  "compre.clipspapelaria.com.br": {
+   "falhas": 1,
+   "ultimo": "2026-10-04"
+  },
+  "viladaslampadas.com.br": {
+   "falhas": 1,
+   "ultimo": "2026-10-04"
+  },
+  "toptradesourcing.com": {
+   "falhas": 1,
+   "ultimo": "2026-10-04"
+  },
+  "inspirehome.com.br": {
    "falhas": 1,
    "ultimo": "2026-10-04"
   }
