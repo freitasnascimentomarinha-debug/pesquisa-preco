@@ -1,6 +1,6 @@
 {
  "versao": 1,
- "atualizado": "2026-10-04T19:54:25",
+ "atualizado": "2026-10-04T20:33:40",
  "lojas": {
   "lojadomecanico.com.br": {
    "acertos": 11,
@@ -16,24 +16,24 @@
    }
   },
   "eletricaarea.com.br": {
+   "acertos": 7,
+   "ultimo": "2026-10-04",
+   "itens": [
+    "fita isolante"
+   ],
+   "metodos": {
+    "navegador": 2,
+    "texto": 0
+   }
+  },
+  "telhanorte.com.br": {
    "acertos": 6,
    "ultimo": "2026-10-04",
    "itens": [
     "fita isolante"
    ],
    "metodos": {
-    "navegador": 1,
-    "texto": 0
-   }
-  },
-  "telhanorte.com.br": {
-   "acertos": 5,
-   "ultimo": "2026-10-04",
-   "itens": [
-    "fita isolante"
-   ],
-   "metodos": {
-    "navegador": 1,
+    "navegador": 2,
     "texto": 0
    }
   },
@@ -45,23 +45,32 @@
    ]
   },
   "copafer.com.br": {
-   "acertos": 7,
+   "acertos": 8,
    "ultimo": "2026-10-04",
    "itens": [
     "fita isolante",
     "lâmpada"
-   ]
+   ],
+   "metodos": {
+    "navegador": 1,
+    "texto": 0
+   }
   },
   "kalunga.com.br": {
-   "acertos": 5,
+   "acertos": 8,
    "ultimo": "2026-10-04",
    "itens": [
+    "caneta esferográfica azul",
+    "papel a4",
     "papel crepom",
     "apontador",
     "papel a4 sulfite",
-    "borracha escolar",
-    "caneta esferográfica azul"
-   ]
+    "borracha escolar"
+   ],
+   "metodos": {
+    "navegador": 3,
+    "texto": 0
+   }
   },
   "lojascacula.com.br": {
    "acertos": 1,
@@ -106,34 +115,47 @@
    ]
   },
   "br.my-best.com": {
-   "acertos": 2,
+   "acertos": 3,
    "ultimo": "2026-10-04",
    "itens": [
+    "luva de limpeza",
     "fita isolante"
-   ]
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   }
   },
   "tendaatacado.com.br": {
-   "acertos": 4,
+   "acertos": 6,
    "ultimo": "2026-10-04",
    "itens": [
+    "luva de limpeza",
+    "papel a4",
     "sabão em pó",
     "detergente",
     "lâmpada",
     "papel a4 sulfite"
-   ]
+   ],
+   "metodos": {
+    "navegador": 1,
+    "texto": 1
+   }
   },
   "atacadosaopaulo.com.br": {
-   "acertos": 4,
+   "acertos": 7,
    "ultimo": "2026-10-04",
    "itens": [
+    "luva de limpeza",
+    "caneta esferográfica azul",
+    "papel crepom",
     "resma de papel a4",
     "detergente",
-    "papel crepom",
     "papel a4 sulfite"
    ],
    "metodos": {
-    "navegador": 2,
-    "texto": 0
+    "navegador": 4,
+    "texto": 1
    }
   },
   "hp.com": {
@@ -170,18 +192,27 @@
    ]
   },
   "jambo.com.br": {
+   "acertos": 3,
+   "ultimo": "2026-10-04",
+   "itens": [
+    "papel crepom"
+   ],
+   "metodos": {
+    "navegador": 1,
+    "texto": 0
+   }
+  },
+  "casadopapel.com.br": {
    "acertos": 2,
    "ultimo": "2026-10-04",
    "itens": [
+    "papel a4",
     "papel crepom"
-   ]
-  },
-  "casadopapel.com.br": {
-   "acertos": 1,
-   "ultimo": "2026-10-04",
-   "itens": [
-    "papel crepom"
-   ]
+   ],
+   "metodos": {
+    "navegador": 1,
+    "texto": 0
+   }
   },
   "tkshopping.com.br": {
    "acertos": 2,
@@ -212,27 +243,29 @@
    ]
   },
   "superpaguemenos.com.br": {
-   "acertos": 4,
+   "acertos": 5,
    "ultimo": "2026-10-04",
    "itens": [
+    "feijão 1kg",
     "detergente",
     "sabão em pó",
     "arroz 1kg"
    ],
    "metodos": {
-    "navegador": 1,
+    "navegador": 2,
     "texto": 0
    }
   },
   "atacadao.com.br": {
-   "acertos": 3,
+   "acertos": 4,
    "ultimo": "2026-10-04",
    "itens": [
+    "feijão 1kg",
     "detergente",
     "arroz 1kg"
    ],
    "metodos": {
-    "navegador": 1,
+    "navegador": 2,
     "texto": 0
    }
   },
@@ -326,6 +359,61 @@
     "navegador": 1,
     "texto": 0
    }
+  },
+  "brazzbrazz.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-04",
+   "itens": [
+    "papel a4"
+   ],
+   "metodos": {
+    "navegador": 1,
+    "texto": 0
+   }
+  },
+  "25demarcoonline.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-04",
+   "itens": [
+    "caneta esferográfica azul"
+   ],
+   "metodos": {
+    "navegador": 1,
+    "texto": 0
+   }
+  },
+  "canetasatacado.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-04",
+   "itens": [
+    "caneta esferográfica azul"
+   ],
+   "metodos": {
+    "navegador": 1,
+    "texto": 0
+   }
+  },
+  "soaresatacado.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-04",
+   "itens": [
+    "caneta esferográfica azul"
+   ],
+   "metodos": {
+    "navegador": 1,
+    "texto": 0
+   }
+  },
+  "rdkluvas.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-04",
+   "itens": [
+    "luva de limpeza"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   }
   }
  },
  "falhas": {
@@ -355,8 +443,8 @@
    "ultimo": "2026-10-04"
   },
   "bing.com": {
-   "navegador": 0,
-   "texto": 1,
+   "navegador": 1,
+   "texto": 2,
    "ultimo": "2026-10-04"
   },
   "ilumi.com.br": {
@@ -375,8 +463,8 @@
    "ultimo": "2026-10-04"
   },
   "nortonabrasives.com": {
-   "navegador": 1,
-   "texto": 4,
+   "navegador": 2,
+   "texto": 5,
    "ultimo": "2026-10-04"
   },
   "sobradeestoque.com.br": {
@@ -415,8 +503,8 @@
    "ultimo": "2026-10-04"
   },
   "artfloc.com.br": {
-   "navegador": 0,
-   "texto": 2,
+   "navegador": 1,
+   "texto": 3,
    "ultimo": "2026-10-04"
   },
   "atacadoideal.com.br": {
@@ -425,8 +513,8 @@
    "ultimo": "2026-10-04"
   },
   "papelariariomadeira.com.br": {
-   "navegador": 0,
-   "texto": 2,
+   "navegador": 1,
+   "texto": 3,
    "ultimo": "2026-10-04"
   },
   "feraatacado.com": {
@@ -479,5 +567,48 @@
    "texto": 1,
    "ultimo": "2026-10-04"
   }
- }
+ },
+ "frases": {
+  "{item} comprar": {
+   "usos": 5.2982,
+   "acertos": 1.8574,
+   "ultimo": "2026-10-04"
+  },
+  "{item} preço": {
+   "usos": 5.2982,
+   "acertos": 2.6738,
+   "ultimo": "2026-10-04"
+  },
+  "venda de {item}": {
+   "usos": 4.5244,
+   "acertos": 0.8145,
+   "ultimo": "2026-10-04"
+  },
+  "{item} valor": {
+   "usos": 4.5244,
+   "acertos": 0.0,
+   "ultimo": "2026-10-04"
+  },
+  "{item} atacado": {
+   "usos": 4.5244,
+   "acertos": 6.61,
+   "ultimo": "2026-10-04"
+  },
+  "{item} preço brasil": {
+   "usos": 4.5244,
+   "acertos": 0.0,
+   "ultimo": "2026-10-04"
+  },
+  "{item} comprar brasil": {
+   "usos": 4.5244,
+   "acertos": 0.0,
+   "ultimo": "2026-10-04"
+  },
+  "comprar {item} online brasil": {
+   "usos": 4.5244,
+   "acertos": 0.8574,
+   "ultimo": "2026-10-04"
+  }
+ },
+ "buscas": 6
 }
