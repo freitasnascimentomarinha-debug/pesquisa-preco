@@ -1324,10 +1324,10 @@ def _tem_secrets():
         return False
 
 
-def executar_scraping(itens, usar_playwright, progress_bar, log_container, status_text, max_fontes, usar_navegador=False, limite_navegador=30):
-    """Executa o scraping. `usar_navegador`: cada página é aberta primeiro num navegador (até `limite_navegador` páginas por pesquisa);
-    se ele não conseguir ler (ou o limite acabar), usa a leitura simples por texto."""
-    leitor = captura_pagina.LeitorNavegador(limite_navegador) if usar_navegador else None
+def executar_scraping(itens, usar_playwright, progress_bar, log_container, status_text, max_fontes, usar_navegador=False, tempo_max_navegador_min=15):
+    """Executa o scraping. `usar_navegador`: as páginas são abertas num navegador (por padrão primeiro, ou depois da leitura por texto nas lojas
+    que a memória diz funcionarem por texto), por até `tempo_max_navegador_min` minutos por pesquisa; depois disso, só a leitura por texto."""
+    leitor = captura_pagina.LeitorNavegador(tempo_max_s=tempo_max_navegador_min * 60) if usar_navegador else None
     try:
         return _executar_scraping(itens, usar_playwright, progress_bar, log_container, status_text, max_fontes, leitor)
     finally:
@@ -1385,6 +1385,47 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
             leitor.liberar()
         return resultado_navegador, True, True
 
+    def ler_por_texto(url, item_nome, leve):
+        """Leitura por texto. `leve`: uma tentativa só e sem pausas (usada quando o navegador já tentou ou vai tentar); senão, as tentativas de antes."""
+        nonlocal headers
+        tentativas = 1 if leve else MAX_RETRIES + 1
+        resultado_texto = None
+        for tentativa in range(tentativas):
+            if not leve:
+                time.sleep(gerar_delay_leitura())  # simula tempo de leitura (só na leitura por texto pura)
+            resultado_texto = scraping_requests(session, url, headers, item_nome=item_nome)
+            if resultado_texto:
+                break
+            if tentativa < tentativas - 1:
+                retry_delay = gerar_delay(3.0, 7.0)
+                log_msg(log_container, logs, f"🔄 Retry {tentativa + 1}/{MAX_RETRIES} em {retry_delay:.1f}s...", "warn")
+                time.sleep(retry_delay)
+                headers = gerar_headers()  # troca o User-Agent na nova tentativa
+                session.headers.update(headers)
+        return resultado_texto
+
+    def ler_pagina(url, item_nome):
+        """Lê uma página pelo método que a memória indica para a loja (navegador por padrão; texto se a loja só deu preço por texto)
+        e, se não achar, tenta o outro método uma vez (leve). Devolve (resultado, método que deu o preço, métodos tentados)."""
+        navegador_ativo = leitor is not None and leitor.disponivel
+        tentou = {"navegador": False, "texto": False}
+        texto_primeiro = navegador_ativo and memoria_lojas.metodo_preferido(memoria, url) == "texto"
+        if texto_primeiro:
+            tentou["texto"] = True
+            resultado_pagina = ler_por_texto(url, item_nome, leve=True)
+            if resultado_pagina:
+                return resultado_pagina, "texto", tentou
+        if navegador_ativo:
+            resultado_pagina, _, tentou["navegador"] = ler_com_navegador(url, item_nome)
+            if resultado_pagina:
+                return resultado_pagina, "navegador", tentou
+        if not texto_primeiro:
+            tentou["texto"] = True
+            resultado_pagina = ler_por_texto(url, item_nome, leve=tentou["navegador"])  # navegador já tentou: texto leve; senão, completo
+            if resultado_pagina:
+                return resultado_pagina, "texto", tentou
+        return None, "texto", tentou
+
     try:
         for idx, item in enumerate(itens):
             item = item.strip()
@@ -1402,7 +1443,9 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
             item_slug = re.sub(r'[^a-zA-Z0-9]', '_', item)[:40] or "item"
 
             # Selecionar variantes de busca aleatoriamente (usar mais variantes para maximizar cobertura)
-            variantes = VARIANTES_BUSCA + VARIANTES_RESERVA  # em ordem; o laço para assim que as fontes pedidas forem atingidas
+            # Frases na ordem aprendida pela memória (as que mais rendem preços primeiro; de vez em quando a pior é testada); o laço para ao atingir as fontes
+            variantes, explicacao_frases = memoria_lojas.ordenar_frases(memoria, VARIANTES_BUSCA + VARIANTES_RESERVA)
+            log_msg(log_container, logs, f"🧠 Frases de busca: {explicacao_frases}", "info")
             dominios_falhos = set()  # site que falhou neste item não é tentado de novo nas outras buscas do mesmo item
 
             # 1º: lojas da memória que já deram preço para itens parecidos (cada uma uma vez só)
@@ -1410,14 +1453,11 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
                 if len(atualizar_estado_orcamentos(candidatos_item, max_fontes)["validos"]) >= max_fontes:
                     break
                 log_msg(log_container, logs, f"🧠 Loja da memória: {site_memoria} (já deu preço para '{item_parecido}')", "info")
-                time.sleep(gerar_delay(1.5, 3.0))
+                navegador_ligado = leitor is not None and leitor.disponivel
+                time.sleep(gerar_delay(0.3, 0.8) if navegador_ligado else gerar_delay(1.5, 3.0))
                 for url in buscar_na_loja(session, item, site_memoria, headers):
-                    time.sleep(gerar_delay(1.5, 3.5))
-                    resultado, _, _ = ler_com_navegador(url, item)
-                    metodo_ok = "navegador"
-                    if not resultado:  # fallback: leitura por texto
-                        resultado = scraping_requests(session, url, headers, item_nome=item)
-                        metodo_ok = "texto"
+                    time.sleep(gerar_delay(0.3, 0.8) if navegador_ligado else gerar_delay(1.5, 3.5))
+                    resultado, metodo_ok, _ = ler_pagina(url, item)
                     if resultado:
                         contador_item += 1
                         resultado["resultado_id"] = f"{item_slug}_{contador_item}_{abs(hash(url)) % 10000}"
@@ -1451,9 +1491,11 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
 
                 if not urls:
                     log_msg(log_container, logs, f"⚠ Nenhum resultado encontrado para \"{query}\"", "warn")
+                    memoria_lojas.registrar_busca(memoria, variante, 0)
                     continue
 
                 log_msg(log_container, logs, f"📋 {len(urls)} resultados encontrados via {engine}", "info")
+                acertos_variante = 0  # preços válidos que esta frase rendeu
 
                 for url in urls:
                     estado_item = atualizar_estado_orcamentos(candidatos_item, max_fontes)
@@ -1473,7 +1515,8 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
                     log_msg(log_container, logs, f"🌐 Acessando: {dominio}", "info")
 
                     # Delay entre acessos a sites
-                    delay = gerar_delay(2.5, 6.0)
+                    # (com o navegador ativo a própria abertura da página já espaça os acessos: pausa curta)
+                    delay = gerar_delay(0.3, 0.8) if (leitor is not None and leitor.disponivel) else gerar_delay(2.5, 6.0)
                     log_msg(log_container, logs, f"⏳ Delay de navegação: {delay:.1f}s", "info")
                     time.sleep(delay)
 
@@ -1490,28 +1533,10 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
                         time.sleep(gerar_delay(1.5, 3.5))
                         resultado = scraping_playwright(url, item, screenshot_path)
 
-                    # Navegador primeiro (se ativo); só se ele não conseguir abrir a página, a leitura simples por texto, com tentativas
+                    # Método pela memória da loja (navegador por padrão) e fallback leve pelo outro
                     if not resultado:
-                        resultado, _, tentou_navegador = ler_com_navegador(url, item)
-                        if resultado:
-                            metodo_ok = "navegador"
-                    if not resultado:  # fallback SEMPRE: navegador indisponível, não abriu a página ou não achou preço
-                        tentou_texto = True
-                        for tentativa in range(MAX_RETRIES + 1):
-                            # Simular tempo de leitura
-                            time.sleep(gerar_delay_leitura())
-
-                            resultado = scraping_requests(session, url, headers, item_nome=item)
-                            if resultado:
-                                break
-
-                            if tentativa < MAX_RETRIES:
-                                retry_delay = gerar_delay(3.0, 7.0)
-                                log_msg(log_container, logs, f"🔄 Retry {tentativa+1}/{MAX_RETRIES} em {retry_delay:.1f}s...", "warn")
-                                time.sleep(retry_delay)
-                                # Trocar User-Agent no retry
-                                headers = gerar_headers()
-                                session.headers.update(headers)
+                        resultado, metodo_ok, tentou_metodos = ler_pagina(url, item)
+                        tentou_navegador, tentou_texto = tentou_metodos["navegador"], tentou_metodos["texto"]
 
                     if resultado:
                         contador_item += 1
@@ -1531,6 +1556,7 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
                         candidatos_item.append(resultado)
                         dominios_usados.add(dominio)
                         memoria_lojas.registrar_acerto(memoria, url, item, metodo_ok)
+                        acertos_variante += 1
                         estado_item = atualizar_estado_orcamentos(candidatos_item, max_fontes)
 
                         for descartado in estado_item["descartados"]:
@@ -1567,6 +1593,8 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
                                 memoria_lojas.registrar_falha(memoria, url, "navegador")
                             if tentou_texto:
                                 memoria_lojas.registrar_falha(memoria, url, "texto")
+
+                memoria_lojas.registrar_busca(memoria, variante, acertos_variante)
 
             # Complemento: se não atingiu o mínimo de fontes, usar SearchAPI (Google Shopping)
             estado_item = atualizar_estado_orcamentos(candidatos_item, max_fontes)
@@ -2017,6 +2045,12 @@ with st.expander("🧠 Memória de lojas (aprende com o uso)", expanded=False):
                          hide_index=True, use_container_width=True)
         else:
             st.info("Nenhuma loja aprendida ainda: a memória se forma com as próximas pesquisas.")
+        if memoria_vista.get("frases"):
+            st.markdown("**Frases de busca** (as de maior nota são usadas primeiro; a nota é preços válidos por busca)")
+            st.dataframe(pd.DataFrame([{"Frase": f, "Buscas (peso recente)": round(d.get("usos", 0), 1), "Preços válidos": round(d.get("acertos", 0), 1),
+                                        "Nota": round(memoria_lojas.nota_da_frase(memoria_vista, f), 2), "Último uso": d.get("ultimo", "")}
+                                       for f, d in sorted(memoria_vista["frases"].items(), key=lambda x: -memoria_lojas.nota_da_frase(memoria_vista, x[0]))]),
+                         hide_index=True, use_container_width=True)
         puladas = [{"Site": site, "Falhas no navegador": f.get("navegador", 0), "Falhas por texto": f.get("texto", 0), "Última": f["ultimo"]}
                    for site, f in memoria_vista["falhas"].items()
                    if max(f.get("navegador", 0), f.get("texto", 0)) >= memoria_lojas.FALHAS_PARA_PULAR]
@@ -2061,14 +2095,14 @@ with col2:
         "Navegador primeiro (Playwright)",
         value=navegador_ok,
         disabled=not navegador_ok,
-        help="Cada página é aberta primeiro num navegador do servidor, que carrega o JavaScript e fecha popups. Só se ele não conseguir abrir a página "
-             "(ou o limite acabar) é usada a leitura simples por texto. Mais lento (5 a 15 s por página).",
+        help="As páginas são abertas num navegador do servidor, que carrega o JavaScript e fecha popups. Se ele não achar o preço, a leitura por texto "
+             "tenta uma vez. Lojas que a memória diz funcionarem só por texto começam pelo texto. Mais lento (5 a 15 s por página).",
     )
-    limite_navegador = 30
+    tempo_max_navegador = 15
     if navegador_ok:
         if usar_navegador:
-            limite_navegador = st.number_input("Máx. páginas abertas no navegador", min_value=1, max_value=100, value=30,
-                                               help="Limite por pesquisa; depois dele, as páginas seguintes usam só a leitura simples.")
+            tempo_max_navegador = st.number_input("Tempo máx. do navegador (min)", min_value=1, max_value=60, value=15,
+                                                  help="Por pesquisa. Passado o tempo, as páginas seguintes usam só a leitura por texto.")
     else:
         st.caption(f"Navegador indisponível (leitura simples por texto): {navegador_motivo}")
     max_fontes = st.number_input(
@@ -2117,7 +2151,7 @@ if iniciar:
             status_text=status_text,
             max_fontes=max_fontes,
             usar_navegador=usar_navegador,
-            limite_navegador=int(limite_navegador),
+            tempo_max_navegador_min=int(tempo_max_navegador),
         )
 
         # Armazenar resultados no session_state

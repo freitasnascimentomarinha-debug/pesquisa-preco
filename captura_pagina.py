@@ -10,6 +10,7 @@ from __future__ import annotations
 import io
 import os
 import re
+import time
 from datetime import datetime
 
 LARGURA, ALTURA = 1366, 900
@@ -218,11 +219,13 @@ def capturar_prints(paginas: list[dict], progresso=None) -> dict[str, dict]:
 class LeitorNavegador:
     """Lê páginas que a leitura simples não consegue (preço montado por JavaScript, bloqueio de robô simples).
 
-    Um navegador por pesquisa, uma página de cada vez, com no máximo `limite` páginas (protege a memória do servidor gratuito).
-    Uso: `with LeitorNavegador(6) as leitor: leitor.ler(url)`; o navegador é sempre fechado ao sair."""
+    Um navegador por pesquisa, uma página de cada vez. Limites: `tempo_max_s` desde a criação (a pesquisa nunca fica presa) e `limite` de páginas.
+    Uso: `with LeitorNavegador(tempo_max_s=900) as leitor: leitor.ler(url)`; o navegador é sempre fechado ao sair."""
 
-    def __init__(self, limite: int = 6) -> None:
+    def __init__(self, limite: int = 200, tempo_max_s: float = 900) -> None:
         self.limite = limite
+        self.tempo_max_s = tempo_max_s
+        self._inicio = time.monotonic()
         self.usadas = 0
         self._playwright = None
         self._navegador = None
@@ -238,7 +241,15 @@ class LeitorNavegador:
 
     @property
     def disponivel(self) -> bool:
-        return self.usadas < self.limite and not self.falha_ao_iniciar
+        return self.usadas < self.limite and not self.falha_ao_iniciar and time.monotonic() - self._inicio < self.tempo_max_s
+
+    @property
+    def motivo_indisponivel(self) -> str:
+        if self.falha_ao_iniciar:
+            return self.falha_ao_iniciar
+        if time.monotonic() - self._inicio >= self.tempo_max_s:
+            return f"tempo máximo do navegador atingido ({self.tempo_max_s / 60:.0f} min)"
+        return "limite de páginas lidas pelo navegador atingido"
 
     def _iniciar(self) -> bool:
         if self._navegador:
@@ -262,7 +273,7 @@ class LeitorNavegador:
         Em caso de sucesso a página fica aberta para `capturar` (print) e é fechada por `liberar` (ou pela próxima leitura)."""
         self.liberar()
         if not self.disponivel or not str(url).startswith(("http://", "https://")):
-            return {"html": "", "status": 0, "erro": self.falha_ao_iniciar or "limite de páginas lidas pelo navegador atingido"}
+            return {"html": "", "status": 0, "erro": self.motivo_indisponivel}
         if not self._iniciar():
             return {"html": "", "status": 0, "erro": self.falha_ao_iniciar}
         self.usadas += 1
