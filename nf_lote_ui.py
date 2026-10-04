@@ -9,10 +9,10 @@ import pandas as pd
 import streamlit as st
 
 from cotacao_rapida import MAX_PRECOS, MIN_PRECOS, TOLERANCIA
-from fornecedores_nf import MAX_FORNECEDORES_TODOS, montar_tabela
+from fornecedores_nf import MAX_FORNECEDORES_TODOS, montar_tabelas
 from nf_lote import analisar_item, limitar_cache, pesquisar_em_lote, registros_das_linhas
 from relatorio_nf_lote import (
-    STATUS_TEXTO, gerar_excel_fornecedores, gerar_excel_mapa, gerar_pdf_fornecedores, gerar_pdf_mapa, tabela_mapa_nf,
+    STATUS_TEXTO, URL_PORTAL_NFE, gerar_excel_fornecedores, gerar_excel_mapa, gerar_pdf_fornecedores, gerar_pdf_mapa, tabela_mapa_nf, tabela_notas,
 )
 
 MAX_ITENS = 40
@@ -152,8 +152,19 @@ def _mostrar_resultados(dados: dict) -> None:
     b2.download_button("📊 Baixar mapa comparativo (Excel)", gerar_excel_mapa(resultados, info), f"NF_lote_{carimbo}.xlsx",
                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
 
+    _secao_notas(resultados)
     _secao_fornecedores(resultados, dados, info, carimbo)
     _detalhes(resultados, dados, remover)
+
+
+def _secao_notas(resultados: list[dict]) -> None:
+    """Relação das NF-e dos preços do mapa, para conferir/autenticar cada nota no Portal da NF-e."""
+    notas = tabela_notas(resultados)
+    with st.expander(f"🧾 Notas fiscais dos preços do mapa ({len(notas)}) — para autenticar no Portal da NF-e"):
+        st.caption("Copie a chave de acesso (44 dígitos) no Portal da NF-e, resolva o captcha e confira emitente, data e valor. "
+                   "Esta relação também está no PDF (última seção antes da justificativa) e na aba “NF-e para autenticação” do Excel.")
+        st.link_button("🌐 Abrir o Portal da NF-e (Receita Federal)", URL_PORTAL_NFE)
+        st.dataframe(notas, hide_index=True, use_container_width=True, column_config={"Valor unitário": st.column_config.NumberColumn(format="R$ %.2f")})
 
 
 def _assinatura(resultados: list[dict]) -> int:
@@ -169,24 +180,28 @@ def _secao_fornecedores(resultados: list[dict], dados: dict, info: dict, carimbo
     )
     if st.button("📞 Gerar relatório de fornecedores", use_container_width=True, key="nf_lote_forn"):
         barra = st.progress(0.0, text="Consultando o cadastro dos fornecedores (OpenCNPJ)…")
-        tabela, sem_consulta = montar_tabela(resultados, escopo, lambda feitos, total: barra.progress(feitos / max(total, 1), text=f"{feitos}/{total} fornecedores consultados"))
+        tabelas = montar_tabelas(resultados, escopo, lambda feitos, total: barra.progress(feitos / max(total, 1), text=f"{feitos}/{total} fornecedores consultados"))
         barra.empty()
-        st.session_state["nf_lote_fornecedores"] = {"tabela": tabela, "sem_consulta": sem_consulta, "assinatura": _assinatura(resultados), "escopo": escopo}
+        st.session_state["nf_lote_fornecedores"] = {"tabelas": tabelas, "assinatura": _assinatura(resultados), "escopo": escopo}
     forn = st.session_state.get("nf_lote_fornecedores")
     if not forn:
         return
-    tabela = forn["tabela"]
-    if tabela.empty:
+    tabelas = forn["tabelas"]
+    if tabelas["unica"].empty:
         st.info("Nenhum fornecedor para listar.")
         return
     if forn["assinatura"] != _assinatura(resultados):
         st.warning("Os filtros ou a seleção de preços mudaram depois de gerar este relatório. Gere novamente para atualizá-lo.")
-    if forn["sem_consulta"]:
-        st.caption(f"⚠️ {forn['sem_consulta']} fornecedor(es) sem dados cadastrais na API (aparecem com os dados da nota: razão social, UF e município).")
-    st.dataframe(tabela, use_container_width=True, hide_index=True)
+    if tabelas["sem_consulta"]:
+        st.caption(f"⚠️ {tabelas['sem_consulta']} fornecedor(es) sem dados cadastrais na API (aparecem com os dados da nota: razão social, UF e município).")
+    st.caption(f"{len(tabelas['unica'])} fornecedor(es) distintos, agrupados abaixo pelo item que vendem (um fornecedor aparece em cada item que vende).")
+    for descricao, grupo in tabelas["por_item"].groupby("Item que vende", sort=False):
+        with st.expander(f"Vendem: {descricao} — {len(grupo)} fornecedor(es)", expanded=len(tabelas["por_item"]) <= 15):
+            st.dataframe(grupo.drop(columns=["Item que vende"]), hide_index=True, use_container_width=True,
+                         column_config={c: st.column_config.NumberColumn(format="R$ %.2f") for c in ("Preço mínimo", "Preço médio", "Preço máximo")})
     f1, f2 = st.columns(2)
-    f1.download_button("📄 Baixar fornecedores (PDF)", gerar_pdf_fornecedores(tabela, info), f"fornecedores_NF_{carimbo}.pdf", "application/pdf", use_container_width=True, key="nf_lote_forn_pdf")
-    f2.download_button("📊 Baixar fornecedores (Excel)", gerar_excel_fornecedores(tabela), f"fornecedores_NF_{carimbo}.xlsx",
+    f1.download_button("📄 Baixar fornecedores (PDF)", gerar_pdf_fornecedores(tabelas, info), f"fornecedores_NF_{carimbo}.pdf", "application/pdf", use_container_width=True, key="nf_lote_forn_pdf")
+    f2.download_button("📊 Baixar fornecedores (Excel)", gerar_excel_fornecedores(tabelas), f"fornecedores_NF_{carimbo}.xlsx",
                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True, key="nf_lote_forn_xlsx")
 
 

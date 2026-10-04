@@ -28,7 +28,7 @@ COL_RAZAO = "RAZÃO SOCIAL EMITENTE"
 COLUNAS_UTEIS = [
     "DATA EMISSÃO", COL_DESCRICAO, "UNIDADE", "QUANTIDADE", "VALOR UNITÁRIO", "VALOR TOTAL", COL_UF_DEST, COL_NOME_DEST,
     "ÓRGÃO DESTINATÁRIO", COL_RAZAO, COL_CNPJ, COL_UF_EMIT, "MUNICÍPIO EMITENTE", "NCM/SH (TIPO DE PRODUTO)",
-    "CHAVE DE ACESSO", "NATUREZA DA OPERAÇÃO",
+    "CHAVE DE ACESSO", "NATUREZA DA OPERAÇÃO", "NÚMERO", "SÉRIE",
 ]
 TAMANHO_BLOCO = 100_000
 LIMITE_CACHE_BYTES = 4 * 1024**3  # arquivos baixados além disso são descartados (os menos recentes primeiro)
@@ -229,6 +229,16 @@ def _unidade(valor: object) -> str:
     return UNIDADES_EQUIVALENTES.get(texto, texto) if texto and texto != "NAN" else "N/I"
 
 
+def numero_e_serie(chave: str, numero_coluna: object = "", serie_coluna: object = "") -> tuple[str, str]:
+    """Número e série da NF-e. Saem da chave de acesso (44 dígitos: UF, AAMM, CNPJ, modelo, série, número...); se a chave
+    não estiver íntegra, usa as colunas NÚMERO/SÉRIE do arquivo."""
+    digitos = re.sub(r"\D", "", str(chave or ""))
+    if len(digitos) == 44:
+        return str(int(digitos[25:34])), str(int(digitos[22:25]))
+    limpo = lambda v: "" if str(v).strip().lower() in ("", "nan", "none") else str(v).strip()  # noqa: E731
+    return limpo(numero_coluna), limpo(serie_coluna)
+
+
 def registros_das_linhas(linhas: pd.DataFrame) -> list[dict]:
     """Linhas do CSV -> registros no formato usado pelo motor de preços da Cotação Rápida."""
     registros = []
@@ -237,6 +247,7 @@ def registros_das_linhas(linhas: pd.DataFrame) -> list[dict]:
         if preco is None or preco <= 0:
             continue
         unidade = _unidade(linha.get("UNIDADE"))
+        numero_nf, serie = numero_e_serie(linha.get("CHAVE DE ACESSO", ""), linha.get("NÚMERO", ""), linha.get("SÉRIE", ""))
         registros.append({
             "id_compra": str(linha.get("CHAVE DE ACESSO", "") or ""), "id_item": indice,
             "data": _data_iso(linha.get("DATA EMISSÃO", "")), "cnpj": re.sub(r"\D", "", str(linha.get(COL_CNPJ, "") or "")),
@@ -246,6 +257,7 @@ def registros_das_linhas(linhas: pd.DataFrame) -> list[dict]:
             "uf": str(linha.get(COL_UF_EMIT, "") or ""), "municipio": str(linha.get("MUNICÍPIO EMITENTE", "") or ""),
             "ncm": str(linha.get("NCM/SH (TIPO DE PRODUTO)", "") or ""), "natureza": str(linha.get("NATUREZA DA OPERAÇÃO", "") or ""),
             "uf_dest": str(linha.get(COL_UF_DEST, "") or ""), "valor_total": _numero_br(linha.get("VALOR TOTAL")),
+            "numero_nf": numero_nf, "serie": serie,
         })
     return registros
 
