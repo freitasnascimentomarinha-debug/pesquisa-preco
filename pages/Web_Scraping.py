@@ -465,6 +465,7 @@ MOTORES_DDGS = ("bing", "mojeek", "brave", "yahoo", "yandex", "duckduckgo", "aut
 # Pede aos buscadores só lojas que não sejam marketplaces (que o sistema ignora): sem isso os 10 primeiros resultados são todos descartados
 EXCLUSOES_SITE = " " + " ".join(f"-site:{d}" for d in ("mercadolivre.com.br", "amazon.com.br", "shopee.com.br", "magazineluiza.com.br"))
 FALHAS_MOTOR = {}  # motores que deram timeout/limite nesta execução: depois de 2 falhas são pulados (evita esperar 30 s por busca)
+MOTOR_USADO = {"nome": ""}  # qual motor do ddgs respondeu na última busca (para o log)
 DIAG_BUSCA = {}  # o que cada buscador respondeu na última busca (aparece no log quando nada é encontrado)
 
 
@@ -513,6 +514,7 @@ def buscar_ddgs_api(query, num_results=8, item=None):
             relevantes = _dedup_urls([r["href"] for r in validos if _resultado_relevante(r, termos)], num_results)
             DIAG_BUSCA["ddgs/clássico"] = f"{len(resultados)} resultados, {len(validos)} após filtro de domínios, {len(relevantes)} do assunto"
             if relevantes:
+                MOTOR_USADO["nome"] = "clássico (o pacote escolhe o buscador)"
                 return relevantes
             sobras = _dedup_urls([r["href"] for r in validos], num_results)
         except Exception as erro:
@@ -545,8 +547,10 @@ def buscar_ddgs_api(query, num_results=8, item=None):
                 f"{len(resultados)} resultados, {len(validos)} após filtro de domínios, {len(relevantes)} do assunto"
                 + (f" (domínios ignorados: {', '.join(descartados[:4])})" if descartados and not validos else ""))
             if relevantes:
+                MOTOR_USADO["nome"] = motor + ("" if sufixo else ", sem exclusões")
                 return relevantes
     # nenhum motor trouxe algo do assunto: devolve o que o ddgs clássico trouxe (como antes), a leitura da página confere a relevância
+    MOTOR_USADO["nome"] = "clássico, sem resultados do assunto (usando o que veio)"
     return sobras[:5]
 
 
@@ -771,11 +775,12 @@ def buscar_searchapi_web(query, num_results=8, item=None):
 
 def buscar_urls(session, query, headers, num_results=8, item=None):
     """Busca combinada: DDGS API > DuckDuckGo HTML > Google > Bing."""
-    DIAG_BUSCA.clear()  # (FALHAS_MOTOR só é zerado no início de cada execução)
+    DIAG_BUSCA.clear()
+    MOTOR_USADO["nome"] = ""  # (FALHAS_MOTOR só é zerado no início de cada execução)
     # 1. Tentar DDGS API (mais confiável em ambientes de servidor)
     urls = buscar_ddgs_api(query, num_results, item)
     if urls:
-        return urls, "DDGS API"
+        return urls, f"ddgs → {MOTOR_USADO['nome'] or 'motor não identificado'}"
     # 2. Mojeek (HTML simples)
     urls = buscar_mojeek(session, query, headers, num_results, item)
     if urls:
@@ -1570,6 +1575,7 @@ def executar_scraping(itens, usar_playwright, progress_bar, log_container, statu
                     continue
                 novas.append(url)
             log_msg(log_container, logs, f"📋 {len(urls)} resultados via {engine}; acessando {len(novas)} site(s) novo(s)", "info")
+            log_msg(log_container, logs, "🧭 Buscadores: " + ("; ".join(f"{k}: {v}" for k, v in DIAG_BUSCA.items()) or "sem detalhes"), "info")
             if not novas:
                 continue
 
