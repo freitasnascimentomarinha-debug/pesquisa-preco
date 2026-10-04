@@ -302,7 +302,8 @@ def dominio_valido(url):
     try:
         dominio = urlparse(url).netloc.lower()
         # Rejeitar domínios na lista de ignorados
-        if any(d in dominio for d in DOMINIOS_IGNORADOS):
+        # (terminações de país como ".es" só valem no fim do domínio: ".es" não pode barrar "loja.escolar.com.br")
+        if any((dominio.endswith(d) if d.startswith(".") and len(d) <= 4 else d in dominio) for d in DOMINIOS_IGNORADOS):
             return False
         # Aceitar apenas domínios brasileiros (.com.br, .br) ou .com genéricos
         if dominio.endswith('.br') or dominio.endswith('.com') or dominio.endswith('.net') or dominio.endswith('.org'):
@@ -460,7 +461,11 @@ def _dedup_urls(urls, num_results=8):
 
 # Motores gratuitos do pacote ddgs, em ordem. O DuckDuckGo (e o "auto", que cai em resultados aleatórios quando ele falha)
 # ficam por último porque o servidor da nuvem costuma ter o DuckDuckGo bloqueado/lento.
-MOTORES_DDGS = ("mojeek", "brave", "yahoo", "bing", "yandex", "duckduckgo", "auto")
+MOTORES_DDGS = ("bing", "mojeek", "brave", "yahoo", "yandex", "duckduckgo", "auto")
+# Pede aos buscadores só lojas que não sejam marketplaces (que o sistema ignora): sem isso os 10 primeiros resultados são todos descartados
+EXCLUSOES_SITE = " " + " ".join(f"-site:{d}" for d in (
+    "mercadolivre.com.br", "amazon.com.br", "shopee.com.br", "magazineluiza.com.br", "aliexpress.com", "olx.com.br",
+    "casasbahia.com.br", "americanas.com.br", "youtube.com", "facebook.com", "instagram.com"))
 FALHAS_MOTOR = {}  # motores que deram timeout/limite nesta execução: depois de 2 falhas são pulados (evita esperar 30 s por busca)
 DIAG_BUSCA = {}  # o que cada buscador respondeu na última busca (aparece no log quando nada é encontrado)
 
@@ -484,7 +489,8 @@ def _resultado_relevante(resultado, termos):
     if not termos:
         return True
     texto = _sem_acento(f"{resultado.get('title', '')} {resultado.get('body', '')} {resultado.get('href', '')}")
-    return all(t in texto for t in termos)
+    minimo = len(termos) if len(termos) <= 2 else len(termos) - 1  # com 3+ palavras tolera uma ausente
+    return sum(t in texto for t in termos) >= minimo
 
 
 def buscar_ddgs_api(query, num_results=8, item=None):
@@ -499,16 +505,15 @@ def buscar_ddgs_api(query, num_results=8, item=None):
         except ImportError:
             DIAG_BUSCA["ddgs"] = "pacote ddgs não instalado"
             return []
-    sobras = []
     for motor in MOTORES_DDGS:
         if FALHAS_MOTOR.get(motor, 0) >= 2:
             DIAG_BUSCA[f"ddgs/{motor}"] = "pulado (falhou 2 vezes nesta execução)"
             continue
         try:
             try:
-                resultados = list(DDGS(timeout=8).text(query, region="br-pt", max_results=num_results * 2, backend=motor))
+                resultados = list(DDGS(timeout=8).text(query + EXCLUSOES_SITE, region="br-pt", max_results=num_results * 2, backend=motor))
             except TypeError:  # versão antiga sem o parâmetro backend/timeout
-                resultados = list(DDGS().text(query, region="br-pt", max_results=num_results * 2))
+                resultados = list(DDGS().text(query + EXCLUSOES_SITE, region="br-pt", max_results=num_results * 2))
         except Exception as erro:
             nome_erro = type(erro).__name__
             DIAG_BUSCA[f"ddgs/{motor}"] = f"erro {nome_erro}: {str(erro)[:80]}"
@@ -517,13 +522,13 @@ def buscar_ddgs_api(query, num_results=8, item=None):
             continue
         FALHAS_MOTOR[motor] = 0
         validos = [r for r in resultados if r.get("href") and dominio_valido(r["href"])]
-        DIAG_BUSCA[f"ddgs/{motor}"] = f"{len(resultados)} resultados, {len(validos)} após filtro de domínios"
+        descartados = sorted({extrair_dominio(r["href"]) for r in resultados if r.get("href") and not dominio_valido(r["href"])})
         relevantes = _dedup_urls([r["href"] for r in validos if _resultado_relevante(r, termos)], num_results)
+        DIAG_BUSCA[f"ddgs/{motor}"] = (f"{len(resultados)} resultados, {len(validos)} após filtro de domínios, {len(relevantes)} do assunto"
+                                      + (f" (domínios ignorados: {', '.join(descartados[:4])})" if descartados and not validos else ""))
         if relevantes:
             return relevantes
-        if not sobras:
-            sobras = _dedup_urls([r["href"] for r in validos], num_results)
-    return sobras[:3]  # nenhum motor trouxe resultado do assunto: tenta só os 3 primeiros
+    return []
 
 
 def buscar_mojeek(session, query, headers, num_results=8, item=None):
@@ -790,7 +795,7 @@ def testar_buscadores(query, item=None):
         try:
             if DDGS is None:
                 raise ImportError("pacote ddgs não instalado")
-            resultados = list(DDGS(timeout=8).text(query, region="br-pt", max_results=10, backend=motor))
+            resultados = list(DDGS(timeout=8).text(query + EXCLUSOES_SITE, region="br-pt", max_results=10, backend=motor))
             relevantes = [r for r in resultados if _resultado_relevante(r, termos)]
             linhas.append({"Buscador": f"ddgs/{motor}", "Tempo (s)": round(time.time() - inicio, 1), "Resultados": len(resultados), "Do assunto": len(relevantes),
                            "Primeiros": " | ".join(f"{extrair_dominio(r.get('href', ''))}: {str(r.get('title', ''))[:40]}" for r in (relevantes or resultados)[:3])})
