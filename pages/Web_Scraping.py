@@ -14,10 +14,11 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # módulos da raiz do projeto
 from atualizar_modulos import recarregar_se_mudou  # noqa: E402
-recarregar_se_mudou('cotacao_rapida', 'relatorio_cotacao_rapida', 'relatorio_nf_lote', 'web_precos', 'relatorio_web', 'memoria_lojas')
+recarregar_se_mudou('cotacao_rapida', 'relatorio_cotacao_rapida', 'relatorio_nf_lote', 'web_precos', 'relatorio_web', 'memoria_lojas', 'captura_pagina')
 import web_precos  # noqa: E402  (escolha do preço da página)
 import relatorio_web  # noqa: E402  (relatório padrão da Cotação Rápida)
 import memoria_lojas  # noqa: E402  (lojas aprendidas com o uso)
+import captura_pagina  # noqa: E402  (print real das páginas dos preços)
 
 # Configuração da página
 st.set_page_config(
@@ -2104,7 +2105,8 @@ if "scraping_resultados" in st.session_state and st.session_state["scraping_resu
             precos_por_item = st.selectbox("Preços por item no relatório", [3, 4, 5], index=0, key="precos_por_item_relatorio",
                                            help="Quantas colunas de preço o mapa comparativo (tabela, PDF e Excel) mostra. O padrão é 3.")
             analise = web_precos.analisar_todos(itens_pesquisados, resultados, max_precos=precos_por_item)
-            info_relatorio = {"max_precos": precos_por_item, "motores": "DuckDuckGo e Bing" + (" e Google Shopping" if any("Google" in str(r.get("origem_preco", "")) for r in resultados) else ""),
+            prints = st.session_state.get("prints_web", {})
+            info_relatorio = {"max_precos": precos_por_item, "prints": {u: v for u, v in prints.items() if v.get("imagem")}, "motores": "DuckDuckGo e Bing" + (" e Google Shopping" if any("Google" in str(r.get("origem_preco", "")) for r in resultados) else ""),
                               "gerado_em": datetime.now().strftime("%d/%m/%Y %H:%M")}
             st.caption("Mesmas regras da Cotação Rápida: sem outliers, preços a ±30% da média, mapa comparativo na 1ª página, "
                        "endereço e data/hora do acesso de cada preço.")
@@ -2112,6 +2114,43 @@ if "scraping_resultados" in st.session_state and st.session_state["scraping_resu
             baixas = [r for r in resultados if r.get("confianca") == "baixa"]
             if baixas:
                 st.warning(f"{len(baixas)} preço(s) vieram da leitura do texto da página (confiança baixa): confira o anúncio antes de usar.")
+            with st.expander("📸 Prints reais das páginas dos preços do mapa", expanded=bool(prints)):
+                paginas_mapa = [{"url": p["url"], "preco": p["preco"]} for r in analise for p in r["precos"]]
+                pode_print, motivo_print = captura_pagina.disponivel()
+                st.caption("Abre cada página dos preços listados no mapa num navegador do servidor, rola até o preço, destaca o valor e guarda o print com "
+                           "data, hora e endereço no rodapé. Os prints entram como anexo no PDF. Leva de 5 a 15 s por página.")
+                if not pode_print:
+                    st.info(f"Prints indisponíveis neste servidor: {motivo_print}.")
+                elif not paginas_mapa:
+                    st.info("Nenhum preço no mapa para tirar print.")
+                else:
+                    if st.button(f"📸 Tirar prints das {len(set(p['url'] for p in paginas_mapa))} página(s) do mapa", key="botao_prints_web"):
+                        barra = st.progress(0)
+                        texto_barra = st.empty()
+
+                        def andamento(feitas, total, url):
+                            barra.progress(feitas / max(total, 1))
+                            texto_barra.text(f"Capturando {feitas + 1}/{total}: {extrair_dominio(url)}" if url else "Concluído")
+
+                        novos = captura_pagina.capturar_prints(paginas_mapa, andamento)
+                        st.session_state["prints_web"] = {**st.session_state.get("prints_web", {}), **novos}
+                        st.rerun()
+                if prints:
+                    feitos = [(u, v) for u, v in prints.items() if v.get("imagem")]
+                    falhos = [(u, v) for u, v in prints.items() if not v.get("imagem")]
+                    st.success(f"{len(feitos)} print(s) prontos; entram no PDF abaixo.") if feitos else None
+                    for u, v in falhos:
+                        st.warning(f"Sem print de {extrair_dominio(u)}: {v.get('erro', 'erro')}")
+                    if feitos:
+                        import zipfile
+                        pacote = BytesIO()
+                        with zipfile.ZipFile(pacote, "w", zipfile.ZIP_DEFLATED) as arquivo_zip:
+                            for n, (u, v) in enumerate(feitos, start=1):
+                                arquivo_zip.writestr(f"print_{n:02d}_{re.sub(r'[^a-zA-Z0-9]+', '_', extrair_dominio(u))}.jpg", v["imagem"])
+                        st.download_button("⬇️ Baixar os prints (ZIP)", pacote.getvalue(), file_name="prints_pesquisa_web.zip", mime="application/zip")
+                        for u, v in feitos[:3]:
+                            st.image(v["imagem"], caption=f"{extrair_dominio(u)} — {v['capturado_em']}")
+
             col_r1, col_r2 = st.columns(2)
             col_r1.download_button(
                 "📄 Baixar relatório PDF (padrão Cotação Rápida)", data=relatorio_web.gerar_pdf_mapa(analise, info_relatorio),

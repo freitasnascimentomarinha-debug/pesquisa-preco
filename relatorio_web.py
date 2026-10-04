@@ -136,13 +136,65 @@ def _anexo_fontes(resultados: list[dict]):
     return anexo
 
 
+def _anexo_prints(resultados: list[dict], prints: dict):
+    """Uma página por print: item, loja, preço, endereço e data/hora; a imagem leva o rodapé com a data/hora da captura."""
+    import io as _io
+
+    def anexo(pdf: FPDF) -> None:
+        numero = 0
+        for indice, r in enumerate(resultados, start=1):
+            for p in r["precos"]:
+                captura = prints.get(p["url"])
+                if not captura or not captura.get("imagem"):
+                    continue
+                numero += 1
+                pdf.add_page()
+                pdf.set_y(35)
+                pdf.set_fill_color(*AZUL_CARTAO)
+                pdf.set_text_color(*DOURADO)
+                pdf.set_font("Helvetica", "B", 8)
+                pdf.cell(LARGURA, 6, f"  PRINT {numero} - ITEM {indice} - {_truncar(pdf, p['dominio'], 80)} - R$ {moeda(p['preco'])}", 0, 1, "L", True)
+                pdf.set_text_color(255, 255, 255)
+                pdf.set_font("Helvetica", "B", 9)
+                for linha in _quebrar(pdf, r["descricao"], LARGURA - 4, 2):
+                    pdf.cell(LARGURA, 5, "  " + linha, 0, 1, "L", True)
+                pdf.set_font("Helvetica", "", 6.5)
+                pdf.set_text_color(20, 70, 190)
+                pdf.cell(LARGURA, 5, _seguro(p["url"])[:170], 0, 1, "L", link=p["url"])
+                pdf.set_text_color(70, 70, 70)
+                pdf.cell(0, 4, _seguro(f"Captura da pagina em {captura['capturado_em']} (data e hora do acesso)."), ln=True)
+                pdf.ln(1)
+                altura_max = pdf.h - pdf.get_y() - 14
+                from PIL import Image
+                largura_img, altura_img = Image.open(_io.BytesIO(captura["imagem"])).size
+                altura = min(altura_max, LARGURA * altura_img / largura_img)
+                largura = altura * largura_img / altura_img
+                pdf.image(_io.BytesIO(captura["imagem"]), x=(pdf.w - largura) / 2, y=pdf.get_y(), w=largura, h=altura)
+        if numero == 0:
+            return
+
+    return anexo
+
+
+def _anexos(resultados: list[dict], info: dict):
+    fontes = _anexo_fontes(resultados)
+    prints = info.get("prints") or {}
+
+    def ambos(pdf: FPDF) -> None:
+        fontes(pdf)
+        if prints:
+            _anexo_prints(resultados, prints)(pdf)
+
+    return ambos
+
+
 def gerar_pdf_mapa(resultados: list[dict], info: dict) -> bytes:
     return base.gerar_pdf(
         resultados,
         titulo=TITULO_PDF,
         pagina_item=_pagina_item_web,
         textos=(JUSTIFICATIVA_COTACAO, metodologia(info)),
-        anexos=_anexo_fontes(resultados),
+        anexos=_anexos(resultados, info),
         argumentos_mapa={
             "max_precos": info.get("max_precos", PRECOS_POR_ITEM_PADRAO),
             "rotulo_col3": "Paginas / lojas",
