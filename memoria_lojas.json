@@ -1,9 +1,9 @@
 {
  "versao": 1,
- "atualizado": "2026-10-04T17:38:49",
+ "atualizado": "2026-10-04T17:56:53",
  "lojas": {
   "lojadomecanico.com.br": {
-   "acertos": 4,
+   "acertos": 5,
    "ultimo": "2026-10-04",
    "itens": [
     "fita isolante",
@@ -12,14 +12,14 @@
    ]
   },
   "eletricaarea.com.br": {
-   "acertos": 2,
+   "acertos": 3,
    "ultimo": "2026-10-04",
    "itens": [
     "fita isolante"
    ]
   },
   "telhanorte.com.br": {
-   "acertos": 1,
+   "acertos": 2,
    "ultimo": "2026-10-04",
    "itens": [
     "fita isolante"
@@ -33,17 +33,18 @@
    ]
   },
   "copafer.com.br": {
-   "acertos": 3,
-   "ultimo": "2026-10-04",
-   "itens": [
-    "lâmpada",
-    "fita isolante"
-   ]
-  },
-  "kalunga.com.br": {
    "acertos": 4,
    "ultimo": "2026-10-04",
    "itens": [
+    "fita isolante",
+    "lâmpada"
+   ]
+  },
+  "kalunga.com.br": {
+   "acertos": 5,
+   "ultimo": "2026-10-04",
+   "itens": [
+    "papel crepom",
     "apontador",
     "papel a4 sulfite",
     "borracha escolar",
@@ -108,9 +109,10 @@
    ]
   },
   "atacadosaopaulo.com.br": {
-   "acertos": 1,
+   "acertos": 2,
    "ultimo": "2026-10-04",
    "itens": [
+    "papel crepom",
     "papel a4 sulfite"
    ]
   },
@@ -140,6 +142,27 @@
    "ultimo": "2026-10-04",
    "itens": [
     "lâmpada"
+   ]
+  },
+  "jambo.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-04",
+   "itens": [
+    "papel crepom"
+   ]
+  },
+  "casadopapel.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-04",
+   "itens": [
+    "papel crepom"
+   ]
+  },
+  "tkshopping.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-04",
+   "itens": [
+    "papel crepom"
    ]
   }
  },
@@ -181,7 +204,7 @@
    "ultimo": "2026-10-04"
   },
   "nortonabrasives.com": {
-   "falhas": 1,
+   "falhas": 2,
    "ultimo": "2026-10-04"
   },
   "sobradeestoque.com.br": {
@@ -209,6 +232,18 @@
    "ultimo": "2026-10-04"
   },
   "inspirehome.com.br": {
+   "falhas": 1,
+   "ultimo": "2026-10-04"
+  },
+  "artfloc.com.br": {
+   "falhas": 1,
+   "ultimo": "2026-10-04"
+  },
+  "atacadoideal.com.br": {
+   "falhas": 1,
+   "ultimo": "2026-10-04"
+  },
+  "papelariariomadeira.com.br": {
    "falhas": 1,
    "ultimo": "2026-10-04"
   }
