@@ -44,16 +44,16 @@ def _texto_filtros(filtros: dict, n_arquivos: int, n_total: int) -> str:
 
 def renderizar_lote(obter_arquivos: Callable[[], dict[str, str]], baixar_csv: Callable[..., str], pasta_cache: str) -> None:
     """Desenha a aba. `obter_arquivos()` -> {id: nome}; `baixar_csv(id)` -> caminho do CSV local (com cache)."""
-    st.markdown("### ⚡ Pesquisa em Lote")
+    st.markdown("### 🔍 Pesquisa de Notas Fiscais")
     st.caption(
-        "Pesquise vários itens de uma vez em todos os arquivos mensais de notas fiscais. Cada arquivo é lido uma só vez para todos os itens. "
+        "Pesquise um ou vários itens de uma vez em todos os arquivos mensais de notas fiscais. Cada arquivo é lido uma só vez para todos os itens. "
         "O resultado é um mapa comparativo de preços (PDF e Excel) e um relatório dos fornecedores encontrados."
     )
     arquivos = obter_arquivos()
     nomes = dict(sorted(arquivos.items(), key=lambda par: par[1], reverse=True))  # mais recentes primeiro
 
     entrada = st.text_area(
-        "Itens (um por linha)", height=150, key="nf_lote_texto",
+        "Item(ns) a pesquisar (um por linha)", height=150, key="nf_lote_texto",
         placeholder="Ex:\nResma de papel A4 75 g\nNotebook 15 polegadas\nLuva de procedimento látex",
         help="Descreva o item com as palavras e especificações que importam: todas serão exigidas na descrição da nota (A4 = 210 x 297 mm).",
     )
@@ -81,7 +81,7 @@ def renderizar_lote(obter_arquivos: Callable[[], dict[str, str]], baixar_csv: Ca
     uf_emit = c4.text_input("UF do emitente", max_chars=2, placeholder="Ex: SP", key="nf_lote_uf_emit", help="Sigla do estado do fornecedor (filtro exato)")
     max_por_item = c5.number_input("Máximo de notas por item", 100, 10000, 1500, 100, key="nf_lote_max", help="Limita os registros guardados por item (os mais recentes primeiro)")
 
-    if st.button("⚡ Pesquisar em lote", type="primary", use_container_width=True, key="nf_lote_buscar"):
+    if st.button("🔎 Pesquisar notas fiscais", type="primary", use_container_width=True, key="nf_lote_buscar"):
         itens = list(dict.fromkeys([l.strip(" -•\t") for l in entrada.splitlines() if l.strip()] + itens_arquivo))
         if not itens:
             st.warning("Informe ao menos um item.")
