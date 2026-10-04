@@ -13,7 +13,6 @@ from typing import Callable
 from cotacao_rapida import MAX_PRECOS, MIN_PRECOS, TOLERANCIA, estatisticas, remover_outliers, selecionar_precos
 
 PRECO_MIN, PRECO_MAX = 0.5, 500_000
-MAX_VALORES_NO_TEXTO = 6  # acima disso a página é tratada como listagem e o preço por leitura de texto é recusado
 PRECOS_POR_ITEM_PADRAO = 3  # colunas de preço do relatório da pesquisa na internet (a Cotação Rápida usa 5)
 SEM_ESTOQUE = ("outofstock", "soldout", "discontinued")
 PRECO_DE_REFERENCIA = ("list", "strikethrough", "srp", "minimumadvertised", "installment")
@@ -122,9 +121,7 @@ def preco_principal(html: str, alternativa: Callable[[str], list[float]] | None 
 
     if alternativa:
         valores = sorted(set(alternativa(html)))
-        # Listagem/categoria mostra dezenas de produtos: a mediana dos valores não é o preço de produto nenhum. Em texto puro só vale
-        # página com poucos valores distintos; página de produto com dados estruturados (JSON-LD/metadados) já foi aceita acima.
-        if valores and len(valores) <= MAX_VALORES_NO_TEXTO:
+        if valores:  # qualquer valor do texto serve, inclusive de listagem (confiança baixa, avisada no relatório)
             return {"preco": valores[len(valores) // 2], "origem": "texto da página (mediana dos valores)", "confianca": "baixa", "nome": ""}
     return None
 
