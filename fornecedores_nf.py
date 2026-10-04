@@ -6,6 +6,7 @@ import json
 import os
 import re
 import time
+import unicodedata
 from collections import Counter, defaultdict
 from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
@@ -122,28 +123,45 @@ def _moeda(valor: float) -> str:
     return f"R$ {valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 
+PORTES = {"me", "epp", "mei"}  # sufixos de porte que não distinguem a empresa
+MAX_CNPJS_POR_EMPRESA = 8  # CNPJs (matriz/filiais) consultados e exibidos por empresa
+
+
+def chave_da_empresa(razao_social: str, cnpj: str = "") -> str:
+    """Razão social normalizada (sem acento, pontuação, maiúsculas e sem ME/EPP final): filiais com o mesmo nome viram uma empresa."""
+    texto = unicodedata.normalize("NFKD", str(razao_social or "")).encode("ascii", "ignore").decode("ascii").lower()
+    palavras = re.sub(r"[^a-z0-9]+", " ", texto).split()
+    while len(palavras) > 1 and palavras[-1] in PORTES:
+        palavras.pop()
+    return " ".join(palavras) or str(cnpj or "")
+
+
 def agregar_fornecedores(resultados: list[dict], escopo: str = "mapa") -> list[dict]:
-    """Um registro por fornecedor (CNPJ) com o que ele vendeu nas notas encontradas.
+    """Um registro por EMPRESA (razão social), reunindo os CNPJs com o mesmo nome, com o que ela vendeu nas notas.
 
     escopo="mapa": só os fornecedores dos preços listados no mapa; "todos": todos os que venderam os itens."""
-    por_cnpj: dict[str, dict] = {}
+    por_empresa: dict[str, dict] = {}
     for resultado in resultados:
         origem = resultado["precos"] if escopo == "mapa" else resultado.get("registros", [])
         for registro in origem:
-            chave = registro["cnpj"] or registro["fornecedor"]
+            chave = chave_da_empresa(registro["fornecedor"], registro["cnpj"])
             if not chave:
                 continue
-            forn = por_cnpj.setdefault(chave, {"cnpj": registro["cnpj"], "razao_nf": registro["fornecedor"], "uf_nf": registro["uf"],
-                                               "municipio_nf": registro["municipio"], "itens": defaultdict(list), "ncm": Counter(),
-                                               "natureza": Counter(), "notas": set()})
+            forn = por_empresa.setdefault(chave, {"chave": chave, "razao_nf": registro["fornecedor"], "cnpjs": Counter(), "ufs": Counter(),
+                                                  "municipios": Counter(), "itens": defaultdict(list), "ncm": Counter(), "natureza": Counter(), "notas": set()})
+            if registro["cnpj"]:
+                forn["cnpjs"][registro["cnpj"]] += 1
+            if registro["uf"]:
+                forn["ufs"][registro["uf"]] += 1
+            if registro["municipio"]:
+                forn["municipios"][registro["municipio"]] += 1
             forn["itens"][resultado["descricao"]].append(registro)
             forn["notas"].add(registro["id_compra"] or registro["id_item"])
             if registro["ncm"]:
                 forn["ncm"][registro["ncm"]] += 1
             if registro["natureza"]:
                 forn["natureza"][registro["natureza"]] += 1
-    fornecedores = sorted(por_cnpj.values(), key=lambda f: (-len(f["notas"]), f["razao_nf"]))
-    return fornecedores
+    return sorted(por_empresa.values(), key=lambda f: (-len(f["notas"]), f["razao_nf"]))
 
 
 def resumo_da_natureza(fornecedor: dict) -> str:
@@ -160,10 +178,42 @@ def resumo_da_natureza(fornecedor: dict) -> str:
     return ". ".join(partes)
 
 
-COLUNAS_FORNECEDORES = ["CNPJ", "Razão social", "Nome fantasia", "Situação cadastral", "UF", "Município", "Telefones", "E-mail",
+COLUNAS_FORNECEDORES = ["CNPJ(s)", "Razão social", "Nome fantasia", "Situação cadastral", "UF", "Município", "Telefones", "E-mail",
                         "CNAE principal", "Natureza dos itens que vende", "Notas encontradas"]
-COLUNAS_POR_ITEM = ["Item que vende", "CNPJ", "Razão social", "Situação cadastral", "UF", "Município", "Telefones", "E-mail", "CNAE principal",
+COLUNAS_POR_ITEM = ["Item que vende", "CNPJ(s)", "Razão social", "Situação cadastral", "UF", "Município", "Telefones", "E-mail", "CNAE principal",
                     "Notas do item", "Preço mínimo", "Preço médio", "Preço máximo", "Exemplo de produto na nota"]
+
+
+def mesclar_cadastros(cadastros: list[dict]) -> dict:
+    """Junta os dados cadastrais dos CNPJs de uma mesma empresa: telefones e e-mails de todos, sem repetição."""
+    def unicos(chave: str, separador: str) -> list[str]:
+        vistos: list[str] = []
+        for cad in cadastros:
+            for parte in str(cad[chave]).split(separador):
+                parte = parte.strip()
+                if parte and parte != NAO_INFORMADO and parte not in vistos:
+                    vistos.append(parte)
+        return vistos
+
+    primeiro = lambda chave: next((cad[chave] for cad in cadastros if cad[chave]), "")  # noqa: E731
+    telefones, emails = unicos("telefones", ", "), unicos("email", ";")
+    cnaes = [c for c in dict.fromkeys(cad["cnae"] for cad in cadastros) if c and c != NAO_INFORMADO]
+    ufs = [u for u in dict.fromkeys(cad["uf"] for cad in cadastros) if u]
+    return {
+        "razao_social": primeiro("razao_social"), "nome_fantasia": primeiro("nome_fantasia"),
+        "situacao": "Ativa" if any(_ativa(c) for c in cadastros) else (primeiro("situacao") or ""),
+        "email": "; ".join(emails) or NAO_INFORMADO, "telefones": ", ".join(telefones) or NAO_INFORMADO,
+        "uf": ", ".join(ufs), "municipio": primeiro("municipio"), "cnae": " | ".join(cnaes[:2]) if cnaes else NAO_INFORMADO,
+    }
+
+
+def _cnpjs_texto(empresa: dict) -> str:
+    """CNPJs da empresa (os de mais notas primeiro), um por linha; indica quantos além do limite."""
+    cnpjs = [formatar_cnpj(c) for c, _ in empresa["cnpjs"].most_common()]
+    if not cnpjs:
+        return NAO_INFORMADO
+    extras = len(cnpjs) - MAX_CNPJS_POR_EMPRESA
+    return "\n".join(cnpjs[:MAX_CNPJS_POR_EMPRESA]) + (f"\n(+{extras} CNPJs)" if extras > 0 else "")
 
 
 def tem_contatos(cadastro: dict) -> int:
@@ -172,7 +222,7 @@ def tem_contatos(cadastro: dict) -> int:
 
 
 def _ativa(cadastro: dict) -> int:
-    return int(cadastro["situacao"].strip().lower() in ("ativa", "02", "2"))
+    return int(str(cadastro["situacao"]).strip().lower() in ("ativa", "02", "2"))
 
 
 def montar_tabelas(
@@ -189,14 +239,17 @@ def montar_tabelas(
     - "unica": lista única dos fornecedores escolhidos, com o resumo da natureza dos itens que vendem.
     O cadastro (OpenCNPJ) é consultado por lotes e só até achar `max_por_item` fornecedores com contatos completos
     em cada item. Retorna também "totais" ({item: candidatos encontrados}) e "sem_consulta"."""
-    fornecedores = {(f["cnpj"] or f["razao_nf"]): f for f in agregar_fornecedores(resultados, escopo)}
+    fornecedores = {f["chave"]: f for f in agregar_fornecedores(resultados, escopo)}
     candidatos: dict[str, list[tuple[str, int]]] = {}
     for resultado in resultados:
         do_item = [(chave, len({r["id_compra"] or r["id_item"] for r in f["itens"][resultado["descricao"]]}))
                    for chave, f in fornecedores.items() if resultado["descricao"] in f["itens"]]
         candidatos[resultado["descricao"]] = sorted(do_item, key=lambda par: (-par[1], fornecedores[par[0]]["razao_nf"]))[:MAX_CANDIDATOS_POR_ITEM]
 
-    cadastros: dict[str, dict] = {}
+    def cnpjs_da(chave: str) -> list[str]:
+        return [c for c, _ in fornecedores[chave]["cnpjs"].most_common(MAX_CNPJS_POR_EMPRESA)]
+
+    cadastros: dict[str, dict] = {}  # por empresa: dados mesclados de todos os seus CNPJs
     consultados = 0
     with ThreadPoolExecutor(max_workers=6) as executor:
         while consultados < MAX_CONSULTAS_CNPJ:
@@ -205,13 +258,14 @@ def montar_tabelas(
                 completos = sum(1 for chave, _ in lista if chave in cadastros and tem_contatos(cadastros[chave]) == 2)
                 faltam = max_por_item - completos
                 novos = [chave for chave, _ in lista if chave not in cadastros and chave not in pendentes]
-                pendentes += novos[:max(faltam, 0)]
+                pendentes += novos[:max(faltam, 0)]  # empresas (não CNPJs): filiais do mesmo nome contam como um fornecedor só
             if not pendentes:
                 break
-            pendentes = pendentes[:MAX_CONSULTAS_CNPJ - consultados]
-            for chave, dados in zip(pendentes, executor.map(lambda c: consultar_cnpj(fornecedores[c]["cnpj"]), pendentes)):
-                cadastros[chave] = interpretar_dados(dados)
-            consultados += len(pendentes)
+            for chave in pendentes:
+                cnpjs = cnpjs_da(chave)[:max(MAX_CONSULTAS_CNPJ - consultados, 1)]
+                dados = list(executor.map(consultar_cnpj, cnpjs))
+                cadastros[chave] = mesclar_cadastros([interpretar_dados(d) for d in dados] or [interpretar_dados(None)])
+                consultados += max(len(cnpjs), 1)
             if progresso:
                 progresso(consultados, consultados + 1)  # o total não é conhecido de antemão: a barra avança até concluir
 
@@ -227,17 +281,17 @@ def montar_tabelas(
             regs = forn["itens"][descricao]
             precos = [r["preco"] for r in regs]
             por_item.append({
-                "Item que vende": descricao, "CNPJ": formatar_cnpj(forn["cnpj"]) or NAO_INFORMADO,
+                "Item que vende": descricao, "CNPJ(s)": _cnpjs_texto(forn),
                 "Razão social": cad["razao_social"] or forn["razao_nf"] or NAO_INFORMADO, "Situação cadastral": cad["situacao"] or NAO_INFORMADO,
-                "UF": cad["uf"] or forn["uf_nf"] or NAO_INFORMADO, "Município": cad["municipio"] or forn["municipio_nf"] or "",
+                "UF": cad["uf"] or ", ".join(forn["ufs"]) or NAO_INFORMADO, "Município": cad["municipio"] or next(iter(forn["municipios"]), ""),
                 "Telefones": cad["telefones"], "E-mail": cad["email"], "CNAE principal": cad["cnae"], "Notas do item": notas,
                 "Preço mínimo": min(precos), "Preço médio": sum(precos) / len(precos), "Preço máximo": max(precos),
                 "Exemplo de produto na nota": Counter(r["descricao"] for r in regs).most_common(1)[0][0],
             })
     unica = [{
-        "CNPJ": formatar_cnpj(forn["cnpj"]) or NAO_INFORMADO, "Razão social": cad["razao_social"] or forn["razao_nf"] or NAO_INFORMADO,
+        "CNPJ(s)": _cnpjs_texto(forn), "Razão social": cad["razao_social"] or forn["razao_nf"] or NAO_INFORMADO,
         "Nome fantasia": cad["nome_fantasia"] or "", "Situação cadastral": cad["situacao"] or NAO_INFORMADO,
-        "UF": cad["uf"] or forn["uf_nf"] or NAO_INFORMADO, "Município": cad["municipio"] or forn["municipio_nf"] or "",
+        "UF": cad["uf"] or ", ".join(forn["ufs"]) or NAO_INFORMADO, "Município": cad["municipio"] or next(iter(forn["municipios"]), ""),
         "Telefones": cad["telefones"], "E-mail": cad["email"], "CNAE principal": cad["cnae"],
         "Natureza dos itens que vende": resumo_da_natureza(forn), "Notas encontradas": len(forn["notas"]),
     } for forn, cad in escolhidos.values()]

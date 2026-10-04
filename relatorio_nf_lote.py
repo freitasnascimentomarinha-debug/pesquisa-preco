@@ -237,8 +237,16 @@ def gerar_excel_mapa(resultados: list[dict], info: dict) -> bytes:
 
 # ------------------------------------------------------------------ fornecedores (agrupados pelo que vendem)
 
-COLUNAS_PDF_FORNECEDORES = [("CNPJ", 27, "CNPJ"), ("Razao social", 52, "Razão social"), ("UF", 8, "UF"), ("Telefones", 34, "Telefones"), ("E-mail", 46, "E-mail"),
+COLUNAS_PDF_FORNECEDORES = [("CNPJ(s)", 27, "CNPJ(s)"), ("Razao social", 50, "Razão social"), ("UF", 10, "UF"), ("Telefones", 34, "Telefones"), ("E-mail", 46, "E-mail"),
                             ("CNAE principal", 52, "CNAE principal"), ("Notas", 11, "Notas do item"), ("Preco medio", 24, "Preço médio"), ("Faixa de preco", 27, "Faixa")]
+
+
+def _linhas_da_celula(pdf: FPDF, texto: str, largura: float, max_linhas: int = 10) -> list[str]:
+    """Quebra o texto respeitando as quebras de linha (um CNPJ por linha) e a largura da coluna."""
+    linhas: list[str] = []
+    for parte in texto.split("\n"):
+        linhas += _quebrar(pdf, parte, largura, 3)
+    return linhas[:max_linhas]
 
 
 def _faixa(linha: pd.Series) -> str:
@@ -283,7 +291,7 @@ def gerar_pdf_fornecedores(tabelas: dict, info: dict) -> bytes:
             linha = linha.copy()
             linha["Faixa"] = _faixa(linha)
             linha["Preço médio"] = moeda(linha["Preço médio"])
-            celulas = [_quebrar(pdf, str(linha[campo]), largura - 2, 3) for _, largura, campo in COLUNAS_PDF_FORNECEDORES]
+            celulas = [_linhas_da_celula(pdf, str(linha[campo]), largura - 2) for _, largura, campo in COLUNAS_PDF_FORNECEDORES]
             altura = max(7.0, 3.4 * max(len(c) for c in celulas) + 2)
             if pdf.get_y() + altura > pdf.h - 14:
                 pdf.add_page()
@@ -339,7 +347,7 @@ def gerar_excel_fornecedores(tabelas: dict) -> bytes:
                     celula.number_format = '"R$" #,##0.00'
             linha_atual += 1
     for j, nome in enumerate(colunas, start=1):
-        maior = max([len(str(nome))] + [len(str(v)) for v in por_item[nome].head(300)]) if nome in por_item else 12
+        maior = max([len(str(nome))] + [max(len(l) for l in str(v).split("\n")) for v in por_item[nome].head(300)]) if nome in por_item else 12
         planilha.column_dimensions[get_column_letter(j)].width = min(max(maior + 2, 11), 60)
     planilha.freeze_panes = "A2"
     segunda = wb.create_sheet("Lista única")
@@ -351,7 +359,7 @@ def gerar_excel_fornecedores(tabelas: dict) -> bytes:
         for j, nome in enumerate(unica.columns, start=1):
             segunda.cell(row=i, column=j, value=linha[nome]).alignment = Alignment(vertical="top", wrap_text=True)
     for j, nome in enumerate(unica.columns, start=1):
-        maior = max([len(str(nome))] + [len(str(v)) for v in unica[nome].head(300)])
+        maior = max([len(str(nome))] + [max(len(l) for l in str(v).split("\n")) for v in unica[nome].head(300)])
         segunda.column_dimensions[get_column_letter(j)].width = min(max(maior + 2, 11), 70)
     segunda.freeze_panes = "A2"
     segunda.auto_filter.ref = segunda.dimensions
