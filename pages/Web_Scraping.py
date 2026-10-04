@@ -453,6 +453,19 @@ def _dedup_urls(urls, num_results=8):
     return unique[:num_results]
 
 
+INTERVALO_MIN_BUSCA_S = 2.0  # pausa mínima entre duas requisições a buscadores (DuckDuckGo, Google, Bing), de qualquer tipo
+ULTIMA_REQUISICAO_BUSCA = {"t": 0.0}
+
+
+def intervalo_entre_buscas():
+    """Espera o que faltar para completar INTERVALO_MIN_BUSCA_S (mais um pouco aleatório) desde a última requisição a um buscador.
+    Vale entre buscas de frases diferentes e também entre os buscadores da cascata (ex.: ddgs e logo depois o DuckDuckGo HTML)."""
+    falta = ULTIMA_REQUISICAO_BUSCA["t"] + INTERVALO_MIN_BUSCA_S + random.uniform(0.0, 0.5) - time.time()
+    if falta > 0:
+        time.sleep(falta)
+    ULTIMA_REQUISICAO_BUSCA["t"] = time.time()
+
+
 DIAG_BUSCA = {}  # o que cada buscador respondeu na última busca (erro, HTTP ou nº de sites): aparece no log quando o DuckDuckGo falha
 DDG_PROXIMA_TENTATIVA = {"ate": 0.0}  # depois de um bloqueio suspeito, o DuckDuckGo descansa um pouco antes de ser consultado de novo
 PAUSA_APOS_BLOQUEIO_DDG = 60  # segundos
@@ -460,6 +473,7 @@ PAUSA_APOS_BLOQUEIO_DDG = 60  # segundos
 
 def buscar_ddgs_api(query, num_results=8):
     """Busca usando o pacote ddgs (DuckDuckGo Search) — mais confiável em servidores."""
+    intervalo_entre_buscas()
     try:
         from ddgs import DDGS
         results = list(DDGS().text(query, region="br-pt", max_results=num_results))
@@ -485,6 +499,7 @@ def buscar_ddgs_api(query, num_results=8):
 
 def buscar_duckduckgo(session, query, headers, num_results=8):
     """Busca no DuckDuckGo HTML usando requests e retorna lista de URLs."""
+    intervalo_entre_buscas()
     from bs4 import BeautifulSoup
     from urllib.parse import unquote
 
@@ -526,6 +541,7 @@ def buscar_duckduckgo(session, query, headers, num_results=8):
 
 def buscar_google_requests(session, query, headers, num_results=8):
     """Busca no Google usando requests (fallback)."""
+    intervalo_entre_buscas()
     from bs4 import BeautifulSoup
     from urllib.parse import unquote
 
@@ -583,6 +599,7 @@ def desembrulhar_link_bing(href):
 
 def buscar_bing_requests(session, query, headers, num_results=8):
     """Busca no Bing como fallback adicional."""
+    intervalo_entre_buscas()
     from bs4 import BeautifulSoup
 
     url = f"https://www.bing.com/search?q={quote_plus(query)}&setlang=pt-BR&count={num_results}"
@@ -629,12 +646,16 @@ def buscar_na_loja(session, item, site, headers, num_results=8):
 
     query = f"{item} site:{site}"
     urls = []
+    if time.time() < DDG_PROXIMA_TENTATIVA["ate"]:
+        return []  # DuckDuckGo descansando após bloqueio: a loja da memória fica para a próxima
+    intervalo_entre_buscas()
     try:
         from ddgs import DDGS
         urls = [r["href"] for r in DDGS().text(query, region="br-pt", max_results=num_results) if r.get("href") and da_loja(r["href"])]
     except Exception:
         urls = []
     if not urls:
+        intervalo_entre_buscas()
         try:
             resp = session.get(f"https://html.duckduckgo.com/html/?q={quote_plus(query)}", headers=headers, timeout=15)
             if resp.status_code == 200:
@@ -1319,10 +1340,11 @@ def _tem_secrets():
         return False
 
 
-def executar_scraping(itens, usar_playwright, progress_bar, log_container, status_text, max_fontes, usar_navegador=False, tempo_max_navegador_min=15):
+def executar_scraping(itens, usar_playwright, progress_bar, log_container, status_text, max_fontes, usar_navegador=False, tempo_max_pagina_min=2):
     """Executa o scraping. `usar_navegador`: as páginas são abertas num navegador (por padrão primeiro, ou depois da leitura por texto nas lojas
-    que a memória diz funcionarem por texto), por até `tempo_max_navegador_min` minutos por pesquisa; depois disso, só a leitura por texto."""
-    leitor = captura_pagina.LeitorNavegador(tempo_max_s=tempo_max_navegador_min * 60) if usar_navegador else None
+    que a memória diz funcionarem por texto). Cada página tem `tempo_max_pagina_min` minutos: se travar, é abandonada, o navegador é
+    reiniciado e a leitura por texto assume."""
+    leitor = captura_pagina.LeitorNavegador(tempo_max_pagina_s=tempo_max_pagina_min * 60) if usar_navegador else None
     try:
         return _executar_scraping(itens, usar_playwright, progress_bar, log_container, status_text, max_fontes, leitor)
     finally:
@@ -2047,11 +2069,11 @@ with col2:
         help="As páginas são abertas num navegador do servidor, que carrega o JavaScript e fecha popups. Se ele não achar o preço, a leitura por texto "
              "tenta uma vez. Lojas que a memória diz funcionarem só por texto começam pelo texto. Mais lento (5 a 15 s por página).",
     )
-    tempo_max_navegador = 15
+    tempo_max_pagina = 2
     if navegador_ok:
         if usar_navegador:
-            tempo_max_navegador = st.number_input("Tempo máx. do navegador (min)", min_value=1, max_value=60, value=15,
-                                                  help="Por pesquisa. Passado o tempo, as páginas seguintes usam só a leitura por texto.")
+            tempo_max_pagina = st.number_input("Tempo máx. por página no navegador (min)", min_value=1, max_value=10, value=2,
+                                               help="Se uma página travar, o navegador a abandona depois desse tempo, é reiniciado e a leitura por texto tenta no lugar.")
     else:
         st.caption(f"Navegador indisponível (leitura simples por texto): {navegador_motivo}")
     max_fontes = st.number_input(
@@ -2100,7 +2122,7 @@ if iniciar:
             status_text=status_text,
             max_fontes=max_fontes,
             usar_navegador=usar_navegador,
-            tempo_max_navegador_min=int(tempo_max_navegador),
+            tempo_max_pagina_min=int(tempo_max_pagina),
         )
 
         # Armazenar resultados no session_state

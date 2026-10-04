@@ -219,12 +219,15 @@ def capturar_prints(paginas: list[dict], progresso=None) -> dict[str, dict]:
 class LeitorNavegador:
     """Lê páginas que a leitura simples não consegue (preço montado por JavaScript, bloqueio de robô simples).
 
-    Um navegador por pesquisa, uma página de cada vez. Limites: `tempo_max_s` desde a criação (a pesquisa nunca fica presa) e `limite` de páginas.
-    Uso: `with LeitorNavegador(tempo_max_s=900) as leitor: leitor.ler(url)`; o navegador é sempre fechado ao sair."""
+    Um navegador por pesquisa, uma página de cada vez. Limites: `tempo_max_pagina_s` por página (se ela travar, é abandonada e o navegador
+    é reiniciado para a próxima), `tempo_max_s` desde a criação (trava de segurança da pesquisa inteira) e `limite` de páginas.
+    Uso: `with LeitorNavegador(tempo_max_pagina_s=120) as leitor: leitor.ler(url)`; o navegador é sempre fechado ao sair."""
 
-    def __init__(self, limite: int = 200, tempo_max_s: float = 900) -> None:
+    def __init__(self, limite: int = 500, tempo_max_s: float = 3600, tempo_max_pagina_s: float = 120) -> None:
         self.limite = limite
         self.tempo_max_s = tempo_max_s
+        self.tempo_max_pagina_s = tempo_max_pagina_s
+        self._prazo = 0.0
         self._inicio = time.monotonic()
         self.usadas = 0
         self._playwright = None
@@ -268,37 +271,60 @@ class LeitorNavegador:
             self.fechar()
             return False
 
+    def _restante(self) -> float:
+        """Segundos que ainda sobram para a página atual; levanta TimeoutError se acabaram."""
+        sobra = self._prazo - time.monotonic()
+        if sobra <= 0:
+            raise TimeoutError(f"a página passou de {self.tempo_max_pagina_s / 60:g} min no navegador")
+        return sobra
+
+    def _reiniciar(self) -> None:
+        """Fecha o navegador inteiro (página travada): a próxima leitura abre um novo."""
+        self.fechar()
+        self.falha_ao_iniciar = ""
+
     def ler(self, url: str) -> dict:
         """{"html": texto ou "", "status": HTTP ou 0, "erro": texto}. Nunca levanta erro.
-        Em caso de sucesso a página fica aberta para `capturar` (print) e é fechada por `liberar` (ou pela próxima leitura)."""
+        Em caso de sucesso a página fica aberta para `capturar` (print) e é fechada por `liberar` (ou pela próxima leitura).
+        Cada página tem `tempo_max_pagina_s`: se estourar, a página é abandonada e o navegador reiniciado."""
         self.liberar()
         if not self.disponivel or not str(url).startswith(("http://", "https://")):
             return {"html": "", "status": 0, "erro": self.motivo_indisponivel}
         if not self._iniciar():
             return {"html": "", "status": 0, "erro": self.falha_ao_iniciar}
         self.usadas += 1
+        self._prazo = time.monotonic() + self.tempo_max_pagina_s
         try:
             self._contexto = self._navegador.new_context(viewport={"width": LARGURA, "height": ALTURA}, locale="pt-BR",
                                                          timezone_id="America/Sao_Paulo", user_agent=USER_AGENT)
             self._page = self._contexto.new_page()
-            self._page.set_default_timeout(TEMPO_NAVEGACAO_S * 1000)
-            resposta = self._page.goto(url, wait_until="domcontentloaded", timeout=TEMPO_NAVEGACAO_S * 1000)
+            espera = min(TEMPO_NAVEGACAO_S, self._restante())  # nenhuma operação passa do que resta para a página
+            self._page.set_default_timeout(espera * 1000)
+            resposta = self._page.goto(url, wait_until="domcontentloaded", timeout=espera * 1000)
             try:
-                self._page.wait_for_load_state("networkidle", timeout=6000)
+                self._page.wait_for_load_state("networkidle", timeout=min(6, self._restante()) * 1000)
+            except TimeoutError:
+                raise
             except Exception:
                 pass
             status = resposta.status if resposta is not None else 0
             if status >= 400:
                 self.liberar()
                 return {"html": "", "status": status, "erro": f"HTTP {status}"}
+            self._restante()
             _fechar_avisos(self._page)
             for _ in range(3):  # rola a página para carregar o que aparece aos poucos (produtos, preços)
+                self._restante()
                 self._page.mouse.wheel(0, ALTURA)
                 self._page.wait_for_timeout(500)
+            self._restante()
             self._page.evaluate("window.scrollTo(0, 0)")
             return {"html": self._page.content(), "status": status, "erro": ""}
         except Exception as erro:
+            estourou = type(erro).__name__ == "TimeoutError" or "Target" in type(erro).__name__ or "closed" in str(erro).lower()
             self.liberar()
+            if estourou and time.monotonic() >= self._prazo:
+                self._reiniciar()  # página travada: não reaproveita este navegador
             return {"html": "", "status": 0, "erro": f"{type(erro).__name__}: {str(erro).splitlines()[0][:100]}"}
 
     def capturar(self, url: str, preco: float | None) -> dict:
@@ -307,7 +333,10 @@ class LeitorNavegador:
         if self._page is None:
             return {"imagem": None, "capturado_em": "", "erro": "página já fechada"}
         try:
+            self._restante()  # o print faz parte do tempo da página
+            self._page.set_default_timeout(min(TEMPO_NAVEGACAO_S, self._restante()) * 1000)
             _preparar_pagina(self._page, preco)
+            self._restante()
             agora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
             png = self._page.screenshot(type="png", full_page=False)
             return {"imagem": _rodape(png, url, agora, preco), "capturado_em": agora, "erro": ""}
