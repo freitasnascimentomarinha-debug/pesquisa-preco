@@ -629,6 +629,76 @@ def buscar_searchapi(query, num_results=8):
         return []
 
 
+ARQUIVO_LOJAS_PREFERIDAS = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "lojas_preferidas.txt")
+
+
+def normalizar_loja(texto):
+    """'https://www.Kalunga.com.br/busca?x' -> 'kalunga.com.br'. Vazio se não parecer um domínio."""
+    texto = (texto or "").strip().lower()
+    if not texto or texto.startswith("#"):
+        return ""
+    texto = re.sub(r"^[a-z]+://", "", texto).split("/")[0].split("?")[0].split(":")[0]
+    texto = texto[4:] if texto.startswith("www.") else texto
+    return texto if re.fullmatch(r"[a-z0-9.-]+\.[a-z]{2,}", texto) else ""
+
+
+def ler_lojas_preferidas_arquivo():
+    """Lista padrão de lojas (arquivo lojas_preferidas.txt na raiz do projeto, uma por linha; # = comentário)."""
+    try:
+        with open(ARQUIVO_LOJAS_PREFERIDAS, encoding="utf-8") as arquivo:
+            return [l.strip() for l in arquivo if normalizar_loja(l)]
+    except OSError:
+        return []
+
+
+def _url_da_loja(url, loja):
+    dominio = urlparse(url).netloc.lower()
+    return dominio == loja or dominio.endswith("." + loja)
+
+
+def buscar_na_loja(session, item, loja, headers, num_results=8):
+    """Procura o item só dentro de uma loja, pelo DuckDuckGo com 'site:' (mesma busca da página: ddgs > DuckDuckGo HTML > Bing).
+    Aceita só endereços da própria loja (inclusive se ela estiver na lista de sites ignorados: foi você quem escolheu)."""
+    from bs4 import BeautifulSoup
+    from urllib.parse import unquote
+
+    query = f"{item} site:{loja}"
+    urls = []
+    try:
+        from ddgs import DDGS
+        resultados = list(DDGS().text(query, region="br-pt", max_results=num_results))
+        urls = [r["href"] for r in resultados if r.get("href") and _url_da_loja(r["href"], loja)]
+        motor = "DDGS API"
+    except Exception:
+        urls = []
+    if not urls:
+        motor = "DuckDuckGo HTML"
+        try:
+            resp = session.get(f"https://html.duckduckgo.com/html/?q={quote_plus(query)}", headers=headers, timeout=15)
+            if resp.status_code == 200:
+                for a_tag in BeautifulSoup(resp.text, "html.parser").select("a.result__a"):
+                    href = a_tag.get("href", "")
+                    if "uddg=" in href:
+                        href = unquote(href.split("uddg=")[1].split("&")[0])
+                    if href.startswith("http") and _url_da_loja(href, loja):
+                        urls.append(href)
+        except Exception:
+            pass
+    if not urls:
+        motor = "Bing"
+        try:
+            resp = session.get(f"https://www.bing.com/search?q={quote_plus(query)}&setlang=pt-BR&count={num_results}", headers=headers, timeout=15)
+            if resp.status_code == 200:
+                for a_tag in BeautifulSoup(resp.text, "html.parser").select("li.b_algo h2 a"):
+                    href = a_tag.get("href", "")
+                    if href.startswith("http") and _url_da_loja(href, loja):
+                        urls.append(href)
+        except Exception:
+            pass
+    unicas = list(dict.fromkeys(urls))[:4]  # até 4 páginas da loja (se a 1ª não tiver preço, tenta a próxima)
+    return unicas, (motor if unicas else "nenhum"), query
+
+
 def buscar_urls(session, query, headers, num_results=8):
     """Busca combinada: DDGS API > DuckDuckGo HTML > Google > Bing."""
     # 1. Tentar DDGS API (mais confiável em ambientes de servidor)
@@ -1263,7 +1333,7 @@ def scraping_playwright(url, item_nome, screenshot_path=None):
 
 # ===================== ORQUESTRADOR DE SCRAPING =====================
 
-def executar_scraping(itens, usar_playwright, progress_bar, log_container, status_text, max_fontes):
+def executar_scraping(itens, usar_playwright, progress_bar, log_container, status_text, max_fontes, lojas_preferidas=None, so_lojas_preferidas=False):
     """Executa o scraping completo para todos os itens."""
     import requests as req
 
@@ -1298,23 +1368,32 @@ def executar_scraping(itens, usar_playwright, progress_bar, log_container, statu
 
         # Selecionar variantes de busca aleatoriamente (usar mais variantes para maximizar cobertura)
         variantes = random.sample(VARIANTES_BUSCA, min(5, len(VARIANTES_BUSCA)))
+        # Rodadas: primeiro as lojas preferidas (busca "item site:loja"); depois a busca normal, salvo se "só nessas lojas"
+        rodadas = [(None, loja) for loja in (lojas_preferidas or [])]
+        if not (so_lojas_preferidas and lojas_preferidas):
+            rodadas += [(variante, None) for variante in variantes]
 
-        for variante in variantes:
+        for variante, loja in rodadas:
             estado_item = atualizar_estado_orcamentos(candidatos_item, max_fontes)
             if len(estado_item["validos"]) >= max_fontes:
                 log_msg(log_container, logs, f"✓ {max_fontes} orçamentos válidos encontrados para '{item}'. Avançando.", "success")
                 break
+            if loja and any(_url_da_loja(f"https://{d}", loja) for d in dominios_usados):
+                continue  # essa loja já deu orçamento para o item
 
-            query = variante.format(item=item)
-            log_msg(log_container, logs, f"🔍 Buscando: \"{query}\"", "info")
+            query = variante.format(item=item) if variante else f"{item} site:{loja}"
+            log_msg(log_container, logs, f"{'🏪 Loja preferida' if loja else '🔍 Buscando'}: \"{query}\"", "info")
 
             # Delay antes da busca
             delay = gerar_delay(2.0, 5.0)
             log_msg(log_container, logs, f"⏳ Aguardando {delay:.1f}s...", "info")
             time.sleep(delay)
 
-            # Buscar URLs (DDGS API > DuckDuckGo HTML > Google > Bing)
-            urls, engine = buscar_urls(session, query, headers)
+            # Buscar URLs (DDGS API > DuckDuckGo HTML > Google > Bing); loja preferida: só páginas da loja
+            if loja:
+                urls, engine, _ = buscar_na_loja(session, item, loja, headers)
+            else:
+                urls, engine = buscar_urls(session, query, headers)
 
             if not urls:
                 log_msg(log_container, logs, f"⚠ Nenhum resultado encontrado para \"{query}\"", "warn")
@@ -1860,6 +1939,27 @@ with col1:
         placeholder="Exemplo:\nArruela de pressão 1/4\nParafuso sextavado M10\nFita isolante 20m",
         help="Digite os nomes dos materiais que deseja pesquisar, um por linha.",
     )
+    with st.expander("🏪 Lojas preferidas (opcional)", expanded=False):
+        if "lojas_preferidas_texto" not in st.session_state:
+            st.session_state["lojas_preferidas_texto"] = "\n".join(ler_lojas_preferidas_arquivo())
+        lojas_texto = st.text_area(
+            "Sites das lojas (um por linha):",
+            key="lojas_preferidas_texto",
+            height=110,
+            placeholder="Exemplo:\nkalunga.com.br\nleroymerlin.com.br\nwww.papelaria.com.br",
+            help="Para cada item, o sistema procura primeiro dentro dessas lojas (DuckDuckGo com 'site:'). Pode colar o endereço completo; só o site é usado.",
+        )
+        lojas_preferidas = list(dict.fromkeys(l for l in (normalizar_loja(x) for x in lojas_texto.splitlines()) if l))
+        modo_lojas = st.radio(
+            "Como usar as lojas:",
+            ["Primeiro nessas lojas, depois a busca normal", "Só nessas lojas"],
+            key="modo_lojas_preferidas",
+            disabled=not lojas_preferidas,
+        )
+        so_lojas_preferidas = modo_lojas == "Só nessas lojas"
+        if lojas_preferidas:
+            st.caption(f"{len(lojas_preferidas)} loja(s): " + ", ".join(lojas_preferidas) + ". Cada loja dá no máximo um orçamento por item.")
+        st.caption("A lista vale enquanto a página estiver aberta. Para deixá-la fixa, salve os sites no arquivo lojas_preferidas.txt do projeto (um por linha).")
 
 with col2:
     st.markdown("#### ⚙️ Configurações")
@@ -1923,6 +2023,8 @@ if iniciar:
             log_container=log_container,
             status_text=status_text,
             max_fontes=max_fontes,
+            lojas_preferidas=lojas_preferidas,
+            so_lojas_preferidas=so_lojas_preferidas,
         )
 
         # Armazenar resultados no session_state
