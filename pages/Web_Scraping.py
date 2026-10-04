@@ -197,12 +197,12 @@ USER_AGENTS = [
 ]
 
 VARIANTES_BUSCA = [
-    "{item} preço R$",
-    "comprar {item} loja online",
-    "{item} fornecedor preço unitário",
-    "{item} valor R$ comprar agora",
-    "{item} atacado preço",
-    "{item} loja",
+    "{item} preço brasil",
+    "{item} comprar brasil",
+    "{item} fornecedor brasil",
+    "comprar {item} online brasil",
+    "{item} valor unitário loja brasileira",
+    "{item} loja online brasil",
 ]
 
 # Domínios a ignorar nos resultados
@@ -458,7 +458,8 @@ def _dedup_urls(urls, num_results=8):
     return unique[:num_results]
 
 
-MOTORES_DDGS = ("duckduckgo", "bing", "brave", "google")  # tentados em ordem até um devolver resultados do assunto
+MOTORES_DDGS = ("auto", "duckduckgo", "bing", "brave")  # "auto" primeiro (o que sempre funcionou); os demais só se vier vazio
+DIAG_BUSCA = {}  # o que cada buscador respondeu na última busca (aparece no log quando nada é encontrado)
 
 
 def _sem_acento(texto):
@@ -484,7 +485,8 @@ def _resultado_relevante(resultado, termos):
 
 
 def buscar_ddgs_api(query, num_results=8, item=None):
-    """Busca usando o pacote ddgs. Tenta vários motores e só aceita resultados que falem do item."""
+    """Busca usando o pacote ddgs. Prefere resultados que falem do item, mas não descarta os demais:
+    a leitura da página já confere a relevância."""
     termos = _termos_do_item(item) if item else []
     try:
         from ddgs import DDGS
@@ -492,20 +494,26 @@ def buscar_ddgs_api(query, num_results=8, item=None):
         try:
             from duckduckgo_search import DDGS
         except ImportError:
+            DIAG_BUSCA["ddgs"] = "pacote ddgs não instalado"
             return []
+    sobras = []
     for motor in MOTORES_DDGS:
         try:
             try:
-                resultados = list(DDGS(timeout=8).text(query, region="br-pt", max_results=num_results * 2, backend=motor))
+                resultados = list(DDGS(timeout=10).text(query, region="br-pt", max_results=num_results * 2, backend=motor))
             except TypeError:  # versão antiga sem o parâmetro backend/timeout
                 resultados = list(DDGS().text(query, region="br-pt", max_results=num_results * 2))
-        except Exception:
+        except Exception as erro:
+            DIAG_BUSCA[f"ddgs/{motor}"] = f"erro {type(erro).__name__}: {str(erro)[:80]}"
             continue
-        urls = [r["href"] for r in resultados if r.get("href") and dominio_valido(r["href"]) and _resultado_relevante(r, termos)]
-        urls = _dedup_urls(urls, num_results)
-        if urls:
-            return urls
-    return []
+        validos = [r for r in resultados if r.get("href") and dominio_valido(r["href"])]
+        DIAG_BUSCA[f"ddgs/{motor}"] = f"{len(resultados)} resultados, {len(validos)} após filtro de domínios"
+        relevantes = _dedup_urls([r["href"] for r in validos if _resultado_relevante(r, termos)], num_results)
+        if relevantes:
+            return relevantes
+        if not sobras:
+            sobras = _dedup_urls([r["href"] for r in validos], num_results)
+    return sobras[:3]  # nenhum motor trouxe resultado do assunto: tenta só os 3 primeiros
 
 
 def buscar_duckduckgo(session, query, headers, num_results=8):
@@ -517,6 +525,7 @@ def buscar_duckduckgo(session, query, headers, num_results=8):
     try:
         resp = session.get(url, headers=headers, timeout=(5, 10))
         if resp.status_code != 200:
+            DIAG_BUSCA["duckduckgo html"] = f"HTTP {resp.status_code}"
             return []
 
         soup = BeautifulSoup(resp.text, "html.parser")
@@ -542,7 +551,8 @@ def buscar_duckduckgo(session, query, headers, num_results=8):
 
         return _dedup_urls(urls, num_results)
 
-    except Exception:
+    except Exception as erro:
+        DIAG_BUSCA["duckduckgo html"] = f"erro {type(erro).__name__}"
         return []
 
 
@@ -558,6 +568,7 @@ def buscar_google_requests(session, query, headers, num_results=8):
     try:
         resp = session.get(url, headers=google_headers, timeout=15)
         if resp.status_code != 200:
+            DIAG_BUSCA["google html"] = f"HTTP {resp.status_code}"
             return []
 
         soup = BeautifulSoup(resp.text, "html.parser")
@@ -578,7 +589,8 @@ def buscar_google_requests(session, query, headers, num_results=8):
 
         return _dedup_urls(urls, num_results)
 
-    except Exception:
+    except Exception as erro:
+        DIAG_BUSCA["google html"] = f"erro {type(erro).__name__}"
         return []
 
 
@@ -592,6 +604,7 @@ def buscar_bing_requests(session, query, headers, num_results=8):
     try:
         resp = session.get(url, headers=bing_headers, timeout=15)
         if resp.status_code != 200:
+            DIAG_BUSCA["bing html"] = f"HTTP {resp.status_code}"
             return []
 
         soup = BeautifulSoup(resp.text, "html.parser")
@@ -612,7 +625,8 @@ def buscar_bing_requests(session, query, headers, num_results=8):
 
         return _dedup_urls(urls, num_results)
 
-    except Exception:
+    except Exception as erro:
+        DIAG_BUSCA["bing html"] = f"erro {type(erro).__name__}"
         return []
 
 
@@ -668,6 +682,7 @@ def buscar_searchapi(query, num_results=8):
 
 def buscar_urls(session, query, headers, num_results=8, item=None):
     """Busca combinada: DDGS API > DuckDuckGo HTML > Google > Bing."""
+    DIAG_BUSCA.clear()
     # 1. Tentar DDGS API (mais confiável em ambientes de servidor)
     urls = buscar_ddgs_api(query, num_results, item)
     if urls:
@@ -1307,7 +1322,7 @@ def scraping_playwright(url, item_nome, screenshot_path=None):
 
 # ===================== ORQUESTRADOR DE SCRAPING =====================
 
-def executar_scraping(itens, usar_playwright, progress_bar, log_container, status_text, max_fontes, usar_google_shopping=False, limite_google=10, delay_min=1.0, delay_max=3.0):
+def executar_scraping(itens, usar_playwright, progress_bar, log_container, status_text, max_fontes, usar_google_shopping=False, limite_google=10, delay_min=2.0, delay_max=5.0):
     """Executa o scraping completo para todos os itens."""
     import requests as req
     from collections import Counter
@@ -1382,7 +1397,8 @@ def executar_scraping(itens, usar_playwright, progress_bar, log_container, statu
 
             if not urls:
                 buscas_sem_resultado += 1
-                log_msg(log_container, logs, f"⚠ Nenhum resultado para \"{query}\" (todos os buscadores falharam ou só retornaram sites ignorados, como marketplaces)", "warn")
+                detalhe = "; ".join(f"{k}: {v}" for k, v in DIAG_BUSCA.items()) or "sem detalhes"
+                log_msg(log_container, logs, f"⚠ Nenhum resultado para \"{query}\" → {detalhe}", "warn")
                 continue
 
             novas = []
@@ -1928,8 +1944,8 @@ with col2:
                                             help="Limite de buscas pagas nesta execução, para você nunca gastar além do previsto.")
     else:
         st.caption("Google Shopping: desligado (sem chave nos Secrets). Pesquisa gratuita via DuckDuckGo.")
-    delay_min = st.number_input("Pausa mín. entre buscas (seg)", min_value=0.5, max_value=15.0, value=1.0, step=0.5)
-    delay_max = st.number_input("Pausa máx. entre buscas (seg)", min_value=1.0, max_value=30.0, value=3.0, step=0.5)
+    delay_min = st.number_input("Pausa mín. entre buscas (seg)", min_value=0.5, max_value=15.0, value=2.0, step=0.5)
+    delay_max = st.number_input("Pausa máx. entre buscas (seg)", min_value=1.0, max_value=30.0, value=5.0, step=0.5)
 
 # Validação
 if delay_min >= delay_max:
