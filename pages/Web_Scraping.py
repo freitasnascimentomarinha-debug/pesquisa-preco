@@ -197,13 +197,20 @@ USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 Edg/122.0.0.0",
 ]
 
+# Frases de compra com o material no começo e sem "brasil" (a região Brasil já é pedida ao buscador; a palavra puxava páginas sobre o país).
+# São usadas em ordem: as que mais trazem lojas com preço primeiro.
 VARIANTES_BUSCA = [
+    "{item} comprar",
+    "{item} preço",
+    "venda de {item}",
+    "{item} valor",
+    "{item} atacado",
+]
+# Reserva: as frases antigas, usadas só se as novas não bastarem para juntar as fontes pedidas.
+VARIANTES_RESERVA = [
     "{item} preço brasil",
     "{item} comprar brasil",
-    "{item} fornecedor brasil",
     "comprar {item} online brasil",
-    "{item} valor unitário loja brasileira",
-    "{item} loja online brasil",
 ]
 
 # Domínios a ignorar nos resultados
@@ -892,13 +899,18 @@ def _eh_pagina_produto(html, titulo):
     return True
 
 
+MOTIVO_REJEICAO = {"texto": ""}  # por que a última página foi rejeitada (aparece no log)
+
+
 def scraping_requests(session, url, headers, item_nome=None):
     """Acessa uma página via requests e extrai informações."""
     from bs4 import BeautifulSoup
 
+    MOTIVO_REJEICAO["texto"] = ""
     try:
         resp = session.get(url, headers=headers, timeout=15, allow_redirects=True)
         if resp.status_code != 200:
+            MOTIVO_REJEICAO["texto"] = f"HTTP {resp.status_code}"
             return None
 
         html = resp.text
@@ -906,10 +918,18 @@ def scraping_requests(session, url, headers, item_nome=None):
 
         # Verificar se é uma página de produto antes de gastar tempo extraindo preços
         if not _eh_pagina_produto(html, titulo):
+            MOTIVO_REJEICAO["texto"] = "não é página de produto"
             return None
 
         # Verificar se o conteúdo é relevante para o item buscado
         if item_nome and not _conteudo_relevante(html, titulo, item_nome):
+            MOTIVO_REJEICAO["texto"] = "página não corresponde ao item"
+            return None
+
+        # Só loja brasileira vendendo em reais: precisa de 2 sinais (.br, moeda BRL, pt-BR, "R$"); preço em outra moeda é rejeitado
+        nacional, motivo_nacional = web_precos.site_nacional(url, html)
+        if not nacional:
+            MOTIVO_REJEICAO["texto"] = motivo_nacional
             return None
 
         precos = extrair_precos_pagina(html)
@@ -917,6 +937,7 @@ def scraping_requests(session, url, headers, item_nome=None):
         # Preço do produto anunciado: oferta em JSON-LD (sem parcelas/preço riscado) > metadados > mediana dos valores do texto
         principal = web_precos.preco_principal(html, extrair_precos_pagina)
         if not principal:
+            MOTIVO_REJEICAO["texto"] = "sem preço identificável"
             return None
         preco_medio = principal["preco"]
         if preco_medio not in precos:
@@ -1342,7 +1363,7 @@ def executar_scraping(itens, usar_playwright, progress_bar, log_container, statu
         item_slug = re.sub(r'[^a-zA-Z0-9]', '_', item)[:40] or "item"
 
         # Selecionar variantes de busca aleatoriamente (usar mais variantes para maximizar cobertura)
-        variantes = random.sample(VARIANTES_BUSCA, min(5, len(VARIANTES_BUSCA)))
+        variantes = VARIANTES_BUSCA + VARIANTES_RESERVA  # em ordem; o laço para assim que as fontes pedidas forem atingidas
         dominios_falhos = set()  # site que falhou neste item não é tentado de novo nas outras buscas do mesmo item
 
         # 1º: lojas da memória que já deram preço para itens parecidos (cada uma uma vez só)
@@ -1488,9 +1509,10 @@ def executar_scraping(itens, usar_playwright, progress_bar, log_container, statu
                         )
                         reservas_logadas.add(resultado["resultado_id"])
                 else:
-                    log_msg(log_container, logs, f"✗ Sem preço extraível de {dominio}", "error")
+                    log_msg(log_container, logs, f"✗ Sem preço extraível de {dominio}" + (f" — {MOTIVO_REJEICAO['texto']}" if MOTIVO_REJEICAO["texto"] else ""), "error")
                     dominios_falhos.add(dominio)
-                    memoria_lojas.registrar_falha(memoria, url)
+                    if MOTIVO_REJEICAO["texto"] != "página não corresponde ao item":  # a loja pode servir para outro item
+                        memoria_lojas.registrar_falha(memoria, url)
 
         # Complemento: se não atingiu o mínimo de fontes, usar SearchAPI (Google Shopping)
         estado_item = atualizar_estado_orcamentos(candidatos_item, max_fontes)
