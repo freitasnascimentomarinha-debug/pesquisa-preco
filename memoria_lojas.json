@@ -1,9 +1,9 @@
 {
  "versao": 1,
- "atualizado": "2026-10-04T18:02:27",
+ "atualizado": "2026-10-04T18:19:57",
  "lojas": {
   "lojadomecanico.com.br": {
-   "acertos": 6,
+   "acertos": 7,
    "ultimo": "2026-10-04",
    "itens": [
     "fita isolante",
@@ -33,7 +33,7 @@
    ]
   },
   "copafer.com.br": {
-   "acertos": 5,
+   "acertos": 6,
    "ultimo": "2026-10-04",
    "itens": [
     "fita isolante",
@@ -244,6 +244,14 @@
    "ultimo": "2026-10-04"
   },
   "papelariariomadeira.com.br": {
+   "falhas": 1,
+   "ultimo": "2026-10-04"
+  },
+  "atacadodolojista.com.br": {
+   "falhas": 1,
+   "ultimo": "2026-10-04"
+  },
+  "feraatacado.com": {
    "falhas": 1,
    "ultimo": "2026-10-04"
   }
