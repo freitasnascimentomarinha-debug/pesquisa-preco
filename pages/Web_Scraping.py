@@ -461,12 +461,18 @@ def _dedup_urls(urls, num_results=8):
     return unique[:num_results]
 
 
+DIAG_BUSCA = {}  # o que cada buscador respondeu na última busca (erro, HTTP ou nº de sites): aparece no log quando o DuckDuckGo falha
+DDG_PROXIMA_TENTATIVA = {"ate": 0.0}  # depois de um bloqueio suspeito, o DuckDuckGo descansa um pouco antes de ser consultado de novo
+PAUSA_APOS_BLOQUEIO_DDG = 60  # segundos
+
+
 def buscar_ddgs_api(query, num_results=8):
     """Busca usando o pacote ddgs (DuckDuckGo Search) — mais confiável em servidores."""
     try:
         from ddgs import DDGS
         results = list(DDGS().text(query, region="br-pt", max_results=num_results))
         urls = [r["href"] for r in results if r.get("href") and dominio_valido(r["href"])]
+        DIAG_BUSCA["DDGS"] = f"{len(urls)} sites"
         return _dedup_urls(urls, num_results)
     except ImportError:
         try:
@@ -474,10 +480,14 @@ def buscar_ddgs_api(query, num_results=8):
             with DDGS() as ddgs:
                 results = list(ddgs.text(query, region="br-pt", max_results=num_results))
             urls = [r["href"] for r in results if r.get("href") and dominio_valido(r["href"])]
+            DIAG_BUSCA["DDGS"] = f"{len(urls)} sites"
             return _dedup_urls(urls, num_results)
-        except Exception:
+        except Exception as erro:
+            DIAG_BUSCA["DDGS"] = "0 sites" if "No results" in str(erro) else f"erro {type(erro).__name__}"
             return []
-    except Exception:
+    except Exception as erro:
+        # o pacote levanta "No results found" quando a frase não tem resultado: não é bloqueio
+        DIAG_BUSCA["DDGS"] = "0 sites" if "No results" in str(erro) else f"erro {type(erro).__name__}"
         return []
 
 
@@ -490,6 +500,7 @@ def buscar_duckduckgo(session, query, headers, num_results=8):
     try:
         resp = session.get(url, headers=headers, timeout=15)
         if resp.status_code != 200:
+            DIAG_BUSCA["DuckDuckGo HTML"] = f"HTTP {resp.status_code}"
             return []
 
         soup = BeautifulSoup(resp.text, "html.parser")
@@ -513,9 +524,11 @@ def buscar_duckduckgo(session, query, headers, num_results=8):
                 if dominio_valido(href):
                     urls.append(href)
 
+        DIAG_BUSCA["DuckDuckGo HTML"] = f"{len(urls)} sites"
         return _dedup_urls(urls, num_results)
 
-    except Exception:
+    except Exception as erro:
+        DIAG_BUSCA["DuckDuckGo HTML"] = f"erro {type(erro).__name__}"
         return []
 
 
@@ -555,6 +568,27 @@ def buscar_google_requests(session, query, headers, num_results=8):
         return []
 
 
+def desembrulhar_link_bing(href):
+    """Os resultados do Bing costumam vir como https://www.bing.com/ck/a?...&u=a1<base64 do endereço real>: devolve o endereço real
+    (sem isso todos os resultados parecem do domínio bing.com e a deduplicação por domínio deixa só um)."""
+    import base64
+    from urllib.parse import parse_qs, urlparse
+
+    try:
+        partes = urlparse(href)
+        if not partes.netloc.endswith("bing.com"):
+            return href
+        valor = (parse_qs(partes.query).get("u") or [""])[0]
+        if valor.startswith("a1"):
+            bruto = valor[2:]
+            real = base64.urlsafe_b64decode(bruto + "=" * (-len(bruto) % 4)).decode("utf-8", "ignore")
+            if real.startswith("http"):
+                return real
+    except Exception:
+        pass
+    return href
+
+
 def buscar_bing_requests(session, query, headers, num_results=8):
     """Busca no Bing como fallback adicional."""
     from bs4 import BeautifulSoup
@@ -565,6 +599,7 @@ def buscar_bing_requests(session, query, headers, num_results=8):
     try:
         resp = session.get(url, headers=bing_headers, timeout=15)
         if resp.status_code != 200:
+            DIAG_BUSCA["Bing"] = f"HTTP {resp.status_code}"
             return []
 
         soup = BeautifulSoup(resp.text, "html.parser")
@@ -573,19 +608,21 @@ def buscar_bing_requests(session, query, headers, num_results=8):
         for li in soup.select("li.b_algo"):
             a_tag = li.select_one("h2 a")
             if a_tag:
-                href = a_tag.get("href", "")
+                href = desembrulhar_link_bing(a_tag.get("href", ""))
                 if href.startswith("http") and dominio_valido(href):
                     urls.append(href)
 
         if not urls:
             for a_tag in soup.select("#b_results a[href^='http']"):
-                href = a_tag.get("href", "")
+                href = desembrulhar_link_bing(a_tag.get("href", ""))
                 if href.startswith("http") and dominio_valido(href):
                     urls.append(href)
 
+        DIAG_BUSCA["Bing"] = f"{len(urls)} sites"
         return _dedup_urls(urls, num_results)
 
-    except Exception:
+    except Exception as erro:
+        DIAG_BUSCA["Bing"] = f"erro {type(erro).__name__}"
         return []
 
 
@@ -670,24 +707,39 @@ def buscar_na_loja(session, item, site, headers, num_results=8):
 
 
 def buscar_urls(session, query, headers, num_results=8):
-    """Busca combinada: DDGS API > DuckDuckGo HTML > Google > Bing."""
-    # 1. Tentar DDGS API (mais confiável em ambientes de servidor)
-    urls = buscar_ddgs_api(query, num_results)
-    if urls:
-        return urls, "DDGS API"
-    # 2. DuckDuckGo HTML scraping
-    urls = buscar_duckduckgo(session, query, headers, num_results)
-    if urls:
-        return urls, "DuckDuckGo HTML"
+    """Busca combinada: DDGS API > DuckDuckGo HTML > Google > Bing. Se o DuckDuckGo falhar com sinal de bloqueio (erro, HTTP 202/403/429),
+    ele descansa PAUSA_APOS_BLOQUEIO_DDG segundos antes de ser consultado de novo (insistir só prolonga o bloqueio); nesse intervalo a busca
+    segue pelos outros. O motivo vai junto com o nome do buscador, para aparecer no log."""
+    DIAG_BUSCA.clear()
+    nota = ""
+    if time.time() < DDG_PROXIMA_TENTATIVA["ate"]:
+        nota = f"DuckDuckGo descansando por mais {DDG_PROXIMA_TENTATIVA['ate'] - time.time():.0f} s após bloqueio"
+    else:
+        # 1. Tentar DDGS API (mais confiável em ambientes de servidor)
+        urls = buscar_ddgs_api(query, num_results)
+        if urls:
+            DDG_PROXIMA_TENTATIVA["ate"] = 0.0
+            return urls, "DDGS API"
+        # 2. DuckDuckGo HTML scraping
+        urls = buscar_duckduckgo(session, query, headers, num_results)
+        if urls:
+            DDG_PROXIMA_TENTATIVA["ate"] = 0.0
+            return urls, "DuckDuckGo HTML"
+        sinais = [v for k, v in DIAG_BUSCA.items() if k in ("DDGS", "DuckDuckGo HTML")]
+        if any(str(v).startswith(("erro", "HTTP 202", "HTTP 403", "HTTP 429", "HTTP 5")) for v in sinais):
+            DDG_PROXIMA_TENTATIVA["ate"] = time.time() + PAUSA_APOS_BLOQUEIO_DDG
+            nota = "DuckDuckGo sem resposta (" + "; ".join(f"{k}: {v}" for k, v in DIAG_BUSCA.items() if k in ("DDGS", "DuckDuckGo HTML")) + f"); descansa {PAUSA_APOS_BLOQUEIO_DDG} s"
+        else:
+            nota = "DuckDuckGo sem resultados para esta frase"
     # 3. Google
     urls = buscar_google_requests(session, query, headers, num_results)
     if urls:
-        return urls, "Google"
+        return urls, f"Google — {nota}" if nota else "Google"
     # 4. Bing
     urls = buscar_bing_requests(session, query, headers, num_results)
     if urls:
-        return urls, "Bing"
-    return [], "nenhum"
+        return urls, f"Bing — {nota}" if nota else "Bing"
+    return [], f"nenhum ({nota})" if nota else "nenhum"
 
 
 def extrair_precos_pagina(html_content):
