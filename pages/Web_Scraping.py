@@ -938,7 +938,7 @@ def scraping_requests(session, url, headers, item_nome=None):
         # Preço do produto anunciado: oferta em JSON-LD (sem parcelas/preço riscado) > metadados > mediana dos valores do texto
         principal = web_precos.preco_principal(html, extrair_precos_pagina)
         if not principal:
-            MOTIVO_REJEICAO["texto"] = "sem preço identificável"
+            MOTIVO_REJEICAO["texto"] = "sem preço identificável (listagem/categoria ou página dinâmica)"
             return None
         preco_medio = principal["preco"]
         if preco_medio not in precos:
@@ -2138,7 +2138,8 @@ if "scraping_resultados" in st.session_state and st.session_state["scraping_resu
                 if prints:
                     feitos = [(u, v) for u, v in prints.items() if v.get("imagem")]
                     falhos = [(u, v) for u, v in prints.items() if not v.get("imagem")]
-                    st.success(f"{len(feitos)} print(s) prontos; entram no PDF abaixo.") if feitos else None
+                    if feitos:
+                        st.success(f"{len(feitos)} print(s) prontos; entram no PDF abaixo.")
                     for u, v in falhos:
                         st.warning(f"Sem print de {extrair_dominio(u)}: {v.get('erro', 'erro')}")
                     if feitos:
