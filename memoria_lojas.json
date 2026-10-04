@@ -1,6 +1,6 @@
 {
  "versao": 1,
- "atualizado": "2026-10-04T21:33:08",
+ "atualizado": "2026-10-04T21:44:05",
  "lojas": {
   "lojadomecanico.com.br": {
    "acertos": 14,
@@ -712,13 +712,13 @@
    "ultimo": "2026-10-04"
   },
   "{item} preço": {
-   "usos": 10.7341,
-   "acertos": 4.3024,
+   "usos": 11.1974,
+   "acertos": 4.0873,
    "ultimo": "2026-10-04"
   },
   "venda de {item}": {
-   "usos": 9.7331,
-   "acertos": 1.4904,
+   "usos": 10.2464,
+   "acertos": 1.4159,
    "ultimo": "2026-10-04"
   },
   "{item} valor": {
@@ -727,8 +727,8 @@
    "ultimo": "2026-10-04"
   },
   "{item} atacado": {
-   "usos": 10.7341,
-   "acertos": 7.6151,
+   "usos": 11.1974,
+   "acertos": 7.2343,
    "ultimo": "2026-10-04"
   },
   "{item} preço brasil": {
@@ -742,10 +742,10 @@
    "ultimo": "2026-10-04"
   },
   "comprar {item} online brasil": {
-   "usos": 10.2464,
-   "acertos": 3.2479,
+   "usos": 10.7341,
+   "acertos": 3.0855,
    "ultimo": "2026-10-04"
   }
  },
- "buscas": 16
+ "buscas": 17
 }
