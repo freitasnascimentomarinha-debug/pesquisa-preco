@@ -1,18 +1,18 @@
 {
  "versao": 1,
- "atualizado": "2026-10-04T18:44:58",
+ "atualizado": "2026-10-04T19:08:41",
  "lojas": {
   "lojadomecanico.com.br": {
-   "acertos": 9,
+   "acertos": 10,
    "ultimo": "2026-10-04",
    "itens": [
-    "tomada 20a",
     "fita isolante",
+    "tomada 20a",
     "chave de fenda"
    ]
   },
   "eletricaarea.com.br": {
-   "acertos": 4,
+   "acertos": 5,
    "ultimo": "2026-10-04",
    "itens": [
     "fita isolante"
@@ -94,16 +94,18 @@
    ]
   },
   "br.my-best.com": {
-   "acertos": 1,
+   "acertos": 2,
    "ultimo": "2026-10-04",
    "itens": [
     "fita isolante"
    ]
   },
   "tendaatacado.com.br": {
-   "acertos": 2,
+   "acertos": 4,
    "ultimo": "2026-10-04",
    "itens": [
+    "sabão em pó",
+    "detergente",
     "lâmpada",
     "papel a4 sulfite"
    ]
@@ -117,7 +119,7 @@
    ]
   },
   "hp.com": {
-   "acertos": 1,
+   "acertos": 2,
    "ultimo": "2026-10-04",
    "itens": [
     "papel a4 sulfite"
@@ -171,6 +173,51 @@
    "itens": [
     "tomada 20a"
    ]
+  },
+  "officinepapel.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-04",
+   "itens": [
+    "papel a4 sulfite"
+   ]
+  },
+  "lavoropapeis.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-04",
+   "itens": [
+    "papel a4 sulfite"
+   ]
+  },
+  "superpaguemenos.com.br": {
+   "acertos": 3,
+   "ultimo": "2026-10-04",
+   "itens": [
+    "sabão em pó",
+    "arroz 1kg",
+    "detergente"
+   ]
+  },
+  "atacadao.com.br": {
+   "acertos": 2,
+   "ultimo": "2026-10-04",
+   "itens": [
+    "arroz 1kg",
+    "detergente"
+   ]
+  },
+  "zonacerealista.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-04",
+   "itens": [
+    "arroz 1kg"
+   ]
+  },
+  "edona.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-04",
+   "itens": [
+    "sabão em pó"
+   ]
   }
  },
  "falhas": {
@@ -215,7 +262,7 @@
    "ultimo": "2026-10-04"
   },
   "sobradeestoque.com.br": {
-   "falhas": 1,
+   "falhas": 2,
    "ultimo": "2026-10-04"
   },
   "summit.com.br": {
@@ -259,6 +306,18 @@
    "ultimo": "2026-10-04"
   },
   "martinsatacado.com.br": {
+   "falhas": 1,
+   "ultimo": "2026-10-04"
+  },
+  "loja.suzano.com.br": {
+   "falhas": 1,
+   "ultimo": "2026-10-04"
+  },
+  "soydechollos.com": {
+   "falhas": 1,
+   "ultimo": "2026-10-04"
+  },
+  "portafolhetos.com.br": {
    "falhas": 1,
    "ultimo": "2026-10-04"
   }
