@@ -15,7 +15,7 @@ from concurrent.futures import ThreadPoolExecutor
 import requests
 import streamlit as st
 
-from catmat_busca import IndiceCatmat, _opcoes_servico, buscar_familias, calcular_similaridade
+from catmat_busca import TERMOS_ACAO, TERMOS_GENERICOS, IndiceCatmat, _opcoes_servico, _perfil, _calcular_tokens, buscar_familias, calcular_similaridade
 
 API_PRECOS = "https://dadosabertos.compras.gov.br/modulo-pesquisa-preco/1_consultarMaterial"
 API_PRECOS_SERVICO = "https://dadosabertos.compras.gov.br/modulo-pesquisa-preco/3_consultarServico"
@@ -28,7 +28,9 @@ MIN_PRECOS = 3  # abaixo disso o item é sinalizado (IN SEGES/ME nº 65/2021 rec
 TOLERANCIA = 0.30  # cada preço deve ficar a até 30% (para mais ou para menos) da média dos preços listados
 JANELA_DIAS = 365
 MAX_FAMILIAS = 12
-MAX_CANDIDATOS_SERVICO = 10  # serviços do catálogo cujos preços são conferidos antes de escolher os 3 melhores
+MAX_CANDIDATOS_SERVICO = 40  # serviços do catálogo cujos preços são conferidos antes de escolher os 3 melhores
+DECLARACOES_DE_SERVICO = {"servico", "prestacao", "contratacao", "terceirizacao"}
+MARCADORES_SERVICO = {"servico", "prestacao", "contratacao", "locacao", "terceirizacao"} | TERMOS_ACAO
 MAX_PAGINAS = 8
 TAMANHO_PAGINA = 500
 
@@ -285,11 +287,15 @@ def _cotar_servico(descricao: str, catalogo_servico: list[dict], inicio: str, fi
     resultado["proximos"] = [{"codigo": o["codigo"], "correspondencia": o["similaridade"], "descricao": o["descricao_catalogo"]} for o in opcoes[:MAX_CATMAT]]
     resultado["melhor_proximo"] = resultado["proximos"][0] if opcoes else None
     candidatos = [o for o in opcoes if o["similaridade"] >= limiar][:MAX_CANDIDATOS_SERVICO]
+    objeto = str(_perfil(descricao)["cabeca"])
+    disse_servico = "servico" in _calcular_tokens(descricao)  # "serviço de limpeza" -> prefere "PRESTACAO DE SERVICO DE LIMPEZA..."
     if not candidatos:
         return resultado
     with ThreadPoolExecutor(max_workers=4) as executor:  # primeiro só a contagem: poucos serviços têm preços no período
         totais = list(executor.map(lambda o: total_de_precos_do_servico(str(o["codigo"]), inicio, fim), candidatos))
-    com_precos = sorted(((o, n) for o, n in zip(candidatos, totais) if n > 0), key=lambda par: (round(par[0]["bruta"], 1), par[1]), reverse=True)[:MAX_CATMAT]
+    # Correspondências próximas (faixas de 15 pontos) empatam e vence o serviço com mais preços praticados: num pedido
+    # genérico ("serviço de limpeza") o mais representativo é o mais contratado, não o primeiro da lista.
+    com_precos = sorted(((o, n) for o, n in zip(candidatos, totais) if n > 0), key=lambda par: (int(par[0]["similaridade"] // 15), _comeca_pelo_objeto(par[0]["descricao_catalogo"], objeto), disse_servico and "servico" in _calcular_tokens(par[0]["descricao_catalogo"]), par[1]), reverse=True)[:MAX_CATMAT]
     if not com_precos:
         return resultado
     with ThreadPoolExecutor(max_workers=3) as executor:
@@ -303,6 +309,28 @@ def _cotar_servico(descricao: str, catalogo_servico: list[dict], inicio: str, fi
             por_item[opcao["codigo"]] = validos
             escolhidos.append((opcao["similaridade"], len(validos), opcao["codigo"], opcao["descricao_catalogo"]))
     return _concluir(resultado, escolhidos, por_item) if escolhidos else resultado
+
+
+_INICIO_SERVICOS: dict[int, dict[str, int]] = {}
+
+
+def _inicio_servicos(catalogo_servico: list[dict]) -> dict[str, int]:
+    """Quantos nomes de serviço começam por cada palavra (ignorando ação/genéricas: "MANUTENCAO DE PISO" conta como piso)."""
+    chave = id(catalogo_servico)
+    if chave not in _INICIO_SERVICOS:
+        contagem: dict[str, int] = defaultdict(int)
+        for item in catalogo_servico:
+            primeira = next((t for t in _calcular_tokens(str(item["descricao"])) if t not in TERMOS_ACAO and t not in TERMOS_GENERICOS), None)
+            if primeira:
+                contagem[primeira] += 1
+        _INICIO_SERVICOS[chave] = dict(contagem)
+    return _INICIO_SERVICOS[chave]
+
+
+def _comeca_pelo_objeto(nome: str, objeto: str) -> bool:
+    """O nome do serviço começa (ignorando ação/palavras genéricas) pelo objeto pedido? ("LIMPEZA URBANA" p/ limpeza; não "AR CONDICIONADO - ... LIMPEZA")."""
+    primeira = next((t for t in _calcular_tokens(nome) if t not in TERMOS_ACAO and t not in TERMOS_GENERICOS), "")
+    return primeira == objeto
 
 
 _ORDEM_STATUS = {"ok": 3, "insuficiente": 2, "sem_precos": 1, "sem_catmat": 0}
@@ -319,11 +347,24 @@ def cotar_item(descricao: str, catmat: IndiceCatmat, catalogo_servico: list[dict
     if tipo == "Serviço":
         return _cotar_servico(descricao, catalogo_servico, inicio, fim)
 
-    # Automático: só gasta consultas de preço com o tipo que tem correspondência local ≥ limiar (ou com o mais forte).
+    # Automático: decide o tipo antes de gastar consultas de preço.
     nota_material = max((f["nota"] for f in buscar_familias(descricao, catmat, limite=1)), default=0.0)
-    servicos = _opcoes_servico(descricao, catalogo_servico)
-    nota_servico = max((o["similaridade"] for o in servicos), default=0.0)
-    tipos = [t for t, nota, minimo in (("Material", nota_material, LIMIAR_CORRESPONDENCIA), ("Serviço", nota_servico, LIMIAR_SERVICO)) if nota >= minimo]
-    tipos = tipos or [("Material", "Serviço")[nota_servico - LIMIAR_SERVICO > nota_material - LIMIAR_CORRESPONDENCIA]]
+    nota_servico = max((o["similaridade"] for o in _opcoes_servico(descricao, catalogo_servico)), default=0.0)
+    material_ok, servico_ok = nota_material >= LIMIAR_CORRESPONDENCIA, nota_servico >= LIMIAR_SERVICO
+    perfil = _perfil(descricao)
+    palavras = set(perfil["ordem"])
+    inicio_material = catmat.inicio_pdm.get(str(perfil["cabeca"]), 0)
+    inicio_servico = _inicio_servicos(catalogo_servico).get(str(perfil["cabeca"]), 0)
+    if palavras & DECLARACOES_DE_SERVICO:
+        tipos = ["Serviço"]  # o pedido diz "serviço"/"prestação"/"contratação": é serviço, mesmo que o catálogo não tenha nome parecido
+    elif servico_ok and (palavras & MARCADORES_SERVICO):
+        tipos = ["Serviço"]  # "serviço de limpeza", "troca de piso", "manutenção de ...": o pedido diz que é serviço
+    elif servico_ok and inicio_servico and inicio_servico >= 2 * inicio_material:
+        tipos = ["Serviço"]  # "pintura predial", "limpeza": nomes de serviço começam assim bem mais que famílias de material
+    elif material_ok and inicio_material and inicio_material >= 2 * inicio_servico:
+        tipos = ["Material"]
+    else:
+        tipos = [t for t, ok in (("Material", material_ok), ("Serviço", servico_ok)) if ok]
+        tipos = tipos or [("Material", "Serviço")[nota_servico - LIMIAR_SERVICO > nota_material - LIMIAR_CORRESPONDENCIA]]
     resultados = [(_cotar_material if t == "Material" else _cotar_servico)(descricao, catmat if t == "Material" else catalogo_servico, inicio, fim) for t in tipos]
     return max(resultados, key=lambda r: (_ORDEM_STATUS[r["status"]], len(r["precos"]), max((k["correspondencia"] for k in r["catmats"]), default=0), (r["melhor_proximo"] or {}).get("correspondencia", 0)))

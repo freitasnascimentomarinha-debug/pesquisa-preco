@@ -74,6 +74,11 @@ EQUIVALENCIAS = {
     "sulfite": [{"alcalino"}, {"reprografico"}],
     "reprografico": [{"sulfite"}],
     "split": [{"parede"}],
+    "predial": [{"area", "interna"}, {"edificio"}],  # o CATSERV diz "áreas internas"
+    "garcom": [{"garcon"}],  # o CATSERV escreve GARCON
+    "garconete": [{"garcon"}],
+    "copeiro": [{"copeiragem"}],
+    "copeira": [{"copeiragem"}],
     "troca": [{"substituicao"}, {"instalacao"}, {"manutencao"}],
     "substituicao": [{"troca"}, {"instalacao"}, {"manutencao"}],
     "reparo": [{"manutencao"}],
@@ -175,6 +180,7 @@ class IndiceCatmat(NamedTuple):
     por_codigo: dict[str, int]  # código do item -> posição em `itens`
     pdms: dict[str, dict[str, object]]  # código PDM -> {nome, classe, itens}
     tokens_pdm: dict[str, frozenset[str]]  # código PDM -> palavras do nome da família
+    inicio_pdm: dict[str, int]  # palavra -> quantas famílias têm o nome começando por ela
 
 
 @st.cache_resource(show_spinner="Carregando o catálogo CATMAT (apenas na primeira vez, ~15 s)...")
@@ -194,7 +200,12 @@ def carregar_indice_catmat(caminho: str) -> IndiceCatmat:
             for token in set(_calcular_tokens(f"{nome_pdm} {linha['descricao']}")):
                 indice[token].append(posicao)
     tokens_pdm = {codigo: frozenset(_calcular_tokens(str(familia["nome"]))) for codigo, familia in pdms.items()}
-    return IndiceCatmat(itens, dict(indice), por_codigo, pdms, tokens_pdm)
+    inicio_pdm: dict[str, int] = defaultdict(int)
+    for familia in pdms.values():
+        ordenados = _calcular_tokens(str(familia["nome"]))
+        if ordenados:
+            inicio_pdm[ordenados[0]] += 1
+    return IndiceCatmat(itens, dict(indice), por_codigo, pdms, tokens_pdm, dict(inicio_pdm))
 
 
 def _buscar_no_catmat(descricao: str, catmat: IndiceCatmat, limite: int = CANDIDATOS_POR_CONSULTA) -> list[int]:
@@ -336,7 +347,10 @@ def _pontuar(descricao: str, candidato: str, nome_pdm: str = "", servico: bool =
         # Nomes do CATSERV são enxutos: item genérico ("PISO EM GERAL") serve para pedido com qualificador; já item com
         # OUTRO qualificador ("SEGURO PATRIMONIAL" p/ "seguro veículo") não. E o termo principal precisa estar presente.
         faltantes = [token for token in nucleo if token != cabeca and token not in TERMOS_ACAO and forcas[token] < 0.7]
-        if faltantes and extras_no_nome:
+        generico = bool(set(nome) & {"geral", "outro", "diverso", "demais"})  # "PINTURA EM GERAL": serve para qualquer tipo
+        if generico:
+            pontuacao += min(16, len(extras_no_nome) * 4) * 0.5  # contexto ("OBRAS CIVIS - PEQUENAS OBRAS") pesa metade num item genérico
+        if faltantes and extras_no_nome and not generico:
             pontuacao *= 0.65
         if forca_cabeca < 0.85:
             pontuacao *= 0.5
