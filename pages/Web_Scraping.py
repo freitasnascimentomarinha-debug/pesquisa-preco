@@ -1358,253 +1358,280 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
     if not onde_memoria.startswith("GitHub"):
         log_msg(log_container, logs, "🧠 " + memoria_lojas.diagnostico_secrets(st.secrets if _tem_secrets() else {}), "warn")
 
+    st.session_state["prints_web"] = {}  # prints desta pesquisa (o navegador guarda o print assim que acha o preço)
+
     def ler_com_navegador(url, item_nome):
-        """Navegador primeiro. Devolve (resultado, leu): `leu` é True quando o navegador abriu a página (mesmo sem preço),
-        o que dispensa a leitura simples; False se ele não está ativo, o limite acabou ou não conseguiu abrir."""
+        """Navegador primeiro. Devolve (resultado, leu, tentou): `tentou` = o navegador foi usado nesta página; `leu` = ele a abriu (mesmo sem preço).
+        Se achar o preço, já guarda o print da página (com data/hora), para não precisar abrir de novo depois. Sem resultado, quem chama usa a leitura por texto."""
         if leitor is None or not leitor.disponivel:
-            return None, False
+            return None, False, False
         log_msg(log_container, logs, f"🌐 Abrindo no navegador: {extrair_dominio(url)} ({leitor.usadas + 1}/{leitor.limite})", "info")
         lido = leitor.ler(url)
         if not lido["html"]:
-            log_msg(log_container, logs, f"⚠ O navegador não abriu {extrair_dominio(url)} ({lido['erro']}); usando a leitura simples", "warn")
-            return None, False
-        resultado_navegador = scraping_requests(session, url, headers, item_nome=item_nome, html=lido["html"])
-        if resultado_navegador:
-            resultado_navegador["origem_preco"] = f"{resultado_navegador.get('origem_preco', '')} (lido com navegador)".strip()
-        return resultado_navegador, True
-
-    for idx, item in enumerate(itens):
-        item = item.strip()
-        if not item:
-            continue
-        log_msg(log_container, logs, f"━━━ Iniciando busca: <b>{item}</b> ({idx+1}/{total_itens}) ━━━", "info")
-        status_text.text(f"Buscando: {item} ({idx+1}/{total_itens})")
-        progress_bar.progress((idx) / total_itens)
-
-        candidatos_item = []
-        dominios_usados = set()
-        outliers_logados = set()
-        reservas_logadas = set()
-        contador_item = 0
-        item_slug = re.sub(r'[^a-zA-Z0-9]', '_', item)[:40] or "item"
-
-        # Selecionar variantes de busca aleatoriamente (usar mais variantes para maximizar cobertura)
-        variantes = VARIANTES_BUSCA + VARIANTES_RESERVA  # em ordem; o laço para assim que as fontes pedidas forem atingidas
-        dominios_falhos = set()  # site que falhou neste item não é tentado de novo nas outras buscas do mesmo item
-
-        # 1º: lojas da memória que já deram preço para itens parecidos (cada uma uma vez só)
-        for site_memoria, item_parecido in memoria_lojas.lojas_para_item(memoria, item):
-            if len(atualizar_estado_orcamentos(candidatos_item, max_fontes)["validos"]) >= max_fontes:
-                break
-            log_msg(log_container, logs, f"🧠 Loja da memória: {site_memoria} (já deu preço para '{item_parecido}')", "info")
-            time.sleep(gerar_delay(1.5, 3.0))
-            for url in buscar_na_loja(session, item, site_memoria, headers):
-                time.sleep(gerar_delay(1.5, 3.5))
-                resultado, leu_no_navegador = ler_com_navegador(url, item)
-                if not resultado and not leu_no_navegador:
-                    resultado = scraping_requests(session, url, headers, item_nome=item)
-                if resultado:
-                    contador_item += 1
-                    resultado["resultado_id"] = f"{item_slug}_{contador_item}_{abs(hash(url)) % 10000}"
-                    resultado["item"] = item
-                    resultado["data_coleta"] = datetime.now().strftime("%d/%m/%Y %H:%M")
-                    candidatos_item.append(resultado)
-                    dominios_usados.add(extrair_dominio(url))
-                    memoria_lojas.registrar_acerto(memoria, url, item)
-                    log_msg(log_container, logs, f"💰 Orçamento da memória — {formatar_moeda_br(resultado['preco'])} em {extrair_dominio(url)}", "orcamento")
-                    break
+            log_msg(log_container, logs, f"⚠ O navegador não abriu {extrair_dominio(url)} ({lido['erro']}); usando a leitura por texto", "warn")
+            return None, False, True
+        resultado_navegador = None
+        try:
+            resultado_navegador = scraping_requests(session, url, headers, item_nome=item_nome, html=lido["html"])
+            if resultado_navegador:
+                resultado_navegador["origem_preco"] = f"{resultado_navegador.get('origem_preco', '')} (lido com navegador)".strip()
+                captura = leitor.capturar(url, resultado_navegador["preco"])
+                if captura["imagem"]:
+                    st.session_state["prints_web"][url] = captura
+                    log_msg(log_container, logs, f"📸 Print guardado de {extrair_dominio(url)}", "info")
             else:
-                log_msg(log_container, logs, f"✗ {site_memoria} não teve preço para '{item}' desta vez", "warn")
-            dominios_falhos.update({site_memoria, "www." + site_memoria})
+                log_msg(log_container, logs, f"⚠ O navegador abriu {extrair_dominio(url)} mas não achou preço ({MOTIVO_REJEICAO['texto'] or 'sem motivo'}); tentando a leitura por texto", "warn")
+        finally:
+            leitor.liberar()
+        return resultado_navegador, True, True
 
-        for variante in variantes:
-            estado_item = atualizar_estado_orcamentos(candidatos_item, max_fontes)
-            if len(estado_item["validos"]) >= max_fontes:
-                log_msg(log_container, logs, f"✓ {max_fontes} orçamentos válidos encontrados para '{item}'. Avançando.", "success")
-                break
-
-            query = variante.format(item=item)
-            log_msg(log_container, logs, f"🔍 Buscando: \"{query}\"", "info")
-
-            # Delay antes da busca
-            delay = gerar_delay(2.0, 5.0)
-            log_msg(log_container, logs, f"⏳ Aguardando {delay:.1f}s...", "info")
-            time.sleep(delay)
-
-            # Buscar URLs (DDGS API > DuckDuckGo HTML > Google > Bing)
-            urls, engine = buscar_urls(session, query, headers)
-
-            if not urls:
-                log_msg(log_container, logs, f"⚠ Nenhum resultado encontrado para \"{query}\"", "warn")
+    try:
+        for idx, item in enumerate(itens):
+            item = item.strip()
+            if not item:
                 continue
+            log_msg(log_container, logs, f"━━━ Iniciando busca: <b>{item}</b> ({idx+1}/{total_itens}) ━━━", "info")
+            status_text.text(f"Buscando: {item} ({idx+1}/{total_itens})")
+            progress_bar.progress((idx) / total_itens)
 
-            log_msg(log_container, logs, f"📋 {len(urls)} resultados encontrados via {engine}", "info")
+            candidatos_item = []
+            dominios_usados = set()
+            outliers_logados = set()
+            reservas_logadas = set()
+            contador_item = 0
+            item_slug = re.sub(r'[^a-zA-Z0-9]', '_', item)[:40] or "item"
 
-            for url in urls:
+            # Selecionar variantes de busca aleatoriamente (usar mais variantes para maximizar cobertura)
+            variantes = VARIANTES_BUSCA + VARIANTES_RESERVA  # em ordem; o laço para assim que as fontes pedidas forem atingidas
+            dominios_falhos = set()  # site que falhou neste item não é tentado de novo nas outras buscas do mesmo item
+
+            # 1º: lojas da memória que já deram preço para itens parecidos (cada uma uma vez só)
+            for site_memoria, item_parecido in memoria_lojas.lojas_para_item(memoria, item):
+                if len(atualizar_estado_orcamentos(candidatos_item, max_fontes)["validos"]) >= max_fontes:
+                    break
+                log_msg(log_container, logs, f"🧠 Loja da memória: {site_memoria} (já deu preço para '{item_parecido}')", "info")
+                time.sleep(gerar_delay(1.5, 3.0))
+                for url in buscar_na_loja(session, item, site_memoria, headers):
+                    time.sleep(gerar_delay(1.5, 3.5))
+                    resultado, _, _ = ler_com_navegador(url, item)
+                    metodo_ok = "navegador"
+                    if not resultado:  # fallback: leitura por texto
+                        resultado = scraping_requests(session, url, headers, item_nome=item)
+                        metodo_ok = "texto"
+                    if resultado:
+                        contador_item += 1
+                        resultado["resultado_id"] = f"{item_slug}_{contador_item}_{abs(hash(url)) % 10000}"
+                        resultado["item"] = item
+                        resultado["data_coleta"] = datetime.now().strftime("%d/%m/%Y %H:%M")
+                        candidatos_item.append(resultado)
+                        dominios_usados.add(extrair_dominio(url))
+                        memoria_lojas.registrar_acerto(memoria, url, item, metodo_ok)
+                        log_msg(log_container, logs, f"💰 Orçamento da memória — {formatar_moeda_br(resultado['preco'])} em {extrair_dominio(url)}", "orcamento")
+                        break
+                else:
+                    log_msg(log_container, logs, f"✗ {site_memoria} não teve preço para '{item}' desta vez", "warn")
+                dominios_falhos.update({site_memoria, "www." + site_memoria})
+
+            for variante in variantes:
                 estado_item = atualizar_estado_orcamentos(candidatos_item, max_fontes)
                 if len(estado_item["validos"]) >= max_fontes:
+                    log_msg(log_container, logs, f"✓ {max_fontes} orçamentos válidos encontrados para '{item}'. Avançando.", "success")
                     break
 
-                dominio = extrair_dominio(url)
-                if dominio in dominios_usados or dominio in dominios_falhos:
-                    continue
-                if memoria_lojas.deve_pular(memoria, url):
-                    log_msg(log_container, logs, f"⏭ {dominio} pulado (falhou {memoria_lojas.FALHAS_PARA_PULAR}+ vezes em pesquisas anteriores)", "info")
-                    dominios_falhos.add(dominio)
-                    continue
+                query = variante.format(item=item)
+                log_msg(log_container, logs, f"🔍 Buscando: \"{query}\"", "info")
 
-                log_msg(log_container, logs, f"🌐 Acessando: {dominio}", "info")
-
-                # Delay entre acessos a sites
-                delay = gerar_delay(2.5, 6.0)
-                log_msg(log_container, logs, f"⏳ Delay de navegação: {delay:.1f}s", "info")
+                # Delay antes da busca
+                delay = gerar_delay(2.0, 5.0)
+                log_msg(log_container, logs, f"⏳ Aguardando {delay:.1f}s...", "info")
                 time.sleep(delay)
 
-                resultado = None
-                screenshot_path = os.path.join(
-                    SCREENSHOT_DIR,
-                    f"{item_slug}_{contador_item + 1}.png",
-                )
+                # Buscar URLs (DDGS API > DuckDuckGo HTML > Google > Bing)
+                urls, engine = buscar_urls(session, query, headers)
 
-                # Se Playwright selecionado e disponível, usar primeiro
-                if playwright_disponivel:
-                    log_msg(log_container, logs, f"🎭 Tentando com navegador automatizado: {dominio}", "info")
-                    time.sleep(gerar_delay(1.5, 3.5))
-                    resultado = scraping_playwright(url, item, screenshot_path)
+                if not urls:
+                    log_msg(log_container, logs, f"⚠ Nenhum resultado encontrado para \"{query}\"", "warn")
+                    continue
 
-                # Navegador primeiro (se ativo); só se ele não conseguir abrir a página, a leitura simples por texto, com tentativas
-                leu_no_navegador = False
-                if not resultado:
-                    resultado, leu_no_navegador = ler_com_navegador(url, item)
-                if not resultado and not leu_no_navegador:
-                    for tentativa in range(MAX_RETRIES + 1):
-                        # Simular tempo de leitura
-                        time.sleep(gerar_delay_leitura())
+                log_msg(log_container, logs, f"📋 {len(urls)} resultados encontrados via {engine}", "info")
 
-                        resultado = scraping_requests(session, url, headers, item_nome=item)
-                        if resultado:
-                            break
-
-                        if tentativa < MAX_RETRIES:
-                            retry_delay = gerar_delay(3.0, 7.0)
-                            log_msg(log_container, logs, f"🔄 Retry {tentativa+1}/{MAX_RETRIES} em {retry_delay:.1f}s...", "warn")
-                            time.sleep(retry_delay)
-                            # Trocar User-Agent no retry
-                            headers = gerar_headers()
-                            session.headers.update(headers)
-
-                if resultado:
-                    contador_item += 1
-                    resultado["resultado_id"] = f"{item_slug}_{contador_item}_{abs(hash(url)) % 10000}"
-                    resultado["item"] = item
-                    resultado["data_coleta"] = datetime.now().strftime("%d/%m/%Y %H:%M")
-
-                    # Capturar screenshot via Playwright se ainda não temos
-                    if playwright_disponivel and not resultado.get("screenshot"):
-                        try:
-                            _resultado_pw = scraping_playwright(url, item, screenshot_path)
-                            if _resultado_pw and _resultado_pw.get("screenshot"):
-                                resultado["screenshot"] = _resultado_pw["screenshot"]
-                        except Exception:
-                            pass
-
-                    candidatos_item.append(resultado)
-                    dominios_usados.add(dominio)
-                    memoria_lojas.registrar_acerto(memoria, url, item)
-                    estado_item = atualizar_estado_orcamentos(candidatos_item, max_fontes)
-
-                    for descartado in estado_item["descartados"]:
-                        if descartado["resultado_id"] in outliers_logados:
-                            continue
-                        log_msg(
-                            log_container,
-                            logs,
-                            f"🚫 Outlier descartado em {descartado['dominio']}: {formatar_moeda_br(descartado['preco'])} acima do limite de {formatar_moeda_br(descartado['limite_superior'])} para '{item}'. Buscando reposição.",
-                            "warn",
-                        )
-                        outliers_logados.add(descartado["resultado_id"])
-
-                    if resultado["resultado_id"] in estado_item["ids_validos"]:
-                        log_msg(
-                            log_container,
-                            logs,
-                            f"💰 Orçamento [{len(estado_item['validos'])}/{max_fontes}] — {formatar_moeda_br(resultado['preco'])} em {dominio}",
-                            "orcamento",
-                        )
-                    elif resultado["resultado_id"] not in estado_item["ids_descartados"] and resultado["resultado_id"] not in reservas_logadas:
-                        log_msg(
-                            log_container,
-                            logs,
-                            f"📌 Cotação extra mantida em reserva: {formatar_moeda_br(resultado['preco'])} em {dominio}",
-                            "info",
-                        )
-                        reservas_logadas.add(resultado["resultado_id"])
-                else:
-                    log_msg(log_container, logs, f"✗ Sem preço extraível de {dominio}" + (f" — {MOTIVO_REJEICAO['texto']}" if MOTIVO_REJEICAO["texto"] else ""), "error")
-                    dominios_falhos.add(dominio)
-                    if MOTIVO_REJEICAO["texto"] != "página não corresponde ao item":  # a loja pode servir para outro item
-                        memoria_lojas.registrar_falha(memoria, url)
-
-        # Complemento: se não atingiu o mínimo de fontes, usar SearchAPI (Google Shopping)
-        estado_item = atualizar_estado_orcamentos(candidatos_item, max_fontes)
-        faltam = max_fontes - len(estado_item["validos"])
-        if faltam > 0:
-            log_msg(log_container, logs, f"🛒 Faltam {faltam} orçamento(s) para '{item}'. Tentando Google Shopping (SearchAPI)...", "info")
-            searchapi_results = buscar_searchapi(item, faltam + 2)  # pedir extras para compensar duplicados
-            if searchapi_results:
-                dominios_ja = {r['dominio'] for r in candidatos_item}
-                for sr in searchapi_results:
+                for url in urls:
                     estado_item = atualizar_estado_orcamentos(candidatos_item, max_fontes)
                     if len(estado_item["validos"]) >= max_fontes:
                         break
-                    if sr.get('dominio') in dominios_ja:
+
+                    dominio = extrair_dominio(url)
+                    if dominio in dominios_usados or dominio in dominios_falhos:
                         continue
-                    contador_item += 1
-                    sr["resultado_id"] = f"{item_slug}_{contador_item}_{abs(hash(sr.get('url', sr.get('dominio', 'searchapi')))) % 10000}"
-                    sr["item"] = item
-                    sr["data_coleta"] = datetime.now().strftime("%d/%m/%Y %H:%M")
-                    sr["precos_detectados"] = [sr.get("preco")] if sr.get("preco") else []
-                    sr["contexto_extraido"] = "Preço complementar obtido no Google Shopping (SearchAPI)."
-                    sr["origem_preco"] = "Google Shopping (SearchAPI)"
-                    sr["confianca"] = "média"
-                    candidatos_item.append(sr)
-                    dominios_ja.add(sr.get('dominio', ''))
-                    estado_item = atualizar_estado_orcamentos(candidatos_item, max_fontes)
+                    # Só se pula o site pelo MESMO método que vai ser usado: o navegador tem mais chance e não é barrado por falhas da leitura por texto
+                    metodo_atual = "navegador" if (leitor is not None and leitor.disponivel) else "texto"
+                    if memoria_lojas.deve_pular(memoria, url, metodo_atual):
+                        log_msg(log_container, logs, f"⏭ {dominio} pulado (a leitura por {metodo_atual} falhou {memoria_lojas.FALHAS_PARA_PULAR}+ vezes em pesquisas anteriores)", "info")
+                        dominios_falhos.add(dominio)
+                        continue
 
-                    for descartado in estado_item["descartados"]:
-                        if descartado["resultado_id"] in outliers_logados:
-                            continue
-                        log_msg(
-                            log_container,
-                            logs,
-                            f"🚫 Outlier descartado em {descartado['dominio']}: {formatar_moeda_br(descartado['preco'])} acima do limite de {formatar_moeda_br(descartado['limite_superior'])} para '{item}'.",
-                            "warn",
-                        )
-                        outliers_logados.add(descartado["resultado_id"])
+                    log_msg(log_container, logs, f"🌐 Acessando: {dominio}", "info")
 
-                    if sr["resultado_id"] in estado_item["ids_validos"]:
-                        log_msg(
-                            log_container,
-                            logs,
-                            f"💰 Orçamento [{len(estado_item['validos'])}/{max_fontes}] — Google Shopping: {formatar_moeda_br(sr['preco'])} em {sr['dominio']}",
-                            "orcamento",
-                        )
+                    # Delay entre acessos a sites
+                    delay = gerar_delay(2.5, 6.0)
+                    log_msg(log_container, logs, f"⏳ Delay de navegação: {delay:.1f}s", "info")
+                    time.sleep(delay)
 
+                    resultado = None
+                    metodo_ok, tentou_navegador, tentou_texto = "texto", False, False
+                    screenshot_path = os.path.join(
+                        SCREENSHOT_DIR,
+                        f"{item_slug}_{contador_item + 1}.png",
+                    )
+
+                    # Se Playwright selecionado e disponível, usar primeiro
+                    if playwright_disponivel:
+                        log_msg(log_container, logs, f"🎭 Tentando com navegador automatizado: {dominio}", "info")
+                        time.sleep(gerar_delay(1.5, 3.5))
+                        resultado = scraping_playwright(url, item, screenshot_path)
+
+                    # Navegador primeiro (se ativo); só se ele não conseguir abrir a página, a leitura simples por texto, com tentativas
+                    if not resultado:
+                        resultado, _, tentou_navegador = ler_com_navegador(url, item)
+                        if resultado:
+                            metodo_ok = "navegador"
+                    if not resultado:  # fallback SEMPRE: navegador indisponível, não abriu a página ou não achou preço
+                        tentou_texto = True
+                        for tentativa in range(MAX_RETRIES + 1):
+                            # Simular tempo de leitura
+                            time.sleep(gerar_delay_leitura())
+
+                            resultado = scraping_requests(session, url, headers, item_nome=item)
+                            if resultado:
+                                break
+
+                            if tentativa < MAX_RETRIES:
+                                retry_delay = gerar_delay(3.0, 7.0)
+                                log_msg(log_container, logs, f"🔄 Retry {tentativa+1}/{MAX_RETRIES} em {retry_delay:.1f}s...", "warn")
+                                time.sleep(retry_delay)
+                                # Trocar User-Agent no retry
+                                headers = gerar_headers()
+                                session.headers.update(headers)
+
+                    if resultado:
+                        contador_item += 1
+                        resultado["resultado_id"] = f"{item_slug}_{contador_item}_{abs(hash(url)) % 10000}"
+                        resultado["item"] = item
+                        resultado["data_coleta"] = datetime.now().strftime("%d/%m/%Y %H:%M")
+
+                        # Capturar screenshot via Playwright se ainda não temos
+                        if playwright_disponivel and not resultado.get("screenshot"):
+                            try:
+                                _resultado_pw = scraping_playwright(url, item, screenshot_path)
+                                if _resultado_pw and _resultado_pw.get("screenshot"):
+                                    resultado["screenshot"] = _resultado_pw["screenshot"]
+                            except Exception:
+                                pass
+
+                        candidatos_item.append(resultado)
+                        dominios_usados.add(dominio)
+                        memoria_lojas.registrar_acerto(memoria, url, item, metodo_ok)
+                        estado_item = atualizar_estado_orcamentos(candidatos_item, max_fontes)
+
+                        for descartado in estado_item["descartados"]:
+                            if descartado["resultado_id"] in outliers_logados:
+                                continue
+                            log_msg(
+                                log_container,
+                                logs,
+                                f"🚫 Outlier descartado em {descartado['dominio']}: {formatar_moeda_br(descartado['preco'])} acima do limite de {formatar_moeda_br(descartado['limite_superior'])} para '{item}'. Buscando reposição.",
+                                "warn",
+                            )
+                            outliers_logados.add(descartado["resultado_id"])
+
+                        if resultado["resultado_id"] in estado_item["ids_validos"]:
+                            log_msg(
+                                log_container,
+                                logs,
+                                f"💰 Orçamento [{len(estado_item['validos'])}/{max_fontes}] — {formatar_moeda_br(resultado['preco'])} em {dominio}",
+                                "orcamento",
+                            )
+                        elif resultado["resultado_id"] not in estado_item["ids_descartados"] and resultado["resultado_id"] not in reservas_logadas:
+                            log_msg(
+                                log_container,
+                                logs,
+                                f"📌 Cotação extra mantida em reserva: {formatar_moeda_br(resultado['preco'])} em {dominio}",
+                                "info",
+                            )
+                            reservas_logadas.add(resultado["resultado_id"])
+                    else:
+                        log_msg(log_container, logs, f"✗ Sem preço extraível de {dominio}" + (f" — {MOTIVO_REJEICAO['texto']}" if MOTIVO_REJEICAO["texto"] else ""), "error")
+                        dominios_falhos.add(dominio)
+                        if MOTIVO_REJEICAO["texto"] != "página não corresponde ao item":  # a loja pode servir para outro item
+                            if tentou_navegador:
+                                memoria_lojas.registrar_falha(memoria, url, "navegador")
+                            if tentou_texto:
+                                memoria_lojas.registrar_falha(memoria, url, "texto")
+
+            # Complemento: se não atingiu o mínimo de fontes, usar SearchAPI (Google Shopping)
             estado_item = atualizar_estado_orcamentos(candidatos_item, max_fontes)
-            if len(estado_item["validos"]) < max_fontes:
-                log_msg(log_container, logs, f"⚠ Apenas {len(estado_item['validos'])} orçamento(s) válido(s) encontrado(s) para '{item}'", "warn")
+            faltam = max_fontes - len(estado_item["validos"])
+            if faltam > 0:
+                log_msg(log_container, logs, f"🛒 Faltam {faltam} orçamento(s) para '{item}'. Tentando Google Shopping (SearchAPI)...", "info")
+                searchapi_results = buscar_searchapi(item, faltam + 2)  # pedir extras para compensar duplicados
+                if searchapi_results:
+                    dominios_ja = {r['dominio'] for r in candidatos_item}
+                    for sr in searchapi_results:
+                        estado_item = atualizar_estado_orcamentos(candidatos_item, max_fontes)
+                        if len(estado_item["validos"]) >= max_fontes:
+                            break
+                        if sr.get('dominio') in dominios_ja:
+                            continue
+                        contador_item += 1
+                        sr["resultado_id"] = f"{item_slug}_{contador_item}_{abs(hash(sr.get('url', sr.get('dominio', 'searchapi')))) % 10000}"
+                        sr["item"] = item
+                        sr["data_coleta"] = datetime.now().strftime("%d/%m/%Y %H:%M")
+                        sr["precos_detectados"] = [sr.get("preco")] if sr.get("preco") else []
+                        sr["contexto_extraido"] = "Preço complementar obtido no Google Shopping (SearchAPI)."
+                        sr["origem_preco"] = "Google Shopping (SearchAPI)"
+                        sr["confianca"] = "média"
+                        candidatos_item.append(sr)
+                        dominios_ja.add(sr.get('dominio', ''))
+                        estado_item = atualizar_estado_orcamentos(candidatos_item, max_fontes)
 
-        orcamentos_item = atualizar_estado_orcamentos(candidatos_item, max_fontes)["validos"]
-        resultados.extend(orcamentos_item)
+                        for descartado in estado_item["descartados"]:
+                            if descartado["resultado_id"] in outliers_logados:
+                                continue
+                            log_msg(
+                                log_container,
+                                logs,
+                                f"🚫 Outlier descartado em {descartado['dominio']}: {formatar_moeda_br(descartado['preco'])} acima do limite de {formatar_moeda_br(descartado['limite_superior'])} para '{item}'.",
+                                "warn",
+                            )
+                            outliers_logados.add(descartado["resultado_id"])
 
-        # Delay maior entre itens diferentes
-        if idx < total_itens - 1:
-            delay = gerar_delay(4.0, 8.0)
-            log_msg(log_container, logs, f"⏳ Intervalo entre itens: {delay:.1f}s", "info")
-            time.sleep(delay)
+                        if sr["resultado_id"] in estado_item["ids_validos"]:
+                            log_msg(
+                                log_container,
+                                logs,
+                                f"💰 Orçamento [{len(estado_item['validos'])}/{max_fontes}] — Google Shopping: {formatar_moeda_br(sr['preco'])} em {sr['dominio']}",
+                                "orcamento",
+                            )
+
+                estado_item = atualizar_estado_orcamentos(candidatos_item, max_fontes)
+                if len(estado_item["validos"]) < max_fontes:
+                    log_msg(log_container, logs, f"⚠ Apenas {len(estado_item['validos'])} orçamento(s) válido(s) encontrado(s) para '{item}'", "warn")
+
+            orcamentos_item = atualizar_estado_orcamentos(candidatos_item, max_fontes)["validos"]
+            resultados.extend(orcamentos_item)
+
+            # Delay maior entre itens diferentes
+            if idx < total_itens - 1:
+                delay = gerar_delay(4.0, 8.0)
+                log_msg(log_container, logs, f"⏳ Intervalo entre itens: {delay:.1f}s", "info")
+                time.sleep(delay)
+    finally:  # grava o que a pesquisa aprendeu mesmo que ela seja interrompida por um erro
+        try:
+            log_msg(log_container, logs, "🧠 Memória de lojas: " + memoria_lojas.salvar(memoria, st.secrets if _tem_secrets() else {}), "info")
+        except Exception:
+            pass
 
     progress_bar.progress(1.0)
-    log_msg(log_container, logs, "🧠 Memória de lojas: " + memoria_lojas.salvar(memoria, st.secrets if _tem_secrets() else {}), "info")
     log_msg(log_container, logs, f"━━━ Scraping concluído! {len(resultados)} orçamentos coletados ━━━", "success")
     status_text.text("Scraping concluído!")
 
@@ -1984,15 +2011,17 @@ with st.expander("🧠 Memória de lojas (aprende com o uso)", expanded=False):
         if not onde_vista.startswith("GitHub"):
             st.warning(memoria_lojas.diagnostico_secrets(st.secrets if _tem_secrets() else {}))
         if memoria_vista["lojas"]:
-            st.dataframe(pd.DataFrame([{"Loja": site, "Preços encontrados": l["acertos"], "Último": l["ultimo"], "Itens cotados": ", ".join(l["itens"][:15])}
+            st.dataframe(pd.DataFrame([{"Loja": site, "Preços encontrados": l["acertos"], "Pelo navegador": l.get("metodos", {}).get("navegador", 0),
+                                        "Por texto": l.get("metodos", {}).get("texto", 0), "Último": l["ultimo"], "Itens cotados": ", ".join(l["itens"][:15])}
                                        for site, l in sorted(memoria_vista["lojas"].items(), key=lambda x: -x[1]["acertos"])]),
                          hide_index=True, use_container_width=True)
         else:
             st.info("Nenhuma loja aprendida ainda: a memória se forma com as próximas pesquisas.")
-        puladas = [{"Site": site, "Falhas": f["falhas"], "Última": f["ultimo"]} for site, f in memoria_vista["falhas"].items()
-                   if f["falhas"] >= memoria_lojas.FALHAS_PARA_PULAR]
+        puladas = [{"Site": site, "Falhas no navegador": f.get("navegador", 0), "Falhas por texto": f.get("texto", 0), "Última": f["ultimo"]}
+                   for site, f in memoria_vista["falhas"].items()
+                   if max(f.get("navegador", 0), f.get("texto", 0)) >= memoria_lojas.FALHAS_PARA_PULAR]
         if puladas:
-            st.markdown("**Sites pulados por falhar sempre**")
+            st.markdown(f"**Sites pulados** (cada método é pulado só depois de {memoria_lojas.FALHAS_PARA_PULAR} falhas dele mesmo; o navegador não é barrado por falhas da leitura por texto)")
             st.dataframe(pd.DataFrame(puladas), hide_index=True, use_container_width=True)
 
 with st.expander("⚙️ Como Funciona o Web Scraping", expanded=False):
@@ -2162,15 +2191,21 @@ if "scraping_resultados" in st.session_state and st.session_state["scraping_resu
                 st.warning(f"{len(baixas)} preço(s) vieram da leitura do texto da página (confiança baixa): confira o anúncio antes de usar.")
             with st.expander("📸 Prints reais das páginas dos preços do mapa", expanded=bool(prints)):
                 paginas_mapa = [{"url": p["url"], "preco": p["preco"]} for r in analise for p in r["precos"]]
+                paginas_sem_print = [p for p in paginas_mapa if not prints.get(p["url"], {}).get("imagem")]
+                ja_com_print = len({p["url"] for p in paginas_mapa}) - len({p["url"] for p in paginas_sem_print})
                 pode_print, motivo_print = captura_pagina.disponivel()
-                st.caption("Abre cada página dos preços listados no mapa num navegador do servidor, rola até o preço, destaca o valor e guarda o print com "
-                           "data, hora e endereço no rodapé. Os prints entram como anexo no PDF. Leva de 5 a 15 s por página.")
+                st.caption("Quando o navegador acha o preço durante a pesquisa, o print já fica guardado (com data, hora e endereço no rodapé). Aqui você tira só os "
+                           "que faltam (páginas lidas por texto): o navegador as abre, rola até o preço e destaca o valor. Os prints entram como anexo no PDF.")
+                if paginas_mapa:
+                    st.caption(f"{ja_com_print} página(s) do mapa já têm print; {len({p['url'] for p in paginas_sem_print})} faltam.")
                 if not pode_print:
                     st.info(f"Prints indisponíveis neste servidor: {motivo_print}.")
                 elif not paginas_mapa:
                     st.info("Nenhum preço no mapa para tirar print.")
+                elif not paginas_sem_print:
+                    st.success("Todas as páginas do mapa já têm print.")
                 else:
-                    if st.button(f"📸 Tirar prints das {len(set(p['url'] for p in paginas_mapa))} página(s) do mapa", key="botao_prints_web"):
+                    if st.button(f"📸 Tirar os prints das {len({p['url'] for p in paginas_sem_print})} página(s) que faltam", key="botao_prints_web"):
                         barra = st.progress(0)
                         texto_barra = st.empty()
 
@@ -2178,7 +2213,7 @@ if "scraping_resultados" in st.session_state and st.session_state["scraping_resu
                             barra.progress(feitas / max(total, 1))
                             texto_barra.text(f"Capturando {feitas + 1}/{total}: {extrair_dominio(url)}" if url else "Concluído")
 
-                        novos = captura_pagina.capturar_prints(paginas_mapa, andamento)
+                        novos = captura_pagina.capturar_prints(paginas_sem_print, andamento)
                         st.session_state["prints_web"] = {**st.session_state.get("prints_web", {}), **novos}
                         st.rerun()
                 if prints:
