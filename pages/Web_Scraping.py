@@ -503,6 +503,23 @@ def buscar_ddgs_api(query, num_results=8, item=None):
         except ImportError:
             DIAG_BUSCA["ddgs"] = "pacote ddgs não instalado"
             return []
+    # 0) A chamada original, idêntica à de antes das mudanças (sem backend, sem exclusões, sem filtro de assunto)
+    sobras = []
+    if FALHAS_MOTOR.get("classico", 0) < 2:
+        try:
+            resultados = list(DDGS().text(query, region="br-pt", max_results=num_results))
+            FALHAS_MOTOR["classico"] = 0
+            validos = [r for r in resultados if r.get("href") and dominio_valido(r["href"])]
+            relevantes = _dedup_urls([r["href"] for r in validos if _resultado_relevante(r, termos)], num_results)
+            DIAG_BUSCA["ddgs/clássico"] = f"{len(resultados)} resultados, {len(validos)} após filtro de domínios, {len(relevantes)} do assunto"
+            if relevantes:
+                return relevantes
+            sobras = _dedup_urls([r["href"] for r in validos], num_results)
+        except Exception as erro:
+            nome_erro = type(erro).__name__
+            DIAG_BUSCA["ddgs/clássico"] = f"erro {nome_erro}: {str(erro)[:80]}"
+            if any(marca in nome_erro for marca in ("Timeout", "Ratelimit", "Connect")):
+                FALHAS_MOTOR["classico"] = FALHAS_MOTOR.get("classico", 0) + 1
     # 1ª passada sem marketplaces; se nada do assunto vier, 2ª passada com a frase pura
     for sufixo in (EXCLUSOES_SITE, ""):
         for motor in MOTORES_DDGS:
@@ -529,7 +546,8 @@ def buscar_ddgs_api(query, num_results=8, item=None):
                 + (f" (domínios ignorados: {', '.join(descartados[:4])})" if descartados and not validos else ""))
             if relevantes:
                 return relevantes
-    return []
+    # nenhum motor trouxe algo do assunto: devolve o que o ddgs clássico trouxe (como antes), a leitura da página confere a relevância
+    return sobras[:5]
 
 
 def buscar_mojeek(session, query, headers, num_results=8, item=None):
@@ -781,6 +799,23 @@ def buscar_urls(session, query, headers, num_results=8, item=None):
     return [], "nenhum"
 
 
+def _instant_answer_ddg(session, query):
+    """API 'Instant Answer' do DuckDuckGo: devolve resumos de enciclopédia (entidades), não resultados de lojas; entra só no diagnóstico."""
+    try:
+        resp = session.get("https://api.duckduckgo.com/", params={"q": query, "format": "json", "no_html": 1, "skip_disambig": 1}, timeout=(5, 10))
+        if resp.status_code != 200:
+            DIAG_BUSCA["instant answer"] = f"HTTP {resp.status_code}"
+            return []
+        dados = resp.json()
+        links = [t.get("FirstURL") for t in dados.get("RelatedTopics", []) if isinstance(t, dict) and t.get("FirstURL")]
+        resumo = (dados.get("AbstractText") or "")[:60]
+        DIAG_BUSCA["instant answer"] = f"{len(links)} tópicos; resumo: {resumo or 'vazio'}"
+        return links
+    except Exception as erro:
+        DIAG_BUSCA["instant answer"] = f"erro {type(erro).__name__}"
+        return []
+
+
 def testar_buscadores(query, item=None):
     """Diagnóstico: roda a mesma busca em cada motor e devolve tempo, nº de resultados e os primeiros títulos."""
     import requests as req
@@ -808,6 +843,7 @@ def testar_buscadores(query, item=None):
     for nome, funcao in (("Mojeek (HTML)", lambda: buscar_mojeek(sessao, query, cabecalhos, 8, item or query)),
                          ("DuckDuckGo (HTML)", lambda: buscar_duckduckgo(sessao, query, cabecalhos, 8)),
                          ("Bing (HTML)", lambda: buscar_bing_requests(sessao, query, cabecalhos, 8)),
+                         ("DuckDuckGo Instant Answer (api.duckduckgo.com)", lambda: _instant_answer_ddg(sessao, query)),
                          ("SearchAPI (DuckDuckGo)", lambda: (SEARCHAPI_USO.update({"buscas": 0, "limite": 1}), buscar_searchapi_web(query, 8, item or query))[1])):
         inicio = time.time()
         DIAG_BUSCA.clear()
@@ -1491,8 +1527,17 @@ def executar_scraping(itens, usar_playwright, progress_bar, log_container, statu
             resultado_pagina = None
             if playwright_disponivel:
                 resultado_pagina = scraping_playwright(url, item, os.path.join(SCREENSHOT_DIR, f"{item_slug}_{abs(hash(url)) % 10000}.png"))
-            if not resultado_pagina:
+            for tentativa in range(MAX_RETRIES + 1):
+                if resultado_pagina:
+                    break
+                motivo.clear()
                 resultado_pagina = scraping_requests(sessao_local, url, cabecalhos, item_nome=item, motivo=motivo)
+                # só vale tentar de novo quando foi bloqueio/limite/falha de rede (outro User-Agent e uma pausa curta)
+                if resultado_pagina or not any(m in motivo.get("motivo", "") for m in ("bloqueou", "conexão", "HTTP 5")):
+                    break
+                time.sleep(gerar_delay(1.0, 2.5))
+                cabecalhos = gerar_headers()
+                sessao_local.headers.update(cabecalhos)
             return resultado_pagina, motivo.get("motivo", "sem preço extraível")
 
         for numero_variante, variante in enumerate(variantes):
@@ -2052,8 +2097,8 @@ with col2:
         "Máx. fontes por item",
         min_value=1,
         max_value=5,
-        value=5,
-        help="Número máximo de orçamentos por item. O relatório padrão usa até 5 preços por item.",
+        value=3,
+        help="Número máximo de orçamentos por item (padrão 3). O relatório padrão aproveita até 5 preços por item, se você aumentar.",
     )
     usar_google_shopping = False
     limite_google = 0
