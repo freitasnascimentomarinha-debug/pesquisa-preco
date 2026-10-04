@@ -14,10 +14,9 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # módulos da raiz do projeto
 from atualizar_modulos import recarregar_se_mudou  # noqa: E402
-recarregar_se_mudou('cotacao_rapida', 'relatorio_cotacao_rapida', 'relatorio_nf_lote', 'web_precos', 'relatorio_web', 'lojas_catalogo')
+recarregar_se_mudou('cotacao_rapida', 'relatorio_cotacao_rapida', 'relatorio_nf_lote', 'web_precos', 'relatorio_web')
 import web_precos  # noqa: E402  (escolha do preço da página)
 import relatorio_web  # noqa: E402  (relatório padrão da Cotação Rápida)
-import lojas_catalogo  # noqa: E402  (catálogo de lojas por ramo e classificação dos itens)
 
 # Configuração da página
 st.set_page_config(
@@ -628,81 +627,6 @@ def buscar_searchapi(query, num_results=8):
 
     except Exception:
         return []
-
-
-ARQUIVO_LOJAS_PREFERIDAS = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "lojas_preferidas.txt")
-
-
-def ler_lojas_preferidas_arquivo():
-    """Lista padrão de lojas (arquivo lojas_preferidas.txt na raiz do projeto, um nome ou site por linha; # = comentário)."""
-    try:
-        with open(ARQUIVO_LOJAS_PREFERIDAS, encoding="utf-8") as arquivo:
-            return [l.strip() for l in arquivo if l.strip() and not l.strip().startswith("#")]
-    except OSError:
-        return []
-
-
-@st.cache_data(ttl=7 * 24 * 3600, show_spinner=False)
-def descobrir_site_loja(nome):
-    """Site de uma loja fora do catálogo: busca '<nome> loja oficial' no DuckDuckGo e pega o primeiro site brasileiro válido."""
-    try:
-        from ddgs import DDGS
-        resultados = list(DDGS().text(f"{nome} loja oficial", region="br-pt", max_results=8))
-    except Exception:
-        return ""
-    for r in resultados:
-        href = r.get("href", "")
-        if href and dominio_valido(href):
-            return lojas_catalogo.dominio_de(href)
-    return ""
-
-
-def _url_da_loja(url, loja):
-    dominio = urlparse(url).netloc.lower()
-    return dominio == loja or dominio.endswith("." + loja)
-
-
-def buscar_na_loja(session, item, loja, headers, num_results=8):
-    """Procura o item só dentro de uma loja, pelo DuckDuckGo com 'site:' (mesma busca da página: ddgs > DuckDuckGo HTML > Bing).
-    Aceita só endereços da própria loja (inclusive se ela estiver na lista de sites ignorados: foi você quem escolheu)."""
-    from bs4 import BeautifulSoup
-    from urllib.parse import unquote
-
-    query = f"{item} site:{loja}"
-    urls = []
-    try:
-        from ddgs import DDGS
-        resultados = list(DDGS().text(query, region="br-pt", max_results=num_results))
-        urls = [r["href"] for r in resultados if r.get("href") and _url_da_loja(r["href"], loja)]
-        motor = "DDGS API"
-    except Exception:
-        urls = []
-    if not urls:
-        motor = "DuckDuckGo HTML"
-        try:
-            resp = session.get(f"https://html.duckduckgo.com/html/?q={quote_plus(query)}", headers=headers, timeout=15)
-            if resp.status_code == 200:
-                for a_tag in BeautifulSoup(resp.text, "html.parser").select("a.result__a"):
-                    href = a_tag.get("href", "")
-                    if "uddg=" in href:
-                        href = unquote(href.split("uddg=")[1].split("&")[0])
-                    if href.startswith("http") and _url_da_loja(href, loja):
-                        urls.append(href)
-        except Exception:
-            pass
-    if not urls:
-        motor = "Bing"
-        try:
-            resp = session.get(f"https://www.bing.com/search?q={quote_plus(query)}&setlang=pt-BR&count={num_results}", headers=headers, timeout=15)
-            if resp.status_code == 200:
-                for a_tag in BeautifulSoup(resp.text, "html.parser").select("li.b_algo h2 a"):
-                    href = a_tag.get("href", "")
-                    if href.startswith("http") and _url_da_loja(href, loja):
-                        urls.append(href)
-        except Exception:
-            pass
-    unicas = list(dict.fromkeys(urls))[:4]  # até 4 páginas da loja (se a 1ª não tiver preço, tenta a próxima)
-    return unicas, (motor if unicas else "nenhum"), query
 
 
 def buscar_urls(session, query, headers, num_results=8):
@@ -1339,7 +1263,7 @@ def scraping_playwright(url, item_nome, screenshot_path=None):
 
 # ===================== ORQUESTRADOR DE SCRAPING =====================
 
-def executar_scraping(itens, usar_playwright, progress_bar, log_container, status_text, max_fontes, lojas_preferidas=None, so_lojas_preferidas=False):
+def executar_scraping(itens, usar_playwright, progress_bar, log_container, status_text, max_fontes):
     """Executa o scraping completo para todos os itens."""
     import requests as req
 
@@ -1374,42 +1298,23 @@ def executar_scraping(itens, usar_playwright, progress_bar, log_container, statu
 
         # Selecionar variantes de busca aleatoriamente (usar mais variantes para maximizar cobertura)
         variantes = random.sample(VARIANTES_BUSCA, min(5, len(VARIANTES_BUSCA)))
-        # Rodadas: primeiro as lojas preferidas (busca "item site:loja"); depois a busca normal, salvo se "só nessas lojas".
-        # A loja que não vende o ramo do item (ex.: tinta acrílica na Kalunga) é pulada.
-        rodadas = []
-        if lojas_preferidas:
-            ramos_item = lojas_catalogo.classificar_item(item)
-            nomes_ramos = ", ".join(lojas_catalogo.RAMOS[r] for r in sorted(ramos_item)) or "não identificado (pesquisa em todas as lojas)"
-            log_msg(log_container, logs, f"🏷️ Ramo do item: {nomes_ramos}", "info")
-            for loja_pref in lojas_preferidas:
-                if lojas_catalogo.loja_atende(loja_pref, ramos_item):
-                    rodadas.append((None, loja_pref))
-                else:
-                    log_msg(log_container, logs, f"⏭ {loja_pref['nome']} pulada para '{item}' (a loja não atende esse ramo)", "info")
-        if not (so_lojas_preferidas and lojas_preferidas):
-            rodadas += [(variante, None) for variante in variantes]
 
-        for variante, loja in rodadas:
+        for variante in variantes:
             estado_item = atualizar_estado_orcamentos(candidatos_item, max_fontes)
             if len(estado_item["validos"]) >= max_fontes:
                 log_msg(log_container, logs, f"✓ {max_fontes} orçamentos válidos encontrados para '{item}'. Avançando.", "success")
                 break
-            if loja and any(_url_da_loja(f"https://{d}", loja["site"]) for d in dominios_usados):
-                continue  # essa loja já deu orçamento para o item
 
-            query = variante.format(item=item) if variante else f"{item} site:{loja['site']}"
-            log_msg(log_container, logs, f"{'🏪 ' + loja['nome'] if loja else '🔍 Buscando'}: \"{query}\"", "info")
+            query = variante.format(item=item)
+            log_msg(log_container, logs, f"🔍 Buscando: \"{query}\"", "info")
 
             # Delay antes da busca
             delay = gerar_delay(2.0, 5.0)
             log_msg(log_container, logs, f"⏳ Aguardando {delay:.1f}s...", "info")
             time.sleep(delay)
 
-            # Buscar URLs (DDGS API > DuckDuckGo HTML > Google > Bing); loja preferida: só páginas da loja
-            if loja:
-                urls, engine, _ = buscar_na_loja(session, item, loja["site"], headers)
-            else:
-                urls, engine = buscar_urls(session, query, headers)
+            # Buscar URLs (DDGS API > DuckDuckGo HTML > Google > Bing)
+            urls, engine = buscar_urls(session, query, headers)
 
             if not urls:
                 log_msg(log_container, logs, f"⚠ Nenhum resultado encontrado para \"{query}\"", "warn")
@@ -1955,63 +1860,6 @@ with col1:
         placeholder="Exemplo:\nArruela de pressão 1/4\nParafuso sextavado M10\nFita isolante 20m",
         help="Digite os nomes dos materiais que deseja pesquisar, um por linha.",
     )
-    with st.expander("🏪 Lojas preferidas (opcional)", expanded=False):
-        if "lojas_preferidas_texto" not in st.session_state:
-            st.session_state["lojas_preferidas_texto"] = "\n".join(ler_lojas_preferidas_arquivo())
-        lojas_texto = st.text_area(
-            "Lojas (nome ou site, uma por linha):",
-            key="lojas_preferidas_texto",
-            height=110,
-            placeholder="Exemplo:\nKalunga\nLeroy Merlin\nDutra Máquinas\nwww.papelariadobairro.com.br",
-            help="Escreva só o nome: o sistema conhece as principais lojas e descobre o site das demais. Para cada item, procura primeiro "
-                 "dentro dessas lojas (DuckDuckGo com 'site:') e pula a loja que não vende aquele tipo de item.",
-        )
-        ajustes = st.session_state.setdefault("lojas_ajustes", {})  # correções feitas na tabela, por nome da loja
-        lojas_resolvidas = []
-        for linha in dict.fromkeys(l.strip() for l in lojas_texto.splitlines() if l.strip()):
-            loja_res = lojas_catalogo.resolver_loja(linha)
-            if not loja_res:
-                continue
-            if loja_res["origem"] == "descobrir":
-                with st.spinner(f"Procurando o site de {loja_res['nome']}..."):
-                    loja_res["site"] = descobrir_site_loja(loja_res["nome"])
-                loja_res["origem"] = "descoberto (confira)" if loja_res["site"] else "site não encontrado"
-            ajuste = ajustes.get(loja_res["nome"], {})
-            lojas_resolvidas.append({**loja_res, **ajuste})
-
-        lojas_preferidas = []
-        if lojas_resolvidas:
-            tabela_lojas = pd.DataFrame([{
-                "Loja": l["nome"], "Site": l["site"], "Ramos": ", ".join(l["ramos"]) or "todos", "Origem": l["origem"],
-            } for l in lojas_resolvidas])
-            editada = st.data_editor(
-                tabela_lojas, hide_index=True, use_container_width=True, disabled=["Loja", "Origem"],
-                key="tabela_lojas_" + str(abs(hash(tuple(tabela_lojas["Loja"])))),
-                column_config={
-                    "Site": st.column_config.TextColumn("Site", help="Corrija se o site descoberto estiver errado."),
-                    "Ramos": st.column_config.TextColumn("Ramos", help="Separados por vírgula. 'todos' = a loja é pesquisada para qualquer item."),
-                },
-            )
-            for loja_res, (_, linha_ed) in zip(lojas_resolvidas, editada.iterrows()):
-                site = lojas_catalogo.dominio_de(str(linha_ed["Site"] or ""))
-                texto_ramos = str(linha_ed["Ramos"] or "")
-                ramos = [] if lojas_catalogo.normalizar(texto_ramos) in ("", "todos", "tudo") else lojas_catalogo.ler_ramos(texto_ramos)
-                if site != loja_res["site"] or ramos != loja_res["ramos"]:
-                    ajustes[loja_res["nome"]] = {"site": site, "ramos": ramos, "origem": "ajustado por você"}
-                if site:
-                    lojas_preferidas.append({"nome": loja_res["nome"], "site": site, "ramos": ramos})
-            st.caption("Ramos possíveis: " + ", ".join(lojas_catalogo.RAMOS) + ". Cada loja dá no máximo um orçamento por item.")
-        modo_lojas = st.radio(
-            "Como usar as lojas:",
-            ["Primeiro nessas lojas, depois a busca normal", "Só nessas lojas"],
-            key="modo_lojas_preferidas",
-            disabled=not lojas_preferidas,
-        )
-        so_lojas_preferidas = modo_lojas == "Só nessas lojas"
-        with st.popover("Ver lojas conhecidas"):
-            st.dataframe(pd.DataFrame([{"Loja": l["nome"], "Site": l["site"], "Ramos": ", ".join(l["ramos"]) or "todos (marketplace)"}
-                                       for l in lojas_catalogo.CATALOGO_LOJAS]), hide_index=True, use_container_width=True)
-        st.caption("A lista vale enquanto a página estiver aberta. Para deixá-la fixa, salve os nomes no arquivo lojas_preferidas.txt do projeto.")
 
 with col2:
     st.markdown("#### ⚙️ Configurações")
@@ -2075,8 +1923,6 @@ if iniciar:
             log_container=log_container,
             status_text=status_text,
             max_fontes=max_fontes,
-            lojas_preferidas=lojas_preferidas,
-            so_lojas_preferidas=so_lojas_preferidas,
         )
 
         # Armazenar resultados no session_state
