@@ -13,6 +13,7 @@ from typing import Callable
 from cotacao_rapida import MAX_PRECOS, MIN_PRECOS, TOLERANCIA, estatisticas, remover_outliers, selecionar_precos
 
 PRECO_MIN, PRECO_MAX = 0.5, 500_000
+PRECOS_POR_ITEM_PADRAO = 3  # colunas de preço do relatório da pesquisa na internet (a Cotação Rápida usa 5)
 SEM_ESTOQUE = ("outofstock", "soldout", "discontinued")
 PRECO_DE_REFERENCIA = ("list", "strikethrough", "srp", "minimumadvertised", "installment")
 
@@ -215,7 +216,7 @@ def registro_da_oferta(oferta: dict) -> dict | None:
     }
 
 
-def analisar_item_web(descricao: str, ofertas: list[dict], remover: bool = True, max_precos: int = MAX_PRECOS, tolerancia: float = TOLERANCIA) -> dict:
+def analisar_item_web(descricao: str, ofertas: list[dict], remover: bool = True, max_precos: int = PRECOS_POR_ITEM_PADRAO, tolerancia: float = TOLERANCIA) -> dict:
     """Limpa e seleciona os preços de um item pesquisado na internet (mesma regra da Cotação Rápida)."""
     vistos: set[str] = set()
     registros = []
@@ -242,6 +243,6 @@ def analisar_item_web(descricao: str, ofertas: list[dict], remover: bool = True,
     return resultado
 
 
-def analisar_todos(itens: list[str], ofertas: list[dict], remover: bool = True) -> list[dict]:
+def analisar_todos(itens: list[str], ofertas: list[dict], remover: bool = True, max_precos: int = PRECOS_POR_ITEM_PADRAO) -> list[dict]:
     """Um resultado por item pesquisado, na ordem digitada (itens sem página aparecem como 'sem páginas')."""
-    return [analisar_item_web(item, [o for o in ofertas if o.get("item") == item], remover) for item in itens if item.strip()]
+    return [analisar_item_web(item, [o for o in ofertas if o.get("item") == item], remover, max_precos) for item in itens if item.strip()]

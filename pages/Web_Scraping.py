@@ -2101,12 +2101,14 @@ if "scraping_resultados" in st.session_state and st.session_state["scraping_resu
 
         with tab_relatorio:
             itens_pesquisados = st.session_state.get("scraping_itens", [])
-            analise = web_precos.analisar_todos(itens_pesquisados, resultados)
-            info_relatorio = {"motores": "DuckDuckGo e Bing" + (" e Google Shopping" if any("Google" in str(r.get("origem_preco", "")) for r in resultados) else ""),
+            precos_por_item = st.selectbox("Preços por item no relatório", [3, 4, 5], index=0, key="precos_por_item_relatorio",
+                                           help="Quantas colunas de preço o mapa comparativo (tabela, PDF e Excel) mostra. O padrão é 3.")
+            analise = web_precos.analisar_todos(itens_pesquisados, resultados, max_precos=precos_por_item)
+            info_relatorio = {"max_precos": precos_por_item, "motores": "DuckDuckGo e Bing" + (" e Google Shopping" if any("Google" in str(r.get("origem_preco", "")) for r in resultados) else ""),
                               "gerado_em": datetime.now().strftime("%d/%m/%Y %H:%M")}
-            st.caption("Mesmas regras da Cotação Rápida: sem outliers, até 5 preços a ±30% da média, mapa comparativo na 1ª página, "
+            st.caption("Mesmas regras da Cotação Rápida: sem outliers, preços a ±30% da média, mapa comparativo na 1ª página, "
                        "endereço e data/hora do acesso de cada preço.")
-            st.dataframe(relatorio_web.tabela_mapa_web(analise), use_container_width=True, hide_index=True)
+            st.dataframe(relatorio_web.tabela_mapa_web(analise, precos_por_item), use_container_width=True, hide_index=True)
             baixas = [r for r in resultados if r.get("confianca") == "baixa"]
             if baixas:
                 st.warning(f"{len(baixas)} preço(s) vieram da leitura do texto da página (confiança baixa): confira o anúncio antes de usar.")

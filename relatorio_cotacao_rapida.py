@@ -166,8 +166,15 @@ def _linhas_codigos(r: dict) -> list[str]:
     return [f"{rotulo_codigo} {k['codigo']} ({k['correspondencia']:.0f}%)" for k in r["catmats"]] or ["-"]
 
 
-def _pagina_mapa(pdf: FPDF, resultados: list[dict], rotulo_col3: str = "Codigo (correspondencia)", linhas_col3=_linhas_codigos, fonte: str | None = None) -> None:
-    colunas_mapa = [(rotulo_col3, largura) if indice == 2 else (rotulo, largura) for indice, (rotulo, largura) in enumerate(COLUNAS_MAPA)]
+def _colunas_mapa(max_precos: int) -> list[tuple[str, float]]:
+    """Colunas do mapa para `max_precos` colunas de preço; a largura que sobra (ou falta) vai para a coluna do item."""
+    colunas = [(rotulo, largura) for rotulo, largura in COLUNAS_MAPA if not rotulo.startswith("Preco ")]
+    colunas[1] = (colunas[1][0], colunas[1][1] + (MAX_PRECOS - max_precos) * 19)
+    return colunas[:4] + [(f"Preco {n}", 19) for n in range(1, max_precos + 1)] + colunas[4:]
+
+
+def _pagina_mapa(pdf: FPDF, resultados: list[dict], rotulo_col3: str = "Codigo (correspondencia)", linhas_col3=_linhas_codigos, fonte: str | None = None, max_precos: int = MAX_PRECOS) -> None:
+    colunas_mapa = [(rotulo_col3, largura) if indice == 2 else (rotulo, largura) for indice, (rotulo, largura) in enumerate(_colunas_mapa(max_precos))]
     total = len(resultados)
     ok = sum(1 for r in resultados if r["status"] == "ok")
     insuficientes = sum(1 for r in resultados if r["status"] == "insuficiente")
@@ -199,10 +206,10 @@ def _pagina_mapa(pdf: FPDF, resultados: list[dict], rotulo_col3: str = "Codigo (
         fundo = (245, 248, 255) if numero % 2 == 0 else (255, 255, 255)
         x = x0
         for indice, (_, largura) in enumerate(colunas_mapa):
-            if not precos and 4 < indice < 4 + MAX_PRECOS:
+            if not precos and 4 < indice < 4 + max_precos:
                 continue  # as colunas de preço de um item sem preços viram uma só, com a situação
             if not precos and indice == 4:
-                largura = sum(w for _, w in colunas_mapa[4:4 + MAX_PRECOS])
+                largura = sum(w for _, w in colunas_mapa[4:4 + max_precos])
             cor = fundo
             texto: str | list[str] = ""
             alinhamento = "C"
@@ -215,7 +222,7 @@ def _pagina_mapa(pdf: FPDF, resultados: list[dict], rotulo_col3: str = "Codigo (
                 texto, alinhamento = catmats, "L"
             elif indice == 3:
                 texto = _truncar(pdf, r.get("unidade_curta") or r["unidade"], largura - 2) if r["unidade"] else "-"
-            elif 4 <= indice < 4 + MAX_PRECOS:
+            elif 4 <= indice < 4 + max_precos:
                 posicao = indice - 4
                 if posicao < len(precos):
                     texto = moeda(precos[posicao])
@@ -224,10 +231,10 @@ def _pagina_mapa(pdf: FPDF, resultados: list[dict], rotulo_col3: str = "Codigo (
                     texto, alinhamento = STATUS_TEXTO.get(r["status"], ""), "C"
                 else:
                     texto = "-"
-            elif indice == 4 + MAX_PRECOS:
+            elif indice == 4 + max_precos:
                 texto, fonte_negrito = (moeda(media) if media is not None else "-"), True
                 cor = (255, 244, 204)
-            elif indice == 5 + MAX_PRECOS:
+            elif indice == 5 + max_precos:
                 texto = str(len(precos))
             else:
                 texto = f"{r['stats']['cv']:.1f}%".replace(".", ",") if r["stats"] else "-"
