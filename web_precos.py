@@ -82,7 +82,8 @@ def _produtos_jsonld(dado: object):
     elif isinstance(dado, dict):
         if "product" in _tipos(dado) or "productgroup" in _tipos(dado):
             yield dado
-        for chave in ("@graph", "mainEntity", "hasVariant", "itemListElement", "item"):
+        # não desce em ItemList/itemListElement: produtos de uma listagem não são o produto da página
+        for chave in ("@graph", "mainEntity", "hasVariant"):
             if chave in dado:
                 yield from _produtos_jsonld(dado[chave])
 
@@ -118,8 +119,8 @@ def preco_principal(html: str, alternativa: Callable[[str], list[float]] | None 
             return {"preco": preco, "origem": "itemprop=price", "confianca": "alta", "nome": ""}
 
     if alternativa:
-        valores = sorted(alternativa(html))
-        if valores:
+        valores = sorted(set(alternativa(html)))
+        if valores and len(valores) <= 8:  # muitos valores diferentes = listagem/categoria, não um produto
             return {"preco": valores[len(valores) // 2], "origem": "texto da página (mediana dos valores)", "confianca": "baixa", "nome": ""}
     return None
 

@@ -241,6 +241,7 @@ DOMINIOS_IGNORADOS = [
 
 MAX_FONTES_POR_ITEM = 3
 MAX_RETRIES = 2
+TEMPO_MAX_POR_ITEM = 120  # segundos de busca por item, para a pesquisa nunca ficar presa
 SCREENSHOT_DIR = "/tmp/scraping_screenshots"
 OUTLIER_MULTIPLIER = 1.6
 MIN_ORCAMENTOS_PARA_ANALISE_OUTLIER = 3
@@ -461,7 +462,7 @@ def buscar_ddgs_api(query, num_results=8):
     """Busca usando o pacote ddgs (DuckDuckGo Search) — mais confiável em servidores."""
     try:
         from ddgs import DDGS
-        results = list(DDGS().text(query, region="br-pt", max_results=num_results))
+        results = list(DDGS(timeout=10).text(query, region="br-pt", max_results=num_results))
         urls = [r["href"] for r in results if r.get("href") and dominio_valido(r["href"])]
         return _dedup_urls(urls, num_results)
     except ImportError:
@@ -484,7 +485,7 @@ def buscar_duckduckgo(session, query, headers, num_results=8):
 
     url = f"https://html.duckduckgo.com/html/?q={quote_plus(query)}"
     try:
-        resp = session.get(url, headers=headers, timeout=15)
+        resp = session.get(url, headers=headers, timeout=(5, 10))
         if resp.status_code != 200:
             return []
 
@@ -866,13 +867,15 @@ def _eh_pagina_produto(html, titulo):
     return True
 
 
-def scraping_requests(session, url, headers, item_nome=None):
+def scraping_requests(session, url, headers, item_nome=None, motivo=None):
     """Acessa uma página via requests e extrai informações."""
     from bs4 import BeautifulSoup
 
     try:
-        resp = session.get(url, headers=headers, timeout=15, allow_redirects=True)
+        motivo = motivo if motivo is not None else {}
+        resp = session.get(url, headers=headers, timeout=(5, 10), allow_redirects=True)
         if resp.status_code != 200:
+            motivo["motivo"] = "site bloqueou o acesso (HTTP %d)" % resp.status_code if resp.status_code in (401, 403, 429) else f"HTTP {resp.status_code}"
             return None
 
         html = resp.text
@@ -880,10 +883,12 @@ def scraping_requests(session, url, headers, item_nome=None):
 
         # Verificar se é uma página de produto antes de gastar tempo extraindo preços
         if not _eh_pagina_produto(html, titulo):
+            motivo["motivo"] = "não é página de produto"
             return None
 
         # Verificar se o conteúdo é relevante para o item buscado
         if item_nome and not _conteudo_relevante(html, titulo, item_nome):
+            motivo["motivo"] = "página não corresponde ao item (busca/categoria)"
             return None
 
         precos = extrair_precos_pagina(html)
@@ -891,6 +896,7 @@ def scraping_requests(session, url, headers, item_nome=None):
         # Preço do produto anunciado: oferta em JSON-LD > metadados > mediana dos valores do texto
         principal = web_precos.preco_principal(html, extrair_precos_pagina)
         if not principal:
+            motivo["motivo"] = "sem preço identificável (página dinâmica ou listagem)"
             return None
         preco_medio = principal["preco"]
         if preco_medio not in precos:
@@ -981,7 +987,9 @@ body {{ font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 20px; ba
             "origem_preco": principal["origem"],
             "confianca": principal["confianca"],
         }
-    except Exception:
+    except Exception as erro:
+        if motivo is not None:
+            motivo["motivo"] = f"erro de conexão ({type(erro).__name__})"
         return None
 
 
@@ -1269,9 +1277,11 @@ def scraping_playwright(url, item_nome, screenshot_path=None):
 
 # ===================== ORQUESTRADOR DE SCRAPING =====================
 
-def executar_scraping(itens, usar_playwright, progress_bar, log_container, status_text, max_fontes, usar_google_shopping=False, limite_google=10):
+def executar_scraping(itens, usar_playwright, progress_bar, log_container, status_text, max_fontes, usar_google_shopping=False, limite_google=10, delay_min=1.0, delay_max=3.0):
     """Executa o scraping completo para todos os itens."""
     import requests as req
+    from collections import Counter
+    from concurrent.futures import ThreadPoolExecutor
 
     logs = []
     resultados = []
@@ -1303,125 +1313,109 @@ def executar_scraping(itens, usar_playwright, progress_bar, log_container, statu
         contador_item = 0
         item_slug = re.sub(r'[^a-zA-Z0-9]', '_', item)[:40] or "item"
 
-        # Selecionar variantes de busca aleatoriamente (usar mais variantes para maximizar cobertura)
-        variantes = random.sample(VARIANTES_BUSCA, min(5, len(VARIANTES_BUSCA)))
+        # Poucas variantes de busca; cada uma traz URLs novas e o tempo por item é limitado
+        variantes = random.sample(VARIANTES_BUSCA, min(4, len(VARIANTES_BUSCA)))
+        inicio_item = time.time()
+        urls_tentadas = set()
+        motivos_falha = Counter()
+        buscas_sem_resultado = 0
 
-        for variante in variantes:
+        def _acessar(url, item=item, item_slug=item_slug):
+            """Acessa uma página (uma tentativa, sem esperas artificiais) e devolve (resultado, motivo da falha)."""
+            motivo = {}
+            sessao_local = req.Session()
+            cabecalhos = gerar_headers()
+            sessao_local.headers.update(cabecalhos)
+            resultado_pagina = None
+            if playwright_disponivel:
+                resultado_pagina = scraping_playwright(url, item, os.path.join(SCREENSHOT_DIR, f"{item_slug}_{abs(hash(url)) % 10000}.png"))
+            if not resultado_pagina:
+                resultado_pagina = scraping_requests(sessao_local, url, cabecalhos, item_nome=item, motivo=motivo)
+            return resultado_pagina, motivo.get("motivo", "sem preço extraível")
+
+        for numero_variante, variante in enumerate(variantes):
             estado_item = atualizar_estado_orcamentos(candidatos_item, max_fontes)
             if len(estado_item["validos"]) >= max_fontes:
                 log_msg(log_container, logs, f"✓ {max_fontes} orçamentos válidos encontrados para '{item}'. Avançando.", "success")
                 break
+            if time.time() - inicio_item > TEMPO_MAX_POR_ITEM:
+                log_msg(log_container, logs, f"⏱ Tempo máximo de {TEMPO_MAX_POR_ITEM}s por item atingido para '{item}'. Avançando.", "warn")
+                break
 
             query = variante.format(item=item)
             log_msg(log_container, logs, f"🔍 Buscando: \"{query}\"", "info")
-
-            # Delay antes da busca
-            delay = gerar_delay(2.0, 5.0)
-            log_msg(log_container, logs, f"⏳ Aguardando {delay:.1f}s...", "info")
-            time.sleep(delay)
+            if numero_variante:
+                time.sleep(gerar_delay(delay_min, delay_max))  # pausa curta entre buscas, para não ser bloqueado
 
             # Buscar URLs (DDGS API > DuckDuckGo HTML > Google > Bing)
             urls, engine = buscar_urls(session, query, headers)
 
             if not urls:
-                log_msg(log_container, logs, f"⚠ Nenhum resultado encontrado para \"{query}\"", "warn")
+                buscas_sem_resultado += 1
+                log_msg(log_container, logs, f"⚠ Nenhum resultado para \"{query}\" (todos os buscadores falharam ou só retornaram sites ignorados, como marketplaces)", "warn")
                 continue
 
-            log_msg(log_container, logs, f"📋 {len(urls)} resultados encontrados via {engine}", "info")
-
+            novas = []
             for url in urls:
-                estado_item = atualizar_estado_orcamentos(candidatos_item, max_fontes)
-                if len(estado_item["validos"]) >= max_fontes:
-                    break
-
                 dominio = extrair_dominio(url)
-                if dominio in dominios_usados:
+                if dominio in dominios_usados or url in urls_tentadas or any(extrair_dominio(u) == dominio for u in novas):
+                    continue
+                novas.append(url)
+            log_msg(log_container, logs, f"📋 {len(urls)} resultados via {engine}; acessando {len(novas)} site(s) novo(s)", "info")
+            if not novas:
+                continue
+
+            with ThreadPoolExecutor(max_workers=1 if playwright_disponivel else 5) as executor:
+                respostas = list(executor.map(_acessar, novas))
+
+            for url, (resultado, motivo) in zip(novas, respostas):
+                urls_tentadas.add(url)
+                dominio = extrair_dominio(url)
+                if not resultado:
+                    motivos_falha[motivo] += 1
+                    log_msg(log_container, logs, f"✗ {dominio}: {motivo}", "error")
                     continue
 
-                log_msg(log_container, logs, f"🌐 Acessando: {dominio}", "info")
+                contador_item += 1
+                resultado["resultado_id"] = f"{item_slug}_{contador_item}_{abs(hash(url)) % 10000}"
+                resultado["item"] = item
+                resultado["data_coleta"] = datetime.now().strftime("%d/%m/%Y %H:%M")
+                candidatos_item.append(resultado)
+                dominios_usados.add(dominio)
+                estado_item = atualizar_estado_orcamentos(candidatos_item, max_fontes)
 
-                # Delay entre acessos a sites
-                delay = gerar_delay(2.5, 6.0)
-                log_msg(log_container, logs, f"⏳ Delay de navegação: {delay:.1f}s", "info")
-                time.sleep(delay)
+                for descartado in estado_item["descartados"]:
+                    if descartado["resultado_id"] in outliers_logados:
+                        continue
+                    log_msg(
+                        log_container,
+                        logs,
+                        f"🚫 Outlier descartado em {descartado['dominio']}: {formatar_moeda_br(descartado['preco'])} acima do limite de {formatar_moeda_br(descartado['limite_superior'])} para '{item}'. Buscando reposição.",
+                        "warn",
+                    )
+                    outliers_logados.add(descartado["resultado_id"])
 
-                resultado = None
-                screenshot_path = os.path.join(
-                    SCREENSHOT_DIR,
-                    f"{item_slug}_{contador_item + 1}.png",
-                )
+                if resultado["resultado_id"] in estado_item["ids_validos"]:
+                    log_msg(
+                        log_container,
+                        logs,
+                        f"💰 Orçamento [{len(estado_item['validos'])}/{max_fontes}] — {formatar_moeda_br(resultado['preco'])} em {dominio} ({resultado.get('origem_preco', '')})",
+                        "orcamento",
+                    )
+                elif resultado["resultado_id"] not in estado_item["ids_descartados"] and resultado["resultado_id"] not in reservas_logadas:
+                    log_msg(
+                        log_container,
+                        logs,
+                        f"📌 Cotação extra mantida em reserva: {formatar_moeda_br(resultado['preco'])} em {dominio}",
+                        "info",
+                    )
+                    reservas_logadas.add(resultado["resultado_id"])
 
-                # Se Playwright selecionado e disponível, usar primeiro
-                if playwright_disponivel:
-                    log_msg(log_container, logs, f"🎭 Tentando com navegador automatizado: {dominio}", "info")
-                    time.sleep(gerar_delay(1.5, 3.5))
-                    resultado = scraping_playwright(url, item, screenshot_path)
-
-                # Se Playwright não disponível ou falhou, tentar com requests
-                if not resultado:
-                    for tentativa in range(MAX_RETRIES + 1):
-                        # Simular tempo de leitura
-                        time.sleep(gerar_delay_leitura())
-
-                        resultado = scraping_requests(session, url, headers, item_nome=item)
-                        if resultado:
-                            break
-
-                        if tentativa < MAX_RETRIES:
-                            retry_delay = gerar_delay(3.0, 7.0)
-                            log_msg(log_container, logs, f"🔄 Retry {tentativa+1}/{MAX_RETRIES} em {retry_delay:.1f}s...", "warn")
-                            time.sleep(retry_delay)
-                            # Trocar User-Agent no retry
-                            headers = gerar_headers()
-                            session.headers.update(headers)
-
-                if resultado:
-                    contador_item += 1
-                    resultado["resultado_id"] = f"{item_slug}_{contador_item}_{abs(hash(url)) % 10000}"
-                    resultado["item"] = item
-                    resultado["data_coleta"] = datetime.now().strftime("%d/%m/%Y %H:%M")
-
-                    # Capturar screenshot via Playwright se ainda não temos
-                    if playwright_disponivel and not resultado.get("screenshot"):
-                        try:
-                            _resultado_pw = scraping_playwright(url, item, screenshot_path)
-                            if _resultado_pw and _resultado_pw.get("screenshot"):
-                                resultado["screenshot"] = _resultado_pw["screenshot"]
-                        except Exception:
-                            pass
-
-                    candidatos_item.append(resultado)
-                    dominios_usados.add(dominio)
-                    estado_item = atualizar_estado_orcamentos(candidatos_item, max_fontes)
-
-                    for descartado in estado_item["descartados"]:
-                        if descartado["resultado_id"] in outliers_logados:
-                            continue
-                        log_msg(
-                            log_container,
-                            logs,
-                            f"🚫 Outlier descartado em {descartado['dominio']}: {formatar_moeda_br(descartado['preco'])} acima do limite de {formatar_moeda_br(descartado['limite_superior'])} para '{item}'. Buscando reposição.",
-                            "warn",
-                        )
-                        outliers_logados.add(descartado["resultado_id"])
-
-                    if resultado["resultado_id"] in estado_item["ids_validos"]:
-                        log_msg(
-                            log_container,
-                            logs,
-                            f"💰 Orçamento [{len(estado_item['validos'])}/{max_fontes}] — {formatar_moeda_br(resultado['preco'])} em {dominio}",
-                            "orcamento",
-                        )
-                    elif resultado["resultado_id"] not in estado_item["ids_descartados"] and resultado["resultado_id"] not in reservas_logadas:
-                        log_msg(
-                            log_container,
-                            logs,
-                            f"📌 Cotação extra mantida em reserva: {formatar_moeda_br(resultado['preco'])} em {dominio}",
-                            "info",
-                        )
-                        reservas_logadas.add(resultado["resultado_id"])
-                else:
-                    log_msg(log_container, logs, f"✗ Sem preço extraível de {dominio}", "error")
+        if not candidatos_item:
+            resumo_falhas = "; ".join(f"{n}× {m}" for m, n in motivos_falha.most_common(4)) or "nenhuma página foi acessada"
+            log_msg(log_container, logs, f"❌ Nenhum preço para '{item}' ({resumo_falhas}).", "error")
+            if buscas_sem_resultado == len(variantes):
+                log_msg(log_container, logs, "ℹ️ Os buscadores gratuitos não responderam: servidores em nuvem costumam ser bloqueados. Veja a orientação abaixo do log.", "warn")
 
         # Complemento: se não atingiu o mínimo de fontes, usar SearchAPI (Google Shopping)
         estado_item = atualizar_estado_orcamentos(candidatos_item, max_fontes)
@@ -1478,9 +1472,7 @@ def executar_scraping(itens, usar_playwright, progress_bar, log_container, statu
 
         # Delay maior entre itens diferentes
         if idx < total_itens - 1:
-            delay = gerar_delay(4.0, 8.0)
-            log_msg(log_container, logs, f"⏳ Intervalo entre itens: {delay:.1f}s", "info")
-            time.sleep(delay)
+            time.sleep(gerar_delay(delay_min, delay_max))
 
     progress_bar.progress(1.0)
     log_msg(log_container, logs, f"━━━ Scraping concluído! {len(resultados)} orçamentos coletados ━━━", "success")
@@ -1906,8 +1898,8 @@ with col2:
                                             help="Limite de buscas pagas nesta execução, para você nunca gastar além do previsto.")
     else:
         st.caption("Google Shopping: desligado (sem chave nos Secrets). Pesquisa gratuita via DuckDuckGo.")
-    delay_min = st.number_input("Delay mín. (seg)", min_value=1.0, max_value=15.0, value=2.0, step=0.5)
-    delay_max = st.number_input("Delay máx. (seg)", min_value=2.0, max_value=30.0, value=6.0, step=0.5)
+    delay_min = st.number_input("Pausa mín. entre buscas (seg)", min_value=0.5, max_value=15.0, value=1.0, step=0.5)
+    delay_max = st.number_input("Pausa máx. entre buscas (seg)", min_value=1.0, max_value=30.0, value=3.0, step=0.5)
 
 # Validação
 if delay_min >= delay_max:
@@ -1946,6 +1938,8 @@ if iniciar:
             max_fontes=max_fontes,
             usar_google_shopping=usar_google_shopping,
             limite_google=int(limite_google),
+            delay_min=float(delay_min),
+            delay_max=float(delay_max),
         )
 
         # Armazenar resultados no session_state
@@ -2179,3 +2173,9 @@ if "scraping_resultados" in st.session_state and st.session_state["scraping_resu
 
 elif "scraping_resultados" in st.session_state and not st.session_state["scraping_resultados"]:
     st.warning("⚠️ O scraping foi executado mas nenhum orçamento foi encontrado. Tente com outros termos.")
+    st.info(
+        "**Se o log mostra que os buscadores não responderam**, o servidor da nuvem foi bloqueado (acontece com buscas gratuitas). Opções:\n\n"
+        "1. **Google Shopping (pago, opcional):** cadastre `SEARCHAPI_KEY` nos *Secrets* do Streamlit; a opção aparece ao lado e você define o limite de buscas.\n"
+        "2. **Rodar no seu computador** (`streamlit run streamlit_app.py`): o IP residencial raramente é bloqueado.\n\n"
+        "**Se o log mostra sites acessados sem preço** (`✗ site: motivo`), o motivo aparece em cada linha: páginas dinâmicas, listagens ou bloqueio do site."
+    )
