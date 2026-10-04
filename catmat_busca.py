@@ -45,7 +45,25 @@ TERMOS_RESTRITIVOS = {
     "infantil", "medico", "odontologico", "recarga", "refil", "tinteiro", "toner",
 }
 # Verbos/ações de serviço: dizem o que se faz, não o objeto ("troca de PISO", "manutenção de AR CONDICIONADO").
+# Palavras genéricas em nomes de serviço ("PISO EM GERAL", "OUTRAS NECESSIDADES"): não contam como qualificador diferente.
+TERMOS_GENERICOS = {"geral", "outro", "outra", "diverso", "demais", "exceto", "servico", "prestacao", "contratacao", "fornecimento", "especifico"}
 TERMOS_ACAO = {"troca", "manutencao", "instalacao", "reparo", "conserto", "substituicao", "remocao", "recuperacao", "reforma"}
+# Qualificadores mutuamente exclusivos: se o pedido cita um e o NOME do item do catálogo cita outro do mesmo grupo,
+# o item é outra coisa (seguro de VEÍCULO ≠ seguro de AERONAVES; piso VINÍLICO ≠ piso de MADEIRA).
+# Cada grupo é uma lista de conjuntos; palavras no mesmo conjunto são sinônimas.
+GRUPOS_EXCLUSIVOS = [
+    [  # tipo de veículo: "veículo" = de passeio/carga, quatro rodas
+        {"veiculo", "automovel", "carro", "caminhao", "onibus", "utilitario", "automotivo"},
+        {"aeronave", "aviao", "helicoptero", "drone"},
+        {"embarcacao", "navio", "barco", "lancha", "rebocador"},
+        {"motocicleta", "moto"},
+        {"bicicleta"},
+    ],
+    [  # revestimento de piso
+        {"vinilico"}, {"madeira", "parquet"}, {"elevado"}, {"ceramica", "porcelanato"},
+        {"granito", "marmore"}, {"carpete"}, {"epoxi"}, {"laminado"},
+    ],
+]
 # Termo da descrição -> grupos de termos que o catálogo usa para dizer a mesma coisa.
 # Um grupo só vale se TODOS os seus termos estiverem na descrição do catálogo.
 EQUIVALENCIAS = {
@@ -294,7 +312,8 @@ def _pontuar(descricao: str, candidato: str, nome_pdm: str = "", servico: bool =
     nome = _tokens_ordenados(re.split(r"[,;:(]", nome_pdm or candidato, maxsplit=1)[0])
     nome_completo = 15 if all(_forca_termo(token, set(nome)) >= 0.7 for token in nucleo) else 0
     sequencia = SequenceMatcher(None, " ".join(nucleo), " ".join(nome[:6])).ratio()
-    extras_no_nome = [token for token in nome if _forca_termo(token, set(perfil["ordem"])) == 0 and all(_forca_termo(t, {token}) == 0 for t in nucleo)]
+    nome_util = [token for token in nome[: nome.index("exceto")] if token not in TERMOS_GENERICOS and token not in TERMOS_ACAO] if "exceto" in nome else [token for token in nome if token not in TERMOS_GENERICOS and token not in TERMOS_ACAO]
+    extras_no_nome = [token for token in nome_util if _forca_termo(token, set(perfil["ordem"])) == 0 and all(_forca_termo(t, {token}) == 0 for t in nucleo)]
 
     bonus_preferencia = 0
     gramatura_informada = any(token.isdigit() for token in perfil["especificos"])
@@ -313,6 +332,24 @@ def _pontuar(descricao: str, candidato: str, nome_pdm: str = "", servico: bool =
         pontuacao *= 0.65 + 0.35 * atendidas  # especificação pedida e ausente (ex.: A4) pesa
     if not nucleo_completo:
         pontuacao *= 0.85
+    if servico:
+        # Nomes do CATSERV são enxutos: item genérico ("PISO EM GERAL") serve para pedido com qualificador; já item com
+        # OUTRO qualificador ("SEGURO PATRIMONIAL" p/ "seguro veículo") não. E o termo principal precisa estar presente.
+        faltantes = [token for token in nucleo if token != cabeca and token not in TERMOS_ACAO and forcas[token] < 0.7]
+        if faltantes and extras_no_nome:
+            pontuacao *= 0.65
+        if forca_cabeca < 0.85:
+            pontuacao *= 0.5
+        acoes_pedidas = [token for token in nucleo if token in TERMOS_ACAO]
+        acoes_no_nome = [token for token in nome if token in TERMOS_ACAO]
+        if acoes_pedidas and acoes_no_nome and not any(_forca_termo(acao, set(nome)) >= 0.7 for acao in acoes_pedidas):
+            pontuacao *= 0.6  # outra ação (pediu manutenção, o item é de instalação)
+    nome_tokens, pedido = set(nome), set(perfil["ordem"])
+    for grupo in GRUPOS_EXCLUSIVOS:
+        pedidos = [conjunto for conjunto in grupo if conjunto & pedido]
+        no_nome = [conjunto for conjunto in grupo if conjunto & nome_tokens]
+        if pedidos and no_nome and not any(conjunto in pedidos for conjunto in no_nome):
+            pontuacao *= 0.4  # o item é de outro tipo (ex.: aeronave quando se pediu veículo)
     if forca_cabeca == 0:
         pontuacao *= 0.35
     return pontuacao

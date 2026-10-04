@@ -10,7 +10,7 @@ from fpdf import FPDF
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
-from cotacao_rapida import JANELA_DIAS, LIMIAR_CORRESPONDENCIA, MAX_CATMAT, MAX_PRECOS, MIN_PRECOS, TOLERANCIA
+from cotacao_rapida import JANELA_DIAS, LIMIAR_CORRESPONDENCIA, LIMIAR_SERVICO, MAX_CATMAT, MAX_PRECOS, MIN_PRECOS, TOLERANCIA
 
 AZUL, DOURADO, AZUL_CARTAO = (0, 26, 77), (212, 175, 55), (10, 37, 64)
 LARGURA = 281  # área útil (A4 paisagem, margens de 8 mm)
@@ -28,11 +28,11 @@ JUSTIFICATIVA_COTACAO = (
     "Dessa forma, entende-se que a metodologia adotada atende aos princípios da razoabilidade, "
     "economicidade e motivação do ato administrativo, conferindo robustez à formação do preço estimado."
 )
-def metodologia(limiar: float) -> str:
+def metodologia() -> str:
     return (
     "Metodologia da Cotação Rápida\n\n"
     f"1. Para cada descrição informada, foram localizados até {MAX_CATMAT} itens do catálogo CATMAT (materiais) ou CATSERV (serviços) "
-    f"com correspondência igual ou superior a {limiar:.0f}% e que possuem preços praticados no período.\n\n"
+    f"com correspondência igual ou superior a {LIMIAR_CORRESPONDENCIA:.0f}% (materiais) ou {LIMIAR_SERVICO:.0f}% (serviços) e que possuem preços praticados no período.\n\n"
     f"2. Os preços foram obtidos no módulo Pesquisa de Preço do Compras.gov (dados abertos), considerando compras dos "
     f"últimos {JANELA_DIAS} dias, e comparados apenas dentro da mesma unidade de fornecimento (materiais) ou de medida (serviços).\n\n"
     "3. Foram descartados preços inexequíveis ou extremos (abaixo de 30% ou acima de 300% da mediana) e os valores atípicos "
@@ -329,8 +329,7 @@ def gerar_pdf(resultados: list[dict]) -> bytes:
         _pagina_item(pdf, numero, resultado)
     pdf.add_page()
     pdf.ln(5)
-    limiar = resultados[0].get("limiar", LIMIAR_CORRESPONDENCIA) if resultados else LIMIAR_CORRESPONDENCIA
-    for texto in (JUSTIFICATIVA_COTACAO, metodologia(limiar)):
+    for texto in (JUSTIFICATIVA_COTACAO, metodologia()):
         titulo, *paragrafos = texto.split("\n\n")
         pdf.set_font("Helvetica", "B", 12)
         pdf.set_text_color(*AZUL)
