@@ -715,6 +715,36 @@ def buscar_searchapi(query, num_results=8):
         return []
 
 
+SEARCHAPI_USO = {"buscas": 0, "limite": 0}  # buscas SearchAPI (DuckDuckGo) feitas/permitidas nesta execução
+
+
+def buscar_searchapi_web(query, num_results=8, item=None):
+    """Busca web via SearchAPI (engine=duckduckgo): o DuckDuckGo é consultado pelos servidores deles, sem o bloqueio do IP do Streamlit.
+    Usa a cota da sua conta SearchAPI; só roda com chave nos Secrets e dentro do limite definido na tela."""
+    import requests as req
+
+    chave = _chave_searchapi()
+    if not chave or SEARCHAPI_USO["buscas"] >= SEARCHAPI_USO["limite"]:
+        return []
+    SEARCHAPI_USO["buscas"] += 1
+    termos = _termos_do_item(item) if item else []
+    try:
+        resp = req.get(SEARCHAPI_URL, params={"engine": "duckduckgo", "q": query, "api_key": chave}, timeout=20)
+        dados = resp.json() if resp.content else {}
+        if resp.status_code != 200:
+            DIAG_BUSCA["searchapi/duckduckgo"] = f"HTTP {resp.status_code}: {str(dados.get('error', ''))[:80]}"
+            return []
+        brutos = dados.get("organic_results") or dados.get("results") or []
+        achados = [{"href": r.get("link") or r.get("url") or "", "title": r.get("title", ""), "body": r.get("snippet", "")} for r in brutos if isinstance(r, dict)]
+        validos = [r for r in achados if r["href"].startswith("http") and dominio_valido(r["href"])]
+        DIAG_BUSCA["searchapi/duckduckgo"] = f"{len(achados)} resultados, {len(validos)} após filtro de domínios (busca {SEARCHAPI_USO['buscas']}/{SEARCHAPI_USO['limite']})"
+        relevantes = _dedup_urls([r["href"] for r in validos if _resultado_relevante(r, termos)], num_results)
+        return relevantes or _dedup_urls([r["href"] for r in validos], 3)
+    except Exception as erro:
+        DIAG_BUSCA["searchapi/duckduckgo"] = f"erro {type(erro).__name__}"
+        return []
+
+
 def buscar_urls(session, query, headers, num_results=8, item=None):
     """Busca combinada: DDGS API > DuckDuckGo HTML > Google > Bing."""
     DIAG_BUSCA.clear()  # (FALHAS_MOTOR só é zerado no início de cada execução)
@@ -738,6 +768,10 @@ def buscar_urls(session, query, headers, num_results=8, item=None):
     urls = buscar_bing_requests(session, query, headers, num_results)
     if urls:
         return urls, "Bing"
+    # 5. SearchAPI (DuckDuckGo pelos servidores deles): opcional e limitado pela cota definida na tela
+    urls = buscar_searchapi_web(query, num_results, item)
+    if urls:
+        return urls, "SearchAPI (DuckDuckGo)"
     return [], "nenhum"
 
 
@@ -767,7 +801,8 @@ def testar_buscadores(query, item=None):
     sessao.headers.update(cabecalhos)
     for nome, funcao in (("Mojeek (HTML)", lambda: buscar_mojeek(sessao, query, cabecalhos, 8, item or query)),
                          ("DuckDuckGo (HTML)", lambda: buscar_duckduckgo(sessao, query, cabecalhos, 8)),
-                         ("Bing (HTML)", lambda: buscar_bing_requests(sessao, query, cabecalhos, 8))):
+                         ("Bing (HTML)", lambda: buscar_bing_requests(sessao, query, cabecalhos, 8)),
+                         ("SearchAPI (DuckDuckGo)", lambda: (SEARCHAPI_USO.update({"buscas": 0, "limite": 1}), buscar_searchapi_web(query, 8, item or query))[1])):
         inicio = time.time()
         DIAG_BUSCA.clear()
         urls = funcao()
@@ -1396,7 +1431,7 @@ def scraping_playwright(url, item_nome, screenshot_path=None):
 
 # ===================== ORQUESTRADOR DE SCRAPING =====================
 
-def executar_scraping(itens, usar_playwright, progress_bar, log_container, status_text, max_fontes, usar_google_shopping=False, limite_google=10, delay_min=2.0, delay_max=5.0):
+def executar_scraping(itens, usar_playwright, progress_bar, log_container, status_text, max_fontes, usar_google_shopping=False, limite_google=10, delay_min=2.0, delay_max=5.0, limite_searchapi_busca=0):
     """Executa o scraping completo para todos os itens."""
     import requests as req
     from collections import Counter
@@ -1416,6 +1451,7 @@ def executar_scraping(itens, usar_playwright, progress_bar, log_container, statu
     os.makedirs(SCREENSHOT_DIR, exist_ok=True)
     buscas_google = 0
     FALHAS_MOTOR.clear()
+    SEARCHAPI_USO.update({"buscas": 0, "limite": int(limite_searchapi_busca)})
 
     for idx, item in enumerate(itens):
         item = item.strip()
@@ -1970,7 +2006,7 @@ with st.expander("⚙️ Como Funciona o Web Scraping", expanded=False):
     _components.html(_como_funciona_html, height=700, scrolling=True)
 
 with st.expander("🔧 Diagnóstico dos buscadores (se a pesquisa não encontrar nada)", expanded=False):
-    st.caption("Roda uma busca de teste em cada buscador gratuito e mostra qual responde, em quanto tempo e se os resultados são do assunto.")
+    st.caption("Roda uma busca de teste em cada buscador gratuito e mostra qual responde, em quanto tempo e se os resultados são do assunto. O teste da SearchAPI usa 1 busca da sua cota (só se houver chave).")
     consulta_teste = st.text_input("Busca de teste", value="fita crepe preço", key="consulta_teste_buscadores")
     if st.button("Testar buscadores agora", key="botao_teste_buscadores"):
         with st.spinner("Testando (pode levar até 1 minuto)..."):
@@ -2015,7 +2051,15 @@ with col2:
     )
     usar_google_shopping = False
     limite_google = 0
+    limite_searchapi_busca = 0
     if _chave_searchapi():
+        if st.checkbox(
+            "Usar SearchAPI (DuckDuckGo) se os gratuitos falharem",
+            value=False,
+            help="O DuckDuckGo é consultado pelos servidores da SearchAPI (sem o bloqueio do servidor do app). Cada busca consome a cota da sua conta SearchAPI.",
+        ):
+            limite_searchapi_busca = st.number_input("Máx. buscas SearchAPI (DuckDuckGo)", min_value=1, max_value=200, value=15,
+                                                     help="Limite de buscas desta execução, para nunca gastar além do previsto.")
         usar_google_shopping = st.checkbox(
             "Complementar com Google Shopping (pago)",
             value=False,
@@ -2068,6 +2112,7 @@ if iniciar:
             limite_google=int(limite_google),
             delay_min=float(delay_min),
             delay_max=float(delay_max),
+            limite_searchapi_busca=int(limite_searchapi_busca),
         )
 
         # Armazenar resultados no session_state
