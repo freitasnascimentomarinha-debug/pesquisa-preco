@@ -936,7 +936,7 @@ def scraping_requests(session, url, headers, item_nome=None):
         precos = extrair_precos_pagina(html)
 
         # Preço do produto anunciado: oferta em JSON-LD (sem parcelas/preço riscado) > metadados > mediana dos valores do texto
-        principal = web_precos.preco_principal(html, extrair_precos_pagina)
+        principal = web_precos.preco_principal(html, extrair_precos_pagina, item_nome or "")
         if not principal:
             MOTIVO_REJEICAO["texto"] = "sem preço identificável (página dinâmica)"
             return None
