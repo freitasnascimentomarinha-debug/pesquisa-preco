@@ -120,7 +120,7 @@ def preco_principal(html: str, alternativa: Callable[[str], list[float]] | None 
 
     if alternativa:
         valores = sorted(set(alternativa(html)))
-        if valores and len(valores) <= 8:  # muitos valores diferentes = listagem/categoria, não um produto
+        if valores:  # como antes: qualquer valor do texto serve (confiança baixa, avisada no relatório)
             return {"preco": valores[len(valores) // 2], "origem": "texto da página (mediana dos valores)", "confianca": "baixa", "nome": ""}
     return None
 
