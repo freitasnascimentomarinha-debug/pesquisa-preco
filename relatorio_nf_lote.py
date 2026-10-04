@@ -16,7 +16,7 @@ import relatorio_cotacao_rapida as base
 from cotacao_rapida import MAX_PRECOS, MIN_PRECOS, TOLERANCIA
 from fornecedores_nf import formatar_cnpj
 from relatorio_cotacao_rapida import (
-    AZUL, AZUL_CARTAO, DOURADO, JUSTIFICATIVA_COTACAO, LARGURA, PDFCotacaoRapida, STATUS_TEXTO, _cabecalho_tabela, _cartoes, _quebrar,
+    AZUL_CARTAO, DOURADO, JUSTIFICATIVA_COTACAO, LARGURA, PDFCotacaoRapida, STATUS_TEXTO, _cabecalho_tabela, _cartoes, _quebrar,
     _seguro, _truncar, moeda,
 )
 
@@ -102,12 +102,70 @@ def _pagina_item_nf(info: dict):
     return pagina
 
 
+URL_PORTAL_NFE = "https://www.nfe.fazenda.gov.br/portal/consultaRecaptcha.aspx?tipoConsulta=resumo&tipoConteudo=7PhJ+gAVw2g="
+
+
+def tabela_notas(resultados: list[dict]) -> pd.DataFrame:
+    """As notas fiscais dos preços listados no mapa, com número, série e chave de acesso para consulta no Portal da NF-e."""
+    linhas = []
+    for numero, r in enumerate(resultados, start=1):
+        for p in r["precos"]:
+            linhas.append({"Item": numero, "Descrição pesquisada": r["descricao"], "Data": str(p["data"])[:10], "Fornecedor": p["fornecedor"],
+                           "CNPJ": formatar_cnpj(p["cnpj"]), "Nº NF-e": p["numero_nf"], "Série": p["serie"], "Chave de acesso": p["id_compra"],
+                           "Valor unitário": p["preco"], "Unidade": p["sigla"], "Destinatário": p["nome_uasg"]})
+    return pd.DataFrame(linhas, columns=["Item", "Descrição pesquisada", "Data", "Fornecedor", "CNPJ", "Nº NF-e", "Série", "Chave de acesso", "Valor unitário", "Unidade", "Destinatário"])
+
+
+def _anexo_notas(resultados: list[dict]):
+    colunas = [("Item", 9), ("Descricao pesquisada", 40), ("Data", 16), ("Fornecedor", 50), ("CNPJ", 28), ("N. NF-e", 16), ("Serie", 9), ("Chave de acesso (44 digitos)", 90), ("V. Unitario", 23)]
+
+    def cabecalho_pagina(pdf: FPDF) -> None:
+        pdf.set_y(35)
+        pdf.set_fill_color(*AZUL_CARTAO)
+        pdf.set_text_color(*DOURADO)
+        pdf.set_font("Helvetica", "B", 8)
+        pdf.cell(LARGURA, 6, "  RELACAO DAS NOTAS FISCAIS UTILIZADAS - para autenticacao no Portal da NF-e", 0, 1, "L", True)
+        pdf.set_font("Helvetica", "", 7)
+        pdf.set_text_color(70, 70, 70)
+        pdf.cell(18, 5, "Consulta:", 0, 0)
+        pdf.set_text_color(20, 70, 190)
+        pdf.cell(0, 5, URL_PORTAL_NFE[:92] + "...", 0, 1, link=URL_PORTAL_NFE)
+        pdf.set_text_color(70, 70, 70)
+        pdf.multi_cell(LARGURA, 3.6, "Informe a chave de acesso (44 digitos), resolva o captcha e confira o DANFE/XML: a nota deve existir, ter o mesmo emitente (CNPJ), a mesma data e o valor unitario indicado. O numero e a serie da NF-e constam da propria chave.", new_x="LMARGIN", new_y="NEXT")
+        pdf.ln(1)
+        _cabecalho_tabela(pdf, colunas)
+
+    def anexo(pdf: FPDF) -> None:
+        notas = tabela_notas(resultados)
+        pdf.add_page()
+        cabecalho_pagina(pdf)
+        for numero, (_, linha) in enumerate(notas.iterrows()):
+            if pdf.get_y() + 6 > pdf.h - 14:
+                pdf.add_page()
+                cabecalho_pagina(pdf)
+            pdf.set_font("Helvetica", "", 6.3)
+            pdf.set_text_color(51, 51, 51)
+            valores = [str(linha["Item"]), linha["Descrição pesquisada"], linha["Data"], linha["Fornecedor"], linha["CNPJ"], linha["Nº NF-e"], linha["Série"],
+                       linha["Chave de acesso"], f"R$ {moeda(linha['Valor unitário'])}"]
+            pdf.set_fill_color(245, 248, 255)
+            for (_, largura), valor in zip(colunas, valores):
+                pdf.cell(largura, 6, _truncar(pdf, valor, largura - 2), 1, 0, "C", numero % 2 == 1)
+            pdf.ln()
+        if notas.empty:
+            pdf.set_font("Helvetica", "", 8)
+            pdf.set_text_color(150, 30, 30)
+            pdf.cell(0, 6, "Nenhuma nota listada: nenhum item atingiu precos validos.", ln=True)
+
+    return anexo
+
+
 def gerar_pdf_mapa(resultados: list[dict], info: dict) -> bytes:
     return base.gerar_pdf(
         resultados,
         titulo=TITULO_PDF,
         pagina_item=_pagina_item_nf(info),
         textos=(JUSTIFICATIVA_COTACAO, metodologia(info)),
+        anexos=_anexo_notas(resultados),
         argumentos_mapa={
             "rotulo_col3": "Notas / fornecedores",
             "linhas_col3": lambda r: [f"{r['notas']} notas", f"{r['fornecedores']} fornecedores"] if r["notas"] else ["-"],
@@ -158,16 +216,17 @@ def gerar_excel_mapa(resultados: list[dict], info: dict) -> bytes:
             selecionados.append({"Item": numero, "Descrição pesquisada": r["descricao"], "Data": str(p["data"])[:10], "Fornecedor": p["fornecedor"],
                                  "CNPJ": formatar_cnpj(p["cnpj"]), "UF emitente": p["uf"], "Município": p["municipio"], "Unidade": p["sigla"], "Quantidade": p["quantidade"],
                                  "Valor unitário": p["preco"], "Destinatário": p["nome_uasg"], "UF destinatário": p["uf_dest"], "Produto na nota": p["descricao"],
-                                 "NCM/SH": p["ncm"], "Natureza da operação": p["natureza"], "Chave de acesso": p["id_compra"]})
+                                 "NCM/SH": p["ncm"], "Natureza da operação": p["natureza"], "Nº NF-e": p["numero_nf"], "Série": p["serie"], "Chave de acesso": p["id_compra"]})
         for p in r.get("registros", [])[:5000]:
             todas.append({"Item": numero, "Descrição pesquisada": r["descricao"], "Usado no mapa": "Sim" if (p["id_compra"], p["id_item"]) in usados else "Não",
                           "Data": str(p["data"])[:10], "Fornecedor": p["fornecedor"], "CNPJ": formatar_cnpj(p["cnpj"]), "UF emitente": p["uf"], "Unidade": p["sigla"],
                           "Quantidade": p["quantidade"], "Valor unitário": p["preco"], "Destinatário": p["nome_uasg"], "UF destinatário": p["uf_dest"],
-                          "Produto na nota": p["descricao"], "Chave de acesso": p["id_compra"]})
+                          "Produto na nota": p["descricao"], "Nº NF-e": p["numero_nf"], "Série": p["serie"], "Chave de acesso": p["id_compra"]})
     saida = io.BytesIO()
     with pd.ExcelWriter(saida, engine="openpyxl") as escritor:
         tabela_mapa_nf(resultados).to_excel(escritor, index=False, sheet_name="Mapa Comparativo")
         pd.DataFrame(selecionados).to_excel(escritor, index=False, sheet_name="Preços selecionados")
+        tabela_notas(resultados).to_excel(escritor, index=False, sheet_name="NF-e para autenticação")
         pd.DataFrame(todas).to_excel(escritor, index=False, sheet_name="Todas as notas")
         pd.DataFrame({"Parâmetro": ["Arquivos consultados", "Linhas analisadas", "Filtros", "Preços por item", "Tolerância sobre a média", "Mínimo recomendado de preços"],
                       "Valor": [", ".join(info.get("arquivos", [])), info.get("linhas", 0), info.get("filtros", "nenhum"), MAX_PRECOS, f"{TOLERANCIA * 100:.0f}%", MIN_PRECOS]}
@@ -176,57 +235,120 @@ def gerar_excel_mapa(resultados: list[dict], info: dict) -> bytes:
     return saida.getvalue()
 
 
-# ------------------------------------------------------------------ fornecedores
+# ------------------------------------------------------------------ fornecedores (agrupados pelo que vendem)
 
-COLUNAS_PDF_FORNECEDORES = [("CNPJ", 27, "CNPJ"), ("Razao social", 48, "Razão social"), ("UF", 8, "UF"), ("Telefones", 32, "Telefones"), ("E-mail", 42, "E-mail"),
-                            ("CNAE principal", 45, "CNAE principal"), ("Natureza dos itens que vende", 79, "Natureza dos itens que vende")]
+COLUNAS_PDF_FORNECEDORES = [("CNPJ", 27, "CNPJ"), ("Razao social", 52, "Razão social"), ("UF", 8, "UF"), ("Telefones", 34, "Telefones"), ("E-mail", 46, "E-mail"),
+                            ("CNAE principal", 52, "CNAE principal"), ("Notas", 11, "Notas do item"), ("Preco medio", 24, "Preço médio"), ("Faixa de preco", 27, "Faixa")]
 
 
-def gerar_pdf_fornecedores(tabela: pd.DataFrame, info: dict) -> bytes:
+def _faixa(linha: pd.Series) -> str:
+    return f"{moeda(linha['Preço mínimo'])} a {moeda(linha['Preço máximo'])}"
+
+
+def gerar_pdf_fornecedores(tabelas: dict, info: dict) -> bytes:
+    """Fornecedores agrupados pelo item que vendem: um bloco por item pesquisado, com os fornecedores daquele item."""
+    por_item, unica = tabelas["por_item"], tabelas["unica"]
     pdf = PDFCotacaoRapida(orientation="L", unit="mm", format="A4", titulo=TITULO_FORNECEDORES)
     pdf.set_margins(8, 35, 8)
     pdf.alias_nb_pages()
     pdf.set_auto_page_break(auto=False)
     pdf.add_page()
-    _cartoes(pdf, [("FORNECEDORES", str(len(tabela))), ("COM E-MAIL", str(int((tabela["E-mail"] != "Não informado").sum()))),
-                   ("COM TELEFONE", str(int((tabela["Telefones"] != "Não informado").sum()))),
-                   ("ESTADOS", str(tabela["UF"].replace("Não informado", pd.NA).nunique()))], 38)
+    _cartoes(pdf, [("FORNECEDORES (UNICOS)", str(len(unica))), ("ITENS COM FORNECEDORES", str(por_item["Item que vende"].nunique())),
+                   ("COM E-MAIL", str(int((unica["E-mail"] != "Não informado").sum()))), ("COM TELEFONE", str(int((unica["Telefones"] != "Não informado").sum())))], 38)
     pdf.set_font("Helvetica", "", 6.5)
     pdf.set_text_color(90, 90, 90)
-    pdf.cell(0, 4, _seguro(f"Fornecedores que emitiram as notas encontradas ({info.get('filtros', 'sem filtros')}). Dados cadastrais: OpenCNPJ (Receita Federal)."), ln=True)
+    pdf.multi_cell(LARGURA, 3.6, _seguro(f"Fornecedores agrupados pelo que vendem (item pesquisado). Um fornecedor que vende mais de um item aparece em cada grupo. "
+                                         f"Notas fiscais: {info.get('filtros', 'sem filtros')}. Dados cadastrais: OpenCNPJ (Receita Federal)."), new_x="LMARGIN", new_y="NEXT")
     pdf.ln(1)
     colunas = [(rotulo, largura) for rotulo, largura, _ in COLUNAS_PDF_FORNECEDORES]
-    _cabecalho_tabela(pdf, colunas)
-    for numero, (_, linha) in enumerate(tabela.iterrows()):
-        pdf.set_font("Helvetica", "", 6.3)
-        celulas = [_quebrar(pdf, str(linha[campo]), largura - 2, 6 if campo.startswith("Natureza") else 3) for _, largura, campo in COLUNAS_PDF_FORNECEDORES]
-        altura = max(7.0, 3.4 * max(len(c) for c in celulas) + 2)
-        if pdf.get_y() + altura > pdf.h - 14:
+
+    def faixa_do_grupo(descricao: str, quantidade: int, continuacao: bool) -> None:
+        pdf.set_fill_color(*AZUL_CARTAO)
+        pdf.set_text_color(*DOURADO)
+        pdf.set_font("Helvetica", "B", 8)
+        pdf.cell(LARGURA, 6, _truncar(pdf, f"  VENDEM: {descricao}" + (" (continuacao)" if continuacao else f"  -  {quantidade} fornecedor(es)"), LARGURA - 4), 0, 1, "L", True)
+        _cabecalho_tabela(pdf, colunas, 6)
+
+    for descricao, grupo in por_item.groupby("Item que vende", sort=False):
+        if pdf.get_y() + 6 + 6 + 10 > pdf.h - 14:  # faixa + cabeçalho + ao menos uma linha cabem na página
             pdf.add_page()
             pdf.set_y(35)
-            _cabecalho_tabela(pdf, colunas)
-        x, y = pdf.l_margin, pdf.get_y()
-        for (_, largura, _), linhas in zip(COLUNAS_PDF_FORNECEDORES, celulas):
-            pdf.set_fill_color(*((245, 248, 255) if numero % 2 else (255, 255, 255)))
-            pdf.set_draw_color(190, 190, 190)
-            pdf.rect(x, y, largura, altura, "DF")
-            pdf.set_text_color(51, 51, 51)
-            for n, texto in enumerate(linhas):
-                pdf.set_xy(x + 1, y + 1 + 3.4 * n)
-                pdf.cell(largura - 2, 3.4, texto, 0, 0, "L")
-            x += largura
-        pdf.set_y(y + altura)
+        faixa_do_grupo(descricao, len(grupo), False)
+        for numero, (_, linha) in enumerate(grupo.iterrows()):
+            pdf.set_font("Helvetica", "", 6.3)
+            linha = linha.copy()
+            linha["Faixa"] = _faixa(linha)
+            linha["Preço médio"] = moeda(linha["Preço médio"])
+            celulas = [_quebrar(pdf, str(linha[campo]), largura - 2, 3) for _, largura, campo in COLUNAS_PDF_FORNECEDORES]
+            altura = max(7.0, 3.4 * max(len(c) for c in celulas) + 2)
+            if pdf.get_y() + altura > pdf.h - 14:
+                pdf.add_page()
+                pdf.set_y(35)
+                faixa_do_grupo(descricao, len(grupo), True)
+            x, y = pdf.l_margin, pdf.get_y()
+            for (_, largura, _), linhas in zip(COLUNAS_PDF_FORNECEDORES, celulas):
+                pdf.set_fill_color(*((245, 248, 255) if numero % 2 else (255, 255, 255)))
+                pdf.set_draw_color(190, 190, 190)
+                pdf.rect(x, y, largura, altura, "DF")
+                pdf.set_text_color(51, 51, 51)
+                for n, texto in enumerate(linhas):
+                    pdf.set_xy(x + 1, y + 1 + 3.4 * n)
+                    pdf.cell(largura - 2, 3.4, texto, 0, 0, "L")
+                x += largura
+            pdf.set_y(y + altura)
+        pdf.ln(3)
+    if por_item.empty:
+        pdf.set_font("Helvetica", "", 9)
+        pdf.set_text_color(150, 30, 30)
+        pdf.cell(0, 6, "Nenhum fornecedor encontrado.", ln=True)
     return bytes(pdf.output())
 
 
-def gerar_excel_fornecedores(tabela: pd.DataFrame) -> bytes:
-    saida = io.BytesIO()
-    with pd.ExcelWriter(saida, engine="openpyxl") as escritor:
-        tabela.to_excel(escritor, index=False, sheet_name="Fornecedores")
-        _formatar_planilhas(escritor, ())
-        planilha = escritor.book["Fornecedores"]
-        planilha.auto_filter.ref = planilha.dimensions
-        for linha in planilha.iter_rows(min_row=2):
-            for celula in linha:
+def gerar_excel_fornecedores(tabelas: dict) -> bytes:
+    """Excel com duas abas: fornecedores agrupados pelo item que vendem (faixa por item) e a lista única com o resumo."""
+    from openpyxl import Workbook
+
+    por_item, unica = tabelas["por_item"], tabelas["unica"]
+    wb = Workbook()
+    planilha = wb.active
+    planilha.title = "Por item vendido"
+    colunas = [c for c in por_item.columns if c != "Item que vende"]
+    cabecalho_fill, grupo_fill = PatternFill("solid", fgColor="001A4D"), PatternFill("solid", fgColor="D4AF37")
+    for j, nome in enumerate(colunas, start=1):
+        celula = planilha.cell(row=1, column=j, value=nome)
+        celula.font, celula.fill = Font(color="FFFFFF", bold=True), cabecalho_fill
+        celula.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    linha_atual = 2
+    for descricao, grupo in por_item.groupby("Item que vende", sort=False):
+        planilha.cell(row=linha_atual, column=1, value=f"VENDEM: {descricao}  -  {len(grupo)} fornecedor(es)").font = Font(bold=True, color="001A4D")
+        for j in range(1, len(colunas) + 1):
+            planilha.cell(row=linha_atual, column=j).fill = grupo_fill
+        planilha.merge_cells(start_row=linha_atual, start_column=1, end_row=linha_atual, end_column=len(colunas))
+        linha_atual += 1
+        for _, linha in grupo.iterrows():
+            for j, nome in enumerate(colunas, start=1):
+                celula = planilha.cell(row=linha_atual, column=j, value=linha[nome])
                 celula.alignment = Alignment(vertical="top", wrap_text=True)
+                if nome.startswith("Preço"):
+                    celula.number_format = '"R$" #,##0.00'
+            linha_atual += 1
+    for j, nome in enumerate(colunas, start=1):
+        maior = max([len(str(nome))] + [len(str(v)) for v in por_item[nome].head(300)]) if nome in por_item else 12
+        planilha.column_dimensions[get_column_letter(j)].width = min(max(maior + 2, 11), 60)
+    planilha.freeze_panes = "A2"
+    segunda = wb.create_sheet("Lista única")
+    for j, nome in enumerate(unica.columns, start=1):
+        celula = segunda.cell(row=1, column=j, value=nome)
+        celula.font, celula.fill = Font(color="FFFFFF", bold=True), cabecalho_fill
+        celula.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    for i, (_, linha) in enumerate(unica.iterrows(), start=2):
+        for j, nome in enumerate(unica.columns, start=1):
+            segunda.cell(row=i, column=j, value=linha[nome]).alignment = Alignment(vertical="top", wrap_text=True)
+    for j, nome in enumerate(unica.columns, start=1):
+        maior = max([len(str(nome))] + [len(str(v)) for v in unica[nome].head(300)])
+        segunda.column_dimensions[get_column_letter(j)].width = min(max(maior + 2, 11), 70)
+    segunda.freeze_panes = "A2"
+    segunda.auto_filter.ref = segunda.dimensions
+    saida = io.BytesIO()
+    wb.save(saida)
     return saida.getvalue()

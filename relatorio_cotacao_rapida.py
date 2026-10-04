@@ -333,6 +333,7 @@ def gerar_pdf(
     pagina_item=None,
     textos: tuple[str, ...] | None = None,
     argumentos_mapa: dict | None = None,
+    anexos=None,
 ) -> bytes:
     """PDF no layout da Cotação: mapa comparativo na 1ª página, uma página por item e textos finais.
 
@@ -345,6 +346,8 @@ def gerar_pdf(
     _pagina_mapa(pdf, resultados, **(argumentos_mapa or {}))
     for numero, resultado in enumerate(resultados, start=1):
         (pagina_item or _pagina_item)(pdf, numero, resultado)
+    if anexos:
+        anexos(pdf)  # páginas extras entre o detalhe dos itens e os textos finais
     pdf.add_page()
     pdf.ln(5)
     for texto in textos or (JUSTIFICATIVA_COTACAO, metodologia()):

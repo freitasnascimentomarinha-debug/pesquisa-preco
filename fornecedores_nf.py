@@ -135,7 +135,7 @@ def agregar_fornecedores(resultados: list[dict], escopo: str = "mapa") -> list[d
             forn = por_cnpj.setdefault(chave, {"cnpj": registro["cnpj"], "razao_nf": registro["fornecedor"], "uf_nf": registro["uf"],
                                                "municipio_nf": registro["municipio"], "itens": defaultdict(list), "ncm": Counter(),
                                                "natureza": Counter(), "notas": set()})
-            forn["itens"][resultado["descricao"]].append(registro["preco"])
+            forn["itens"][resultado["descricao"]].append(registro)
             forn["notas"].add(registro["id_compra"] or registro["id_item"])
             if registro["ncm"]:
                 forn["ncm"][registro["ncm"]] += 1
@@ -148,8 +148,8 @@ def agregar_fornecedores(resultados: list[dict], escopo: str = "mapa") -> list[d
 def resumo_da_natureza(fornecedor: dict) -> str:
     """Resumo do que o fornecedor vende, a partir das notas: itens pesquisados, tipo de produto (NCM) e operação."""
     itens = "; ".join(
-        f"{descricao[:45]} ({len(precos)} {'item' if len(precos) == 1 else 'itens'} de NF, {_moeda(sum(precos) / len(precos))} em média)"
-        for descricao, precos in sorted(fornecedor["itens"].items(), key=lambda par: -len(par[1]))
+        f"{descricao[:45]} ({len(regs)} {'item' if len(regs) == 1 else 'itens'} de NF, {_moeda(sum(r['preco'] for r in regs) / len(regs))} em média)"
+        for descricao, regs in sorted(fornecedor["itens"].items(), key=lambda par: -len(par[1]))
     )
     partes = [f"Vende: {itens}"]
     if fornecedor["ncm"]:
@@ -161,10 +161,16 @@ def resumo_da_natureza(fornecedor: dict) -> str:
 
 COLUNAS_FORNECEDORES = ["CNPJ", "Razão social", "Nome fantasia", "Situação cadastral", "UF", "Município", "Telefones", "E-mail",
                         "CNAE principal", "Natureza dos itens que vende", "Notas encontradas"]
+COLUNAS_POR_ITEM = ["Item que vende", "CNPJ", "Razão social", "Situação cadastral", "UF", "Município", "Telefones", "E-mail", "CNAE principal",
+                    "Notas do item", "Preço mínimo", "Preço médio", "Preço máximo", "Exemplo de produto na nota"]
 
 
-def montar_tabela(resultados: list[dict], escopo: str = "mapa", progresso: Callable[[int, int], None] | None = None) -> tuple[pd.DataFrame, int]:
-    """Tabela de fornecedores com os dados cadastrais. Retorna (tabela, quantos CNPJs não puderam ser consultados)."""
+def montar_tabelas(resultados: list[dict], escopo: str = "mapa", progresso: Callable[[int, int], None] | None = None) -> dict:
+    """Consulta o cadastro de cada fornecedor (uma vez por CNPJ) e monta duas tabelas:
+
+    - "por_item": fornecedores agrupados pelo item pesquisado (um fornecedor aparece em cada item que vende);
+    - "unica": lista única de fornecedores, com o resumo da natureza dos itens que vendem.
+    Também devolve "sem_consulta": quantos CNPJs não puderam ser consultados."""
     fornecedores = agregar_fornecedores(resultados, escopo)
     cadastros: dict[int, dict] = {}
     with ThreadPoolExecutor(max_workers=6) as executor:
@@ -173,11 +179,13 @@ def montar_tabela(resultados: list[dict], escopo: str = "mapa", progresso: Calla
             cadastros[i] = interpretar_dados(futuro.result())
             if progresso:
                 progresso(feitos, len(fornecedores))
-    linhas, sem_consulta = [], 0
+    unica, sem_consulta = [], 0
+    dados_por_chave: dict[str, tuple[dict, dict]] = {}
     for i, forn in enumerate(fornecedores):
         cad = cadastros[i]
         sem_consulta += not cad["razao_social"]
-        linhas.append({
+        dados_por_chave[forn["cnpj"] or forn["razao_nf"]] = (forn, cad)
+        unica.append({
             "CNPJ": formatar_cnpj(forn["cnpj"]) or NAO_INFORMADO,
             "Razão social": cad["razao_social"] or forn["razao_nf"] or NAO_INFORMADO,
             "Nome fantasia": cad["nome_fantasia"] or "",
@@ -190,4 +198,26 @@ def montar_tabela(resultados: list[dict], escopo: str = "mapa", progresso: Calla
             "Natureza dos itens que vende": resumo_da_natureza(forn),
             "Notas encontradas": len(forn["notas"]),
         })
-    return pd.DataFrame(linhas, columns=COLUNAS_FORNECEDORES), sem_consulta
+    por_item = []
+    for resultado in resultados:  # na ordem em que os itens foram pedidos
+        linhas_item = []
+        for forn, cad in dados_por_chave.values():
+            regs = forn["itens"].get(resultado["descricao"])
+            if not regs:
+                continue
+            precos = [r["preco"] for r in regs]
+            exemplo = Counter(r["descricao"] for r in regs).most_common(1)[0][0]
+            linhas_item.append({
+                "Item que vende": resultado["descricao"],
+                "CNPJ": formatar_cnpj(forn["cnpj"]) or NAO_INFORMADO,
+                "Razão social": cad["razao_social"] or forn["razao_nf"] or NAO_INFORMADO,
+                "Situação cadastral": cad["situacao"] or NAO_INFORMADO,
+                "UF": cad["uf"] or forn["uf_nf"] or NAO_INFORMADO,
+                "Município": cad["municipio"] or forn["municipio_nf"] or "",
+                "Telefones": cad["telefones"], "E-mail": cad["email"], "CNAE principal": cad["cnae"],
+                "Notas do item": len({r["id_compra"] or r["id_item"] for r in regs}),
+                "Preço mínimo": min(precos), "Preço médio": sum(precos) / len(precos), "Preço máximo": max(precos),
+                "Exemplo de produto na nota": exemplo,
+            })
+        por_item.extend(sorted(linhas_item, key=lambda l: (-l["Notas do item"], l["Razão social"])))
+    return {"por_item": pd.DataFrame(por_item, columns=COLUNAS_POR_ITEM), "unica": pd.DataFrame(unica, columns=COLUNAS_FORNECEDORES), "sem_consulta": sem_consulta}
