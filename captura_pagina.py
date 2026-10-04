@@ -213,3 +213,90 @@ def capturar_prints(paginas: list[dict], progresso=None) -> dict[str, dict]:
         for url in unicas:
             resultados.setdefault(url, {"imagem": None, "capturado_em": "", "erro": f"navegador não iniciou ({type(erro).__name__})"})
     return resultados
+
+
+class LeitorNavegador:
+    """Lê páginas que a leitura simples não consegue (preço montado por JavaScript, bloqueio de robô simples).
+
+    Um navegador por pesquisa, uma página de cada vez, com no máximo `limite` páginas (protege a memória do servidor gratuito).
+    Uso: `with LeitorNavegador(6) as leitor: leitor.ler(url)`; o navegador é sempre fechado ao sair."""
+
+    def __init__(self, limite: int = 6) -> None:
+        self.limite = limite
+        self.usadas = 0
+        self._playwright = None
+        self._navegador = None
+        self.falha_ao_iniciar = ""
+
+    def __enter__(self) -> "LeitorNavegador":
+        return self
+
+    def __exit__(self, *args) -> None:
+        self.fechar()
+
+    @property
+    def disponivel(self) -> bool:
+        return self.usadas < self.limite and not self.falha_ao_iniciar
+
+    def _iniciar(self) -> bool:
+        if self._navegador:
+            return True
+        try:
+            from playwright.sync_api import sync_playwright
+
+            self._playwright = sync_playwright().start()
+            opcoes = {"headless": True, "args": ARGUMENTOS_NAVEGADOR}
+            if caminho_chromium():
+                opcoes["executable_path"] = caminho_chromium()
+            self._navegador = self._playwright.chromium.launch(**opcoes)
+            return True
+        except Exception as erro:
+            self.falha_ao_iniciar = f"navegador não iniciou ({type(erro).__name__})"
+            self.fechar()
+            return False
+
+    def ler(self, url: str) -> dict:
+        """{"html": texto ou "", "status": HTTP ou 0, "erro": texto}. Nunca levanta erro."""
+        if not self.disponivel or not str(url).startswith(("http://", "https://")):
+            return {"html": "", "status": 0, "erro": self.falha_ao_iniciar or "limite de páginas lidas pelo navegador atingido"}
+        if not self._iniciar():
+            return {"html": "", "status": 0, "erro": self.falha_ao_iniciar}
+        self.usadas += 1
+        contexto = None
+        try:
+            contexto = self._navegador.new_context(viewport={"width": LARGURA, "height": ALTURA}, locale="pt-BR",
+                                                   timezone_id="America/Sao_Paulo", user_agent=USER_AGENT)
+            page = contexto.new_page()
+            page.set_default_timeout(TEMPO_NAVEGACAO_S * 1000)
+            resposta = page.goto(url, wait_until="domcontentloaded", timeout=TEMPO_NAVEGACAO_S * 1000)
+            try:
+                page.wait_for_load_state("networkidle", timeout=6000)
+            except Exception:
+                pass
+            status = resposta.status if resposta is not None else 0
+            if status >= 400:
+                return {"html": "", "status": status, "erro": f"HTTP {status}"}
+            _fechar_avisos(page)
+            for _ in range(3):  # rola a página para carregar o que aparece aos poucos (produtos, preços)
+                page.mouse.wheel(0, ALTURA)
+                page.wait_for_timeout(500)
+            page.evaluate("window.scrollTo(0, 0)")
+            return {"html": page.content(), "status": status, "erro": ""}
+        except Exception as erro:
+            return {"html": "", "status": 0, "erro": f"{type(erro).__name__}: {str(erro).splitlines()[0][:100]}"}
+        finally:
+            if contexto is not None:
+                try:
+                    contexto.close()
+                except Exception:
+                    pass
+
+    def fechar(self) -> None:
+        for objeto, metodo in ((self._navegador, "close"), (self._playwright, "stop")):
+            try:
+                if objeto is not None:
+                    getattr(objeto, metodo)()
+            except Exception:
+                pass
+        self._navegador = None
+        self._playwright = None
