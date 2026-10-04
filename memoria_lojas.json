@@ -1,9 +1,9 @@
 {
  "versao": 1,
- "atualizado": "2026-10-04T20:33:40",
+ "atualizado": "2026-10-04T21:12:36",
  "lojas": {
   "lojadomecanico.com.br": {
-   "acertos": 11,
+   "acertos": 12,
    "ultimo": "2026-10-04",
    "itens": [
     "fita isolante",
@@ -11,7 +11,7 @@
     "chave de fenda"
    ],
    "metodos": {
-    "navegador": 1,
+    "navegador": 2,
     "texto": 0
    }
   },
@@ -570,45 +570,45 @@
  },
  "frases": {
   "{item} comprar": {
-   "usos": 5.2982,
-   "acertos": 1.8574,
+   "usos": 7.395,
+   "acertos": 1.5925,
    "ultimo": "2026-10-04"
   },
   "{item} preço": {
-   "usos": 5.2982,
-   "acertos": 2.6738,
+   "usos": 7.395,
+   "acertos": 2.2924,
    "ultimo": "2026-10-04"
   },
   "venda de {item}": {
-   "usos": 4.5244,
-   "acertos": 0.8145,
+   "usos": 6.7316,
+   "acertos": 0.6983,
    "ultimo": "2026-10-04"
   },
   "{item} valor": {
-   "usos": 4.5244,
+   "usos": 6.7316,
    "acertos": 0.0,
    "ultimo": "2026-10-04"
   },
   "{item} atacado": {
-   "usos": 4.5244,
-   "acertos": 6.61,
+   "usos": 6.7316,
+   "acertos": 5.6672,
    "ultimo": "2026-10-04"
   },
   "{item} preço brasil": {
-   "usos": 4.5244,
+   "usos": 6.7316,
    "acertos": 0.0,
    "ultimo": "2026-10-04"
   },
   "{item} comprar brasil": {
-   "usos": 4.5244,
+   "usos": 6.7316,
    "acertos": 0.0,
    "ultimo": "2026-10-04"
   },
   "comprar {item} online brasil": {
-   "usos": 4.5244,
-   "acertos": 0.8574,
+   "usos": 6.7316,
+   "acertos": 0.7351,
    "ultimo": "2026-10-04"
   }
  },
- "buscas": 6
+ "buscas": 9
 }
