@@ -903,18 +903,18 @@ def _eh_pagina_produto(html, titulo):
 MOTIVO_REJEICAO = {"texto": ""}  # por que a última página foi rejeitada (aparece no log)
 
 
-def scraping_requests(session, url, headers, item_nome=None):
+def scraping_requests(session, url, headers, item_nome=None, html=None):
     """Acessa uma página via requests e extrai informações."""
     from bs4 import BeautifulSoup
 
     MOTIVO_REJEICAO["texto"] = ""
     try:
-        resp = session.get(url, headers=headers, timeout=15, allow_redirects=True)
-        if resp.status_code != 200:
-            MOTIVO_REJEICAO["texto"] = f"HTTP {resp.status_code}"
-            return None
-
-        html = resp.text
+        if html is None:  # `html` já vem pronto quando a página foi lida pelo navegador
+            resp = session.get(url, headers=headers, timeout=15, allow_redirects=True)
+            if resp.status_code != 200:
+                MOTIVO_REJEICAO["texto"] = f"HTTP {resp.status_code}"
+                return None
+            html = resp.text
         titulo = extrair_titulo_pagina(html)
 
         # Verificar se é uma página de produto antes de gastar tempo extraindo preços
@@ -1324,7 +1324,19 @@ def _tem_secrets():
         return False
 
 
-def executar_scraping(itens, usar_playwright, progress_bar, log_container, status_text, max_fontes):
+def executar_scraping(itens, usar_playwright, progress_bar, log_container, status_text, max_fontes,
+                      links_colados=None, so_links=False, usar_navegador=False, limite_navegador=6):
+    """Executa o scraping. `links_colados`: [(item, url)] lidos antes da busca; `so_links`: não pesquisar na internet os itens que têm link;
+    `usar_navegador`: modo híbrido, abre no navegador (até `limite_navegador` páginas) as que a leitura simples não consegue ler."""
+    leitor = captura_pagina.LeitorNavegador(limite_navegador) if usar_navegador else None
+    try:
+        return _executar_scraping(itens, usar_playwright, progress_bar, log_container, status_text, max_fontes, links_colados or [], so_links, leitor)
+    finally:
+        if leitor is not None:
+            leitor.fechar()
+
+
+def _executar_scraping(itens, usar_playwright, progress_bar, log_container, status_text, max_fontes, links_colados, so_links, leitor):
     """Executa o scraping completo para todos os itens."""
     import requests as req
 
@@ -1347,10 +1359,37 @@ def executar_scraping(itens, usar_playwright, progress_bar, log_container, statu
     if not onde_memoria.startswith("GitHub"):
         log_msg(log_container, logs, "🧠 " + memoria_lojas.diagnostico_secrets(st.secrets if _tem_secrets() else {}), "warn")
 
+    links_por_item = {}
+    for item_do_link, url_do_link in links_colados:
+        links_por_item.setdefault(item_do_link.strip().lower(), []).append(url_do_link)
+    max_fontes_base = max_fontes
+
+    def ler_com_navegador(url, item_nome):
+        """Modo híbrido: depois que a leitura simples falhou por página dinâmica ou bloqueio, tenta o navegador (limitado)."""
+        if leitor is None or not leitor.disponivel:
+            return None
+        motivo = MOTIVO_REJEICAO["texto"]
+        # página dinâmica (sem preço no código), bloqueio simples ou sinais de loja brasileira que só aparecem depois do JavaScript
+        if not (motivo.startswith(("sem preço", "não parece loja brasileira")) or motivo in ("HTTP 401", "HTTP 403", "HTTP 429")):
+            return None
+        log_msg(log_container, logs, f"🌐 Leitura simples falhou em {extrair_dominio(url)} ({motivo}); tentando com o navegador ({leitor.usadas + 1}/{leitor.limite})", "info")
+        lido = leitor.ler(url)
+        if not lido["html"]:
+            log_msg(log_container, logs, f"✗ O navegador também não leu {extrair_dominio(url)}: {lido['erro']}", "warn")
+            MOTIVO_REJEICAO["texto"] = motivo
+            return None
+        resultado_navegador = scraping_requests(session, url, headers, item_nome=item_nome, html=lido["html"])
+        if resultado_navegador:
+            resultado_navegador["origem_preco"] = f"{resultado_navegador.get('origem_preco', '')} (lido com navegador)".strip()
+        return resultado_navegador
+
     for idx, item in enumerate(itens):
         item = item.strip()
         if not item:
             continue
+        links_item = links_por_item.get(item.lower(), [])
+        max_fontes = max(max_fontes_base, len(links_item))  # os links colados contam como fontes do item
+        usa_so_links = bool(so_links and links_item)
 
         log_msg(log_container, logs, f"━━━ Iniciando busca: <b>{item}</b> ({idx+1}/{total_itens}) ━━━", "info")
         status_text.text(f"Buscando: {item} ({idx+1}/{total_itens})")
@@ -1364,18 +1403,38 @@ def executar_scraping(itens, usar_playwright, progress_bar, log_container, statu
         item_slug = re.sub(r'[^a-zA-Z0-9]', '_', item)[:40] or "item"
 
         # Selecionar variantes de busca aleatoriamente (usar mais variantes para maximizar cobertura)
-        variantes = VARIANTES_BUSCA + VARIANTES_RESERVA  # em ordem; o laço para assim que as fontes pedidas forem atingidas
+        variantes = [] if usa_so_links else VARIANTES_BUSCA + VARIANTES_RESERVA  # em ordem; o laço para assim que as fontes pedidas forem atingidas
         dominios_falhos = set()  # site que falhou neste item não é tentado de novo nas outras buscas do mesmo item
 
+        # 0º: links de produtos colados pelo usuário para este item
+        for url in links_item:
+            log_msg(log_container, logs, f"🔗 Link colado: {url}", "info")
+            time.sleep(gerar_delay(1.0, 2.5))
+            # link escolhido pelo usuário: não confere se a página "parece" o item (o usuário já decidiu)
+            resultado = scraping_requests(session, url, headers, item_nome=None)
+            if not resultado:
+                resultado = ler_com_navegador(url, None)
+            if resultado:
+                contador_item += 1
+                resultado["resultado_id"] = f"{item_slug}_{contador_item}_{abs(hash(url)) % 10000}"
+                resultado["item"] = item
+                resultado["data_coleta"] = datetime.now().strftime("%d/%m/%Y %H:%M")
+                candidatos_item.append(resultado)
+                dominios_usados.add(extrair_dominio(url))
+                memoria_lojas.registrar_acerto(memoria, url, item)
+                log_msg(log_container, logs, f"💰 Orçamento do link colado — {formatar_moeda_br(resultado['preco'])} em {extrair_dominio(url)} ({resultado.get('origem_preco', '')})", "orcamento")
+            else:
+                log_msg(log_container, logs, f"✗ Link colado sem preço legível ({extrair_dominio(url)}): {MOTIVO_REJEICAO['texto'] or 'motivo não identificado'}", "error")
+
         # 1º: lojas da memória que já deram preço para itens parecidos (cada uma uma vez só)
-        for site_memoria, item_parecido in memoria_lojas.lojas_para_item(memoria, item):
+        for site_memoria, item_parecido in ([] if usa_so_links else memoria_lojas.lojas_para_item(memoria, item)):
             if len(atualizar_estado_orcamentos(candidatos_item, max_fontes)["validos"]) >= max_fontes:
                 break
             log_msg(log_container, logs, f"🧠 Loja da memória: {site_memoria} (já deu preço para '{item_parecido}')", "info")
             time.sleep(gerar_delay(1.5, 3.0))
             for url in buscar_na_loja(session, item, site_memoria, headers):
                 time.sleep(gerar_delay(1.5, 3.5))
-                resultado = scraping_requests(session, url, headers, item_nome=item)
+                resultado = scraping_requests(session, url, headers, item_nome=item) or ler_com_navegador(url, item)
                 if resultado:
                     contador_item += 1
                     resultado["resultado_id"] = f"{item_slug}_{contador_item}_{abs(hash(url)) % 10000}"
@@ -1463,6 +1522,9 @@ def executar_scraping(itens, usar_playwright, progress_bar, log_container, statu
                             headers = gerar_headers()
                             session.headers.update(headers)
 
+                if not resultado:
+                    resultado = ler_com_navegador(url, item)
+
                 if resultado:
                     contador_item += 1
                     resultado["resultado_id"] = f"{item_slug}_{contador_item}_{abs(hash(url)) % 10000}"
@@ -1518,7 +1580,7 @@ def executar_scraping(itens, usar_playwright, progress_bar, log_container, statu
         # Complemento: se não atingiu o mínimo de fontes, usar SearchAPI (Google Shopping)
         estado_item = atualizar_estado_orcamentos(candidatos_item, max_fontes)
         faltam = max_fontes - len(estado_item["validos"])
-        if faltam > 0:
+        if faltam > 0 and not usa_so_links:
             log_msg(log_container, logs, f"🛒 Faltam {faltam} orçamento(s) para '{item}'. Tentando Google Shopping (SearchAPI)...", "info")
             searchapi_results = buscar_searchapi(item, faltam + 2)  # pedir extras para compensar duplicados
             if searchapi_results:
@@ -1980,6 +2042,20 @@ with col1:
         placeholder="Exemplo:\nArruela de pressão 1/4\nParafuso sextavado M10\nFita isolante 20m",
         help="Digite os nomes dos materiais que deseja pesquisar, um por linha.",
     )
+    with st.expander("🔗 Links de produtos colados (opcional)", expanded=False):
+        links_texto = st.text_area(
+            "Um por linha: item | link",
+            height=120,
+            key="links_colados_texto",
+            placeholder="fita isolante | https://www.loja.com.br/fita-isolante-3m\nfita isolante | https://outraloja.com.br/produto/123\npapel A4 | https://www.papelaria.com.br/resma-a4",
+            help="O sistema abre cada link, lê o preço e põe no relatório como fonte do item (o nome antes do link liga o link ao item da lista acima; "
+                 "item que só aparece aqui também é cotado). Sem nome, entra como 'Links colados'. Os links contam como fontes do item; se faltar, a busca completa.",
+        )
+        links_colados = web_precos.ler_links_colados(links_texto)
+        so_links = st.checkbox("Só os links colados (não pesquisar na internet os itens que têm link)", value=False, key="so_links_colados",
+                               disabled=not links_colados)
+        if links_colados:
+            st.caption(f"{len(links_colados)} link(s) para {len({i.lower() for i, _ in links_colados})} item(ns).")
 
 with col2:
     st.markdown("#### ⚙️ Configurações")
@@ -1998,6 +2074,20 @@ with col2:
             else:
                 st.error("❌ Playwright não disponível. Instale com: pip install playwright && playwright install chromium")
                 usar_playwright = False
+    navegador_ok, navegador_motivo = captura_pagina.disponivel()
+    usar_navegador = st.checkbox(
+        "Navegador nas páginas difíceis (híbrido)",
+        value=navegador_ok,
+        disabled=not navegador_ok,
+        help="A leitura simples continua sendo a primeira tentativa. Só quando ela não acha o preço (página montada por JavaScript ou bloqueio simples), "
+             "a página é aberta num navegador do servidor. Mais lento (5 a 15 s por página).",
+    )
+    limite_navegador = 6
+    if navegador_ok:
+        limite_navegador = st.number_input("Máx. páginas lidas pelo navegador", min_value=1, max_value=20, value=6,
+                                           help="Limite por pesquisa; protege a memória do servidor gratuito.") if usar_navegador else 6
+    else:
+        st.caption(f"Navegador indisponível: {navegador_motivo}")
     max_fontes = st.number_input(
         "Máx. fontes por item",
         min_value=1,
@@ -2021,9 +2111,14 @@ with col_btn2:
 
 if iniciar:
     itens = [i.strip() for i in itens_input.strip().split("\n") if i.strip()]
+    nomes_ja_na_lista = {i.lower() for i in itens}
+    for item_do_link, _ in links_colados:  # item que só aparece nos links também é cotado
+        if item_do_link.lower() not in nomes_ja_na_lista:
+            itens.append(item_do_link)
+            nomes_ja_na_lista.add(item_do_link.lower())
 
     if not itens:
-        st.error("⚠️ Informe pelo menos um item para pesquisa.")
+        st.error("⚠️ Informe pelo menos um item (ou um link) para pesquisa.")
     else:
         st.markdown("### 📊 Execução do Scraping")
 
@@ -2043,6 +2138,10 @@ if iniciar:
             log_container=log_container,
             status_text=status_text,
             max_fontes=max_fontes,
+            links_colados=links_colados,
+            so_links=so_links,
+            usar_navegador=usar_navegador,
+            limite_navegador=int(limite_navegador),
         )
 
         # Armazenar resultados no session_state
