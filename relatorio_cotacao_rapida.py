@@ -30,24 +30,24 @@ JUSTIFICATIVA_COTACAO = (
 )
 METODOLOGIA = (
     "Metodologia da Cotação Rápida\n\n"
-    f"1. Para cada descrição informada, foram localizados até {MAX_CATMAT} itens do catálogo CATMAT com correspondência "
-    f"igual ou superior a {LIMIAR_CORRESPONDENCIA:.0f}% e que possuem preços praticados no período.\n\n"
+    f"1. Para cada descrição informada, foram localizados até {MAX_CATMAT} itens do catálogo CATMAT (materiais) ou CATSERV (serviços) "
+    f"com correspondência igual ou superior a {LIMIAR_CORRESPONDENCIA:.0f}% e que possuem preços praticados no período.\n\n"
     f"2. Os preços foram obtidos no módulo Pesquisa de Preço do Compras.gov (dados abertos), considerando compras dos "
-    f"últimos {JANELA_DIAS} dias, e comparados apenas dentro da mesma unidade de fornecimento.\n\n"
+    f"últimos {JANELA_DIAS} dias, e comparados apenas dentro da mesma unidade de fornecimento (materiais) ou de medida (serviços).\n\n"
     "3. Foram descartados preços inexequíveis ou extremos (abaixo de 30% ou acima de 300% da mediana) e os valores atípicos "
     "(outliers) pelo método do intervalo interquartil (IQR).\n\n"
     f"4. Foram selecionados até {MAX_PRECOS} preços, priorizando fornecedores distintos e as compras mais recentes, de modo que "
     f"cada preço listado não se afaste mais que {TOLERANCIA * 100:.0f}% (para mais ou para menos) da média dos preços listados. "
     f"Itens com menos de {MIN_PRECOS} preços são sinalizados e devem ser complementados por outras fontes (IN SEGES/ME nº 65/2021, art. 5º).\n\n"
     "5. A média unitária apresentada é a média aritmética dos preços listados. A correspondência entre a descrição e o item CATMAT "
-    "é uma sugestão automática e deve ser conferida pelo requisitante antes do uso no processo."
+    "é uma sugestão automática e deve ser conferida pelo requisitante antes do uso no processo. Em serviços, o preço depende do escopo (quantidade, área, jornada), que deve ser compatível com o objeto pretendido."
 )
 
 STATUS_TEXTO = {
     "ok": "Preços suficientes",
     "insuficiente": f"Menos de {MIN_PRECOS} preços",
     "sem_precos": "Sem preços válidos",
-    "sem_catmat": "Sem CATMAT com preços",
+    "sem_catmat": "Sem CATMAT/CATSERV com preços",
 }
 
 
@@ -151,7 +151,7 @@ def _cabecalho_tabela(pdf: FPDF, colunas: list[tuple[str, float]], altura: float
     pdf.ln()
 
 
-COLUNAS_MAPA = [("#", 8), ("Item pesquisado", 66), ("CATMAT (correspondencia)", 36), ("Unid.", 24)] + [
+COLUNAS_MAPA = [("#", 8), ("Item pesquisado", 66), ("Codigo (correspondencia)", 36), ("Unid.", 24)] + [
     (f"Preco {n}", 19) for n in range(1, MAX_PRECOS + 1)
 ] + [("Media unitaria", 26), ("N. precos", 11), ("CV", 13)]
 
@@ -175,7 +175,8 @@ def _pagina_mapa(pdf: FPDF, resultados: list[dict]) -> None:
     for numero, r in enumerate(resultados, start=1):
         pdf.set_font("Helvetica", "", 6.5)
         desc = _quebrar(pdf, r["descricao"], COLUNAS_MAPA[1][1] - 2, 3)
-        catmats = [f"{k['codigo']} ({k['correspondencia']:.0f}%)" for k in r["catmats"]] or ["-"]
+        rotulo_codigo = "CATSERV" if r.get("tipo") == "Serviço" else "CATMAT"
+        catmats = [f"{rotulo_codigo} {k['codigo']} ({k['correspondencia']:.0f}%)" for k in r["catmats"]] or ["-"]
         linhas = max(len(desc), len(catmats), 1)
         altura = max(8.0, 3.6 * linhas + 2)
         if pdf.get_y() + altura > pdf.h - 16:
@@ -240,7 +241,7 @@ def _pagina_mapa(pdf: FPDF, resultados: list[dict]) -> None:
         "Outliers e precos inexequiveis removidos. Detalhamento de cada item nas paginas seguintes."))
 
 
-COLUNAS_PRECOS = [("ID Compra", 26), ("Data", 16), ("UASG", 15), ("Unid.", 22), ("Qtd", 12), ("V. Unitario", 20), ("CNPJ", 28), ("Fornecedor", 62), ("UF", 8), ("CATMAT", 16), ("Orgao", 56)]
+COLUNAS_PRECOS = [("ID Compra", 26), ("Data", 16), ("UASG", 15), ("Unid.", 22), ("Qtd", 12), ("V. Unitario", 20), ("CNPJ", 28), ("Fornecedor", 62), ("UF", 8), ("Codigo", 16), ("Orgao", 56)]
 
 
 def _pagina_item(pdf: FPDF, numero: int, r: dict) -> None:
@@ -249,7 +250,8 @@ def _pagina_item(pdf: FPDF, numero: int, r: dict) -> None:
     pdf.set_fill_color(*AZUL_CARTAO)
     pdf.set_text_color(*DOURADO)
     pdf.set_font("Helvetica", "B", 8)
-    pdf.cell(LARGURA, 6, f"  ITEM {numero} - {STATUS_TEXTO.get(r['status'], '').upper()}", 0, 1, "L", True)
+    tipo_item = "SERVICO" if r.get("tipo") == "Serviço" else "MATERIAL"
+    pdf.cell(LARGURA, 6, f"  ITEM {numero} ({tipo_item}) - {STATUS_TEXTO.get(r['status'], '').upper()}", 0, 1, "L", True)
     pdf.set_text_color(255, 255, 255)
     pdf.set_font("Helvetica", "B", 9)
     pdf.set_fill_color(*AZUL_CARTAO)
@@ -260,8 +262,9 @@ def _pagina_item(pdf: FPDF, numero: int, r: dict) -> None:
     if r["catmats"]:
         pdf.set_font("Helvetica", "B", 7)
         pdf.set_text_color(*AZUL)
-        pdf.cell(0, 5, f"CATMAT correspondentes (>= {LIMIAR_CORRESPONDENCIA:.0f}%) - confira a descricao antes de usar no processo", ln=True)
-        _cabecalho_tabela(pdf, [("CATMAT", 20), ("Corresp.", 18), ("Registros", 18), ("Descricao no catalogo", LARGURA - 56)], 6)
+        rotulo_codigo = "CATSERV" if r.get("tipo") == "Serviço" else "CATMAT"
+        pdf.cell(0, 5, f"{rotulo_codigo} correspondentes (>= {LIMIAR_CORRESPONDENCIA:.0f}%) - confira a descricao antes de usar no processo", ln=True)
+        _cabecalho_tabela(pdf, [(rotulo_codigo, 20), ("Corresp.", 18), ("Registros", 18), ("Descricao no catalogo", LARGURA - 56)], 6)
         pdf.set_font("Helvetica", "", 6.5)
         pdf.set_text_color(51, 51, 51)
         for k in r["catmats"]:
@@ -275,10 +278,10 @@ def _pagina_item(pdf: FPDF, numero: int, r: dict) -> None:
         pdf.set_font("Helvetica", "", 9)
         pdf.set_text_color(150, 30, 30)
         if r["status"] == "sem_catmat":
-            texto = f"Nenhum item CATMAT com {LIMIAR_CORRESPONDENCIA:.0f}% ou mais de correspondencia e precos praticados nos ultimos {JANELA_DIAS} dias."
+            texto = f"Nenhum item CATMAT/CATSERV com {LIMIAR_CORRESPONDENCIA:.0f}% ou mais de correspondencia e precos praticados nos ultimos {JANELA_DIAS} dias."
             if r.get("melhor_proximo"):
                 proximo = r["melhor_proximo"]
-                texto += f" Mais proximo com precos: CATMAT {proximo['codigo']} ({proximo['correspondencia']:.0f}%) - {proximo['descricao']}"
+                texto += f" Mais proximo: codigo {proximo['codigo']} ({proximo['correspondencia']:.0f}%) - {proximo['descricao']}"
         else:
             texto = "Os precos encontrados nao formaram um conjunto coerente (a ate 30% da media) apos a remocao de outliers."
         pdf.multi_cell(LARGURA, 5, _seguro(texto), new_x="LMARGIN", new_y="NEXT")
@@ -348,7 +351,8 @@ def tabela_mapa(resultados: list[dict]) -> pd.DataFrame:
         linha = {
             "Item": numero,
             "Descrição pesquisada": r["descricao"],
-            "CATMAT (correspondência)": " | ".join(f"{k['codigo']} ({k['correspondencia']:.0f}%)" for k in r["catmats"]) or "-",
+            "Tipo": "Serviço" if r.get("tipo") == "Serviço" else "Material",
+            "CATMAT/CATSERV (correspondência)": " | ".join(f"{k['codigo']} ({k['correspondencia']:.0f}%)" for k in r["catmats"]) or "-",
             "Unidade": r["unidade"] or "-",
         }
         for n in range(MAX_PRECOS):
@@ -373,7 +377,7 @@ def gerar_excel(resultados: list[dict]) -> bytes:
     for numero, r in enumerate(resultados, start=1):
         for p in r["precos"]:
             detalhes.append({
-                "Item": numero, "Descrição pesquisada": r["descricao"], "CATMAT": p["catmat"], "Descrição CATMAT": p["descricao"],
+                "Item": numero, "Descrição pesquisada": r["descricao"], "Tipo": "Serviço" if r.get("tipo") == "Serviço" else "Material", "Código": p["catmat"], "Descrição no catálogo": p["descricao"],
                 "Unidade": r["unidade"], "ID Compra": p["id_compra"], "Data": str(p["data"] or "")[:10], "UASG": p["uasg"], "Órgão": p["nome_uasg"],
                 "UF": p["uf"], "Fornecedor": p["fornecedor"], "CNPJ": p["cnpj"], "Quantidade": p["quantidade"], "Valor unitário": p["preco"],
             })

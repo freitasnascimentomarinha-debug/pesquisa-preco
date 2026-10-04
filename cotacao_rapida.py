@@ -15,9 +15,10 @@ from concurrent.futures import ThreadPoolExecutor
 import requests
 import streamlit as st
 
-from catmat_busca import IndiceCatmat, buscar_familias, calcular_similaridade
+from catmat_busca import IndiceCatmat, _opcoes_servico, buscar_familias, calcular_similaridade
 
 API_PRECOS = "https://dadosabertos.compras.gov.br/modulo-pesquisa-preco/1_consultarMaterial"
+API_PRECOS_SERVICO = "https://dadosabertos.compras.gov.br/modulo-pesquisa-preco/3_consultarServico"
 LIMIAR_CORRESPONDENCIA = 75.0  # % mínimo de correspondência entre a descrição e o item CATMAT
 LIMIAR_FAMILIA = 60.0  # famílias (PDM) abaixo disso nem têm os preços consultados
 MAX_CATMAT = 3
@@ -26,6 +27,7 @@ MIN_PRECOS = 3  # abaixo disso o item é sinalizado (IN SEGES/ME nº 65/2021 rec
 TOLERANCIA = 0.30  # cada preço deve ficar a até 30% (para mais ou para menos) da média dos preços listados
 JANELA_DIAS = 365
 MAX_FAMILIAS = 12
+MAX_CANDIDATOS_SERVICO = 10  # serviços do catálogo cujos preços são conferidos antes de escolher os 3 melhores
 MAX_PAGINAS = 8
 TAMANHO_PAGINA = 500
 
@@ -48,11 +50,11 @@ CAMPOS = {
 }
 
 
-def _baixar_pagina(parametros: dict[str, object]) -> dict | None:
+def _baixar_pagina(parametros: dict[str, object], url: str = API_PRECOS) -> dict | None:
     """Uma página da API, com espera crescente quando ela limita as requisições. None se desistir."""
     for tentativa in range(4):
         try:
-            resposta = requests.get(API_PRECOS, params=parametros, timeout=90)
+            resposta = requests.get(url, params=parametros, timeout=90)
             if resposta.status_code == 200:
                 return resposta.json()
             if resposta.status_code == 400:
@@ -63,29 +65,54 @@ def _baixar_pagina(parametros: dict[str, object]) -> dict | None:
     return None
 
 
-def _reduzir(registro: dict) -> dict:
-    return {novo: registro.get(original) for original, novo in CAMPOS.items()}
+CAMPOS_SERVICO = {**CAMPOS, "siglaUnidadeMedida": "sigla", "nomeUnidadeMedida": "unidade"}
+CAMPOS_SERVICO = {k: v for k, v in CAMPOS_SERVICO.items() if k not in ("siglaUnidadeFornecimento", "nomeUnidadeFornecimento", "capacidadeUnidadeFornecimento")}
 
 
-@st.cache_data(ttl=3600, show_spinner=False)
-def registros_da_familia(codigo_pdm: str, inicio: str, fim: str) -> tuple[list[dict], bool]:
-    """Preços praticados de toda a família (PDM) no período. Retorna (registros, houve_falha)."""
-    base = {"tamanhoPagina": TAMANHO_PAGINA, "tipo": "codigoPdm", "codigo": codigo_pdm, "dataCompraInicio": inicio, "dataCompraFim": fim}
-    primeira = _baixar_pagina({**base, "pagina": 1})
+def _reduzir(registro: dict, campos: dict[str, str] = CAMPOS) -> dict:
+    reduzido = {novo: registro.get(original) for original, novo in campos.items()}
+    reduzido.setdefault("capacidade", None)  # serviços não têm capacidade de embalagem
+    return reduzido
+
+
+def _registros_paginados(url: str, base: dict[str, object], campos: dict[str, str]) -> tuple[list[dict], bool]:
+    """Todas as páginas (até MAX_PAGINAS) de uma consulta de preços. Retorna (registros, houve_falha)."""
+    primeira = _baixar_pagina({**base, "pagina": 1}, url)
     if primeira is None:
         return [], True
-    registros = [_reduzir(registro) for registro in primeira.get("resultado", [])]
+    registros = [_reduzir(registro, campos) for registro in primeira.get("resultado", [])]
     paginas = min(int(primeira.get("totalPaginas") or 0), MAX_PAGINAS)
     falha = False
     if paginas > 1:
         with ThreadPoolExecutor(max_workers=4) as executor:
-            restante = list(executor.map(lambda pagina: _baixar_pagina({**base, "pagina": pagina}), range(2, paginas + 1)))
+            restante = list(executor.map(lambda pagina: _baixar_pagina({**base, "pagina": pagina}, url), range(2, paginas + 1)))
         for resposta in restante:
             if resposta is None:
                 falha = True
             else:
-                registros += [_reduzir(registro) for registro in resposta.get("resultado", [])]
+                registros += [_reduzir(registro, campos) for registro in resposta.get("resultado", [])]
     return registros, falha
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def registros_da_familia(codigo_pdm: str, inicio: str, fim: str) -> tuple[list[dict], bool]:
+    """Preços praticados de toda a família de material (PDM) no período."""
+    base = {"tamanhoPagina": TAMANHO_PAGINA, "tipo": "codigoPdm", "codigo": codigo_pdm, "dataCompraInicio": inicio, "dataCompraFim": fim}
+    return _registros_paginados(API_PRECOS, base, CAMPOS)
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def registros_do_servico(codigo_servico: str, inicio: str, fim: str) -> tuple[list[dict], bool]:
+    """Preços praticados de um serviço (CATSERV) no período."""
+    base = {"tamanhoPagina": TAMANHO_PAGINA, "codigoItemCatalogo": codigo_servico, "dataCompraInicio": inicio, "dataCompraFim": fim}
+    return _registros_paginados(API_PRECOS_SERVICO, base, CAMPOS_SERVICO)
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def total_de_precos_do_servico(codigo_servico: str, inicio: str, fim: str) -> int:
+    """Quantidade de registros de preço do serviço no período (consulta leve, só a contagem)."""
+    resposta = _baixar_pagina({"tamanhoPagina": 10, "codigoItemCatalogo": codigo_servico, "dataCompraInicio": inicio, "dataCompraFim": fim, "pagina": 1}, API_PRECOS_SERVICO)
+    return int((resposta or {}).get("totalRegistros") or 0)
 
 
 def _numero(valor: object) -> float | None:
@@ -177,59 +204,29 @@ def estatisticas(precos: list[float]) -> dict[str, float]:
     }
 
 
-def resultado_vazio(descricao: str) -> dict:
+def resultado_vazio(descricao: str, tipo: str = "Material") -> dict:
     return {
-        "descricao": descricao, "status": "sem_catmat", "catmats": [], "precos": [], "stats": None,
+        "descricao": descricao, "tipo": tipo, "status": "sem_catmat", "catmats": [], "precos": [], "stats": None,
         "unidade": "", "unidade_curta": "", "brutos": 0, "outliers": 0, "faixa_validos": None,
         "falha_api": False, "melhor_proximo": None,
     }
 
 
-def cotar_item(descricao: str, catmat: IndiceCatmat, hoje: dt.date | None = None) -> dict:
-    """Resultado completo da cotação de uma descrição. Chaves principais: status, catmats, precos, stats."""
-    hoje = hoje or dt.date.today()
-    inicio, fim = (hoje - dt.timedelta(days=JANELA_DIAS)).isoformat(), hoje.isoformat()
-    resultado = resultado_vazio(descricao)
-    familias = [f for f in buscar_familias(descricao, catmat, limite=MAX_FAMILIAS) if f["nota"] >= LIMIAR_FAMILIA]
-    if not familias:
-        return resultado
-    with ThreadPoolExecutor(max_workers=4) as executor:
-        respostas = list(executor.map(lambda f: registros_da_familia(str(f["codigo"]), inicio, fim), familias))
-    resultado["falha_api"] = any(falha for _, falha in respostas)
-
-    por_item: dict[object, list[dict]] = defaultdict(list)
-    familia_do_item: dict[object, str] = {}
-    for familia, (registros, _) in zip(familias, respostas):
-        for registro in registros:
-            if (_numero(registro["preco"]) or 0) > 0:
-                registro["preco"] = float(registro["preco"])
-                por_item[registro["catmat"]].append(registro)
-                familia_do_item[registro["catmat"]] = str(familia["nome"])
-    classificados = sorted(
-        (
-            (calcular_similaridade(descricao, str(regs[0]["descricao"] or ""), familia_do_item[codigo]), len(regs), codigo)
-            for codigo, regs in por_item.items()
-        ),
-        reverse=True,
-    )
-    if classificados:
-        resultado["melhor_proximo"] = {"codigo": classificados[0][2], "correspondencia": classificados[0][0], "descricao": str(por_item[classificados[0][2]][0]["descricao"])}
-    escolhidos_catmat = [c for c in classificados if c[0] >= LIMIAR_CORRESPONDENCIA][:MAX_CATMAT]
-    if not escolhidos_catmat:
-        return resultado
-
+def _concluir(resultado: dict, escolhidos: list[tuple[float, int, object, str]], por_item: dict[object, list[dict]]) -> dict:
+    """Parte comum a material e serviço: junta os registros dos códigos escolhidos, limpa e seleciona os preços."""
     resultado["catmats"] = [
-        {"codigo": codigo, "correspondencia": nota, "registros": quantidade, "descricao": str(por_item[codigo][0]["descricao"] or "")}
-        for nota, quantidade, codigo in escolhidos_catmat
+        {"codigo": codigo, "correspondencia": nota, "registros": quantidade, "descricao": descricao}
+        for nota, quantidade, codigo, descricao in escolhidos
     ]
+    nota_do_codigo = {codigo: nota for nota, _, codigo, _ in escolhidos}
     vistos: set[object] = set()
     universo = []
-    for _, _, codigo in escolhidos_catmat:
+    for _, _, codigo, _ in escolhidos:
         for registro in por_item[codigo]:
             chave = (registro["id_compra"], registro["id_item"])
             if chave not in vistos:
                 vistos.add(chave)
-                universo.append({**registro, "correspondencia": next(n for n, _, c in escolhidos_catmat if c == codigo)})
+                universo.append({**registro, "correspondencia": nota_do_codigo[codigo]})
     resultado["brutos"] = len(universo)
     mesma_unidade, resultado["unidade"], resultado["unidade_curta"] = _unidade_dominante(universo)
     limpos, resultado["faixa_validos"] = remover_outliers(mesma_unidade)
@@ -241,3 +238,90 @@ def cotar_item(descricao: str, catmat: IndiceCatmat, hoje: dt.date | None = None
         resultado["stats"] = estatisticas([r["preco"] for r in resultado["precos"]])
         resultado["status"] = "ok" if len(resultado["precos"]) >= MIN_PRECOS else "insuficiente"
     return resultado
+
+
+def _preco_valido(registro: dict) -> bool:
+    if (_numero(registro["preco"]) or 0) <= 0:
+        return False
+    registro["preco"] = float(registro["preco"])
+    return True
+
+
+def _cotar_material(descricao: str, catmat: IndiceCatmat, inicio: str, fim: str) -> dict:
+    resultado = resultado_vazio(descricao, "Material")
+    familias = [f for f in buscar_familias(descricao, catmat, limite=MAX_FAMILIAS) if f["nota"] >= LIMIAR_FAMILIA]
+    if not familias:
+        return resultado
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        respostas = list(executor.map(lambda f: registros_da_familia(str(f["codigo"]), inicio, fim), familias))
+    resultado["falha_api"] = any(falha for _, falha in respostas)
+
+    por_item: dict[object, list[dict]] = defaultdict(list)
+    familia_do_item: dict[object, str] = {}
+    for familia, (registros, _) in zip(familias, respostas):
+        for registro in registros:
+            if _preco_valido(registro):
+                por_item[registro["catmat"]].append(registro)
+                familia_do_item[registro["catmat"]] = str(familia["nome"])
+    classificados = sorted(
+        (
+            (calcular_similaridade(descricao, str(regs[0]["descricao"] or ""), familia_do_item[codigo]), len(regs), codigo, str(regs[0]["descricao"] or ""))
+            for codigo, regs in por_item.items()
+        ),
+        reverse=True,
+    )
+    if classificados:
+        melhor = classificados[0]
+        resultado["melhor_proximo"] = {"codigo": melhor[2], "correspondencia": melhor[0], "descricao": melhor[3]}
+    escolhidos = [c for c in classificados if c[0] >= LIMIAR_CORRESPONDENCIA][:MAX_CATMAT]
+    return _concluir(resultado, escolhidos, por_item) if escolhidos else resultado
+
+
+def _cotar_servico(descricao: str, catalogo_servico: list[dict], inicio: str, fim: str) -> dict:
+    resultado = resultado_vazio(descricao, "Serviço")
+    opcoes = sorted(_opcoes_servico(descricao, catalogo_servico), key=lambda o: o["bruta"], reverse=True)
+    if opcoes:
+        resultado["melhor_proximo"] = {"codigo": opcoes[0]["codigo"], "correspondencia": opcoes[0]["similaridade"], "descricao": opcoes[0]["descricao_catalogo"]}
+    candidatos = [o for o in opcoes if o["similaridade"] >= LIMIAR_CORRESPONDENCIA][:MAX_CANDIDATOS_SERVICO]
+    if not candidatos:
+        return resultado
+    with ThreadPoolExecutor(max_workers=4) as executor:  # primeiro só a contagem: poucos serviços têm preços no período
+        totais = list(executor.map(lambda o: total_de_precos_do_servico(str(o["codigo"]), inicio, fim), candidatos))
+    com_precos = sorted(((o, n) for o, n in zip(candidatos, totais) if n > 0), key=lambda par: (round(par[0]["bruta"], 1), par[1]), reverse=True)[:MAX_CATMAT]
+    if not com_precos:
+        return resultado
+    with ThreadPoolExecutor(max_workers=3) as executor:
+        respostas = list(executor.map(lambda par: registros_do_servico(str(par[0]["codigo"]), inicio, fim), com_precos))
+    resultado["falha_api"] = any(falha for _, falha in respostas)
+    por_item: dict[object, list[dict]] = {}
+    escolhidos = []
+    for (opcao, _), (registros, _) in zip(com_precos, respostas):
+        validos = [r for r in registros if _preco_valido(r)]
+        if validos:
+            por_item[opcao["codigo"]] = validos
+            escolhidos.append((opcao["similaridade"], len(validos), opcao["codigo"], opcao["descricao_catalogo"]))
+    return _concluir(resultado, escolhidos, por_item) if escolhidos else resultado
+
+
+_ORDEM_STATUS = {"ok": 3, "insuficiente": 2, "sem_precos": 1, "sem_catmat": 0}
+
+
+def cotar_item(descricao: str, catmat: IndiceCatmat, catalogo_servico: list[dict] | None = None, tipo: str = "Material", hoje: dt.date | None = None) -> dict:
+    """Cotação de uma descrição. `tipo`: "Material", "Serviço" ou "Automático" (escolhe pelo que combina melhor).
+    Chaves principais do resultado: tipo, status, catmats (códigos CATMAT/CATSERV), precos, stats."""
+    hoje = hoje or dt.date.today()
+    inicio, fim = (hoje - dt.timedelta(days=JANELA_DIAS)).isoformat(), hoje.isoformat()
+    catalogo_servico = catalogo_servico or []
+    if tipo == "Material":
+        return _cotar_material(descricao, catmat, inicio, fim)
+    if tipo == "Serviço":
+        return _cotar_servico(descricao, catalogo_servico, inicio, fim)
+
+    # Automático: só gasta consultas de preço com o tipo que tem correspondência local ≥ limiar (ou com o mais forte).
+    nota_material = max((f["nota"] for f in buscar_familias(descricao, catmat, limite=1)), default=0.0)
+    servicos = _opcoes_servico(descricao, catalogo_servico)
+    nota_servico = max((o["similaridade"] for o in servicos), default=0.0)
+    tipos = [t for t, nota in (("Material", nota_material), ("Serviço", nota_servico)) if nota >= LIMIAR_CORRESPONDENCIA]
+    tipos = tipos or [("Material", "Serviço")[nota_servico > nota_material]]
+    resultados = [(_cotar_material if t == "Material" else _cotar_servico)(descricao, catmat if t == "Material" else catalogo_servico, inicio, fim) for t in tipos]
+    return max(resultados, key=lambda r: (_ORDEM_STATUS[r["status"]], len(r["precos"]), (r["melhor_proximo"] or {}).get("correspondencia", 0)))
