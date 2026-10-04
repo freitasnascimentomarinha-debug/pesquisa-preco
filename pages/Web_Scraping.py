@@ -2014,8 +2014,7 @@ with col1:
 with col2:
     st.markdown("#### ⚙️ Configurações")
     if _is_streamlit_cloud():
-        st.info("ℹ️ Navegador automatizado indisponível na nuvem.", icon="☁️")
-        usar_playwright = False
+        usar_playwright = False  # na nuvem o navegador é o "Navegador primeiro" abaixo
     else:
         usar_playwright = st.checkbox(
             "Usar navegador automatizado",
