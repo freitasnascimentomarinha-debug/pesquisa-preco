@@ -23,7 +23,7 @@ sys.path.insert(0, BASE_DIR)  # permite importar catmat_busca.py (raiz do projet
 from atualizar_modulos import recarregar_se_mudou  # noqa: E402
 recarregar_se_mudou('catmat_busca', 'cotacao_rapida', 'relatorio_cotacao_rapida')  # evita módulo antigo em memória após deploy
 from catmat_busca import CATMAT_PATH, CATSERV_PATH, carregar_catalogo, carregar_indice_catmat  # noqa: E402
-from cotacao_rapida import JANELA_DIAS, LIMIAR_CORRESPONDENCIA, MAX_CATMAT, MAX_PRECOS, MIN_PRECOS, TOLERANCIA, cotar_item, resultado_vazio  # noqa: E402
+from cotacao_rapida import JANELA_DIAS, LIMIAR_CORRESPONDENCIA, LIMIAR_SERVICO, MAX_CATMAT, MAX_PRECOS, MIN_PRECOS, TOLERANCIA, cotar_item, resultado_vazio  # noqa: E402
 from relatorio_cotacao_rapida import STATUS_TEXTO, gerar_excel, gerar_pdf, tabela_mapa  # noqa: E402
 
 
@@ -157,7 +157,7 @@ st.markdown(
 with st.expander("Como funciona", expanded=False):
     st.markdown(
         f"""
-        1. Para cada item, o sistema localiza **até {MAX_CATMAT} códigos CATMAT (materiais) ou CATSERV (serviços)** com **mais de {LIMIAR_CORRESPONDENCIA:.0f}%** de correspondência que tenham preços praticados.
+        1. Para cada item, o sistema localiza **até {MAX_CATMAT} códigos CATMAT (materiais) ou CATSERV (serviços)** com **mais de {LIMIAR_CORRESPONDENCIA:.0f}%** (materiais) ou **{LIMIAR_SERVICO:.0f}%** (serviços) de correspondência que tenham preços praticados.
         2. Busca os preços das compras públicas dos **últimos {JANELA_DIAS} dias**, comparando apenas a **mesma unidade de fornecimento/medida**.
         3. **Remove outliers** (preços inexequíveis ou muito diferentes dos demais).
         4. Traz **até {MAX_PRECOS} preços** por item, todos a **até {TOLERANCIA * 100:.0f}%** (para mais ou para menos) da **média** dos preços listados, priorizando fornecedores diferentes.
@@ -178,15 +178,9 @@ entrada_manual = st.text_area(
 )
 tipo_busca = st.selectbox(
     "Tipo de item",
-    ["Material", "Serviço", "Automático"],
+    ["Automático", "Material", "Serviço"],
     help="Automático decide, para cada linha, se é material (CATMAT) ou serviço (CATSERV) pela descrição mais parecida. "
     "É um pouco mais lento; prefira escolher o tipo quando a lista for toda de um só tipo.",
-)
-limiar = st.slider(
-    "Correspondência mínima com o catálogo (%)",
-    50, 100, int(LIMIAR_CORRESPONDENCIA), 5,
-    help=f"Padrão {LIMIAR_CORRESPONDENCIA:.0f}%. Nomes de serviços no CATSERV são enxutos (ex.: “PISO EM GERAL”); se um serviço não for encontrado, "
-    "reduza um pouco e confira com atenção os códigos sugeridos no relatório.",
 )
 arquivo_lista = st.file_uploader("Importar lista (CSV ou Excel)", type=["csv", "xlsx", "xls"])
 itens_arquivo: list[str] = []
@@ -214,9 +208,9 @@ if st.button("⚡ Cotar itens", type="primary", use_container_width=True):
         for posicao, item in enumerate(itens, start=1):
             barra.progress((posicao - 1) / len(itens), text=f"Cotando {posicao}/{len(itens)}: {item[:60]}")
             try:
-                resultados.append(cotar_item(item, catmat, catalogo_servico, tipo_busca, float(limiar)))
+                resultados.append(cotar_item(item, catmat, catalogo_servico, tipo_busca))
             except Exception as erro:  # um item com problema não derruba a cotação inteira
-                vazio = resultado_vazio(item, tipo_busca if tipo_busca != "Automático" else "Material", float(limiar))
+                vazio = resultado_vazio(item, tipo_busca if tipo_busca != "Automático" else "Material")
                 vazio["falha_api"] = True
                 resultados.append(vazio)
                 st.warning(f"Não foi possível cotar “{item[:60]}”: {erro}")
@@ -268,7 +262,7 @@ if resultados:
                 if r["status"] == "insuficiente":
                     st.warning(f"Menos de {MIN_PRECOS} preços: complemente com outras fontes (IN SEGES/ME nº 65/2021).")
             elif r.get("proximos"):
-                st.info(f"Nenhum CATMAT/CATSERV com {r.get('limiar', LIMIAR_CORRESPONDENCIA):.0f}%+ e preços no período. Códigos mais próximos abaixo; descreva o item com mais detalhes ou reduza a correspondência mínima.")
+                st.info(f"Nenhum CATMAT/CATSERV com {r.get('limiar', LIMIAR_CORRESPONDENCIA):.0f}%+ e preços no período. Códigos mais próximos abaixo; descreva o item com mais detalhes.")
                 st.dataframe(pd.DataFrame([{"Código": p["codigo"], "Correspondência (%)": round(p["correspondencia"], 1), "Descrição no catálogo": p["descricao"]} for p in r["proximos"]]), hide_index=True, use_container_width=True)
             else:
                 st.info("Nenhum CATMAT/CATSERV correspondente com preços no período. Tente descrever o item de outra forma.")
