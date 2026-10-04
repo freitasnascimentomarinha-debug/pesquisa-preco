@@ -61,13 +61,30 @@ def _hoje() -> str:
 
 # ---------- uso durante a pesquisa ----------
 
-def registrar_acerto(memoria: dict, url: str, item: str) -> None:
+METODOS = ("navegador", "texto")
+
+
+def _falha_nova() -> dict:
+    return {"navegador": 0, "texto": 0, "ultimo": ""}
+
+
+def _migrar_falha(falha: dict) -> dict:
+    """Memória antiga guardava um só contador ('falhas', que vinha da leitura por texto)."""
+    if "falhas" in falha and "texto" not in falha:
+        return {"navegador": 0, "texto": falha["falhas"], "ultimo": falha.get("ultimo", "")}
+    return {"navegador": falha.get("navegador", 0), "texto": falha.get("texto", 0), "ultimo": falha.get("ultimo", "")}
+
+
+def registrar_acerto(memoria: dict, url: str, item: str, metodo: str = "texto") -> None:
+    """Loja que deu preço: guarda o item e por qual método (navegador/texto); limpa as falhas dela."""
     site = dominio(url)
     if not site:
         return
     loja = memoria["lojas"].setdefault(site, {"acertos": 0, "ultimo": "", "itens": []})
     loja["acertos"] += 1
     loja["ultimo"] = _hoje()
+    loja.setdefault("metodos", {"navegador": 0, "texto": 0})
+    loja["metodos"][metodo] = loja["metodos"].get(metodo, 0) + 1
     item = item.strip().lower()
     if item in loja["itens"]:
         loja["itens"].remove(item)
@@ -77,20 +94,25 @@ def registrar_acerto(memoria: dict, url: str, item: str) -> None:
     memoria["_mudou"] = True
 
 
-def registrar_falha(memoria: dict, url: str) -> None:
+def registrar_falha(memoria: dict, url: str, metodo: str = "texto") -> None:
+    """Site em que o método (navegador ou texto) não achou preço. Cada método tem a sua própria contagem."""
     site = dominio(url)
     if not site or site in memoria["lojas"]:
         return  # loja que já deu preço não é marcada como problemática por uma falha
-    falha = memoria["falhas"].setdefault(site, {"falhas": 0, "ultimo": ""})
-    falha["falhas"] += 1
+    falha = memoria["falhas"][site] = _migrar_falha(memoria["falhas"].get(site, _falha_nova()))
+    falha[metodo] += 1
     falha["ultimo"] = _hoje()
     memoria["_mudou"] = True
 
 
-def deve_pular(memoria: dict, url: str) -> bool:
-    """Site que falhou FALHAS_PARA_PULAR vezes, sem nenhum acerto, nos últimos DIAS_PARA_ESQUECER_FALHAS dias."""
+def deve_pular(memoria: dict, url: str, metodo: str = "texto") -> bool:
+    """Pula o site só se ESSE método falhou FALHAS_PARA_PULAR vezes, sem nenhum acerto, nos últimos DIAS_PARA_ESQUECER_FALHAS dias.
+    Falhas da leitura por texto não impedem o navegador (que tem mais chance), e vice-versa."""
     falha = memoria["falhas"].get(dominio(url))
-    if not falha or falha["falhas"] < FALHAS_PARA_PULAR:
+    if not falha:
+        return False
+    falha = _migrar_falha(falha)
+    if falha.get(metodo, 0) < FALHAS_PARA_PULAR:
         return False
     try:
         idade = (dt.date.today() - dt.date.fromisoformat(falha["ultimo"])).days
@@ -173,7 +195,7 @@ def _normalizar(dados: dict) -> dict:
     memoria = vazia()
     if isinstance(dados, dict):
         memoria["lojas"] = dict(dados.get("lojas") or {})
-        memoria["falhas"] = dict(dados.get("falhas") or {})
+        memoria["falhas"] = {k: _migrar_falha(v) for k, v in dict(dados.get("falhas") or {}).items()}
     return memoria
 
 
@@ -217,12 +239,15 @@ def _juntar(local: dict, remota: dict) -> dict:
         atual["acertos"] = max(atual["acertos"], loja["acertos"])
         atual["ultimo"] = max(atual["ultimo"], loja["ultimo"])
         atual["itens"] = list(dict.fromkeys(loja["itens"] + atual["itens"]))[:MAX_ITENS_POR_LOJA]
+        metodos = atual.setdefault("metodos", {"navegador": 0, "texto": 0})
+        for metodo, n in loja.get("metodos", {}).items():
+            metodos[metodo] = max(metodos.get(metodo, 0), n)
         junta["falhas"].pop(site, None)
     for site, falha in local["falhas"].items():
         if site not in junta["lojas"]:
-            atual = junta["falhas"].setdefault(site, {"falhas": 0, "ultimo": ""})
-            atual["falhas"] = max(atual["falhas"], falha["falhas"])
-            atual["ultimo"] = max(atual["ultimo"], falha["ultimo"])
+            nova, atual = _migrar_falha(falha), _migrar_falha(junta["falhas"].get(site, _falha_nova()))
+            junta["falhas"][site] = {"navegador": max(atual["navegador"], nova["navegador"]), "texto": max(atual["texto"], nova["texto"]),
+                                     "ultimo": max(atual["ultimo"], nova["ultimo"])}
     return junta
 
 

@@ -226,6 +226,8 @@ class LeitorNavegador:
         self.usadas = 0
         self._playwright = None
         self._navegador = None
+        self._contexto = None
+        self._page = None
         self.falha_ao_iniciar = ""
 
     def __enter__(self) -> "LeitorNavegador":
@@ -256,42 +258,64 @@ class LeitorNavegador:
             return False
 
     def ler(self, url: str) -> dict:
-        """{"html": texto ou "", "status": HTTP ou 0, "erro": texto}. Nunca levanta erro."""
+        """{"html": texto ou "", "status": HTTP ou 0, "erro": texto}. Nunca levanta erro.
+        Em caso de sucesso a página fica aberta para `capturar` (print) e é fechada por `liberar` (ou pela próxima leitura)."""
+        self.liberar()
         if not self.disponivel or not str(url).startswith(("http://", "https://")):
             return {"html": "", "status": 0, "erro": self.falha_ao_iniciar or "limite de páginas lidas pelo navegador atingido"}
         if not self._iniciar():
             return {"html": "", "status": 0, "erro": self.falha_ao_iniciar}
         self.usadas += 1
-        contexto = None
         try:
-            contexto = self._navegador.new_context(viewport={"width": LARGURA, "height": ALTURA}, locale="pt-BR",
-                                                   timezone_id="America/Sao_Paulo", user_agent=USER_AGENT)
-            page = contexto.new_page()
-            page.set_default_timeout(TEMPO_NAVEGACAO_S * 1000)
-            resposta = page.goto(url, wait_until="domcontentloaded", timeout=TEMPO_NAVEGACAO_S * 1000)
+            self._contexto = self._navegador.new_context(viewport={"width": LARGURA, "height": ALTURA}, locale="pt-BR",
+                                                         timezone_id="America/Sao_Paulo", user_agent=USER_AGENT)
+            self._page = self._contexto.new_page()
+            self._page.set_default_timeout(TEMPO_NAVEGACAO_S * 1000)
+            resposta = self._page.goto(url, wait_until="domcontentloaded", timeout=TEMPO_NAVEGACAO_S * 1000)
             try:
-                page.wait_for_load_state("networkidle", timeout=6000)
+                self._page.wait_for_load_state("networkidle", timeout=6000)
             except Exception:
                 pass
             status = resposta.status if resposta is not None else 0
             if status >= 400:
+                self.liberar()
                 return {"html": "", "status": status, "erro": f"HTTP {status}"}
-            _fechar_avisos(page)
+            _fechar_avisos(self._page)
             for _ in range(3):  # rola a página para carregar o que aparece aos poucos (produtos, preços)
-                page.mouse.wheel(0, ALTURA)
-                page.wait_for_timeout(500)
-            page.evaluate("window.scrollTo(0, 0)")
-            return {"html": page.content(), "status": status, "erro": ""}
+                self._page.mouse.wheel(0, ALTURA)
+                self._page.wait_for_timeout(500)
+            self._page.evaluate("window.scrollTo(0, 0)")
+            return {"html": self._page.content(), "status": status, "erro": ""}
         except Exception as erro:
+            self.liberar()
             return {"html": "", "status": 0, "erro": f"{type(erro).__name__}: {str(erro).splitlines()[0][:100]}"}
-        finally:
-            if contexto is not None:
-                try:
-                    contexto.close()
-                except Exception:
-                    pass
+
+    def capturar(self, url: str, preco: float | None) -> dict:
+        """Print da página que acabou de ser lida (ainda aberta): leva a tela até o preço, destaca o valor e põe data/hora no rodapé.
+        {"imagem": JPEG ou None, "capturado_em": ..., "erro": ...}. Nunca levanta erro."""
+        if self._page is None:
+            return {"imagem": None, "capturado_em": "", "erro": "página já fechada"}
+        try:
+            _preparar_pagina(self._page, preco)
+            agora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+            png = self._page.screenshot(type="png", full_page=False)
+            return {"imagem": _rodape(png, url, agora, preco), "capturado_em": agora, "erro": ""}
+        except Exception as erro:
+            return {"imagem": None, "capturado_em": "", "erro": f"{type(erro).__name__}: {str(erro).splitlines()[0][:100]}"}
+
+    def liberar(self) -> None:
+        """Fecha a página aberta (libera a memória antes da próxima)."""
+        for objeto in (self._contexto,):
+            try:
+                if objeto is not None:
+                    objeto.close()
+            except Exception:
+                pass
+        self._contexto = None
+        self._page = None
 
     def fechar(self) -> None:
+        self.liberar()
         for objeto, metodo in ((self._navegador, "close"), (self._playwright, "stop")):
             try:
                 if objeto is not None:
