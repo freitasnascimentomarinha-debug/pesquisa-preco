@@ -35,22 +35,26 @@ MINIMO_SERVICOS = 2_500
 
 
 def baixar_pagina(url: str, pagina: int, parametros: dict) -> dict:
-    for tentativa in range(5):
+    """Baixa uma página; a API do Compras.gov limita requisições, então espera e tenta de novo (até ~10 min por página)."""
+    ultimo_erro = ""
+    for tentativa in range(10):
         try:
-            resposta = requests.get(url, params={**parametros, "pagina": pagina, "tamanhoPagina": TAMANHO_PAGINA}, timeout=60)
+            resposta = requests.get(url, params={**parametros, "pagina": pagina, "tamanhoPagina": TAMANHO_PAGINA}, timeout=90)
             if resposta.status_code == 200:
                 return resposta.json()
-        except (requests.RequestException, ValueError):
-            pass
-        time.sleep(2 ** tentativa)
-    raise RuntimeError(f"Falha ao baixar a página {pagina} de {url}")
+            ultimo_erro = f"HTTP {resposta.status_code}"
+            espera = int(resposta.headers.get("Retry-After", 0)) if resposta.headers.get("Retry-After", "").isdigit() else 0
+        except (requests.RequestException, ValueError) as erro:
+            ultimo_erro, espera = type(erro).__name__, 0
+        time.sleep(max(espera, min(2 ** (tentativa + 1), 90)))
+    raise RuntimeError(f"Falha ao baixar a página {pagina} de {url} ({ultimo_erro})")
 
 
 def baixar_tudo(url: str, parametros: dict) -> list[dict]:
     primeira = baixar_pagina(url, 1, parametros)
     paginas = int(primeira["totalPaginas"])
     print(f"{url.rsplit('/', 1)[-1]}: {primeira['totalRegistros']} registros em {paginas} páginas")
-    with ThreadPoolExecutor(max_workers=6) as executor:
+    with ThreadPoolExecutor(max_workers=3) as executor:
         resto = list(executor.map(lambda pagina: baixar_pagina(url, pagina, parametros), range(2, paginas + 1)))
     return [item for pagina in [primeira, *resto] for item in pagina["resultado"]]
 
