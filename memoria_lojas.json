@@ -1,0 +1,54 @@
+{
+ "versao": 1,
+ "atualizado": "2026-10-04T17:04:08",
+ "lojas": {
+  "lojadomecanico.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-04",
+   "itens": [
+    "fita isolante"
+   ]
+  },
+  "eletricaarea.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-04",
+   "itens": [
+    "fita isolante"
+   ]
+  },
+  "telhanorte.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-04",
+   "itens": [
+    "fita isolante"
+   ]
+  },
+  "hiperfer.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-04",
+   "itens": [
+    "fita isolante"
+   ]
+  },
+  "copafer.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-04",
+   "itens": [
+    "fita isolante"
+   ]
+  },
+  "kalunga.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-04",
+   "itens": [
+    "caneta esferográfica azul"
+   ]
+  }
+ },
+ "falhas": {
+  "alltape.com.br": {
+   "falhas": 1,
+   "ultimo": "2026-10-04"
+  }
+ }
+}
