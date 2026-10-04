@@ -125,6 +125,75 @@ def preco_principal(html: str, alternativa: Callable[[str], list[float]] | None 
     return None
 
 
+def _moedas_jsonld(dado: object, achadas: set[str]) -> None:
+    if isinstance(dado, list):
+        for item in dado:
+            _moedas_jsonld(item, achadas)
+    elif isinstance(dado, dict):
+        for chave, valor in dado.items():
+            if chave == "priceCurrency" and isinstance(valor, str):
+                achadas.add(valor.strip().upper())
+            elif isinstance(valor, (dict, list)):
+                _moedas_jsonld(valor, achadas)
+
+
+def moedas_da_pagina(html: str) -> set[str]:
+    """Moedas declaradas nos dados da página (JSON-LD priceCurrency, metadados). Vazio = a página não declara."""
+    from bs4 import BeautifulSoup
+
+    soup = BeautifulSoup(html, "html.parser")
+    achadas: set[str] = set()
+    for marcador in soup.find_all("script", type="application/ld+json"):
+        try:
+            _moedas_jsonld(json.loads(marcador.string or marcador.get_text() or ""), achadas)
+        except (json.JSONDecodeError, TypeError):
+            continue
+    for meta in soup.find_all("meta"):
+        propriedade = str(meta.get("property") or meta.get("name") or meta.get("itemprop") or "").lower()
+        if propriedade.endswith(("price:currency", "pricecurrency")) and meta.get("content"):
+            achadas.add(str(meta["content"]).strip().upper())
+    for elemento in soup.select("[itemprop='priceCurrency']"):
+        valor = elemento.get("content") or elemento.get_text(strip=True)
+        if valor:
+            achadas.add(str(valor).strip().upper())
+    return {m for m in achadas if m}
+
+
+def sinais_site_nacional(url: str, html: str) -> dict:
+    """Sinais de que a página é de uma loja brasileira vendendo em reais: .br, moeda BRL, idioma pt-BR e 'R$' no texto.
+    `estrangeira` = a página declara preço em outra moeda e nenhuma em BRL (nesse caso o preço não vale)."""
+    from urllib.parse import urlparse
+    from bs4 import BeautifulSoup
+
+    dominio = urlparse(url).netloc.lower().split(":")[0]
+    moedas = moedas_da_pagina(html)
+    soup = BeautifulSoup(html[:200_000], "html.parser")
+    idioma = str((soup.html.get("lang") if soup.html else "") or "").lower().replace("_", "-")
+    sinais = []
+    if dominio.endswith(".br"):
+        sinais.append(".br")
+    if "BRL" in moedas:
+        sinais.append("moeda BRL")
+    if idioma in ("pt-br", "pt"):
+        sinais.append("pt-BR")
+    if re.search(r"R\$\s*\d", html):
+        sinais.append("R$")
+    return {"pontos": len(sinais), "sinais": sinais, "moedas": sorted(moedas), "estrangeira": bool(moedas) and "BRL" not in moedas}
+
+
+PONTOS_MINIMOS_SITE_NACIONAL = 2
+
+
+def site_nacional(url: str, html: str) -> tuple[bool, str]:
+    """(aceita?, motivo). Rejeita preço em moeda estrangeira e páginas com menos de 2 sinais de loja brasileira."""
+    info = sinais_site_nacional(url, html)
+    if info["estrangeira"]:
+        return False, f"preço em outra moeda ({', '.join(info['moedas'])})"
+    if info["pontos"] < PONTOS_MINIMOS_SITE_NACIONAL:
+        return False, "não parece loja brasileira" + (f" (só: {', '.join(info['sinais'])})" if info["sinais"] else "")
+    return True, ", ".join(info["sinais"])
+
+
 def _data_iso(data_coleta: str) -> str:
     try:
         return datetime.strptime(data_coleta[:10], "%d/%m/%Y").date().isoformat()
