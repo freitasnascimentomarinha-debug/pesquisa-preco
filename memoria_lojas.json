@@ -1,6 +1,6 @@
 {
  "versao": 1,
- "atualizado": "2026-10-04T21:12:36",
+ "atualizado": "2026-10-04T21:20:52",
  "lojas": {
   "lojadomecanico.com.br": {
    "acertos": 12,
@@ -570,45 +570,45 @@
  },
  "frases": {
   "{item} comprar": {
-   "usos": 7.395,
-   "acertos": 1.5925,
+   "usos": 8.6239,
+   "acertos": 1.4373,
    "ultimo": "2026-10-04"
   },
   "{item} preço": {
-   "usos": 7.395,
-   "acertos": 2.2924,
+   "usos": 8.6239,
+   "acertos": 2.0689,
    "ultimo": "2026-10-04"
   },
   "venda de {item}": {
-   "usos": 6.7316,
-   "acertos": 0.6983,
+   "usos": 8.6239,
+   "acertos": 0.5987,
    "ultimo": "2026-10-04"
   },
   "{item} valor": {
-   "usos": 6.7316,
+   "usos": 8.6239,
    "acertos": 0.0,
    "ultimo": "2026-10-04"
   },
   "{item} atacado": {
-   "usos": 6.7316,
-   "acertos": 5.6672,
+   "usos": 8.6239,
+   "acertos": 4.8589,
    "ultimo": "2026-10-04"
   },
   "{item} preço brasil": {
-   "usos": 6.7316,
+   "usos": 8.0252,
    "acertos": 0.0,
    "ultimo": "2026-10-04"
   },
   "{item} comprar brasil": {
-   "usos": 6.7316,
+   "usos": 8.0252,
    "acertos": 0.0,
    "ultimo": "2026-10-04"
   },
   "comprar {item} online brasil": {
-   "usos": 6.7316,
-   "acertos": 0.7351,
+   "usos": 8.6239,
+   "acertos": 0.6302,
    "ultimo": "2026-10-04"
   }
  },
- "buscas": 9
+ "buscas": 12
 }
