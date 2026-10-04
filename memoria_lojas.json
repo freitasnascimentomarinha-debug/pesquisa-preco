@@ -1,22 +1,24 @@
 {
  "versao": 1,
- "atualizado": "2026-10-04T21:26:35",
+ "atualizado": "2026-10-04T21:33:08",
  "lojas": {
   "lojadomecanico.com.br": {
-   "acertos": 13,
+   "acertos": 14,
    "ultimo": "2026-10-04",
    "itens": [
+    "parafuso sextavado 1/2",
     "grampeador",
     "fita isolante",
     "tomada 20a",
     "chave de fenda"
    ],
    "metodos": {
-    "navegador": 3,
+    "navegador": 4,
     "texto": 0
    },
    "paginas": {
-    "grampeador": "https://www.lojadomecanico.com.br/subcategorias/37/501/grampeador-manual"
+    "grampeador": "https://www.lojadomecanico.com.br/subcategorias/37/501/grampeador-manual",
+    "parafuso sextavado 1/2": "https://www.lojadomecanico.com.br/buscar/parafuso-1-2-polegada-sextavado"
    }
   },
   "eletricaarea.com.br": {
@@ -351,14 +353,18 @@
    }
   },
   "ibyteatacado.com.br": {
-   "acertos": 1,
+   "acertos": 2,
    "ultimo": "2026-10-04",
    "itens": [
+    "monitor led 21\"",
     "impressora tanque"
    ],
    "metodos": {
-    "navegador": 1,
+    "navegador": 2,
     "texto": 0
+   },
+   "paginas": {
+    "monitor led 21\"": "https://www.ibyteatacado.com.br/monitor-led-21-5-hdmi-goldentec/p"
    }
   },
   "loja.casadosacodelixo.com.br": {
@@ -467,6 +473,48 @@
    },
    "paginas": {
     "grampeador": "https://tbsbrasil.com.br/grampeadores/"
+   }
+  },
+  "discpar.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-04",
+   "itens": [
+    "parafuso sextavado 1/2"
+   ],
+   "metodos": {
+    "navegador": 1,
+    "texto": 0
+   },
+   "paginas": {
+    "parafuso sextavado 1/2": "https://www.discpar.com.br/sextavado"
+   }
+  },
+  "superproatacado.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-04",
+   "itens": [
+    "parafuso sextavado 1/2"
+   ],
+   "metodos": {
+    "navegador": 1,
+    "texto": 0
+   },
+   "paginas": {
+    "parafuso sextavado 1/2": "https://www.superproatacado.com.br/ferragens/parafusos-e-buchas/parafuso-sextavado-polegada"
+   }
+  },
+  "atlasparafusos.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-04",
+   "itens": [
+    "parafuso sextavado 1/2"
+   ],
+   "metodos": {
+    "navegador": 1,
+    "texto": 0
+   },
+   "paginas": {
+    "parafuso sextavado 1/2": "https://www.atlasparafusos.com.br/produto/parafuso-sextavado-polegada-12-12-fios-aco-88-unc-rosca-grossa.html"
    }
   }
  },
@@ -577,8 +625,8 @@
    "ultimo": "2026-10-04"
   },
   "martinsatacado.com.br": {
-   "navegador": 1,
-   "texto": 2,
+   "navegador": 2,
+   "texto": 3,
    "ultimo": "2026-10-04"
   },
   "loja.suzano.com.br": {
@@ -645,49 +693,59 @@
    "navegador": 1,
    "texto": 1,
    "ultimo": "2026-10-04"
+  },
+  "dimpar.com.br": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-04"
+  },
+  "general-atacado.com.br": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-04"
   }
  },
  "frases": {
   "{item} comprar": {
-   "usos": 9.1927,
-   "acertos": 1.3654,
+   "usos": 10.2464,
+   "acertos": 1.2322,
    "ultimo": "2026-10-04"
   },
   "{item} preço": {
-   "usos": 9.1927,
-   "acertos": 3.9655,
+   "usos": 10.7341,
+   "acertos": 4.3024,
    "ultimo": "2026-10-04"
   },
   "venda de {item}": {
-   "usos": 9.1927,
-   "acertos": 1.5688,
+   "usos": 9.7331,
+   "acertos": 1.4904,
    "ultimo": "2026-10-04"
   },
   "{item} valor": {
-   "usos": 8.6239,
+   "usos": 9.7331,
    "acertos": 0.0,
    "ultimo": "2026-10-04"
   },
   "{item} atacado": {
-   "usos": 9.1927,
-   "acertos": 4.616,
+   "usos": 10.7341,
+   "acertos": 7.6151,
    "ultimo": "2026-10-04"
   },
   "{item} preço brasil": {
-   "usos": 8.0252,
+   "usos": 8.6239,
    "acertos": 0.0,
    "ultimo": "2026-10-04"
   },
   "{item} comprar brasil": {
-   "usos": 8.0252,
+   "usos": 9.1927,
    "acertos": 0.0,
    "ultimo": "2026-10-04"
   },
   "comprar {item} online brasil": {
-   "usos": 9.1927,
-   "acertos": 3.5987,
+   "usos": 10.2464,
+   "acertos": 3.2479,
    "ultimo": "2026-10-04"
   }
  },
- "buscas": 13
+ "buscas": 16
 }
