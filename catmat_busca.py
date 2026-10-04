@@ -58,6 +58,8 @@ PREFERENCIAS = [
     ({"papel", "resma"}, _PAPEL_ESCRITORIO),
     ({"papel", "a4"}, _PAPEL_ESCRITORIO),
 ]
+# Consulta genérica de uma palavra só -> o que ela costuma significar numa compra (decisão do projeto).
+EXPANSOES_GENERICAS = {"caneta": "caneta esferografica"}
 LIMIAR_SIMILARIDADE = 45.0
 CANDIDATOS_POR_CONSULTA = 200
 CANDIDATOS_PARA_FAMILIAS = 2000
@@ -189,6 +191,7 @@ def _buscar_no_catmat(descricao: str, catmat: IndiceCatmat, limite: int = CANDID
 
 def _opcoes_material(descricao: str, catmat: IndiceCatmat, candidatos: int = CANDIDATOS_POR_CONSULTA) -> list[dict[str, object]]:
     itens = catmat.itens
+    descricao = EXPANSOES_GENERICAS.get(" ".join(_tokens_ordenados(descricao)), descricao)  # "canetas" = "caneta"
     opcoes = []
     for posicao in _buscar_no_catmat(descricao, catmat, candidatos):
         codigo, codigo_pdm, nome_pdm, descricao_item = itens[posicao]
@@ -203,6 +206,7 @@ def _opcoes_material(descricao: str, catmat: IndiceCatmat, candidatos: int = CAN
                 "origem": "CATMAT",
                 "codigo_pdm": codigo_pdm,
                 "descricao_pdm": nome_pdm,
+                "popularidade": int(catmat.pdms[codigo_pdm]["itens"]),  # desempate: a família maior costuma ser a mais comum
             }
         )
     return opcoes
@@ -256,6 +260,8 @@ def _pontuar(descricao: str, candidato: str, nome_pdm: str = "") -> float:
     forca_cabeca = forcas.get(cabeca, 0.0)
     comeco = ordem_destino[:3]
     bonus_inicio = 12 if any(_forca_termo(cabeca, {token}) >= 0.7 for token in comeco) else 0
+    if ordem_destino and _forca_termo(cabeca, {ordem_destino[0]}) >= 0.7:
+        bonus_inicio += 6  # o item começa pelo termo principal (CANETA ... e não PORTA-CANETA)
     nucleo_completo = 8 if all(forcas[token] >= 0.7 for token in nucleo) else 0
 
     nome = _tokens_ordenados(re.split(r"[,;:(]", nome_pdm or candidato, maxsplit=1)[0])
@@ -272,12 +278,12 @@ def _pontuar(descricao: str, candidato: str, nome_pdm: str = "") -> float:
                 if termo in destino and not (termo == "75" and gramatura_informada)
             )
     restritivos_ausentes = (destino - set(perfil["ordem"])) & TERMOS_RESTRITIVOS
-    penalidade = min(36, len(restritivos_ausentes) * 18) + min(24, len(extras_no_nome) * 6)
+    penalidade = min(20, len(restritivos_ausentes) * 10) + min(24, len(extras_no_nome) * 6)
 
     pontuacao = cobertura * 72 + bonus_inicio + nucleo_completo + nome_completo + sequencia * 8 + bonus_preferencia - penalidade
     if perfil["especificos"]:
         atendidas = sum(forcas[token] for token in perfil["especificos"]) / len(perfil["especificos"])
-        pontuacao *= 0.8 + 0.2 * atendidas
+        pontuacao *= 0.65 + 0.35 * atendidas  # especificação pedida e ausente (ex.: A4) pesa
     if not nucleo_completo:
         pontuacao *= 0.85
     if forca_cabeca == 0:
@@ -330,7 +336,7 @@ def sugerir_codigo(descricao: str, catmat: IndiceCatmat, catalogo_servico: list[
     vazio = {"tipo": "-", "codigo": "-", "similaridade": 0.0, "origem": "-", "unidade_fornecimento": "", "codigo_pdm": "", "descricao_pdm": "", "alternativas": ""}
     if not opcoes:
         return {**vazio, "descricao_catalogo": "Nenhuma correspondência encontrada"}
-    opcoes.sort(key=lambda opcao: opcao["bruta"], reverse=True)
+    opcoes.sort(key=lambda opcao: (round(opcao["bruta"], 1), opcao.get("popularidade", 0)), reverse=True)
     melhor = opcoes[0]
     if melhor["similaridade"] < LIMIAR_SIMILARIDADE:
         return {**vazio, "descricao_catalogo": "Descrição insuficiente para sugerir um código com segurança", "similaridade": melhor["similaridade"]}
@@ -382,7 +388,7 @@ def buscar_familias(consulta: str, catmat: IndiceCatmat, limite: int = 15) -> li
         atual["casam"] += 1
         if opcao["bruta"] > atual["bruta"]:
             atual["bruta"], atual["exemplo"] = opcao["bruta"], opcao["descricao_catalogo"]
-    ordenadas = sorted(melhores.items(), key=lambda par: (par[1]["bruta"], par[1]["casam"]), reverse=True)
+    ordenadas = sorted(melhores.items(), key=lambda par: (round(par[1]["bruta"], 1), catmat.pdms[par[0]]["itens"]), reverse=True)
     return [
         _ficha_familia(catmat, codigo_pdm, dados["bruta"], f"Ex.: {str(dados['exemplo'])[:110]}")
         for codigo_pdm, dados in ordenadas[:limite]

@@ -404,6 +404,8 @@ with st.sidebar:
     st.markdown("## MENU")
     st.markdown("---")
     st.page_link("streamlit_app.py", label="Cotação", icon="⚓")
+    st.page_link("pages/CATMAT_CATSERV_Automatico.py", label="CATMAT/CATSERV", icon="🔎")
+    st.page_link("pages/Cotação_Rápida.py", label="Cotação Rápida", icon="⚡")
     st.page_link("pages/Detalhes_Compra.py", label="Detalhes Compra", icon="🔍")
     st.page_link("pages/Adesões.py", label="Adesões", icon="🤝")
     st.page_link("pages/Notas_Fiscais.py", label="Notas Fiscais", icon="📄")
@@ -412,7 +414,6 @@ with st.sidebar:
     st.page_link("pages/Web_Scraping.py", label="Web Scraping", icon="🕷️")
     st.page_link("pages/O_Babilaca_(IA).py", label="O Babilaca (IA)", icon="🧠")
     st.page_link("pages/Calculo_IPCA.py", label="Cálculo IPCA", icon="📊")
-    st.page_link("pages/CATMAT_CATSERV_Automatico.py", label="CATMAT/CATSERV", icon="🔎")
     st.markdown("---")
     st.markdown("## LINKS ÚTEIS")
     st.markdown("""<div style="margin-bottom: 0.6rem;">
@@ -1202,13 +1203,16 @@ if tipo:
 if tipo == "Material":
     catmat = carregar_indice_catmat(CATMAT_PATH)
     if consulta:
-        familias = buscar_familias(consulta, catmat)
+        # Muitas famílias parecidas disputam as primeiras posições (ex.: dezenas de "PAPEL ..."): avalia as atas de
+        # até 40 delas para que a família que realmente tem atas não fique de fora, e mostra as 15 melhores.
+        familias = buscar_familias(consulta, catmat, limite=40)
         atas = contar_atas_em_paralelo(tipo, [f["codigo"] for f in familias])
         so_com_atas = st.checkbox("Mostrar apenas famílias com atas vigentes", value=True, key="familias_so_com_atas")
         if so_com_atas and any(atas.values()):
             familias = [f for f in familias if atas[f["codigo"]]]
         elif so_com_atas and familias:
             st.info("Nenhuma das famílias encontradas tem atas vigentes no período; mostrando todas.")
+        familias = familias[:15]
         rotulos = {
             f"{f['nome']} · PDM {f['codigo']} · {texto_atas(atas[f['codigo']])} · {f['nota']:.0f}%": f for f in familias
         }
