@@ -36,6 +36,9 @@ STOP_WORDS = {"a", "as", "com", "da", "das", "de", "do", "dos", "e", "em", "o", 
 TERMOS_EMBALAGEM = {
     "caixa", "cx", "fardo", "folha", "pacote", "pct", "resma", "und", "unid", "unidade",
     "kg", "ml", "mm", "cm", "m2", "gr", "lt", "litro", "metro",
+    # palavras que acompanham pedidos de serviço mas raramente aparecem no nome do catálogo
+    "servico", "prestacao", "contratacao", "empresa", "especializada",
+    "preventiva", "preventivo", "corretiva", "corretivo",
 }
 TERMOS_RESTRITIVOS = {
     "automotivo", "cartucho", "descartavel", "hospitalar", "impressora", "industrial",
@@ -50,6 +53,7 @@ EQUIVALENCIAS = {
     "carta": [{"216", "279"}],
     "sulfite": [{"alcalino"}, {"reprografico"}],
     "reprografico": [{"sulfite"}],
+    "split": [{"parede"}],
 }
 # Quando a descrição traz estes termos, o catálogo é ranqueado preferindo o produto usual da compra
 # (termo -> bônus). Ex.: "resma de papel A4" sem outros detalhes = papel de escritório branco de 75 g/m².
