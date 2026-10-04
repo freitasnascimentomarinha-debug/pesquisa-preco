@@ -646,27 +646,16 @@ def buscar_na_loja(session, item, site, headers, num_results=8):
 
     query = f"{item} site:{site}"
     urls = []
-    if time.time() < DDG_PROXIMA_TENTATIVA["ate"]:
-        return []  # DuckDuckGo descansando após bloqueio: a loja da memória fica para a próxima
-    intervalo_entre_buscas()
-    try:
-        from ddgs import DDGS
-        urls = [r["href"] for r in DDGS().text(query, region="br-pt", max_results=num_results) if r.get("href") and da_loja(r["href"])]
-    except Exception:
-        urls = []
-    if not urls:
-        intervalo_entre_buscas()
-        try:
-            resp = session.get(f"https://html.duckduckgo.com/html/?q={quote_plus(query)}", headers=headers, timeout=15)
-            if resp.status_code == 200:
-                for a_tag in BeautifulSoup(resp.text, "html.parser").select("a.result__a"):
-                    href = a_tag.get("href", "")
-                    if "uddg=" in href:
-                        href = unquote(href.split("uddg=")[1].split("&")[0])
-                    if href.startswith("http") and da_loja(href):
-                        urls.append(href)
-        except Exception:
-            pass
+    if time.time() >= DDG_PROXIMA_TENTATIVA["ate"]:
+        DIAG_BUSCA.clear()
+        urls = [u for u in buscar_ddgs_api(query, num_results) if da_loja(u)]
+        if not urls:
+            urls = [u for u in buscar_duckduckgo(session, query, headers, num_results) if da_loja(u)]
+        sinais = [v for k, v in DIAG_BUSCA.items() if k in ("DDGS", "DuckDuckGo HTML")]
+        if not urls and any(str(v).startswith(("erro", "HTTP 202", "HTTP 403", "HTTP 429", "HTTP 5")) for v in sinais):
+            DDG_PROXIMA_TENTATIVA["ate"] = time.time() + PAUSA_APOS_BLOQUEIO_DDG
+    if not urls:  # DuckDuckGo descansando ou sem resposta: o Bing também aceita "site:"
+        urls = [u for u in buscar_bing_requests(session, query, headers, num_results) if da_loja(u)]
     return list(dict.fromkeys(urls))[:3]
 
 
@@ -1472,7 +1461,11 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
                 log_msg(log_container, logs, f"🧠 Loja da memória: {site_memoria} (já deu preço para '{item_parecido}')", "info")
                 navegador_ligado = leitor is not None and leitor.disponivel
                 time.sleep(gerar_delay(0.3, 0.8) if navegador_ligado else gerar_delay(1.5, 3.0))
-                for url in buscar_na_loja(session, item, site_memoria, headers):
+                urls_loja = buscar_na_loja(session, item, site_memoria, headers)
+                guardada = memoria_lojas.pagina_guardada(memoria, site_memoria, item_parecido)
+                if guardada and guardada not in urls_loja:
+                    urls_loja.append(guardada)  # atalho: a página que já deu preço (vale se os buscadores falharem)
+                for url in urls_loja:
                     time.sleep(gerar_delay(0.3, 0.8) if navegador_ligado else gerar_delay(1.5, 3.5))
                     resultado, metodo_ok, _ = ler_pagina(url, item)
                     if resultado:
@@ -1507,8 +1500,10 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
                 urls, engine = buscar_urls(session, query, headers)
 
                 if not urls:
-                    log_msg(log_container, logs, f"⚠ Nenhum resultado encontrado para \"{query}\"", "warn")
-                    memoria_lojas.registrar_busca(memoria, variante, 0)
+                    log_msg(log_container, logs, f"⚠ Nenhum resultado encontrado para \"{query}\" — {engine}", "warn")
+                    # buscador bloqueado/com erro não diz nada sobre a frase: só conta quando houve resposta
+                    if "erro" not in engine and "HTTP" not in engine:
+                        memoria_lojas.registrar_busca(memoria, variante, 0)
                     continue
 
                 log_msg(log_container, logs, f"📋 {len(urls)} resultados encontrados via {engine}", "info")

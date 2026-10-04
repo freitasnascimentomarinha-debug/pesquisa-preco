@@ -90,6 +90,11 @@ def registrar_acerto(memoria: dict, url: str, item: str, metodo: str = "texto") 
         loja["itens"].remove(item)
     loja["itens"].insert(0, item)
     del loja["itens"][MAX_ITENS_POR_LOJA:]
+    # a página que deu o preço: serve de atalho quando os buscadores estão bloqueados
+    paginas = loja.setdefault("paginas", {})
+    paginas[item] = url
+    for antigo in [i for i in paginas if i not in loja["itens"]]:
+        del paginas[antigo]
     memoria["falhas"].pop(site, None)  # deu preço: não é mais um site problemático
     memoria["_mudou"] = True
 
@@ -190,6 +195,11 @@ def lojas_para_item(memoria: dict, item: str, limite: int = MAX_LOJAS_POR_ITEM) 
             candidatas.append((melhor, loja["acertos"], loja["ultimo"], site, parecido))
     candidatas.sort(reverse=True)
     return [(site, parecido) for _, _, _, site, parecido in candidatas[:limite]]
+
+
+def pagina_guardada(memoria: dict, site: str, item_parecido: str) -> str:
+    """Página da loja que já deu preço para esse item (vazio se não houver)."""
+    return memoria["lojas"].get(site, {}).get("paginas", {}).get(item_parecido.strip().lower(), "")
 
 
 # ---------- gravação (GitHub ou arquivo local) ----------
