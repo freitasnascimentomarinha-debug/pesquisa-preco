@@ -1,29 +1,41 @@
 {
  "versao": 1,
- "atualizado": "2026-10-04T19:08:41",
+ "atualizado": "2026-10-04T19:54:25",
  "lojas": {
   "lojadomecanico.com.br": {
-   "acertos": 10,
+   "acertos": 11,
    "ultimo": "2026-10-04",
    "itens": [
     "fita isolante",
     "tomada 20a",
     "chave de fenda"
-   ]
+   ],
+   "metodos": {
+    "navegador": 1,
+    "texto": 0
+   }
   },
   "eletricaarea.com.br": {
+   "acertos": 6,
+   "ultimo": "2026-10-04",
+   "itens": [
+    "fita isolante"
+   ],
+   "metodos": {
+    "navegador": 1,
+    "texto": 0
+   }
+  },
+  "telhanorte.com.br": {
    "acertos": 5,
    "ultimo": "2026-10-04",
    "itens": [
     "fita isolante"
-   ]
-  },
-  "telhanorte.com.br": {
-   "acertos": 4,
-   "ultimo": "2026-10-04",
-   "itens": [
-    "fita isolante"
-   ]
+   ],
+   "metodos": {
+    "navegador": 1,
+    "texto": 0
+   }
   },
   "hiperfer.com.br": {
    "acertos": 1,
@@ -111,19 +123,30 @@
    ]
   },
   "atacadosaopaulo.com.br": {
-   "acertos": 2,
+   "acertos": 4,
    "ultimo": "2026-10-04",
    "itens": [
+    "resma de papel a4",
+    "detergente",
     "papel crepom",
     "papel a4 sulfite"
-   ]
+   ],
+   "metodos": {
+    "navegador": 2,
+    "texto": 0
+   }
   },
   "hp.com": {
-   "acertos": 2,
+   "acertos": 3,
    "ultimo": "2026-10-04",
    "itens": [
+    "impressora tanque",
     "papel a4 sulfite"
-   ]
+   ],
+   "metodos": {
+    "navegador": 1,
+    "texto": 0
+   }
   },
   "microtecpapelaria.com.br": {
    "acertos": 1,
@@ -189,21 +212,29 @@
    ]
   },
   "superpaguemenos.com.br": {
+   "acertos": 4,
+   "ultimo": "2026-10-04",
+   "itens": [
+    "detergente",
+    "sabão em pó",
+    "arroz 1kg"
+   ],
+   "metodos": {
+    "navegador": 1,
+    "texto": 0
+   }
+  },
+  "atacadao.com.br": {
    "acertos": 3,
    "ultimo": "2026-10-04",
    "itens": [
-    "sabão em pó",
-    "arroz 1kg",
-    "detergente"
-   ]
-  },
-  "atacadao.com.br": {
-   "acertos": 2,
-   "ultimo": "2026-10-04",
-   "itens": [
-    "arroz 1kg",
-    "detergente"
-   ]
+    "detergente",
+    "arroz 1kg"
+   ],
+   "metodos": {
+    "navegador": 1,
+    "texto": 0
+   }
   },
   "zonacerealista.com.br": {
    "acertos": 1,
@@ -218,107 +249,234 @@
    "itens": [
     "sabão em pó"
    ]
+  },
+  "astrodistribuidora.com": {
+   "acertos": 1,
+   "ultimo": "2026-10-04",
+   "itens": [
+    "fita crepe"
+   ],
+   "metodos": {
+    "navegador": 1,
+    "texto": 0
+   }
+  },
+  "carbonnara.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-04",
+   "itens": [
+    "detergente"
+   ],
+   "metodos": {
+    "navegador": 1,
+    "texto": 0
+   }
+  },
+  "atacadaodalimpeza.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-04",
+   "itens": [
+    "detergente"
+   ],
+   "metodos": {
+    "navegador": 1,
+    "texto": 0
+   }
+  },
+  "cleanons.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-04",
+   "itens": [
+    "detergente"
+   ],
+   "metodos": {
+    "navegador": 1,
+    "texto": 0
+   }
+  },
+  "impressora.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-04",
+   "itens": [
+    "impressora tanque"
+   ],
+   "metodos": {
+    "navegador": 1,
+    "texto": 0
+   }
+  },
+  "ibyteatacado.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-04",
+   "itens": [
+    "impressora tanque"
+   ],
+   "metodos": {
+    "navegador": 1,
+    "texto": 0
+   }
+  },
+  "loja.casadosacodelixo.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-04",
+   "itens": [
+    "saco de lixo de 100 litros"
+   ],
+   "metodos": {
+    "navegador": 1,
+    "texto": 0
+   }
   }
  },
  "falhas": {
   "alltape.com.br": {
-   "falhas": 1,
+   "navegador": 0,
+   "texto": 1,
    "ultimo": "2026-10-04"
   },
   "gimba.com.br": {
-   "falhas": 1,
+   "navegador": 0,
+   "texto": 1,
    "ultimo": "2026-10-04"
   },
   "tilibraexpress.com.br": {
-   "falhas": 1,
+   "navegador": 0,
+   "texto": 1,
    "ultimo": "2026-10-04"
   },
   "tris.com.br": {
-   "falhas": 1,
+   "navegador": 0,
+   "texto": 1,
    "ultimo": "2026-10-04"
   },
   "leroymerlin.com.br": {
-   "falhas": 3,
+   "navegador": 3,
+   "texto": 6,
    "ultimo": "2026-10-04"
   },
   "bing.com": {
-   "falhas": 1,
+   "navegador": 0,
+   "texto": 1,
    "ultimo": "2026-10-04"
   },
   "ilumi.com.br": {
-   "falhas": 1,
+   "navegador": 0,
+   "texto": 1,
    "ultimo": "2026-10-04"
   },
   "se.com": {
-   "falhas": 1,
+   "navegador": 0,
+   "texto": 1,
    "ultimo": "2026-10-04"
   },
   "enerbras.com.br": {
-   "falhas": 1,
+   "navegador": 0,
+   "texto": 1,
    "ultimo": "2026-10-04"
   },
   "nortonabrasives.com": {
-   "falhas": 3,
+   "navegador": 1,
+   "texto": 4,
    "ultimo": "2026-10-04"
   },
   "sobradeestoque.com.br": {
-   "falhas": 2,
+   "navegador": 0,
+   "texto": 2,
    "ultimo": "2026-10-04"
   },
   "summit.com.br": {
-   "falhas": 1,
+   "navegador": 0,
+   "texto": 1,
    "ultimo": "2026-10-04"
   },
   "lyke.com.br": {
-   "falhas": 1,
+   "navegador": 0,
+   "texto": 1,
    "ultimo": "2026-10-04"
   },
   "compre.clipspapelaria.com.br": {
-   "falhas": 1,
+   "navegador": 0,
+   "texto": 1,
    "ultimo": "2026-10-04"
   },
   "viladaslampadas.com.br": {
-   "falhas": 1,
+   "navegador": 0,
+   "texto": 1,
    "ultimo": "2026-10-04"
   },
   "toptradesourcing.com": {
-   "falhas": 1,
+   "navegador": 0,
+   "texto": 1,
    "ultimo": "2026-10-04"
   },
   "inspirehome.com.br": {
-   "falhas": 1,
+   "navegador": 0,
+   "texto": 1,
    "ultimo": "2026-10-04"
   },
   "artfloc.com.br": {
-   "falhas": 2,
+   "navegador": 0,
+   "texto": 2,
    "ultimo": "2026-10-04"
   },
   "atacadoideal.com.br": {
-   "falhas": 1,
+   "navegador": 0,
+   "texto": 1,
    "ultimo": "2026-10-04"
   },
   "papelariariomadeira.com.br": {
-   "falhas": 2,
+   "navegador": 0,
+   "texto": 2,
    "ultimo": "2026-10-04"
   },
   "feraatacado.com": {
-   "falhas": 1,
+   "navegador": 0,
+   "texto": 1,
    "ultimo": "2026-10-04"
   },
   "martinsatacado.com.br": {
-   "falhas": 1,
+   "navegador": 1,
+   "texto": 2,
    "ultimo": "2026-10-04"
   },
   "loja.suzano.com.br": {
-   "falhas": 1,
+   "navegador": 0,
+   "texto": 1,
    "ultimo": "2026-10-04"
   },
   "soydechollos.com": {
-   "falhas": 1,
+   "navegador": 0,
+   "texto": 1,
    "ultimo": "2026-10-04"
   },
   "portafolhetos.com.br": {
-   "falhas": 1,
+   "navegador": 0,
+   "texto": 1,
+   "ultimo": "2026-10-04"
+  },
+  "obramax.com.br": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-04"
+  },
+  "somosverdes.com.br": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-04"
+  },
+  "quimiprol.com.br": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-04"
+  },
+  "mazer.com.br": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-04"
+  },
+  "allnations.com.br": {
+   "navegador": 1,
+   "texto": 1,
    "ultimo": "2026-10-04"
   }
  }
