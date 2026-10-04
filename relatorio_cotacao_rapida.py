@@ -92,6 +92,10 @@ def _truncar(pdf: FPDF, texto: object, largura: float) -> str:
 
 
 class PDFCotacaoRapida(FPDF):
+    def __init__(self, *args, titulo: str = "Cotacao Rapida - Mapa Comparativo de Precos", **kwargs) -> None:
+        super().__init__(*args, **kwargs)
+        self.titulo = titulo
+
     def header(self) -> None:
         self.set_fill_color(*AZUL)
         self.rect(0, 0, self.w, 30, "F")
@@ -104,7 +108,7 @@ class PDFCotacaoRapida(FPDF):
         self.set_font("Helvetica", "B", 11)
         self.set_text_color(255, 255, 255)
         self.set_xy(10, 16)
-        self.cell(0, 8, "Cotacao Rapida - Mapa Comparativo de Precos")
+        self.cell(0, 8, _seguro(self.titulo))
         self.set_font("Helvetica", "", 7)
         self.set_text_color(180, 180, 180)
         self.set_xy(self.w - 70, 6)
@@ -157,7 +161,13 @@ COLUNAS_MAPA = [("#", 8), ("Item pesquisado", 66), ("Codigo (correspondencia)", 
 ] + [("Media unitaria", 26), ("N. precos", 11), ("CV", 13)]
 
 
-def _pagina_mapa(pdf: FPDF, resultados: list[dict]) -> None:
+def _linhas_codigos(r: dict) -> list[str]:
+    rotulo_codigo = "CATSERV" if r.get("tipo") == "Serviço" else "CATMAT"
+    return [f"{rotulo_codigo} {k['codigo']} ({k['correspondencia']:.0f}%)" for k in r["catmats"]] or ["-"]
+
+
+def _pagina_mapa(pdf: FPDF, resultados: list[dict], rotulo_col3: str = "Codigo (correspondencia)", linhas_col3=_linhas_codigos, fonte: str | None = None) -> None:
+    colunas_mapa = [(rotulo_col3, largura) if indice == 2 else (rotulo, largura) for indice, (rotulo, largura) in enumerate(COLUNAS_MAPA)]
     total = len(resultados)
     ok = sum(1 for r in resultados if r["status"] == "ok")
     insuficientes = sum(1 for r in resultados if r["status"] == "insuficiente")
@@ -171,29 +181,28 @@ def _pagina_mapa(pdf: FPDF, resultados: list[dict]) -> None:
     pdf.set_text_color(90, 90, 90)
     pdf.cell(0, 4, "Verde: preco igual ou abaixo da media do item  |  Ambar: acima da media  |  Cada preco fica a ate 30% da media do item.", ln=True)
     pdf.ln(1)
-    _cabecalho_tabela(pdf, COLUNAS_MAPA)
+    _cabecalho_tabela(pdf, colunas_mapa)
 
     for numero, r in enumerate(resultados, start=1):
         pdf.set_font("Helvetica", "", 6.5)
-        desc = _quebrar(pdf, r["descricao"], COLUNAS_MAPA[1][1] - 2, 3)
-        rotulo_codigo = "CATSERV" if r.get("tipo") == "Serviço" else "CATMAT"
-        catmats = [f"{rotulo_codigo} {k['codigo']} ({k['correspondencia']:.0f}%)" for k in r["catmats"]] or ["-"]
+        desc = _quebrar(pdf, r["descricao"], colunas_mapa[1][1] - 2, 3)
+        catmats = linhas_col3(r)
         linhas = max(len(desc), len(catmats), 1)
         altura = max(8.0, 3.6 * linhas + 2)
         if pdf.get_y() + altura > pdf.h - 16:
             pdf.add_page()
             pdf.set_y(35)
-            _cabecalho_tabela(pdf, COLUNAS_MAPA)
+            _cabecalho_tabela(pdf, colunas_mapa)
         x0, y0 = pdf.l_margin, pdf.get_y()
         precos = [p["preco"] for p in r["precos"]]
         media = r["stats"]["media"] if r["stats"] else None
         fundo = (245, 248, 255) if numero % 2 == 0 else (255, 255, 255)
         x = x0
-        for indice, (_, largura) in enumerate(COLUNAS_MAPA):
+        for indice, (_, largura) in enumerate(colunas_mapa):
             if not precos and 4 < indice < 4 + MAX_PRECOS:
                 continue  # as colunas de preço de um item sem preços viram uma só, com a situação
             if not precos and indice == 4:
-                largura = sum(w for _, w in COLUNAS_MAPA[4:4 + MAX_PRECOS])
+                largura = sum(w for _, w in colunas_mapa[4:4 + MAX_PRECOS])
             cor = fundo
             texto: str | list[str] = ""
             alinhamento = "C"
@@ -237,9 +246,9 @@ def _pagina_mapa(pdf: FPDF, resultados: list[dict]) -> None:
     pdf.ln(2)
     pdf.set_font("Helvetica", "I", 6.5)
     pdf.set_text_color(90, 90, 90)
-    pdf.multi_cell(LARGURA, 3.5, new_x="LMARGIN", new_y="NEXT", text=_seguro(
+    pdf.multi_cell(LARGURA, 3.5, new_x="LMARGIN", new_y="NEXT", text=_seguro(fonte or (
         f"Fonte: Compras.gov (Pesquisa de Preco - precos praticados), compras dos ultimos {JANELA_DIAS} dias, mesma unidade de fornecimento. "
-        "Outliers e precos inexequiveis removidos. Detalhamento de cada item nas paginas seguintes."))
+        "Outliers e precos inexequiveis removidos. Detalhamento de cada item nas paginas seguintes.")))
 
 
 COLUNAS_PRECOS = [("ID Compra", 26), ("Data", 16), ("UASG", 15), ("Unid.", 22), ("Qtd", 12), ("V. Unitario", 20), ("CNPJ", 28), ("Fornecedor", 62), ("UF", 8), ("Codigo", 16), ("Orgao", 56)]
@@ -318,22 +327,31 @@ def _pagina_item(pdf: FPDF, numero: int, r: dict) -> None:
         pdf.multi_cell(LARGURA, 4, _seguro(nota), new_x="LMARGIN", new_y="NEXT")
 
 
-def gerar_pdf(resultados: list[dict]) -> bytes:
-    pdf = PDFCotacaoRapida(orientation="L", unit="mm", format="A4")
+def gerar_pdf(
+    resultados: list[dict],
+    titulo: str = "Cotacao Rapida - Mapa Comparativo de Precos",
+    pagina_item=None,
+    textos: tuple[str, ...] | None = None,
+    argumentos_mapa: dict | None = None,
+) -> bytes:
+    """PDF no layout da Cotação: mapa comparativo na 1ª página, uma página por item e textos finais.
+
+    Os parâmetros permitem reaproveitar o layout em outros relatórios (ex.: pesquisa de notas fiscais em lote)."""
+    pdf = PDFCotacaoRapida(orientation="L", unit="mm", format="A4", titulo=titulo)
     pdf.set_margins(8, 35, 8)
     pdf.alias_nb_pages()
     pdf.set_auto_page_break(auto=True, margin=15)
     pdf.add_page()
-    _pagina_mapa(pdf, resultados)
+    _pagina_mapa(pdf, resultados, **(argumentos_mapa or {}))
     for numero, resultado in enumerate(resultados, start=1):
-        _pagina_item(pdf, numero, resultado)
+        (pagina_item or _pagina_item)(pdf, numero, resultado)
     pdf.add_page()
     pdf.ln(5)
-    for texto in (JUSTIFICATIVA_COTACAO, metodologia()):
-        titulo, *paragrafos = texto.split("\n\n")
+    for texto in textos or (JUSTIFICATIVA_COTACAO, metodologia()):
+        titulo_texto, *paragrafos = texto.split("\n\n")
         pdf.set_font("Helvetica", "B", 12)
         pdf.set_text_color(*AZUL)
-        pdf.multi_cell(0, 8, _seguro(titulo), align="C", new_x="LMARGIN", new_y="NEXT")
+        pdf.multi_cell(0, 8, _seguro(titulo_texto), align="C", new_x="LMARGIN", new_y="NEXT")
         pdf.ln(3)
         pdf.set_font("Helvetica", "", 9.5)
         pdf.set_text_color(51, 51, 51)
