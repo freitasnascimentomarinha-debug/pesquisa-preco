@@ -1,9 +1,9 @@
 {
  "versao": 1,
- "atualizado": "2026-10-05T20:00:33",
+ "atualizado": "2026-10-05T20:08:13",
  "lojas": {
   "lojadomecanico.com.br": {
-   "acertos": 19,
+   "acertos": 20,
    "ultimo": "2026-10-05",
    "itens": [
     "fita isolante",
@@ -15,7 +15,7 @@
    ],
    "metodos": {
     "navegador": 8,
-    "texto": 1
+    "texto": 2
    },
    "paginas": {
     "grampeador": "https://www.lojadomecanico.com.br/subcategorias/37/501/grampeador-manual",
@@ -37,14 +37,14 @@
    }
   },
   "telhanorte.com.br": {
-   "acertos": 9,
+   "acertos": 10,
    "ultimo": "2026-10-05",
    "itens": [
     "fita isolante"
    ],
    "metodos": {
     "navegador": 4,
-    "texto": 1
+    "texto": 2
    },
    "paginas": {
     "fita isolante": "https://www.telhanorte.com.br/eletrica/acessorios/fitas-isolantes"
@@ -736,13 +736,13 @@
    "ultimo": "2026-10-04"
   },
   "collinsdictionary.com": {
-   "navegador": 2,
-   "texto": 2,
+   "navegador": 3,
+   "texto": 3,
    "ultimo": "2026-10-05"
   },
   "spanishdict.com": {
-   "navegador": 2,
-   "texto": 2,
+   "navegador": 3,
+   "texto": 3,
    "ultimo": "2026-10-05"
   },
   "dictionary.cambridge.org": {
@@ -819,6 +819,16 @@
    "navegador": 1,
    "texto": 1,
    "ultimo": "2026-10-05"
+  },
+  "good-win-racing.com": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-05"
+  },
+  "ingles.com": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-05"
   }
  },
  "frases": {
@@ -828,8 +838,8 @@
    "ultimo": "2026-10-05"
   },
   "{item} preço": {
-   "usos": 13.8528,
-   "acertos": 5.5281,
+   "usos": 14.1602,
+   "acertos": 5.2517,
    "ultimo": "2026-10-05"
   },
   "venda de {item}": {
@@ -843,8 +853,8 @@
    "ultimo": "2026-10-05"
   },
   "{item} atacado": {
-   "usos": 13.8528,
-   "acertos": 5.052,
+   "usos": 14.1602,
+   "acertos": 4.7994,
    "ultimo": "2026-10-05"
   },
   "{item} preço brasil": {
@@ -858,12 +868,12 @@
    "ultimo": "2026-10-05"
   },
   "comprar {item} online brasil": {
-   "usos": 12.4528,
-   "acertos": 2.5131,
+   "usos": 12.8302,
+   "acertos": 2.3874,
    "ultimo": "2026-10-05"
   }
  },
- "buscas": 25,
+ "buscas": 26,
  "sem_busca": {
   "arxiv.org": "2026-10-05",
   "papers.ssrn.com": "2026-10-05",
@@ -882,6 +892,17 @@
   "calculateme.com": "2026-10-05",
   "freeunitconvert.com": "2026-10-05",
   "spanishdict.com": "2026-10-05",
-  "dictionary.cambridge.org": "2026-10-05"
+  "dictionary.cambridge.org": "2026-10-05",
+  "good-win-racing.com": "2026-10-05",
+  "wp.good-win-racing.com": "2026-10-05",
+  "mhlawrencehospital.org": "2026-10-05",
+  "lmradiology.com": "2026-10-05",
+  "yellowpages.com": "2026-10-05",
+  "massgeneralbrigham.org": "2026-10-05",
+  "commonwealthradiologyassociates.com": "2026-10-05",
+  "wordreference.com": "2026-10-05",
+  "ellaverbs.com": "2026-10-05",
+  "collinsdictionary.com": "2026-10-05",
+  "ingles.com": "2026-10-05"
  }
 }
