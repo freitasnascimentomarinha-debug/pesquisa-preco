@@ -206,6 +206,8 @@ def capturar_prints(paginas: list[dict], progresso=None) -> dict[str, dict]:
                         resultados[url] = {"imagem": None, "capturado_em": "", "erro": f"{type(erro).__name__}: {str(erro).splitlines()[0][:100]}"}
                     finally:
                         contexto.close()  # libera a memória antes da próxima página
+                        if progresso:
+                            progresso(numero, len(unicas), url, resultados.get(url))
             finally:
                 navegador.close()
             if progresso:
