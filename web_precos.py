@@ -89,42 +89,72 @@ def _produtos_jsonld(dado: object):
                 yield from _produtos_jsonld(dado[chave])
 
 
-def preco_principal(html: str, alternativa: Callable[[str], list[float]] | None = None, item: str = "") -> dict | None:
+ULTIMO_MOTIVO = {"texto": ""}  # por que preco_principal não devolveu preço (aparece no log)
+RE_PRECO_ESCONDIDO = re.compile(r"informe\s+(o\s+)?(seu\s+)?cep|digite\s+(o\s+)?(seu\s+)?cep|insira\s+(o\s+)?(seu\s+)?cep|pre[cç]o\s+sob\s+consulta|"
+                                r"consulte\s+(o\s+)?pre[cç]o|fa[cç]a\s+(o\s+)?login\s+para\s+ver|entre\s+para\s+ver\s+(o\s+)?pre[cç]o|cadastre-se\s+para\s+ver",
+                                re.IGNORECASE)
+RE_URL_DE_BUSCA = re.compile(r"[?&](q|s|query|busca|search|termo|palavra_busca|text|ft)=|/(busca|search|pesquisa|buscar|catalogsearch|categoria|categorias|departamento)(/|$|\?)",
+                             re.IGNORECASE)
+
+
+def eh_url_de_busca(url: str) -> bool:
+    """Endereço de página de busca ou de categoria da loja (vários produtos), e não de um produto."""
+    return bool(RE_URL_DE_BUSCA.search(str(url or "")))
+
+
+def preco_principal(html: str, alternativa: Callable[[str], list[float]] | None = None, item: str = "", url: str = "") -> dict | None:
     """O preço do produto anunciado na página, do mais ao menos confiável.
 
     1. Oferta do produto em JSON-LD (schema.org): a mais barata em estoque; parcelas e preços riscados são ignorados.
     2. Metadados (product:price:amount, itemprop="price").
     3. Listagem de produtos: com o nome do `item`, acha na lista o(s) produto(s) que o citam e usa o preço dele(s).
-    4. `alternativa` (heurísticas de texto/classes): usa a mediana dos valores e marca a confiança como baixa."""
+    4. `alternativa` (heurísticas de texto/classes): usa a mediana dos valores e marca a confiança como baixa.
+    Com `item`, o produto precisa ter o nome do item (sinonimos.confere_nome). Em página de busca/categoria (3+ produtos ou endereço de busca),
+    só vale o produto da lista que cita o item: a mediana dos valores do texto misturaria produtos, filtros de faixa de preço e frete.
+    Loja que esconde o preço (pede CEP/login) não tem a mediana do texto aceita."""
     from bs4 import BeautifulSoup
 
+    import sinonimos
+
+    ULTIMO_MOTIVO["texto"] = ""
     soup = BeautifulSoup(html, "html.parser")
+    cards = _cards_da_listagem(soup)
+    listagem = len(cards) >= MIN_CARDS_LISTAGEM or eh_url_de_busca(url)
     for marcador in soup.find_all("script", type="application/ld+json"):
         try:
             dados = json.loads(marcador.string or marcador.get_text() or "")
         except (json.JSONDecodeError, TypeError):
             continue
         for produto in _produtos_jsonld(dados):
+            nome_produto = str(produto.get("name") or "")
+            if item and nome_produto and not sinonimos.confere_nome(item, nome_produto):
+                continue  # produto de outra coisa (vitrine, "compre junto"): não é o item pedido
             precos = _precos_da_oferta(produto.get("offers"))
             if precos:
                 return {"preco": min(precos), "origem": "JSON-LD (oferta do produto)", "confianca": "alta", "nome": str(produto.get("name") or "")[:150]}
 
-    for meta in soup.find_all("meta"):
+    for meta in ([] if listagem else soup.find_all("meta")):  # em listagem, o metadado de preço não diz de qual produto é
         propriedade = str(meta.get("property") or meta.get("name") or meta.get("itemprop") or "").lower()
         if propriedade in ("product:price:amount", "og:price:amount", "product:sale_price:amount", "price", "twitter:data1"):
             preco = parse_preco(meta.get("content"))
             if preco and (propriedade != "twitter:data1" or "R$" in str(meta.get("content"))):
                 return {"preco": preco, "origem": "metadado da página", "confianca": "alta", "nome": ""}
-    for elemento in soup.select("[itemprop='price']"):
+    for elemento in ([] if listagem else soup.select("[itemprop='price']")):
         preco = parse_preco(elemento.get("content") or elemento.get("data-price") or elemento.get_text(strip=True))
         if preco:
             return {"preco": preco, "origem": "itemprop=price", "confianca": "alta", "nome": ""}
 
     if item:
-        achado = preco_na_listagem(soup, item)
+        achado = preco_na_listagem(soup, item, url, cards)
         if achado:
             return achado
 
+    if listagem:
+        ULTIMO_MOTIVO["texto"] = "página de busca/listagem sem o produto pedido"
+        return None
+    if alternativa and RE_PRECO_ESCONDIDO.search(soup.get_text(" ", strip=True)[:20000]):
+        ULTIMO_MOTIVO["texto"] = "a loja esconde o preço (pede CEP ou login)"
+        return None
     if alternativa:
         valores = sorted(set(alternativa(html)))
         if valores:  # qualquer valor do texto serve, inclusive de listagem (confiança baixa, avisada no relatório)
@@ -196,35 +226,39 @@ def _cards_da_listagem(soup) -> list[dict]:
                     vistos.add(id(no))
                     preco = _preco_do_card(no)
                     if preco:
-                        cards.append({"nome": (nome := _nome_do_card(no))[:160], "palavras": _palavras(nome), "preco": preco})
+                        link = next((a.get("href") for a in no.find_all("a", href=True)
+                                     if not str(a.get("href")).startswith(("#", "javascript", "mailto"))), "")
+                        cards.append({"nome": (nome := _nome_do_card(no))[:160], "palavras": _palavras(nome), "preco": preco, "link": link})
                 break
             no = no.parent
     return cards
 
 
-def preco_na_listagem(soup, item: str) -> dict | None:
-    """Em página de listagem (3+ produtos), o preço do produto cujo nome cita o item. Vários produtos citam: o preço do do meio
-    (mediana), que é mais típico do que a mediana de tudo (cola, cabos e outros itens da vitrine ficam de fora)."""
-    import embalagem
+def preco_na_listagem(soup, item: str, url: str = "", cards: list[dict] | None = None) -> dict | None:
+    """Em página de listagem (3+ produtos), o preço do produto cujo nome é do item (sinonimos.confere_nome: 'papel toalha' não serve
+    para 'papel contact'). Com medida no item, a mesma medida tem preferência e medida diferente fica de fora. Vários produtos servem:
+    o do meio (mediana). Devolve também o `link` do produto, para o sistema abrir a página dele e confirmar o preço."""
+    from urllib.parse import urljoin
 
-    termos = _palavras(embalagem.base(item))  # o nome sem medida e sem "caixa"/"pacote"/"UN": a medida é conferida à parte
-    if not termos:
-        return None
-    cards = _cards_da_listagem(soup)
+    import embalagem
+    import sinonimos
+
+    cards = cards if cards is not None else _cards_da_listagem(soup)
     if len(cards) < MIN_CARDS_LISTAGEM:
         return None
-    for conjunto in (termos, {t for t in termos if t.isalpha()}):  # 2ª tentativa sem medidas ("20m"), que variam de loja
-        if not conjunto:
-            continue
-        achados = sorted((c for c in cards if conjunto <= c["palavras"]), key=lambda c: c["preco"])
-        if achados and embalagem.medidas(item):  # mesma medida do item primeiro; medida diferente fica de fora
-            iguais = [c for c in achados if embalagem.confere(item, c["nome"]) == "igual"]
-            achados = iguais or [c for c in achados if embalagem.confere(item, c["nome"]) != "diferente"]
-        if achados:
-            escolhido = achados[(len(achados) - 1) // 2]
-            extra = f" (mediana de {len(achados)} produtos que citam o item)" if len(achados) > 1 else ""
-            return {"preco": escolhido["preco"], "origem": f"listagem: {escolhido['nome'][:70]}{extra}", "confianca": "média", "nome": escolhido["nome"]}
-    return None
+    achados = sorted((c for c in cards if sinonimos.confere_nome(item, c["nome"])), key=lambda c: c["preco"])
+    if achados and embalagem.medidas(item):  # mesma medida do item primeiro; medida diferente fica de fora
+        iguais = [c for c in achados if embalagem.confere(item, c["nome"]) == "igual"]
+        achados = iguais or [c for c in achados if embalagem.confere(item, c["nome"]) != "diferente"]
+    if not achados:
+        return None
+    melhor = max(sinonimos.pontuacao(item, c["nome"]) for c in achados)  # os que mais se parecem com o pedido ("papel adesivo contact" > "papel adesivo leonora")
+    achados = [c for c in achados if sinonimos.pontuacao(item, c["nome"]) == melhor]
+    escolhido = achados[(len(achados) - 1) // 2]
+    extra = f" (mediana de {len(achados)} produtos que citam o item)" if len(achados) > 1 else ""
+    link = urljoin(url, escolhido["link"]) if escolhido.get("link") and url else escolhido.get("link", "")
+    return {"preco": escolhido["preco"], "origem": f"listagem: {escolhido['nome'][:70]}{extra}", "confianca": "média", "nome": escolhido["nome"],
+            "link": link}
 
 
 def _moedas_jsonld(dado: object, achadas: set[str]) -> None:
@@ -328,7 +362,7 @@ def analisar_item_web(descricao: str, ofertas: list[dict], remover: bool = True,
             registros.append(registro)
     resultado = {
         "descricao": descricao, "tipo": "Web", "status": "sem_paginas", "catmats": [], "precos": [], "stats": None,
-        "unidade": "unidade ofertada na página", "unidade_curta": "oferta", "brutos": len(registros), "outliers": 0, "faixa_validos": None,
+        "unidade": "unidade ofertada na página", "unidade_curta": __import__("embalagem").unidade_curta(descricao), "brutos": len(registros), "outliers": 0, "faixa_validos": None,
         "universo": len(registros), "proximos": [], "falha_api": False, "melhor_proximo": None, "registros": registros,
         "paginas": len(registros), "lojas": len({r["cnpj"] for r in registros}),
     }

@@ -14,8 +14,9 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # módulos da raiz do projeto
 from atualizar_modulos import recarregar_se_mudou  # noqa: E402
-recarregar_se_mudou('embalagem', 'naturezas', 'cotacao_rapida', 'relatorio_cotacao_rapida', 'relatorio_nf_lote', 'web_precos', 'relatorio_web', 'memoria_lojas', 'captura_pagina', 'busca_interna', 'naturezas')
+recarregar_se_mudou('embalagem', 'sinonimos', 'naturezas', 'cotacao_rapida', 'relatorio_cotacao_rapida', 'relatorio_nf_lote', 'web_precos', 'relatorio_web', 'memoria_lojas', 'captura_pagina', 'busca_interna', 'naturezas')
 import embalagem  # noqa: E402  (medida e unidade de fornecimento do item)
+import sinonimos  # noqa: E402  (nome de mercado do item e conferência do nome do produto)
 import naturezas  # noqa: E402  (natureza/ramo do item)
 import busca_interna  # noqa: E402  (busca dentro do site da loja)
 import web_precos  # noqa: E402  (escolha do preço da página)
@@ -442,13 +443,23 @@ def classificar_orcamentos_item(orcamentos, max_fontes):
 
 
 def atualizar_estado_orcamentos(candidatos_item, max_fontes):
-    """Recalcula o conjunto válido do item após cada nova cotação."""
-    validos, descartados, reservas = classificar_orcamentos_item(candidatos_item, max_fontes)
+    """Recalcula o conjunto válido do item após cada nova cotação, com a MESMA regra do relatório (web_precos.analisar_item_web: sem
+    outliers e cada preço a até 30% da média). Assim a pesquisa só dá o item por resolvido quando o relatório vai mostrar max_fontes
+    preços; se a regra derrubar algum, ela continua procurando."""
+    _, descartados, _ = classificar_orcamentos_item(candidatos_item, max_fontes)  # outliers altos (para o log)
+    analise = web_precos.analisar_item_web("", candidatos_item, max_precos=max_fontes)
+    por_endereco = {}
+    for candidato in candidatos_item:
+        por_endereco.setdefault(candidato.get("url") or candidato.get("dominio"), candidato)
+    validos = [por_endereco[p["url"] or p["dominio"]] for p in analise["precos"] if (p["url"] or p["dominio"]) in por_endereco]
+    ids_validos = {registro["resultado_id"] for registro in validos}
+    ids_descartados = {registro["resultado_id"] for registro in descartados}
+    reservas = [c for c in candidatos_item if c["resultado_id"] not in ids_validos and c["resultado_id"] not in ids_descartados]
     return {
         "validos": validos,
-        "ids_validos": {registro["resultado_id"] for registro in validos},
+        "ids_validos": ids_validos,
         "descartados": descartados,
-        "ids_descartados": {registro["resultado_id"] for registro in descartados},
+        "ids_descartados": ids_descartados,
         "reservas": reservas,
     }
 
@@ -505,7 +516,7 @@ def ddg_voltou():
 def _raizes_do_item(item):
     """Raízes (5 primeiras letras, sem acento) das palavras do item com mais de 3 letras: 'fita isolante' -> {'fita', 'isola'}."""
     import unicodedata
-    texto = unicodedata.normalize("NFD", embalagem.base(item).lower() if item else "")  # sem medida e sem "caixa", "pacote", "UN"...
+    texto = unicodedata.normalize("NFD", (embalagem.base(item) + " " + sinonimos.termo_busca(item)).lower() if item else "")  # nome sem medida/embalagem + nome de mercado
     texto = "".join(c for c in texto if unicodedata.category(c) != "Mn")
     return {p[:5] for p in re.findall(r"[a-z0-9]+", texto) if len(p) > 3}
 
@@ -530,7 +541,8 @@ def _com_cara_de_venda(resultados, item=None):
     Frases genéricas ("valor", "atacado") trazem artigos científicos, calculadoras e notícias; esses ficam de fora."""
     raizes = _raizes_do_item(item)
     pares = [(r["href"], f"{r.get('title', '')} {r.get('body', '')} {r['href']}") for r in resultados if r.get("href") and dominio_valido(r["href"])]
-    return _medida_primeiro(item, [(u, t) for u, t in pares if SINAIS_VENDA.search(t.lower()) and _cita_o_item(t, raizes)])
+    return _medida_primeiro(item, [(u, t) for u, t in pares
+                                   if SINAIS_VENDA.search(t.lower()) and _cita_o_item(t, raizes) and not sinonimos.excluido(item or "", t)])
 
 
 def buscar_ddgs_api(query, num_results=8, item=None):
@@ -693,7 +705,7 @@ def buscar_serper(query, chave, num_results=8, item=None):
         if not link or not dominio_valido(link):
             continue
         texto = f"{r.get('title', '')} {r.get('snippet', '')} {link}"
-        if not _cita_o_item(texto, raizes):
+        if not _cita_o_item(texto, raizes) or sinonimos.excluido(item or "", texto):
             continue
         (comerciais if SINAIS_VENDA.search(texto.lower()) else outros).append((link, texto))
     urls = _medida_primeiro(item, comerciais) + _medida_primeiro(item, outros)
@@ -756,7 +768,7 @@ def buscar_tavily(query, chave, num_results=8, item=None, dominios=None):
         if not link or not dominio_valido(link):
             continue
         texto = f"{r.get('title', '')} {str(r.get('content', ''))[:500]} {link}"
-        if not _cita_o_item(texto, raizes):
+        if not _cita_o_item(texto, raizes) or sinonimos.excluido(item or "", texto):
             continue
         (comerciais if SINAIS_VENDA.search(texto.lower()) else outros).append((link, texto))
     urls = _medida_primeiro(item, comerciais) + _medida_primeiro(item, outros)
@@ -1056,8 +1068,9 @@ def _eh_pagina_produto(html, titulo):
 MOTIVO_REJEICAO = {"texto": ""}  # por que a última página foi rejeitada (aparece no log)
 
 
-def scraping_requests(session, url, headers, item_nome=None, html=None):
-    """Acessa uma página via requests e extrai informações."""
+def scraping_requests(session, url, headers, item_nome=None, html=None, _profundidade=0):
+    """Acessa uma página via requests e extrai informações. Em página de busca/listagem, o preço do produto que é do item é confirmado
+    abrindo a página desse produto (uma vez, _profundidade=1): o endereço e o print passam a ser os do anúncio, e não os da lista."""
     from bs4 import BeautifulSoup
 
     MOTIVO_REJEICAO["texto"] = ""
@@ -1068,6 +1081,7 @@ def scraping_requests(session, url, headers, item_nome=None, html=None):
                 MOTIVO_REJEICAO["texto"] = f"HTTP {resp.status_code}"
                 return None
             html = resp.text
+            url = str(getattr(resp, "url", "") or url) or url  # endereço final (a busca pode redirecionar direto para o produto)
         titulo = extrair_titulo_pagina(html)
 
         # Verificar se é uma página de produto antes de gastar tempo extraindo preços
@@ -1076,12 +1090,12 @@ def scraping_requests(session, url, headers, item_nome=None, html=None):
             return None
 
         # Verificar se o conteúdo é relevante para o item buscado
-        if item_nome and not _conteudo_relevante(html, titulo, item_nome):
+        if item_nome and not _conteudo_relevante(html, titulo, item_nome, url):
             MOTIVO_REJEICAO["texto"] = "página não corresponde ao item"
             return None
 
         # Medida/embalagem: título com outra medida da mesma grandeza (1 kg quando o item é 5 kg) é outro produto
-        medida_confere = embalagem.confere(item_nome or "", titulo or "")
+        medida_confere = "sem_medida" if web_precos.eh_url_de_busca(url) else embalagem.confere(item_nome or "", titulo or "")
         if medida_confere == "diferente":
             MOTIVO_REJEICAO["texto"] = f"embalagem/medida diferente do item (página: {str(titulo)[:60]})"
             return None
@@ -1095,10 +1109,17 @@ def scraping_requests(session, url, headers, item_nome=None, html=None):
         precos = extrair_precos_pagina(html)
 
         # Preço do produto anunciado: oferta em JSON-LD (sem parcelas/preço riscado) > metadados > mediana dos valores do texto
-        principal = web_precos.preco_principal(html, extrair_precos_pagina, item_nome or "")
+        principal = web_precos.preco_principal(html, extrair_precos_pagina, item_nome or "", url)
         if not principal:
-            MOTIVO_REJEICAO["texto"] = "sem preço identificável (página dinâmica)"
+            MOTIVO_REJEICAO["texto"] = web_precos.ULTIMO_MOTIVO["texto"] or "sem preço identificável (página dinâmica)"
             return None
+        if principal.get("link") and _profundidade == 0 and principal["origem"].startswith("listagem"):
+            produto = scraping_requests(session, principal["link"], headers, item_nome=item_nome, _profundidade=1)
+            if produto:  # confirmado na página do próprio produto: endereço, preço e print do anúncio
+                produto["origem_preco"] = f"{produto.get('origem_preco', '')} (produto aberto a partir da lista da loja)".strip()
+                return produto
+            if principal.get("nome"):
+                medida_confere = embalagem.confere(item_nome or "", principal["nome"])
         preco_medio = principal["preco"]
         if preco_medio not in precos:
             precos = sorted(set(precos) | {preco_medio})
@@ -1339,35 +1360,27 @@ def _scrollar_ate_preco(page):
         pass
 
 
-def _conteudo_relevante(html, titulo, item_nome):
-    """Verifica se a página tem relação com o item buscado (não é busca/categoria genérica)."""
+def _conteudo_relevante(html, titulo, item_nome, url=""):
+    """A página é do item pedido? Confere o NOME do produto (título, h1, og:title, nome no JSON-LD) com sinonimos.confere_nome:
+    precisa do substantivo do item e da maioria das palavras ("papel toalha" não serve para "papel contact"; "caneta esferográfica"
+    não serve para "caneta piloto"). Página de busca/listagem passa aqui e é decidida produto a produto em web_precos.preco_principal
+    (o título dela só repete o que foi pesquisado)."""
+    from bs4 import BeautifulSoup
+
     if not item_nome:
         return True
-    item_lower = embalagem.base(item_nome).lower().strip()  # "caixa", "UN", "5kg" não precisam aparecer na página
-    titulo_lower = (titulo or "").lower()
-    html_lower = html[:15000].lower()
-    # Palavras-chave do item (ex: "fita isolante" -> ["fita", "isolante"])
-    palavras = [p for p in item_lower.split() if len(p) > 2]
-    if not palavras:
+    if web_precos.eh_url_de_busca(url):
         return True
-    # Verificar se o título contém pelo menos uma palavra do item
-    titulo_match = any(p in titulo_lower for p in palavras)
-    # Verificar se o HTML contém as palavras do item próximas de preço
-    html_match = all(p in html_lower for p in palavras)
-    # Detectar páginas de busca/categoria (muitos produtos listados)
-    indicadores_listagem = [
-        "resultados para", "resultados de busca", "resultado da pesquisa",
-        "mostrando", "itens encontrados", "produtos encontrados",
-        "ordenar por", "filtrar por", "filtrar resultados",
-    ]
-    eh_listagem = any(ind in html_lower for ind in indicadores_listagem)
-    # Se é uma listagem genérica e o título não menciona o item, rejeitar
-    if eh_listagem and not titulo_match:
-        return False
-    # Se nem título nem HTML mencionam o item, rejeitar
-    if not titulo_match and not html_match:
-        return False
-    return True
+    soup = BeautifulSoup(html, "html.parser")
+    nomes = [titulo] + [h.get_text(" ", strip=True) for h in soup.find_all("h1")[:3]]
+    for meta in soup.find_all("meta"):
+        if str(meta.get("property") or meta.get("name") or "").lower() in ("og:title", "twitter:title") and meta.get("content"):
+            nomes.append(meta["content"])
+    for marcador in soup.find_all("script", type="application/ld+json"):
+        nomes += re.findall(r'"name"\s*:\s*"([^"]{3,200})"', marcador.string or marcador.get_text() or "")[:5]
+    if any(sinonimos.confere_nome(item_nome, n) for n in nomes if n):
+        return True
+    return len(web_precos._cards_da_listagem(soup)) >= web_precos.MIN_CARDS_LISTAGEM  # listagem: decidida produto a produto
 
 
 def scraping_playwright(url, item_nome, screenshot_path=None):
@@ -1609,7 +1622,7 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
             return None
         internas_tentadas.add((site, item_nome))
         conhecido = memoria_lojas.padrao_busca(memoria, site)
-        url_busca, padrao = busca_interna.descobrir(session, site, embalagem.termo_busca(item_nome), headers, conhecido)
+        url_busca, padrao = busca_interna.descobrir(session, site, embalagem.termo_busca(sinonimos.termo_busca(item_nome)), headers, conhecido)
         if not url_busca:
             memoria_lojas.registrar_sem_busca(memoria, site)
             log_msg(log_container, logs, f"🔎 {site}: não achei a busca interna do site", "info")
@@ -1650,7 +1663,9 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
 
             # 1º: lojas da memória que já deram preço para itens parecidos (cada uma uma vez só)
             # 1º: lojas que deram preço para itens parecidos; depois, as melhores da mesma natureza (ramo) do item
-            termo_item = embalagem.termo_busca(item)
+            termo_item = embalagem.termo_busca(sinonimos.termo_busca(item))  # nome de mercado + medida junta, sem "UN"
+            if sinonimos.entrada(item):
+                log_msg(log_container, logs, f"🔤 Nome de mercado: '{item}' é buscado como '{termo_item}'; anúncios de outro produto parecido são recusados", "info")
             descricao_medida = embalagem.descrever(item)
             if descricao_medida:
                 log_msg(log_container, logs, f"📦 Unidade de fornecimento: {descricao_medida} — páginas com outra medida são descartadas; busca: '{termo_item}'", "info")
@@ -1829,7 +1844,8 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
                     else:
                         log_msg(log_container, logs, f"✗ Sem preço extraível de {dominio}" + (f" — {MOTIVO_REJEICAO['texto']}" if MOTIVO_REJEICAO["texto"] else ""), "error")
                         dominios_falhos.add(dominio)
-                        if MOTIVO_REJEICAO["texto"] != "página não corresponde ao item" and not MOTIVO_REJEICAO["texto"].startswith("embalagem"):  # a loja pode servir para outro item
+                        if MOTIVO_REJEICAO["texto"] not in ("página não corresponde ao item", "página de busca/listagem sem o produto pedido") \
+                                and not MOTIVO_REJEICAO["texto"].startswith("embalagem"):  # a loja pode servir para outro item
                             if tentou_navegador:
                                 memoria_lojas.registrar_falha(memoria, url, "navegador")
                             if tentou_texto:
@@ -2235,9 +2251,12 @@ with col1:
     itens_input = st.text_area(
         "Informe os itens (um por linha):",
         height=150,
-        placeholder="Exemplo:\nArruela de pressão 1/4\nParafuso sextavado M10\nFita isolante 20m",
+        placeholder="Exemplo:\nLâmpada led bulbo 9W E27 branca\nCaneta piloto azul\nEnvelope pardo 24x34 caixa c/ 250\nDetergente 500ml",
         help="Digite os nomes dos materiais que deseja pesquisar, um por linha.",
     )
+    st.caption("Dica: quanto mais específico, mais certo o preço. Inclua tipo, potência/medida e embalagem (ex.: \"lâmpada led bulbo 9W E27\", "
+               "\"envelope pardo 24x34 caixa c/ 250\"), sem marca. Nomes do dia a dia como \"caneta piloto\", \"papel contact\", \"durex\" e "
+               "\"post-it\" são traduzidos para o nome usado pelas lojas.")
 
 with col2:
     st.markdown("#### ⚙️ Configurações")
