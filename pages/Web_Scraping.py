@@ -14,7 +14,8 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # módulos da raiz do projeto
 from atualizar_modulos import recarregar_se_mudou  # noqa: E402
-recarregar_se_mudou('naturezas', 'cotacao_rapida', 'relatorio_cotacao_rapida', 'relatorio_nf_lote', 'web_precos', 'relatorio_web', 'memoria_lojas', 'captura_pagina', 'busca_interna', 'naturezas')
+recarregar_se_mudou('embalagem', 'naturezas', 'cotacao_rapida', 'relatorio_cotacao_rapida', 'relatorio_nf_lote', 'web_precos', 'relatorio_web', 'memoria_lojas', 'captura_pagina', 'busca_interna', 'naturezas')
+import embalagem  # noqa: E402  (medida e unidade de fornecimento do item)
 import naturezas  # noqa: E402  (natureza/ramo do item)
 import busca_interna  # noqa: E402  (busca dentro do site da loja)
 import web_precos  # noqa: E402  (escolha do preço da página)
@@ -504,9 +505,15 @@ def ddg_voltou():
 def _raizes_do_item(item):
     """Raízes (5 primeiras letras, sem acento) das palavras do item com mais de 3 letras: 'fita isolante' -> {'fita', 'isola'}."""
     import unicodedata
-    texto = unicodedata.normalize("NFD", str(item or "").lower())
+    texto = unicodedata.normalize("NFD", embalagem.base(item).lower() if item else "")  # sem medida e sem "caixa", "pacote", "UN"...
     texto = "".join(c for c in texto if unicodedata.category(c) != "Mn")
     return {p[:5] for p in re.findall(r"[a-z0-9]+", texto) if len(p) > 3}
+
+
+def _medida_primeiro(item, pares):
+    """[(url, texto do resultado)] -> urls, com os que citam a mesma medida do item na frente e os de medida diferente no fim."""
+    ordem = {"igual": 0, "sem_medida": 1, "diferente": 2}
+    return [u for u, _ in sorted(pares, key=lambda par: ordem[embalagem.confere(item or "", par[1])])]
 
 
 def _cita_o_item(texto, raizes):
@@ -522,10 +529,8 @@ def _com_cara_de_venda(resultados, item=None):
     """Resultados do ddgs (dicts com title/body/href) cujo título, trecho ou endereço têm sinal de venda (R$, preço, comprar, loja, frete...).
     Frases genéricas ("valor", "atacado") trazem artigos científicos, calculadoras e notícias; esses ficam de fora."""
     raizes = _raizes_do_item(item)
-    return [r["href"] for r in resultados
-            if r.get("href") and dominio_valido(r["href"])
-            and SINAIS_VENDA.search(f"{r.get('title', '')} {r.get('body', '')} {r['href']}".lower())
-            and _cita_o_item(f"{r.get('title', '')} {r.get('body', '')} {r['href']}", raizes)]
+    pares = [(r["href"], f"{r.get('title', '')} {r.get('body', '')} {r['href']}") for r in resultados if r.get("href") and dominio_valido(r["href"])]
+    return _medida_primeiro(item, [(u, t) for u, t in pares if SINAIS_VENDA.search(t.lower()) and _cita_o_item(t, raizes)])
 
 
 def buscar_ddgs_api(query, num_results=8, item=None):
@@ -690,8 +695,8 @@ def buscar_serper(query, chave, num_results=8, item=None):
         texto = f"{r.get('title', '')} {r.get('snippet', '')} {link}"
         if not _cita_o_item(texto, raizes):
             continue
-        (comerciais if SINAIS_VENDA.search(texto.lower()) else outros).append(link)
-    urls = comerciais + outros
+        (comerciais if SINAIS_VENDA.search(texto.lower()) else outros).append((link, texto))
+    urls = _medida_primeiro(item, comerciais) + _medida_primeiro(item, outros)
     DIAG_BUSCA["Serper"] = f"ok, {len(organicos)} resultados, {len(urls)} com o item"
     return _dedup_urls(urls, num_results)
 
@@ -753,8 +758,8 @@ def buscar_tavily(query, chave, num_results=8, item=None, dominios=None):
         texto = f"{r.get('title', '')} {str(r.get('content', ''))[:500]} {link}"
         if not _cita_o_item(texto, raizes):
             continue
-        (comerciais if SINAIS_VENDA.search(texto.lower()) else outros).append(link)
-    urls = comerciais + outros
+        (comerciais if SINAIS_VENDA.search(texto.lower()) else outros).append((link, texto))
+    urls = _medida_primeiro(item, comerciais) + _medida_primeiro(item, outros)
     DIAG_BUSCA["Tavily"] = f"ok, {len(resultados)} resultados, {len(urls)} com o item"
     return _dedup_urls(urls, num_results)
 
@@ -1075,6 +1080,12 @@ def scraping_requests(session, url, headers, item_nome=None, html=None):
             MOTIVO_REJEICAO["texto"] = "página não corresponde ao item"
             return None
 
+        # Medida/embalagem: título com outra medida da mesma grandeza (1 kg quando o item é 5 kg) é outro produto
+        medida_confere = embalagem.confere(item_nome or "", titulo or "")
+        if medida_confere == "diferente":
+            MOTIVO_REJEICAO["texto"] = f"embalagem/medida diferente do item (página: {str(titulo)[:60]})"
+            return None
+
         # Só loja brasileira vendendo em reais: precisa de 2 sinais (.br, moeda BRL, pt-BR, "R$"); preço em outra moeda é rejeitado
         nacional, motivo_nacional = web_precos.site_nacional(url, html)
         if not nacional:
@@ -1176,6 +1187,7 @@ body {{ font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 20px; ba
             "contexto_extraido": contexto_extraido,
             "origem_preco": principal["origem"],
             "confianca": principal["confianca"],
+            "medida_confere": medida_confere,
         }
     except Exception:
         return None
@@ -1331,7 +1343,7 @@ def _conteudo_relevante(html, titulo, item_nome):
     """Verifica se a página tem relação com o item buscado (não é busca/categoria genérica)."""
     if not item_nome:
         return True
-    item_lower = item_nome.lower().strip()
+    item_lower = embalagem.base(item_nome).lower().strip()  # "caixa", "UN", "5kg" não precisam aparecer na página
     titulo_lower = (titulo or "").lower()
     html_lower = html[:15000].lower()
     # Palavras-chave do item (ex: "fita isolante" -> ["fita", "isolante"])
@@ -1597,7 +1609,7 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
             return None
         internas_tentadas.add((site, item_nome))
         conhecido = memoria_lojas.padrao_busca(memoria, site)
-        url_busca, padrao = busca_interna.descobrir(session, site, item_nome, headers, conhecido)
+        url_busca, padrao = busca_interna.descobrir(session, site, embalagem.termo_busca(item_nome), headers, conhecido)
         if not url_busca:
             memoria_lojas.registrar_sem_busca(memoria, site)
             log_msg(log_container, logs, f"🔎 {site}: não achei a busca interna do site", "info")
@@ -1638,7 +1650,11 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
 
             # 1º: lojas da memória que já deram preço para itens parecidos (cada uma uma vez só)
             # 1º: lojas que deram preço para itens parecidos; depois, as melhores da mesma natureza (ramo) do item
-            natureza_item = naturezas.classificar(item)
+            termo_item = embalagem.termo_busca(item)
+            descricao_medida = embalagem.descrever(item)
+            if descricao_medida:
+                log_msg(log_container, logs, f"📦 Unidade de fornecimento: {descricao_medida} — páginas com outra medida são descartadas; busca: '{termo_item}'", "info")
+            natureza_item = naturezas.classificar(embalagem.base(item))
             log_msg(log_container, logs, f"🧭 Natureza do item: {natureza_item}" if natureza_item
                     else "🧭 Natureza do item: não reconhecida (usa só as lojas de itens parecidos e a busca)", "info")
             lojas_parecidas = memoria_lojas.lojas_para_item(memoria, item)
@@ -1695,7 +1711,7 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
                     log_msg(log_container, logs, f"✓ {max_fontes} orçamentos válidos encontrados para '{item}'. Avançando.", "success")
                     break
 
-                query = variante.format(item=item)
+                query = variante.format(item=termo_item)
                 log_msg(log_container, logs, f"🔍 Buscando: \"{query}\"", "info")
 
                 # Delay antes da busca
@@ -1798,7 +1814,8 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
                             log_msg(
                                 log_container,
                                 logs,
-                                f"💰 Orçamento [{len(estado_item['validos'])}/{max_fontes}] — {formatar_moeda_br(resultado['preco'])} em {dominio}",
+                                f"💰 Orçamento [{len(estado_item['validos'])}/{max_fontes}] — {formatar_moeda_br(resultado['preco'])} em {dominio}"
+                                + (" (medida confere)" if resultado.get("medida_confere") == "igual" else ""),
                                 "orcamento",
                             )
                         elif resultado["resultado_id"] not in estado_item["ids_descartados"] and resultado["resultado_id"] not in reservas_logadas:
@@ -1812,7 +1829,7 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
                     else:
                         log_msg(log_container, logs, f"✗ Sem preço extraível de {dominio}" + (f" — {MOTIVO_REJEICAO['texto']}" if MOTIVO_REJEICAO["texto"] else ""), "error")
                         dominios_falhos.add(dominio)
-                        if MOTIVO_REJEICAO["texto"] != "página não corresponde ao item":  # a loja pode servir para outro item
+                        if MOTIVO_REJEICAO["texto"] != "página não corresponde ao item" and not MOTIVO_REJEICAO["texto"].startswith("embalagem"):  # a loja pode servir para outro item
                             if tentou_navegador:
                                 memoria_lojas.registrar_falha(memoria, url, "navegador")
                             if tentou_texto:
