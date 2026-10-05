@@ -1,9 +1,9 @@
 {
  "versao": 1,
- "atualizado": "2026-10-05T20:08:13",
+ "atualizado": "2026-10-05T20:53:36",
  "lojas": {
   "lojadomecanico.com.br": {
-   "acertos": 20,
+   "acertos": 21,
    "ultimo": "2026-10-05",
    "itens": [
     "fita isolante",
@@ -15,7 +15,7 @@
    ],
    "metodos": {
     "navegador": 8,
-    "texto": 2
+    "texto": 3
    },
    "paginas": {
     "grampeador": "https://www.lojadomecanico.com.br/subcategorias/37/501/grampeador-manual",
@@ -37,14 +37,14 @@
    }
   },
   "telhanorte.com.br": {
-   "acertos": 10,
+   "acertos": 11,
    "ultimo": "2026-10-05",
    "itens": [
     "fita isolante"
    ],
    "metodos": {
     "navegador": 4,
-    "texto": 2
+    "texto": 3
    },
    "paginas": {
     "fita isolante": "https://www.telhanorte.com.br/eletrica/acessorios/fitas-isolantes"
@@ -58,22 +58,26 @@
    ]
   },
   "copafer.com.br": {
-   "acertos": 8,
-   "ultimo": "2026-10-04",
+   "acertos": 9,
+   "ultimo": "2026-10-05",
    "itens": [
     "fita isolante",
     "lâmpada"
    ],
    "metodos": {
     "navegador": 1,
-    "texto": 0
+    "texto": 1
+   },
+   "paginas": {
+    "fita isolante": "https://www.copafer.com.br/fita-isolante-imperial-18-mm-x-10-metros-azul---hb004297980---3m/p?srsltid=AU7gw4VPiLzjUdwT0jl1kUEtak87ZFKwf5sA98piA2ZGBUHliacOEhOo"
    }
   },
   "kalunga.com.br": {
-   "acertos": 11,
+   "acertos": 13,
    "ultimo": "2026-10-05",
    "itens": [
     "cola bastão",
+    "lápis preto",
     "grampeador escolar",
     "grampeador",
     "caneta esferográfica azul",
@@ -85,12 +89,13 @@
    ],
    "metodos": {
     "navegador": 5,
-    "texto": 1
+    "texto": 3
    },
    "paginas": {
     "grampeador": "https://www.kalunga.com.br/depto/suprimentos-para-escritorio/grampeadores/26/1104",
     "grampeador escolar": "https://www.kalunga.com.br/depto/suprimentos-para-escritorio/grampeadores/26/1104",
-    "cola bastão": "https://www.kalunga.com.br/depto/suprimentos-para-escritorio/colas-em-bastao/26/892"
+    "cola bastão": "https://www.kalunga.com.br/depto/suprimentos-para-escritorio/colas-em-bastao/26/892",
+    "lápis preto": "https://www.kalunga.com.br/busca/1?q=lapis-preto"
    }
   },
   "lojascacula.com.br": {
@@ -154,9 +159,10 @@
    }
   },
   "tendaatacado.com.br": {
-   "acertos": 6,
-   "ultimo": "2026-10-04",
+   "acertos": 7,
+   "ultimo": "2026-10-05",
    "itens": [
+    "cola 250ml",
     "luva de limpeza",
     "papel a4",
     "sabão em pó",
@@ -166,7 +172,10 @@
    ],
    "metodos": {
     "navegador": 1,
-    "texto": 1
+    "texto": 2
+   },
+   "paginas": {
+    "cola 250ml": "https://www.tendaatacado.com.br/produto/refrigerante-coca-cola-250ml?srsltid=AU7gw4WwO0e0qeNZ_bREKSzXYS67bMuBkFJEMc7aH_jK6bxa3ELB0u7V"
    }
   },
   "atacadosaopaulo.com.br": {
@@ -230,7 +239,7 @@
    }
   },
   "casadopapel.com.br": {
-   "acertos": 3,
+   "acertos": 4,
    "ultimo": "2026-10-05",
    "itens": [
     "cola bastão",
@@ -239,7 +248,7 @@
    ],
    "metodos": {
     "navegador": 1,
-    "texto": 1
+    "texto": 2
    },
    "paginas": {
     "cola bastão": "https://www.casadopapel.com.br/escritorio/cola/cola-bastao"
@@ -535,17 +544,129 @@
    }
   },
   "loja.silhouettebrasil.com.br": {
-   "acertos": 1,
+   "acertos": 2,
    "ultimo": "2026-10-05",
    "itens": [
     "cola bastão"
    ],
    "metodos": {
     "navegador": 0,
-    "texto": 1
+    "texto": 2
    },
    "paginas": {
     "cola bastão": "https://loja.silhouettebrasil.com.br/cola-em-bastao-mimo-21g-07350-p998210"
+   }
+  },
+  "acalanto.net.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-05",
+   "itens": [
+    "lápis preto"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "paginas": {
+    "lápis preto": "https://www.acalanto.net.br/lapis-preto"
+   }
+  },
+  "acasadasartes.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-05",
+   "itens": [
+    "lápis preto"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "paginas": {
+    "lápis preto": "https://www.acasadasartes.com.br/papelaria/lapis?srsltid=AU7gw4Xj7rwWuDiKGzJSzYx18xJ3QWLym832fzq1W-OOe9gNnLeBsgO6"
+   }
+  },
+  "nacasachinatem.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-05",
+   "itens": [
+    "lápis preto"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "paginas": {
+    "lápis preto": "https://www.nacasachinatem.com.br/material-escolar/lapis-preto?srsltid=AU7gw4VobhKlW1n-Ugr6w2SJzczs9nCJ4XmUFVfKrHQDGBr6rpm70GSi"
+   }
+  },
+  "lojafabercastell.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-05",
+   "itens": [
+    "lápis preto"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "paginas": {
+    "lápis preto": "https://www.lojafabercastell.com.br/depto/lapis-grafite?srsltid=AU7gw4U-xlj13DricdQmenNB0h7lMwjxpT3Z_rQuAxhBdFP0xr608RVJ"
+   }
+  },
+  "portinfo.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-05",
+   "itens": [
+    "lápis preto"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "paginas": {
+    "lápis preto": "https://www.portinfo.com.br/categoria/escritorio/lapis/lapis-preto?srsltid=AU7gw4Xq7iGA9HKsvNcZQG2yfxfK84JKilXVUS8c7jUfXYyV3eewatFj"
+   }
+  },
+  "grafitte.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-05",
+   "itens": [
+    "lápis preto"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "paginas": {
+    "lápis preto": "https://www.grafitte.com.br/lapis-lapiseira?srsltid=AU7gw4VQgX3LHT7p_ZyVaUqGdLlHnIOH-v8jq44o6k9PdVpwEh7k_Ttm"
+   }
+  },
+  "extramercado.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-05",
+   "itens": [
+    "cola 250ml"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "paginas": {
+    "cola 250ml": "https://www.extramercado.com.br/produto/428768/refrigerante-coca-cola-garrafa-250ml"
+   }
+  },
+  "festval.com": {
+   "acertos": 1,
+   "ultimo": "2026-10-05",
+   "itens": [
+    "cola 250ml"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "paginas": {
+    "cola 250ml": "https://www.festval.com/refrigerante_coca-cola_garrafa_250ml/p?srsltid=AU7gw4WerIHf6iWaMGbhpIf17yzwtqDGMsVO4l7OI3mfQa1sOVptMqOH"
    }
   }
  },
@@ -838,8 +959,8 @@
    "ultimo": "2026-10-05"
   },
   "{item} preço": {
-   "usos": 14.1602,
-   "acertos": 5.2517,
+   "usos": 14.4522,
+   "acertos": 11.9891,
    "ultimo": "2026-10-05"
   },
   "venda de {item}": {
@@ -848,8 +969,8 @@
    "ultimo": "2026-10-05"
   },
   "{item} valor": {
-   "usos": 10.7341,
-   "acertos": 0.0,
+   "usos": 11.1974,
+   "acertos": 3.0,
    "ultimo": "2026-10-05"
   },
   "{item} atacado": {
@@ -873,7 +994,7 @@
    "ultimo": "2026-10-05"
   }
  },
- "buscas": 26,
+ "buscas": 30,
  "sem_busca": {
   "arxiv.org": "2026-10-05",
   "papers.ssrn.com": "2026-10-05",
@@ -904,5 +1025,13 @@
   "ellaverbs.com": "2026-10-05",
   "collinsdictionary.com": "2026-10-05",
   "ingles.com": "2026-10-05"
+ },
+ "serper": {
+  "mes": "2026-10",
+  "n": 3
+ },
+ "tavily": {
+  "mes": "",
+  "n": 0
  }
 }
