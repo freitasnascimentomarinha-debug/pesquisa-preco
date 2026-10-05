@@ -1350,19 +1350,19 @@ def _tem_secrets():
         return False
 
 
-def executar_scraping(itens, usar_playwright, progress_bar, log_container, status_text, max_fontes, usar_navegador=False, tempo_max_pagina_min=2):
-    """Executa o scraping. `usar_navegador`: as páginas são abertas num navegador (por padrão primeiro, ou depois da leitura por texto nas lojas
-    que a memória diz funcionarem por texto). Cada página tem `tempo_max_pagina_min` minutos: se travar, é abandonada, o navegador é
+def executar_scraping(itens, usar_playwright, progress_bar, log_container, status_text, max_fontes, usar_navegador=False, tempo_max_pagina_min=2, navegador_primeiro=False):
+    """Executa o scraping. `usar_navegador`: liga o navegador. `navegador_primeiro`: as páginas são abertas nele antes da leitura por texto
+    (senão, ele só é o reserva das páginas em que a leitura por texto não achou preço; o print dessas fica guardado; as demais ganham print pelo botão depois). Cada página tem `tempo_max_pagina_min` minutos: se travar, é abandonada, o navegador é
     reiniciado e a leitura por texto assume."""
     leitor = captura_pagina.LeitorNavegador(tempo_max_pagina_s=tempo_max_pagina_min * 60) if usar_navegador else None
     try:
-        return _executar_scraping(itens, usar_playwright, progress_bar, log_container, status_text, max_fontes, leitor)
+        return _executar_scraping(itens, usar_playwright, progress_bar, log_container, status_text, max_fontes, leitor, navegador_primeiro)
     finally:
         if leitor is not None:
             leitor.fechar()
 
 
-def _executar_scraping(itens, usar_playwright, progress_bar, log_container, status_text, max_fontes, leitor):
+def _executar_scraping(itens, usar_playwright, progress_bar, log_container, status_text, max_fontes, leitor, navegador_primeiro=False):
     """Executa o scraping completo para todos os itens."""
     import requests as req
 
@@ -1436,7 +1436,7 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
         e, se não achar, tenta o outro método uma vez (leve). Devolve (resultado, método que deu o preço, métodos tentados)."""
         navegador_ativo = leitor is not None and leitor.disponivel
         tentou = {"navegador": False, "texto": False}
-        texto_primeiro = navegador_ativo and memoria_lojas.metodo_preferido(memoria, url) == "texto"
+        texto_primeiro = navegador_ativo and (not navegador_primeiro or memoria_lojas.metodo_preferido(memoria, url) == "texto")
         if texto_primeiro:
             tentou["texto"] = True
             resultado_pagina = ler_por_texto(url, item_nome, leve=True)
@@ -1480,7 +1480,7 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
                 if len(atualizar_estado_orcamentos(candidatos_item, max_fontes)["validos"]) >= max_fontes:
                     break
                 log_msg(log_container, logs, f"🧠 Loja da memória: {site_memoria} (já deu preço para '{item_parecido}')", "info")
-                navegador_ligado = leitor is not None and leitor.disponivel
+                navegador_ligado = leitor is not None and leitor.disponivel and navegador_primeiro
                 time.sleep(gerar_delay(0.3, 0.8) if navegador_ligado else gerar_delay(1.5, 3.0))
                 urls_loja = buscar_na_loja(session, item, site_memoria, headers)
                 guardada = memoria_lojas.pagina_guardada(memoria, site_memoria, item_parecido)
@@ -1549,7 +1549,7 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
 
                     # Delay entre acessos a sites
                     # (com o navegador ativo a própria abertura da página já espaça os acessos: pausa curta)
-                    delay = gerar_delay(0.3, 0.8) if (leitor is not None and leitor.disponivel) else gerar_delay(2.5, 6.0)
+                    delay = gerar_delay(0.3, 0.8) if (leitor is not None and leitor.disponivel and navegador_primeiro) else gerar_delay(2.5, 6.0)
                     log_msg(log_container, logs, f"⏳ Delay de navegação: {delay:.1f}s", "info")
                     time.sleep(delay)
 
@@ -2115,12 +2115,21 @@ with col2:
                 usar_playwright = False
     navegador_ok, navegador_motivo = captura_pagina.disponivel()
     usar_navegador = st.checkbox(
-        "Navegador primeiro (Playwright)",
+        "Usar o navegador (Playwright)",
         value=navegador_ok,
         disabled=not navegador_ok,
-        help="As páginas são abertas num navegador do servidor, que carrega o JavaScript e fecha popups. Se ele não achar o preço, a leitura por texto "
-             "tenta uma vez. Lojas que a memória diz funcionarem só por texto começam pelo texto. Mais lento (5 a 15 s por página).",
+        help="Navegador do servidor, que carrega o JavaScript e fecha popups. Serve de reserva quando a leitura por texto não acha o preço "
+             "(ou de 1ª tentativa, conforme o modo abaixo). Sem ele, só há leitura por texto.",
     )
+    navegador_primeiro = False
+    if navegador_ok and usar_navegador:
+        navegador_primeiro = st.radio(
+            "Como ler cada página",
+            ["Texto primeiro; navegador só se o texto falhar", "Navegador primeiro; texto se o navegador falhar"],
+            index=0,
+            help="Texto primeiro é o modo mais rápido e o que menos pesa no servidor: o navegador (5 a 15 s por página) só entra nas páginas em que o texto "
+                 "não achou preço, e guarda o print delas. Nas demais, os prints que faltam saem pelo botão depois da pesquisa.",
+        ).startswith("Navegador primeiro")
     tempo_max_pagina = 2
     if navegador_ok:
         if usar_navegador:
@@ -2175,6 +2184,7 @@ if iniciar:
             max_fontes=max_fontes,
             usar_navegador=usar_navegador,
             tempo_max_pagina_min=int(tempo_max_pagina),
+            navegador_primeiro=navegador_primeiro,
         )
 
         # Armazenar resultados no session_state
