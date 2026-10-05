@@ -1,5 +1,6 @@
 streamlit
 streamlit-aggrid
+streamlit-searchbox
 requests
 pandas
 fpdf2

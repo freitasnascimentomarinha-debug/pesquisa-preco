@@ -490,3 +490,136 @@ def buscar_servicos(consulta: str, catalogo_servico: list[dict[str, object]], li
         for opcao in opcoes[:limite]
         if opcao["bruta"] >= 30
     ]
+
+
+# ── Autocompletar (lista suspensa que filtra enquanto o usuário digita) ─────
+
+LIMITE_SUGESTOES = 40
+
+
+class IndiceSugestoes(NamedTuple):
+    familias: list[tuple[str, str, int]]  # (" nome normalizado", código PDM, nº de itens)
+    itens: list[str]  # " descrição normalizada", na mesma ordem de IndiceCatmat.itens
+
+
+@st.cache_resource(show_spinner="Preparando a lista de sugestões do CATMAT (apenas na primeira vez)...")
+def carregar_sugestoes_catmat(caminho: str) -> IndiceSugestoes:
+    catmat = carregar_indice_catmat(caminho)
+    familias = [(" " + _normalizar(str(f["nome"])), codigo, int(f["itens"])) for codigo, f in catmat.pdms.items()]
+    return IndiceSugestoes(familias, [" " + _normalizar(item[3]) for item in catmat.itens])
+
+
+def _termos_digitados(consulta: str) -> list[tuple[str, ...]]:
+    """Cada palavra digitada vira o início de palavra procurado (' pap' casa com 'PAPEL'), aceitando o singular."""
+    termos = []
+    for token in _normalizar(consulta).split():
+        if token in STOP_WORDS:
+            continue
+        singular = _radical(token)
+        termos.append((" " + token,) if singular == token else (" " + token, " " + singular))
+    return termos
+
+
+def _casa(texto: str, termos: list[tuple[str, ...]]) -> bool:
+    return all(any(variante in texto for variante in termo) for termo in termos)
+
+
+def _comeca(texto: str, termos: list[tuple[str, ...]]) -> bool:
+    return any(texto.startswith(variante) for variante in termos[0])
+
+
+def _curto(texto: str, tamanho: int = 140) -> str:
+    texto = " ".join(str(texto).split())
+    return texto if len(texto) <= tamanho else texto[: tamanho - 1].rstrip() + "…"
+
+
+def _sugestao_familia(catmat: IndiceCatmat, codigo_pdm: str, origem: str) -> tuple[str, dict[str, str]]:
+    familia = catmat.pdms[codigo_pdm]
+    rotulo = f"📦 {familia['nome']} · família PDM {codigo_pdm} · {familia['itens']} itens"
+    return rotulo, {"tipo": "Material", "codigo": codigo_pdm, "nome": str(familia["nome"]), "classe": str(familia["classe"]), "origem": origem}
+
+
+def sugerir_materiais(consulta: str, catmat: IndiceCatmat, sugestoes: IndiceSugestoes, limite: int = LIMITE_SUGESTOES) -> list[tuple[str, dict[str, str]]]:
+    """Sugestões para a lista suspensa de material: famílias (PDM) e itens CATMAT cujo nome contém o que foi digitado.
+
+    Cada sugestão é (rótulo, dados); a busca de atas é sempre feita pela família (PDM) do item escolhido.
+    """
+    consulta = consulta.strip()
+    if not consulta:
+        return []
+    if consulta.isdigit():  # código de item CATMAT ou de família PDM (exato primeiro, depois os que começam com ele)
+        resultado = []
+        if consulta in catmat.pdms:
+            resultado.append(_sugestao_familia(catmat, consulta, f"Família PDM {consulta}"))
+        codigos = [consulta] if consulta in catmat.por_codigo else []
+        codigos += [codigo for codigo in catmat.por_codigo if codigo.startswith(consulta) and codigo != consulta][: limite]
+        for codigo in codigos[: limite - len(resultado)]:
+            _, codigo_pdm, nome_pdm, descricao = catmat.itens[catmat.por_codigo[codigo]]
+            rotulo = f"🔹 CATMAT {codigo} · {_curto(descricao)} · família {nome_pdm} (PDM {codigo_pdm})"
+            dados = _sugestao_familia(catmat, codigo_pdm, f"Item CATMAT {codigo}: {_curto(descricao, 200)}")[1]
+            resultado.append((rotulo, dados))
+        return resultado
+    termos = _termos_digitados(consulta)
+    if not termos:
+        return []
+    # 1) Famílias cujo nome contém tudo o que foi digitado: as que começam pelo texto vêm antes e, entre elas,
+    #    os nomes mais curtos (mais genéricos: PAPEL antes de PAPEL A4) e, empatados, as com mais itens no catálogo
+    #    (as mais comuns: CANETA ESFEROGRÁFICA antes de CANETA ÓTICA).
+    consulta_norm = " " + _normalizar(consulta)
+    familias = [f for f in sugestoes.familias if _casa(f[0], termos)]
+    familias.sort(key=lambda f: (f[0] != consulta_norm, not _comeca(f[0], termos), f[0].count(" "), -f[2]))
+    literais = [codigo for _, codigo, _ in familias[:20]]
+    # 2) Famílias por semelhança (sinônimos, embalagem, plural...: "resma de papel a4" -> PAPEL A4).
+    semelhantes = [str(f["codigo"]) for f in buscar_familias(consulta, catmat, limite=8)] if len(consulta) >= 4 else []
+    escolhidas = list(dict.fromkeys(literais[:10] + semelhantes + literais[10:]))
+    resultado = [_sugestao_familia(catmat, codigo, "") for codigo in escolhidas]
+    # 3) Itens CATMAT cuja descrição contém as palavras digitadas; os de famílias cujo nome também as contém vêm antes
+    #    (para "papel a4", itens da família PAPEL A4 antes de impressoras que citam papel A4).
+    posicoes = []
+    for posicao, texto in enumerate(sugestoes.itens):
+        if _casa(texto, termos):
+            posicoes.append(posicao)
+            if len(posicoes) >= 2000:
+                break
+    familias_casam = {codigo for _, codigo, _ in familias}
+    posicoes.sort(key=lambda posicao: (catmat.itens[posicao][1] not in familias_casam, len(sugestoes.itens[posicao])))
+    vistos: set[str] = set()
+    for posicao in posicoes:
+        if len(resultado) >= limite:
+            break
+        codigo, codigo_pdm, nome_pdm, descricao = catmat.itens[posicao]
+        chave = _normalizar(descricao)[:140]
+        if chave in vistos:
+            continue
+        vistos.add(chave)
+        rotulo = f"🔹 {_curto(descricao)} · CATMAT {codigo} · família {nome_pdm} (PDM {codigo_pdm})"
+        dados = _sugestao_familia(catmat, codigo_pdm, f"Item CATMAT {codigo}: {_curto(descricao, 200)}")[1]
+        resultado.append((rotulo, dados))
+    return resultado
+
+
+def sugerir_servicos(consulta: str, catalogo_servico: list[dict[str, object]], limite: int = LIMITE_SUGESTOES) -> list[tuple[str, dict[str, str]]]:
+    """Sugestões para a lista suspensa de serviço: nomes do CATSERV que contêm o que foi digitado, mais os semelhantes."""
+    consulta = consulta.strip()
+    if not consulta:
+        return []
+
+    def sugestao(codigo: str, nome: str) -> tuple[str, dict[str, str]]:
+        return f"🛠️ {nome} · CATSERV {codigo}", {"tipo": "Serviço", "codigo": codigo, "nome": nome, "classe": "", "origem": ""}
+
+    if consulta.isdigit():
+        encontrados = [item for item in catalogo_servico if str(item["codigo"]).startswith(consulta)]
+        encontrados.sort(key=lambda item: (str(item["codigo"]) != consulta, len(str(item["codigo"]))))
+        return [sugestao(str(item["codigo"]), str(item["descricao"])) for item in encontrados[:limite]]
+    termos = _termos_digitados(consulta)
+    if not termos:
+        return []
+    literais = [(" " + _normalizar(str(item["descricao"])), item) for item in catalogo_servico]
+    literais = [par for par in literais if _casa(par[0], termos)]
+    literais.sort(key=lambda par: (not _comeca(par[0], termos), len(par[0])))
+    literais = [(str(item["codigo"]), str(item["descricao"])) for _, item in literais]
+    semelhantes = [(s["codigo"], s["nome"]) for s in buscar_servicos(consulta, catalogo_servico, limite=8)] if len(consulta) >= 4 else []
+    escolhidos: dict[str, str] = {}
+    for codigo, nome in literais[:15] + semelhantes + literais[15:]:
+        escolhidos.setdefault(codigo, nome)
+    return [sugestao(codigo, _curto(nome, 160)) for codigo, nome in list(escolhidos.items())[:limite]]
