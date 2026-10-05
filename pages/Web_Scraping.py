@@ -222,6 +222,9 @@ DOMINIOS_IGNORADOS = [
     "gov.br", "reddit.com", "tiktok.com",
     # Universidades, justiça, legislativo, ministério público e militares: não vendem
     ".edu.br", ".edu", ".jus.br", ".leg.br", ".mp.br", ".mil.br", "scielo.", "academia.edu", "researchgate.net",
+    # Artigos científicos, o próprio Bing, calculadoras e conversores
+    "bing.com", "microsoft.com", "arxiv.org", "ssrn.com", "sciencedirect.com", "springer.com", "oup.com", "doi.org", "nih.gov",
+    "researchgate.net", "wiley.com", "jstor.org", "thecalculatorsite", "unitconverters", "seguros",
     # Jornais, portais de notícia e de conteúdo escolar
     "jornal", "folha.", "estadao.", "correio", "diario", "gazeta", "cnn", "bbc.", "r7.com", "infomoney", "exame.com",
     "olhardigital", "tecmundo", "techtudo", "canaltech", "mundoeducacao", "brasilescola", "todamateria", "significados.",
@@ -497,23 +500,25 @@ def ddg_voltou():
     DDG_VAZIOS_SEGUIDOS["n"] = 0
 
 
+def _com_cara_de_venda(resultados):
+    """Resultados do ddgs (dicts com title/body/href) cujo título, trecho ou endereço têm sinal de venda (R$, preço, comprar, loja, frete...).
+    Frases genéricas ("valor", "atacado") trazem artigos científicos, calculadoras e notícias; esses ficam de fora."""
+    return [r["href"] for r in resultados
+            if r.get("href") and dominio_valido(r["href"])
+            and SINAIS_VENDA.search(f"{r.get('title', '')} {r.get('body', '')} {r['href']}".lower())]
+
+
 def buscar_ddgs_api(query, num_results=8):
     """Busca usando o pacote ddgs (DuckDuckGo Search) — mais confiável em servidores."""
     intervalo_entre_buscas()
     try:
         from ddgs import DDGS
         results = list(DDGS().text(query, region="br-pt", max_results=num_results))
-        urls = [r["href"] for r in results if r.get("href") and dominio_valido(r["href"])]
-        DIAG_BUSCA["DDGS"] = f"{len(urls)} sites"
-        return _dedup_urls(urls, num_results)
     except ImportError:
         try:
             from duckduckgo_search import DDGS
             with DDGS() as ddgs:
                 results = list(ddgs.text(query, region="br-pt", max_results=num_results))
-            urls = [r["href"] for r in results if r.get("href") and dominio_valido(r["href"])]
-            DIAG_BUSCA["DDGS"] = f"{len(urls)} sites"
-            return _dedup_urls(urls, num_results)
         except Exception as erro:
             DIAG_BUSCA["DDGS"] = "0 sites" if "No results" in str(erro) else f"erro {type(erro).__name__}"
             return []
@@ -521,6 +526,10 @@ def buscar_ddgs_api(query, num_results=8):
         # o pacote levanta "No results found" quando a frase não tem resultado: não é bloqueio
         DIAG_BUSCA["DDGS"] = "0 sites" if "No results" in str(erro) else f"erro {type(erro).__name__}"
         return []
+    urls = _com_cara_de_venda(results)
+    # respondeu, mas nada com cara de venda: não é bloqueio (o contador de respostas vazias só conta "0 sites" puro)
+    DIAG_BUSCA["DDGS"] = f"{len(urls)} sites" if urls or not results else f"0 sites ({len(results)} sem cara de venda)"
+    return _dedup_urls(urls, num_results)
 
 
 def buscar_duckduckgo(session, query, headers, num_results=8):
@@ -653,14 +662,10 @@ def buscar_bing_requests(session, query, headers, num_results=8):
             bloco = a_tag.find_parent("li") or a_tag.find_parent("article") or a_tag.find_parent("div")
             texto = (bloco.get_text(" ", strip=True) if bloco else a_tag.get_text(" ", strip=True)).lower()
             (comerciais if SINAIS_VENDA.search(texto) else outros).append(href)
-        # havendo resultados de venda, os outros (artigos, definições, notícias) ficam de fora
-        urls = comerciais if comerciais else outros
-
-        if not urls:  # último recurso: qualquer link externo da área de resultados
-            for a_tag in soup.select("#b_results a[href^='http'], main a[href^='http'], a[href*='bing.com/ck/a']"):
-                href = desembrulhar_link_bing(a_tag.get("href", ""))
-                if href.startswith("http") and not urlparse(href).netloc.endswith("bing.com") and dominio_valido(href):
-                    urls.append(href)
+        # só ficam os resultados com cara de venda; artigos, definições e notícias não servem para cotação
+        urls = comerciais
+        if not urls and outros:
+            DIAG_BUSCA["Bing_sem_venda"] = f"{len(outros)} resultado(s) sem cara de venda descartado(s)"
 
         DIAG_BUSCA["Bing"] = f"{len(urls)} sites"
         return _dedup_urls(urls, num_results)
@@ -698,7 +703,10 @@ def buscar_urls(session, query, headers, num_results=8):
             return urls, "DDGS API"
         # (o DuckDuckGo HTML não é mais consultado: é o mesmo buscador do ddgs, e duas visitas por frase reforçam a cara de robô)
         sinais = [v for k, v in DIAG_BUSCA.items() if k in ("DDGS", "DuckDuckGo HTML")]
-        if any(str(v).startswith(("erro", "HTTP 202", "HTTP 403", "HTTP 429", "HTTP 5")) for v in sinais):
+        if str(DIAG_BUSCA.get("DDGS", "")).startswith("0 sites ("):
+            DDG_VAZIOS_SEGUIDOS["n"] = 0  # o DuckDuckGo respondeu (só não havia loja entre os resultados): não é bloqueio
+            nota = f"DuckDuckGo respondeu, mas sem lojas nesta frase ({DIAG_BUSCA['DDGS']})"
+        elif any(str(v).startswith(("erro", "HTTP 202", "HTTP 403", "HTTP 429", "HTTP 5")) for v in sinais):
             pausa = descansar_ddg()
             nota = "DuckDuckGo sem resposta (" + "; ".join(f"{k}: {v}" for k, v in DIAG_BUSCA.items() if k in ("DDGS", "DuckDuckGo HTML")) + f"); descansa {pausa} s"
         else:
@@ -717,7 +725,7 @@ def buscar_urls(session, query, headers, num_results=8):
     urls = buscar_bing_requests(session, query, headers, num_results)
     if urls:
         return urls, f"Bing — {nota}" if nota else "Bing"
-    outros = "; ".join(f"{k}: {v}" for k, v in DIAG_BUSCA.items() if k in ("Google", "Bing"))
+    outros = "; ".join(f"{k}: {v}" for k, v in DIAG_BUSCA.items() if k in ("Google", "Bing", "Bing_sem_venda"))
     nota = "; ".join(x for x in (nota, outros) if x)
     return [], f"nenhum ({nota})" if nota else "nenhum"
 
@@ -1614,7 +1622,7 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
                     if not resultado:
                         resultado, metodo_ok, tentou_metodos = ler_pagina(url, item)
                         tentou_navegador, tentou_texto = tentou_metodos["navegador"], tentou_metodos["texto"]
-                        if not resultado:  # a página achada pelo buscador não deu preço: tenta a busca do próprio site
+                        if not resultado and not str(MOTIVO_REJEICAO["texto"]).startswith("HTTP "):  # página sem preço (não erro de acesso): tenta a busca do próprio site
                             interna_site = tentar_busca_interna(url, item)
                             if interna_site:
                                 resultado, url, metodo_ok = interna_site
