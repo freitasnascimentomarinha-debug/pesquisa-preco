@@ -1,9 +1,9 @@
 {
  "versao": 1,
- "atualizado": "2026-10-05T04:26:21",
+ "atualizado": "2026-10-05T04:48:53",
  "lojas": {
   "lojadomecanico.com.br": {
-   "acertos": 15,
+   "acertos": 16,
    "ultimo": "2026-10-05",
    "itens": [
     "fita isolante",
@@ -13,7 +13,7 @@
     "chave de fenda"
    ],
    "metodos": {
-    "navegador": 5,
+    "navegador": 6,
     "texto": 0
    },
    "paginas": {
@@ -34,14 +34,17 @@
    }
   },
   "telhanorte.com.br": {
-   "acertos": 6,
-   "ultimo": "2026-10-04",
+   "acertos": 7,
+   "ultimo": "2026-10-05",
    "itens": [
     "fita isolante"
    ],
    "metodos": {
-    "navegador": 2,
+    "navegador": 3,
     "texto": 0
+   },
+   "paginas": {
+    "fita isolante": "https://www.telhanorte.com.br/eletrica/acessorios/fitas-isolantes"
    }
   },
   "hiperfer.com.br": {
@@ -704,6 +707,11 @@
    "navegador": 1,
    "texto": 1,
    "ultimo": "2026-10-04"
+  },
+  "collinsdictionary.com": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-05"
   }
  },
  "frases": {
@@ -713,8 +721,8 @@
    "ultimo": "2026-10-04"
   },
   "{item} preço": {
-   "usos": 11.6375,
-   "acertos": 3.8829,
+   "usos": 12.0556,
+   "acertos": 4.6888,
    "ultimo": "2026-10-05"
   },
   "venda de {item}": {
@@ -728,8 +736,8 @@
    "ultimo": "2026-10-04"
   },
   "{item} atacado": {
-   "usos": 11.6375,
-   "acertos": 6.8726,
+   "usos": 12.0556,
+   "acertos": 6.529,
    "ultimo": "2026-10-05"
   },
   "{item} preço brasil": {
@@ -743,10 +751,10 @@
    "ultimo": "2026-10-04"
   },
   "comprar {item} online brasil": {
-   "usos": 11.1974,
-   "acertos": 2.9312,
+   "usos": 11.6375,
+   "acertos": 2.7846,
    "ultimo": "2026-10-05"
   }
  },
- "buscas": 18
+ "buscas": 19
 }
