@@ -35,8 +35,10 @@ def metodologia(info: dict) -> str:
         f"{TOLERANCIA * 100:.0f}% (para mais ou para menos) da media dos precos listados. Itens com menos de {MIN_PRECOS} precos sao sinalizados e devem ser "
         "complementados por outras fontes (IN SEGES/ME nº 65/2021, art. 5º).\n\n"
         "4. O preco de pagina de loja e o preco de venda ao publico na data e hora do acesso, para a unidade ou embalagem anunciada, e pode variar a qualquer momento. "
-        "A descricao do anuncio nao foi conferida automaticamente com o objeto pretendido: o requisitante deve abrir o endereco indicado, verificar marca, "
-        "quantidade por embalagem, frete e condicoes, e anexar a captura da pagina ao processo."
+        "O nome do produto anunciado foi conferido automaticamente com a descricao pesquisada (incluindo nomes usuais de mercado, como \"caneta piloto\" = "
+        "marcador para quadro branco) e, quando informada, a medida/embalagem (kg, ml, m, W, V, unidades por caixa); em paginas de busca da loja foi "
+        "usado apenas o produto correspondente ao item. A conferencia automatica nao dispensa a verificacao do requisitante: abrir o endereco indicado, "
+        "conferir especificacao, quantidade por embalagem, frete e condicoes, e anexar a captura da pagina ao processo."
     )
 
 
