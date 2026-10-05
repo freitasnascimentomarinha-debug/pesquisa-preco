@@ -14,7 +14,8 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # módulos da raiz do projeto
 from atualizar_modulos import recarregar_se_mudou  # noqa: E402
-recarregar_se_mudou('cotacao_rapida', 'relatorio_cotacao_rapida', 'relatorio_nf_lote', 'web_precos', 'relatorio_web', 'memoria_lojas', 'captura_pagina', 'busca_interna')
+recarregar_se_mudou('naturezas', 'cotacao_rapida', 'relatorio_cotacao_rapida', 'relatorio_nf_lote', 'web_precos', 'relatorio_web', 'memoria_lojas', 'captura_pagina', 'busca_interna', 'naturezas')
+import naturezas  # noqa: E402  (natureza/ramo do item)
 import busca_interna  # noqa: E402  (busca dentro do site da loja)
 import web_precos  # noqa: E402  (escolha do preço da página)
 import relatorio_web  # noqa: E402  (relatório padrão da Cotação Rápida)
@@ -1503,6 +1504,9 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
     # Memória de lojas: lojas que já deram preço para itens parecidos são tentadas primeiro; sites que sempre falham são pulados
     memoria, onde_memoria = memoria_lojas.carregar(st.secrets if _tem_secrets() else {})
     log_msg(log_container, logs, f"🧠 Memória de lojas: {len(memoria['lojas'])} loja(s) aprendida(s), {len(memoria['falhas'])} site(s) com falha — {onde_memoria}", "info")
+    classificadas = memoria_lojas.completar_naturezas(memoria)  # lojas aprendidas antes da classificação por natureza
+    if classificadas:
+        log_msg(log_container, logs, f"🧭 {classificadas} loja(s) da memória classificadas por natureza a partir dos itens que já cotaram", "info")
     if not onde_memoria.startswith("GitHub"):
         log_msg(log_container, logs, "🧠 " + memoria_lojas.diagnostico_secrets(st.secrets if _tem_secrets() else {}), "warn")
 
@@ -1633,14 +1637,26 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
             dominios_falhos = set()  # site que falhou neste item não é tentado de novo nas outras buscas do mesmo item
 
             # 1º: lojas da memória que já deram preço para itens parecidos (cada uma uma vez só)
-            for site_memoria, item_parecido in memoria_lojas.lojas_para_item(memoria, item):
+            # 1º: lojas que deram preço para itens parecidos; depois, as melhores da mesma natureza (ramo) do item
+            natureza_item = naturezas.classificar(item)
+            log_msg(log_container, logs, f"🧭 Natureza do item: {natureza_item}" if natureza_item
+                    else "🧭 Natureza do item: não reconhecida (usa só as lojas de itens parecidos e a busca)", "info")
+            lojas_parecidas = memoria_lojas.lojas_para_item(memoria, item)
+            fila_memoria = [(site, parecido, "") for site, parecido in lojas_parecidas]
+            fila_memoria += [(site, "", natureza_item) for site, _ in
+                             memoria_lojas.lojas_por_natureza(memoria, natureza_item, excluir=[site for site, _ in lojas_parecidas])]
+            for site_memoria, item_parecido, natureza_loja in fila_memoria:
                 if len(atualizar_estado_orcamentos(candidatos_item, max_fontes)["validos"]) >= max_fontes:
                     break
-                log_msg(log_container, logs, f"🧠 Loja da memória: {site_memoria} (já deu preço para '{item_parecido}')", "info")
+                if item_parecido:
+                    log_msg(log_container, logs, f"🧠 Loja da memória: {site_memoria} (já deu preço para '{item_parecido}')", "info")
+                else:
+                    log_msg(log_container, logs, f"🧭 Loja boa em {natureza_loja}: {site_memoria} (tentando a busca do próprio site, sem gastar consulta de API)", "info")
                 navegador_ligado = leitor is not None and leitor.disponivel and navegador_primeiro
                 time.sleep(gerar_delay(0.3, 0.8) if navegador_ligado else gerar_delay(1.5, 3.0))
                 achado = None  # (resultado, url, método)
                 # 1) busca do próprio site da loja (sem buscador); 2) a página que já deu preço antes; 3) busca "site:" pela API de busca
+                # (lojas vindas só da natureza não passam pelo passo 3: para não gastar crédito de API com loja que talvez nem venda o item)
                 interna = tentar_busca_interna(site_memoria, item)
                 if interna:
                     achado = interna
@@ -1650,7 +1666,7 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
                     r_guardada, m_guardada, _ = ler_pagina(guardada, item)
                     if r_guardada:
                         achado = (r_guardada, guardada, m_guardada)
-                if not achado:
+                if not achado and not natureza_loja:
                     for url in buscar_na_loja(session, item, site_memoria, headers):
                         if url == guardada:
                             continue
@@ -2163,16 +2179,23 @@ with st.expander("🧠 Memória de lojas (aprende com o uso)", expanded=False):
                f"essas lojas para itens parecidos. Sites que falharam {memoria_lojas.FALHAS_PARA_PULAR} vezes sem nunca dar preço são pulados.")
     if st.button("Ver o que o sistema já aprendeu", key="ver_memoria_lojas"):
         memoria_vista, onde_vista = memoria_lojas.carregar(st.secrets if _tem_secrets() else {})
+        memoria_lojas.completar_naturezas(memoria_vista)  # só para mostrar; é gravado na próxima pesquisa
         st.caption(f"Onde está guardada: {onde_vista}")
         if not onde_vista.startswith("GitHub"):
             st.warning(memoria_lojas.diagnostico_secrets(st.secrets if _tem_secrets() else {}))
         if memoria_vista["lojas"]:
-            st.dataframe(pd.DataFrame([{"Loja": site, "Preços encontrados": l["acertos"], "Pelo navegador": l.get("metodos", {}).get("navegador", 0),
+            st.dataframe(pd.DataFrame([{"Loja": site, "Preços encontrados": l["acertos"],
+                                        "Naturezas": ", ".join(f"{n} ({c})" for n, c in sorted(l.get("naturezas", {}).items(), key=lambda x: -x[1])), "Pelo navegador": l.get("metodos", {}).get("navegador", 0),
                                         "Por texto": l.get("metodos", {}).get("texto", 0), "Último": l["ultimo"], "Itens cotados": ", ".join(l["itens"][:15])}
                                        for site, l in sorted(memoria_vista["lojas"].items(), key=lambda x: -x[1]["acertos"])]),
                          hide_index=True, use_container_width=True)
         else:
             st.info("Nenhuma loja aprendida ainda: a memória se forma com as próximas pesquisas.")
+        resumo_nat = memoria_lojas.resumo_naturezas(memoria_vista)
+        if resumo_nat:
+            st.markdown("**Lojas por natureza do item** (para um item novo, as melhores lojas da natureza dele são tentadas pela busca do próprio site)")
+            st.dataframe(pd.DataFrame([{"Natureza": nat, "Lojas (itens cotados dessa natureza)": ", ".join(f"{site} ({n})" for site, n in lojas)}
+                                       for nat, lojas in resumo_nat.items()]), hide_index=True, use_container_width=True)
         if memoria_vista.get("frases"):
             st.markdown("**Frases de busca** (as de maior nota são usadas primeiro; a nota é preços válidos por busca)")
             st.dataframe(pd.DataFrame([{"Frase": f, "Buscas (peso recente)": round(d.get("usos", 0), 1), "Preços válidos": round(d.get("acertos", 0), 1),

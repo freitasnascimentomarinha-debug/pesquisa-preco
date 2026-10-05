@@ -16,6 +16,8 @@ import os
 import re
 import unicodedata
 
+import naturezas
+
 ARQUIVO = "memoria_lojas.json"
 BRANCH = "memoria-scraping"
 REPOSITORIO_PADRAO = "freitasnascimentomarinha-debug/pesquisa-preco"
@@ -90,6 +92,10 @@ def registrar_acerto(memoria: dict, url: str, item: str, metodo: str = "texto") 
         loja["itens"].remove(item)
     loja["itens"].insert(0, item)
     del loja["itens"][MAX_ITENS_POR_LOJA:]
+    natureza = naturezas.classificar(item)
+    if natureza:  # a loja vai bem nesse ramo: será tentada nos próximos itens da mesma natureza
+        contagem = loja.setdefault("naturezas", {})
+        contagem[natureza] = contagem.get(natureza, 0) + 1
     # a página que deu o preço: serve de atalho quando os buscadores estão bloqueados
     paginas = loja.setdefault("paginas", {})
     paginas[item] = url
@@ -195,6 +201,45 @@ def lojas_para_item(memoria: dict, item: str, limite: int = MAX_LOJAS_POR_ITEM) 
             candidatas.append((melhor, loja["acertos"], loja["ultimo"], site, parecido))
     candidatas.sort(reverse=True)
     return [(site, parecido) for _, _, _, site, parecido in candidatas[:limite]]
+
+
+MAX_LOJAS_POR_NATUREZA = 3  # lojas da mesma natureza tentadas por item (além das de itens parecidos)
+
+
+def completar_naturezas(memoria: dict) -> int:
+    """Classifica as lojas que ainda não têm natureza a partir dos itens que já cotaram (memória antiga). Devolve quantas foram classificadas."""
+    classificadas = 0
+    for loja in memoria["lojas"].values():
+        if loja.get("naturezas"):
+            continue
+        contagem: dict[str, int] = {}
+        for item in loja.get("itens", []):
+            natureza = naturezas.classificar(item)
+            if natureza:
+                contagem[natureza] = contagem.get(natureza, 0) + 1
+        if contagem:
+            loja["naturezas"] = contagem
+            classificadas += 1
+    if classificadas:
+        memoria["_mudou"] = True
+    return classificadas
+
+
+def lojas_por_natureza(memoria: dict, natureza: str, excluir=(), limite: int = MAX_LOJAS_POR_NATUREZA) -> list[tuple[str, int]]:
+    """Lojas que mais deram preço em itens dessa natureza: [(site, nº de itens da natureza)], das melhores para as piores."""
+    if not natureza:
+        return []
+    excluir = {dominio(s) for s in excluir}
+    candidatas = [(loja.get("naturezas", {}).get(natureza, 0), loja["acertos"], loja["ultimo"], site)
+                  for site, loja in memoria["lojas"].items() if site not in excluir and loja.get("naturezas", {}).get(natureza, 0) > 0]
+    candidatas.sort(reverse=True)
+    return [(site, n) for n, _, _, site in candidatas[:limite]]
+
+
+def resumo_naturezas(memoria: dict, por_natureza: int = 5) -> dict[str, list[tuple[str, int]]]:
+    """{natureza: [(loja, nº de itens), ...]} para mostrar na tela."""
+    todas = sorted({n for loja in memoria["lojas"].values() for n in loja.get("naturezas", {})})
+    return {n: lojas_por_natureza(memoria, n, limite=por_natureza) for n in todas}
 
 
 def registrar_uso_api(memoria: dict, api: str, consultas: int) -> int:
@@ -361,6 +406,9 @@ def _juntar(local: dict, remota: dict) -> dict:
             metodos[metodo] = max(metodos.get(metodo, 0), n)
         junta["falhas"].pop(site, None)
         atual.setdefault("paginas", {}).update({**atual.get("paginas", {}), **loja.get("paginas", {})})
+        nat_atual = atual.setdefault("naturezas", {})
+        for natureza, n in loja.get("naturezas", {}).items():
+            nat_atual[natureza] = max(nat_atual.get(natureza, 0), n)
         if loja.get("busca"):
             atual["busca"] = loja["busca"]
     for site, data in local.get("sem_busca", {}).items():
