@@ -1,6 +1,6 @@
 {
  "versao": 1,
- "atualizado": "2026-10-05T20:53:36",
+ "atualizado": "2026-10-05T21:04:30",
  "lojas": {
   "lojadomecanico.com.br": {
    "acertos": 21,
@@ -73,14 +73,15 @@
    }
   },
   "kalunga.com.br": {
-   "acertos": 13,
+   "acertos": 15,
    "ultimo": "2026-10-05",
    "itens": [
+    "resma de papel",
+    "caneta esferográfica azul",
     "cola bastão",
     "lápis preto",
     "grampeador escolar",
     "grampeador",
-    "caneta esferográfica azul",
     "papel a4",
     "papel crepom",
     "apontador",
@@ -88,14 +89,16 @@
     "borracha escolar"
    ],
    "metodos": {
-    "navegador": 5,
+    "navegador": 7,
     "texto": 3
    },
    "paginas": {
     "grampeador": "https://www.kalunga.com.br/depto/suprimentos-para-escritorio/grampeadores/26/1104",
     "grampeador escolar": "https://www.kalunga.com.br/depto/suprimentos-para-escritorio/grampeadores/26/1104",
     "cola bastão": "https://www.kalunga.com.br/depto/suprimentos-para-escritorio/colas-em-bastao/26/892",
-    "lápis preto": "https://www.kalunga.com.br/busca/1?q=lapis-preto"
+    "lápis preto": "https://www.kalunga.com.br/busca/1?q=lapis-preto",
+    "caneta esferográfica azul": "https://www.kalunga.com.br/depto/escrita-corretivos/canetas-esferograficas-1-6/11/1304",
+    "resma de papel": "https://www.kalunga.com.br/busca/resma-de-papel-a4/"
    }
   },
   "lojascacula.com.br": {
@@ -141,9 +144,10 @@
    ]
   },
   "br.my-best.com": {
-   "acertos": 5,
+   "acertos": 6,
    "ultimo": "2026-10-05",
    "itens": [
+    "tv 49 polegadas led",
     "grampeador escolar",
     "grampeador",
     "luva de limpeza",
@@ -151,11 +155,12 @@
    ],
    "metodos": {
     "navegador": 0,
-    "texto": 3
+    "texto": 4
    },
    "paginas": {
     "grampeador": "https://br.my-best.com/18618",
-    "grampeador escolar": "https://br.my-best.com/18618"
+    "grampeador escolar": "https://br.my-best.com/18618",
+    "tv 49 polegadas led": "https://br.my-best.com/18763"
    }
   },
   "tendaatacado.com.br": {
@@ -179,19 +184,24 @@
    }
   },
   "atacadosaopaulo.com.br": {
-   "acertos": 7,
-   "ultimo": "2026-10-04",
+   "acertos": 9,
+   "ultimo": "2026-10-05",
    "itens": [
-    "luva de limpeza",
+    "resma de papel",
     "caneta esferográfica azul",
+    "luva de limpeza",
     "papel crepom",
     "resma de papel a4",
     "detergente",
     "papel a4 sulfite"
    ],
    "metodos": {
-    "navegador": 4,
+    "navegador": 6,
     "texto": 1
+   },
+   "paginas": {
+    "caneta esferográfica azul": "https://www.atacadosaopaulo.com.br/ki-5-caixas-caneta-esferografica-1-0mm---3un-azul--1un-preto-e-1un-vermelho---caixa-fechada-50un/p?srsltid=AU7gw4Vyg5t9J9U2FbmQcIfvLVIMmm-1Qb4l5EoZNMZ7S025fHvaLGbp",
+    "resma de papel": "https://www.atacadosaopaulo.com.br/kit-10-resma-papel-sulfite-a4-210x297mm-75g-m2-amarelo/p?srsltid=AU7gw4VS8wfB8E9SGKNPb1eAlLwdVEp64NmKFyaX3KYjH85pgLWLafvV"
    }
   },
   "hp.com": {
@@ -438,14 +448,17 @@
    }
   },
   "soaresatacado.com.br": {
-   "acertos": 1,
-   "ultimo": "2026-10-04",
+   "acertos": 2,
+   "ultimo": "2026-10-05",
    "itens": [
     "caneta esferográfica azul"
    ],
    "metodos": {
-    "navegador": 1,
+    "navegador": 2,
     "texto": 0
+   },
+   "paginas": {
+    "caneta esferográfica azul": "https://www.soaresatacado.com.br/caneta-esferografica-bic-cristal-azul-50-unidades-1292/p?srsltid=AU7gw4XRTnkCHNfY21TZEo1o25ZYjfb2xTrSIiEX6L075x35wW9wfnTa"
    }
   },
   "rdkluvas.com.br": {
@@ -668,15 +681,192 @@
    "paginas": {
     "cola 250ml": "https://www.festval.com/refrigerante_coca-cola_garrafa_250ml/p?srsltid=AU7gw4WerIHf6iWaMGbhpIf17yzwtqDGMsVO4l7OI3mfQa1sOVptMqOH"
    }
+  },
+  "philco.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-05",
+   "itens": [
+    "tv 49 polegadas led"
+   ],
+   "metodos": {
+    "navegador": 1,
+    "texto": 0
+   },
+   "paginas": {
+    "tv 49 polegadas led": "https://www.philco.com.br/tvs/tvs-49-polegadas?srsltid=AU7gw4XyUZ202iXGw8y2xECF0yafcneUOGF-eBtc-3bYYNCGiY6T7kj4"
+   }
+  },
+  "havan.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-05",
+   "itens": [
+    "frigobar"
+   ],
+   "metodos": {
+    "navegador": 1,
+    "texto": 0
+   },
+   "paginas": {
+    "frigobar": "https://www.havan.com.br/eletro/eletrodomesticos/frigobares/"
+   }
+  },
+  "midea.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-05",
+   "itens": [
+    "frigobar"
+   ],
+   "metodos": {
+    "navegador": 1,
+    "texto": 0
+   },
+   "paginas": {
+    "frigobar": "https://www.midea.com.br/eletrodomesticos/frigobar?srsltid=AU7gw4Xj5ww3_GEFrUYjmafCr2OtXsOp4UbQ4QdkxzoP67oZ3gKrpnfw"
+   }
+  },
+  "loja.electrolux.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-05",
+   "itens": [
+    "frigobar"
+   ],
+   "metodos": {
+    "navegador": 1,
+    "texto": 0
+   },
+   "paginas": {
+    "frigobar": "https://loja.electrolux.com.br/eletrodomesticos/frigobar"
+   }
+  },
+  "brastemp.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-05",
+   "itens": [
+    "frigobar"
+   ],
+   "metodos": {
+    "navegador": 1,
+    "texto": 0
+   },
+   "paginas": {
+    "frigobar": "https://www.brastemp.com.br/eletrodomesticos/frigobar"
+   }
+  },
+  "compradiretaempresas.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-05",
+   "itens": [
+    "frigobar"
+   ],
+   "metodos": {
+    "navegador": 1,
+    "texto": 0
+   },
+   "paginas": {
+    "frigobar": "https://www.compradiretaempresas.com.br/cozinha/frigobar?srsltid=AU7gw4UEJkggH62ijMqO9ZCi0qxz1pTh8c3nzmLyZA4r_kERgvPXSdgp"
+   }
+  },
+  "multiloja.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-05",
+   "itens": [
+    "frigobar"
+   ],
+   "metodos": {
+    "navegador": 1,
+    "texto": 0
+   },
+   "paginas": {
+    "frigobar": "https://www.multiloja.com.br/eletrodomesticos/refrigeradores/frigobar?srsltid=AU7gw4UmrHa2t7Pp8sLpwpwba6esTo0YlHbwxqiYlWXodDOlIW3SZnkj"
+   }
+  },
+  "milium.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-05",
+   "itens": [
+    "caneta esferográfica azul"
+   ],
+   "metodos": {
+    "navegador": 1,
+    "texto": 0
+   },
+   "paginas": {
+    "caneta esferográfica azul": "https://www.milium.com.br/caneta-esferografica-azul-bic-cristal-1000333-2050000196331/p?srsltid=AU7gw4UX9UurNFwaNcTcltVnIGUK6vSSjXSkYpvRD55nsGVq0Nf4-HE7"
+   }
+  },
+  "contabilista.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-05",
+   "itens": [
+    "caneta esferográfica azul"
+   ],
+   "metodos": {
+    "navegador": 1,
+    "texto": 0
+   },
+   "paginas": {
+    "caneta esferográfica azul": "https://www.contabilista.com.br/escritorio-e-papelaria/caneta-esferografica-cristal-fina-0-8mm-azul-bic.html?srsltid=AU7gw4U_OtgxOvs2WZI6VejC-K-dCfN8rj_a27GFK44Dpp6U_cV867B6"
+   }
+  },
+  "lepok.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-05",
+   "itens": [
+    "caneta esferográfica azul"
+   ],
+   "metodos": {
+    "navegador": 1,
+    "texto": 0
+   },
+   "paginas": {
+    "caneta esferográfica azul": "https://www.lepok.com.br/produto/Caneta-Esferografica-Cristal-1.0mm-Azul-Cx-50-Und.-Bic/5000127?srsltid=AU7gw4US1iv_nEzQ_HNDVLmv5TYV1tR3XsBHnQs_URcvLSe9KZL8J4lQ"
+   }
+  },
+  "gimba.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-05",
+   "itens": [
+    "caneta esferográfica azul"
+   ],
+   "metodos": {
+    "navegador": 1,
+    "texto": 0
+   },
+   "paginas": {
+    "caneta esferográfica azul": "https://www.gimba.com.br/canetas-esferograficas/caneta-esferografica-bic-cristal-ponta-media-1mm-azul-1-un/?PID=23&srsltid=AU7gw4Ue3wuMgsMAWw2pK8eJ9jj-LRVX2vUNZW0SRh07edujzpSPxhhb"
+   }
+  },
+  "galpaodotoner.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-05",
+   "itens": [
+    "resma de papel"
+   ],
+   "metodos": {
+    "navegador": 1,
+    "texto": 0
+   },
+   "paginas": {
+    "resma de papel": "https://www.galpaodotoner.com.br/produtos/resma-papel-branco-sulfite-a4-75g-210mmx297mm-500-folhas-office-branco-report-premium/?srsltid=AU7gw4UlSGYStoJVf81idhhq6zKjglPupVSEk6kB8OzSE5uMuc3DMkz2"
+   }
+  },
+  "intersupri.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-05",
+   "itens": [
+    "resma de papel"
+   ],
+   "metodos": {
+    "navegador": 1,
+    "texto": 0
+   },
+   "paginas": {
+    "resma de papel": "https://www.intersupri.com.br/papel-sulfite-a4-report-premium-75g-suzano-resma-500-folhas-p2577?srsltid=AU7gw4XQ6rurR0zBxCLJbQbn9GvXMAFrHH8Sve3opMkwz7_Gkr-d2GVd"
+   }
   }
  },
  "falhas": {
   "alltape.com.br": {
-   "navegador": 0,
-   "texto": 1,
-   "ultimo": "2026-10-04"
-  },
-  "gimba.com.br": {
    "navegador": 0,
    "texto": 1,
    "ultimo": "2026-10-04"
@@ -777,9 +967,9 @@
    "ultimo": "2026-10-04"
   },
   "martinsatacado.com.br": {
-   "navegador": 2,
-   "texto": 3,
-   "ultimo": "2026-10-04"
+   "navegador": 3,
+   "texto": 4,
+   "ultimo": "2026-10-05"
   },
   "loja.suzano.com.br": {
    "navegador": 0,
@@ -950,6 +1140,11 @@
    "navegador": 1,
    "texto": 1,
    "ultimo": "2026-10-05"
+  },
+  "melhoresdotech.com.br": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-05"
   }
  },
  "frases": {
@@ -959,8 +1154,8 @@
    "ultimo": "2026-10-05"
   },
   "{item} preço": {
-   "usos": 14.4522,
-   "acertos": 11.9891,
+   "usos": 15.4812,
+   "acertos": 18.325,
    "ultimo": "2026-10-05"
   },
   "venda de {item}": {
@@ -969,13 +1164,13 @@
    "ultimo": "2026-10-05"
   },
   "{item} valor": {
-   "usos": 11.1974,
-   "acertos": 3.0,
+   "usos": 12.0556,
+   "acertos": 6.6575,
    "ultimo": "2026-10-05"
   },
   "{item} atacado": {
-   "usos": 14.1602,
-   "acertos": 4.7994,
+   "usos": 14.7296,
+   "acertos": 6.3314,
    "ultimo": "2026-10-05"
   },
   "{item} preço brasil": {
@@ -994,7 +1189,7 @@
    "ultimo": "2026-10-05"
   }
  },
- "buscas": 30,
+ "buscas": 34,
  "sem_busca": {
   "arxiv.org": "2026-10-05",
   "papers.ssrn.com": "2026-10-05",
@@ -1024,11 +1219,17 @@
   "wordreference.com": "2026-10-05",
   "ellaverbs.com": "2026-10-05",
   "collinsdictionary.com": "2026-10-05",
-  "ingles.com": "2026-10-05"
+  "ingles.com": "2026-10-05",
+  "fujiokadistribuidor.com.br": "2026-10-05",
+  "melhoresdotech.com.br": "2026-10-05",
+  "telerio.com.br": "2026-10-05",
+  "martinsatacado.com.br": "2026-10-05",
+  "atacadosaopaulo.com.br": "2026-10-05",
+  "soaresatacado.com.br": "2026-10-05"
  },
  "serper": {
   "mes": "2026-10",
-  "n": 3
+  "n": 15
  },
  "tavily": {
   "mes": "",
