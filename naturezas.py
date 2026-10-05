@@ -17,7 +17,7 @@ NATUREZAS: dict[str, list[str]] = {
         "papel a4", "papel sulfite", "resma", "caneta", "lapis", "borracha", "grampeador", "grampo", "clips", "envelope", "pasta", "caderno",
         "cola branca", "cola bastao", "tesoura", "marca texto", "marcador", "post it", "bloco adesivo", "etiqueta", "papel contact", "contact",
         "fita crepe", "fita adesiva", "durex", "corretivo", "regua", "perfurador", "prancheta", "agenda", "livro ata", "pincel atomico",
-        "apontador", "elastico", "carimbo", "almofada carimbo", "arquivo morto", "papel cartao", "cartolina", "papel",
+        "apontador", "elastico", "carimbo", "almofada carimbo", "arquivo morto", "papel cartao", "cartolina", "papel", "cola",
     ],
     "informática": [
         "mouse", "teclado", "monitor", "pendrive", "pen drive", "hd externo", "ssd", "memoria ram", "cabo hdmi", "cabo usb", "cabo de rede",
@@ -57,6 +57,11 @@ NATUREZAS: dict[str, list[str]] = {
     "copa e cozinha": [
         "copo descartavel", "cafe", "acucar", "adocante", "guardanapo", "prato descartavel", "talher descartavel", "garrafa termica",
         "filtro de cafe", "cha", "leite", "agua mineral", "galao", "bandeja", "pote", "papel aluminio", "filme pvc", "mexedor",
+    ],
+    "eletrodomésticos": [
+        "frigobar", "geladeira", "refrigerador", "freezer", "micro ondas", "microondas", "bebedouro", "purificador de agua", "ventilador",
+        "ar condicionado", "climatizador", "cafeteira", "chaleira eletrica", "liquidificador", "batedeira", "fogao", "forno eletrico",
+        "televisor", "smart tv", "aspirador de po", "ferro de passar", "secador de cabelo", "sanduicheira", "torradeira", "fritadeira",
     ],
     "gêneros alimentícios": [
         "arroz", "feijao", "macarrao", "farinha de trigo", "farinha de mandioca", "fuba", "oleo de soja", "azeite", "sal refinado", "sal grosso",
