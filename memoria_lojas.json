@@ -1,11 +1,13 @@
 {
  "versao": 1,
- "atualizado": "2026-10-05T21:56:58",
+ "atualizado": "2026-10-05T22:29:47",
  "lojas": {
   "lojadomecanico.com.br": {
-   "acertos": 21,
+   "acertos": 23,
    "ultimo": "2026-10-05",
    "itens": [
+    "lâmpada led branca e27",
+    "caneta piloto azul",
     "fita isolante",
     "grampeador escolar",
     "parafuso sextavado 1/2",
@@ -15,18 +17,20 @@
    ],
    "metodos": {
     "navegador": 8,
-    "texto": 3
+    "texto": 5
    },
    "paginas": {
     "grampeador": "https://www.lojadomecanico.com.br/subcategorias/37/501/grampeador-manual",
     "parafuso sextavado 1/2": "https://www.lojadomecanico.com.br/buscar/parafuso-1-2-polegada-sextavado",
     "fita isolante": "https://lojadomecanico.com.br/busca?q=fita+isolante",
-    "grampeador escolar": "https://www.lojadomecanico.com.br/subcategorias/37/501/grampeador-manual"
+    "grampeador escolar": "https://www.lojadomecanico.com.br/subcategorias/37/501/grampeador-manual",
+    "caneta piloto azul": "https://lojadomecanico.com.br/busca?q=Caneta+piloto+azul",
+    "lâmpada led branca e27": "https://lojadomecanico.com.br/busca?q=L%C3%A2mpada+led+branca+e27"
    },
    "busca": "/busca?q={q}",
    "naturezas": {
-    "elétrico": 2,
-    "papelaria e escritório": 2,
+    "elétrico": 3,
+    "papelaria e escritório": 3,
     "fixadores": 1,
     "ferramentas": 1
    }
@@ -73,27 +77,31 @@
    }
   },
   "copafer.com.br": {
-   "acertos": 9,
+   "acertos": 10,
    "ultimo": "2026-10-05",
    "itens": [
+    "lâmpada led branca e27",
     "fita isolante",
     "lâmpada"
    ],
    "metodos": {
-    "navegador": 1,
+    "navegador": 2,
     "texto": 1
    },
    "paginas": {
-    "fita isolante": "https://www.copafer.com.br/fita-isolante-imperial-18-mm-x-10-metros-azul---hb004297980---3m/p?srsltid=AU7gw4VPiLzjUdwT0jl1kUEtak87ZFKwf5sA98piA2ZGBUHliacOEhOo"
+    "fita isolante": "https://www.copafer.com.br/fita-isolante-imperial-18-mm-x-10-metros-azul---hb004297980---3m/p?srsltid=AU7gw4VPiLzjUdwT0jl1kUEtak87ZFKwf5sA98piA2ZGBUHliacOEhOo",
+    "lâmpada led branca e27": "https://www.copafer.com.br/iluminacao"
    },
    "naturezas": {
-    "elétrico": 2
+    "elétrico": 3
    }
   },
   "kalunga.com.br": {
-   "acertos": 17,
+   "acertos": 19,
    "ultimo": "2026-10-05",
    "itens": [
+    "caneta piloto azul",
+    "papel contact",
     "tinta guache vermelha",
     "caneta marca texto amarelo",
     "resma de papel",
@@ -110,7 +118,7 @@
    ],
    "metodos": {
     "navegador": 7,
-    "texto": 5
+    "texto": 7
    },
    "paginas": {
     "grampeador": "https://www.kalunga.com.br/depto/suprimentos-para-escritorio/grampeadores/26/1104",
@@ -120,12 +128,15 @@
     "caneta esferográfica azul": "https://www.kalunga.com.br/depto/escrita-corretivos/canetas-esferograficas-1-6/11/1304",
     "resma de papel": "https://www.kalunga.com.br/busca/resma-de-papel-a4/",
     "caneta marca texto amarelo": "https://www.kalunga.com.br/busca/marca-texto-amarelo/1",
-    "tinta guache vermelha": "https://www.kalunga.com.br/prod/tinta-guache-vermelho-250ml-2574-radex-po-1-un/700363"
+    "tinta guache vermelha": "https://www.kalunga.com.br/prod/tinta-guache-vermelho-250ml-2574-radex-po-1-un/700363",
+    "papel contact": "https://kalunga.com.br/?s=Papel+contact&post_type=product",
+    "caneta piloto azul": "https://www.kalunga.com.br/depto/escrita-corretivos/canetas-esferograficas-1-6/11/1304"
    },
    "naturezas": {
     "tintas e pintura": 1,
-    "papelaria e escritório": 12
-   }
+    "papelaria e escritório": 14
+   },
+   "busca": "/?s={q}&post_type=product"
   },
   "lojascacula.com.br": {
    "acertos": 1,
@@ -213,9 +224,14 @@
    }
   },
   "tendaatacado.com.br": {
-   "acertos": 8,
+   "acertos": 13,
    "ultimo": "2026-10-05",
    "itens": [
+    "lâmpada led branca e27",
+    "caixa com envelopes pardo",
+    "detergente 500ml",
+    "caneta piloto azul",
+    "papel contact",
     "arroz 1 kg",
     "cola 250ml",
     "luva de limpeza",
@@ -226,24 +242,32 @@
     "papel a4 sulfite"
    ],
    "metodos": {
-    "navegador": 1,
-    "texto": 3
+    "navegador": 2,
+    "texto": 7
    },
    "paginas": {
     "cola 250ml": "https://www.tendaatacado.com.br/produto/refrigerante-coca-cola-250ml?srsltid=AU7gw4WwO0e0qeNZ_bREKSzXYS67bMuBkFJEMc7aH_jK6bxa3ELB0u7V",
-    "arroz 1 kg": "https://www.tendaatacado.com.br/produto/arroz-tipo-1-maximo-5kg-14799"
+    "arroz 1 kg": "https://www.tendaatacado.com.br/produto/arroz-tipo-1-maximo-5kg-14799",
+    "papel contact": "https://tendaatacado.com.br/busca?q=Papel+contact",
+    "caneta piloto azul": "https://tendaatacado.com.br/busca?q=Caneta+piloto+azul",
+    "detergente 500ml": "https://tendaatacado.com.br/busca?q=Detergente+500ml",
+    "caixa com envelopes pardo": "https://tendaatacado.com.br/busca?q=Caixa+com+Envelopes+pardo",
+    "lâmpada led branca e27": "https://tendaatacado.com.br/busca?q=L%C3%A2mpada+led+branca+e27"
    },
    "naturezas": {
     "gêneros alimentícios": 1,
-    "papelaria e escritório": 3,
-    "limpeza e higiene": 3,
-    "elétrico": 1
-   }
+    "papelaria e escritório": 6,
+    "limpeza e higiene": 4,
+    "elétrico": 2
+   },
+   "busca": "/busca?q={q}"
   },
   "atacadosaopaulo.com.br": {
-   "acertos": 11,
+   "acertos": 13,
    "ultimo": "2026-10-05",
    "itens": [
+    "detergente 500ml",
+    "caneta piloto azul",
     "tinta guache vermelha",
     "caneta marca texto amarelo",
     "resma de papel",
@@ -255,19 +279,21 @@
     "papel a4 sulfite"
    ],
    "metodos": {
-    "navegador": 6,
-    "texto": 3
+    "navegador": 7,
+    "texto": 4
    },
    "paginas": {
     "caneta esferográfica azul": "https://www.atacadosaopaulo.com.br/ki-5-caixas-caneta-esferografica-1-0mm---3un-azul--1un-preto-e-1un-vermelho---caixa-fechada-50un/p?srsltid=AU7gw4Vyg5t9J9U2FbmQcIfvLVIMmm-1Qb4l5EoZNMZ7S025fHvaLGbp",
     "resma de papel": "https://www.atacadosaopaulo.com.br/kit-10-resma-papel-sulfite-a4-210x297mm-75g-m2-amarelo/p?srsltid=AU7gw4VS8wfB8E9SGKNPb1eAlLwdVEp64NmKFyaX3KYjH85pgLWLafvV",
     "caneta marca texto amarelo": "https://www.atacadosaopaulo.com.br/caneta-marca-texto-amarela-mp612---12un---masterprint/p",
-    "tinta guache vermelha": "https://www.atacadosaopaulo.com.br/tinta-guache-15ml-vermelho-fogo--12-unidades---acrilex/p"
+    "tinta guache vermelha": "https://www.atacadosaopaulo.com.br/tinta-guache-15ml-vermelho-fogo--12-unidades---acrilex/p",
+    "caneta piloto azul": "https://www.atacadosaopaulo.com.br/ki-5-caixas-caneta-esferografica-1-0mm---3un-azul--1un-preto-e-1un-vermelho---caixa-fechada-50un/p?srsltid=AU7gw4Vyg5t9J9U2FbmQcIfvLVIMmm-1Qb4l5EoZNMZ7S025fHvaLGbp",
+    "detergente 500ml": "https://www.atacadosaopaulo.com.br/detergente-500-ml-neutro-5004-%25257C-un-%25257C-limpol/p"
    },
    "naturezas": {
     "tintas e pintura": 1,
-    "papelaria e escritório": 6,
-    "limpeza e higiene": 2
+    "papelaria e escritório": 7,
+    "limpeza e higiene": 3
    }
   },
   "hp.com": {
@@ -297,13 +323,22 @@
    }
   },
   "meninodalampada.com.br": {
-   "acertos": 1,
-   "ultimo": "2026-10-04",
+   "acertos": 2,
+   "ultimo": "2026-10-05",
    "itens": [
+    "lâmpada led branca e27",
     "lâmpada"
    ],
    "naturezas": {
-    "elétrico": 1
+    "elétrico": 2
+   },
+   "busca": "/?s={q}&post_type=product",
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "paginas": {
+    "lâmpada led branca e27": "https://meninodalampada.com.br/?s=L%C3%A2mpada+led+branca+e27&post_type=product"
    }
   },
   "lojadaslampadas.com.br": {
@@ -390,9 +425,10 @@
    }
   },
   "superpaguemenos.com.br": {
-   "acertos": 5,
-   "ultimo": "2026-10-04",
+   "acertos": 6,
+   "ultimo": "2026-10-05",
    "itens": [
+    "detergente 500ml",
     "feijão 1kg",
     "detergente",
     "sabão em pó",
@@ -400,11 +436,15 @@
    ],
    "metodos": {
     "navegador": 2,
-    "texto": 0
+    "texto": 1
    },
    "naturezas": {
     "gêneros alimentícios": 2,
-    "limpeza e higiene": 2
+    "limpeza e higiene": 3
+   },
+   "busca": "/busca?q={q}",
+   "paginas": {
+    "detergente 500ml": "https://superpaguemenos.com.br/busca?q=Detergente+500ml"
    }
   },
   "atacadao.com.br": {
@@ -590,20 +630,22 @@
    }
   },
   "soaresatacado.com.br": {
-   "acertos": 2,
+   "acertos": 3,
    "ultimo": "2026-10-05",
    "itens": [
+    "caneta piloto azul",
     "caneta esferográfica azul"
    ],
    "metodos": {
-    "navegador": 2,
+    "navegador": 3,
     "texto": 0
    },
    "paginas": {
-    "caneta esferográfica azul": "https://www.soaresatacado.com.br/caneta-esferografica-bic-cristal-azul-50-unidades-1292/p?srsltid=AU7gw4XRTnkCHNfY21TZEo1o25ZYjfb2xTrSIiEX6L075x35wW9wfnTa"
+    "caneta esferográfica azul": "https://www.soaresatacado.com.br/caneta-esferografica-bic-cristal-azul-50-unidades-1292/p?srsltid=AU7gw4XRTnkCHNfY21TZEo1o25ZYjfb2xTrSIiEX6L075x35wW9wfnTa",
+    "caneta piloto azul": "https://www.soaresatacado.com.br/caneta-esferografica-bic-cristal-azul-50-unidades-1292/p?srsltid=AU7gw4XRTnkCHNfY21TZEo1o25ZYjfb2xTrSIiEX6L075x35wW9wfnTa"
    },
    "naturezas": {
-    "papelaria e escritório": 1
+    "papelaria e escritório": 2
    }
   },
   "rdkluvas.com.br": {
@@ -1185,6 +1227,108 @@
    "naturezas": {
     "gêneros alimentícios": 1
    }
+  },
+  "papelariarenatodotriciclo.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-05",
+   "itens": [
+    "papel contact"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "papelaria e escritório": 1
+   },
+   "paginas": {
+    "papel contact": "https://www.papelariarenatodotriciclo.com.br/papelaria/papel/papel-contact"
+   }
+  },
+  "jmembalagensparafestas.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-05",
+   "itens": [
+    "papel contact"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "papelaria e escritório": 1
+   },
+   "paginas": {
+    "papel contact": "https://www.jmembalagensparafestas.com.br/produtos/papel-contact-adesivo-transparente-rolo-2-metros"
+   }
+  },
+  "jcdecor.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-05",
+   "itens": [
+    "papel contact"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "papelaria e escritório": 1
+   },
+   "paginas": {
+    "papel contact": "https://www.jcdecor.com.br/papel-contact"
+   }
+  },
+  "papelariazonca.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-05",
+   "itens": [
+    "caneta piloto azul"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "papelaria e escritório": 1
+   },
+   "paginas": {
+    "caneta piloto azul": "https://papelariazonca.com.br/caneta-pilot-azul"
+   }
+  },
+  "canetascrown.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-05",
+   "itens": [
+    "caneta piloto azul"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "papelaria e escritório": 1
+   },
+   "paginas": {
+    "caneta piloto azul": "https://www.canetascrown.com.br/collections/canetas"
+   }
+  },
+  "tudomixatacado.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-05",
+   "itens": [
+    "caneta piloto azul"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "papelaria e escritório": 1
+   },
+   "paginas": {
+    "caneta piloto azul": "https://www.tudomixatacado.com.br/caneta-esferografica-pilot-1-0mm-media-bpgp-10r-ni-m-azul_8460"
+   }
   }
  },
  "falhas": {
@@ -1464,8 +1608,8 @@
    "ultimo": "2026-10-05"
   },
   "tracxn.com": {
-   "navegador": 1,
-   "texto": 1,
+   "navegador": 2,
+   "texto": 2,
    "ultimo": "2026-10-05"
   },
   "hn.ebay.com": {
@@ -1497,17 +1641,42 @@
    "navegador": 1,
    "texto": 1,
    "ultimo": "2026-10-05"
+  },
+  "zoominfo.com": {
+   "navegador": 2,
+   "texto": 2,
+   "ultimo": "2026-10-05"
+  },
+  "cbinsights.com": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-05"
+  },
+  "indeed.com": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-05"
+  },
+  "leadiq.com": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-05"
+  },
+  "embalagenscia.com.br": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-05"
   }
  },
  "frases": {
   "{item} comprar": {
-   "usos": 11.1974,
-   "acertos": 1.1121,
+   "usos": 11.6375,
+   "acertos": 2.0565,
    "ultimo": "2026-10-05"
   },
   "{item} preço": {
-   "usos": 16.3193,
-   "acertos": 22.3931,
+   "usos": 16.8442,
+   "acertos": 21.9542,
    "ultimo": "2026-10-05"
   },
   "venda de {item}": {
@@ -1516,13 +1685,13 @@
    "ultimo": "2026-10-05"
   },
   "{item} valor": {
-   "usos": 12.8302,
-   "acertos": 6.0084,
+   "usos": 13.1887,
+   "acertos": 5.708,
    "ultimo": "2026-10-05"
   },
   "{item} atacado": {
-   "usos": 15.2434,
-   "acertos": 7.6641,
+   "usos": 15.9217,
+   "acertos": 8.4236,
    "ultimo": "2026-10-05"
   },
   "{item} preço brasil": {
@@ -1541,7 +1710,7 @@
    "ultimo": "2026-10-05"
   }
  },
- "buscas": 38,
+ "buscas": 43,
  "sem_busca": {
   "arxiv.org": "2026-10-05",
   "papers.ssrn.com": "2026-10-05",
@@ -1583,7 +1752,14 @@
   "m.casadopapel.com.br": "2026-10-05",
   "metdata.com.br": "2026-10-05",
   "pt.accio.com": "2026-10-05",
-  "supermarket23.com": "2026-10-05"
+  "supermarket23.com": "2026-10-05",
+  "leadiq.com": "2026-10-05",
+  "walmart.com": "2026-10-05",
+  "atacadojandaia.com.br": "2026-10-05",
+  "goiasatacado.com.br": "2026-10-05",
+  "produtos.solucoesindustriais.com.br": "2026-10-05",
+  "caixamontada.com.br": "2026-10-05",
+  "embalagenscia.com.br": "2026-10-05"
  },
  "serper": {
   "mes": "2026-10",
@@ -1591,6 +1767,6 @@
  },
  "tavily": {
   "mes": "2026-10",
-  "n": 9
+  "n": 19
  }
 }
