@@ -23,6 +23,9 @@ from catmat_busca import (  # noqa: E402
     CATSERV_PATH,
     carregar_sugestoes_catmat,
     carregar_sugestoes_nome_codigo,
+    carregar_classes_servico,
+    servicos_da_mesma_classe,
+    SERVICOS_CLASSE_PATH,
     sugerir_itens,
 )
 
@@ -585,6 +588,11 @@ def normalize_item(item: Dict) -> Optional[Tuple[str, str, str, str, str, str, s
     return numero_ata, unidade, fornecedor, identificador, url, str(numero_compra), str(id_compra)
 
 
+def chave_ata(raw: Dict) -> str:
+    """Identifica um item de ata: a mesma ata pode registrar vários itens (ex.: caneta azul e caneta preta)."""
+    return f"{raw.get('numeroControlePncpAta', '')}|{raw.get('numeroItem', '')}"
+
+
 def filter_results_by_uf(
     results: List[Dict], uasg_index: Dict[str, Dict[str, str]], uf: str
 ) -> List[Dict]:
@@ -796,14 +804,14 @@ async def fetch_page(
 
 
 async def search_async(
-    campo: str,
-    codigo: str,
+    consultas: List[Tuple[str, str]],
     status_placeholder: st.delta_generator.DeltaGenerator,
     progress_bar,
     federal_only: bool,
     uasg_sphere: Dict[str, str],
     max_concurrency: int = MAX_CONCURRENCY,
 ) -> List[Dict]:
+    """Busca as atas de cada consulta (campo da API, código) e junta os resultados sem repetir item de ata."""
     timeout = aiohttp.ClientTimeout(
         total=None,
         connect=API_CONNECT_TIMEOUT_SECONDS,
@@ -815,9 +823,6 @@ async def search_async(
 
     seen = set()
     results: List[Dict] = []
-    tasks: List[asyncio.Task] = []
-    total_pages_count = 0
-    processed_pages = 0
 
     def render_payload(payload: Dict) -> None:
         for raw in payload.get("resultado", []):
@@ -830,76 +835,59 @@ async def search_async(
             normalized = normalize_item(raw)
             if not normalized:
                 continue
-            key = normalized[3]
+            key = chave_ata(raw)
             if key in seen:
                 continue
             seen.add(key)
             results.append(raw)
 
+    def mostrar(processadas: int, total: int) -> None:
+        status_placeholder.info(f"Página {processadas}/{total} carregada. {len(results)} atas encontradas até agora.")
+        progress_bar.progress(
+            max(min(int(processadas / max(total, 1) * 100), 100), 10),
+            text=f"Carregando páginas do Compras.gov: {processadas}/{total} | atas encontradas: {len(results)}",
+        )
+
     async with aiohttp.ClientSession(timeout=timeout, connector=connector) as session:
         end_date = dt.today().date()
         start_date = end_date - td(days=DATE_RANGE_DAYS - 1)
-        base_params: Dict[str, str] = {
+        comuns = {
             "tamanhoPagina": 100,
             "dataVigenciaInicialMin": start_date.strftime("%Y-%m-%d"),
             "dataVigenciaInicialMax": end_date.strftime("%Y-%m-%d"),
         }
-        base_params[campo] = codigo  # codigoPdm (família do material) ou codigoItem (código CATMAT/CATSERV exato)
+        parametros = [{**comuns, campo: codigo} for campo, codigo in consultas]
 
         status_placeholder.info("Conectando ao Compras.gov e carregando a primeira página…")
         progress_bar.progress(5, text="Conectando ao Compras.gov…")
 
-        first_page = await fetch_page(session, semaphore, 1, base_params)
-        total_pages_count = 1 + parse_remaining_pages(first_page.get("paginasRestantes"))
-        render_payload(first_page)
-        processed_pages = 1
-        progress_value = min(int(processed_pages / max(total_pages_count, 1) * 100), 100)
-        status_placeholder.info(
-            f"Página {processed_pages}/{total_pages_count} carregada. {len(results)} atas encontradas até agora."
+        primeiras = await asyncio.gather(
+            *(fetch_page(session, semaphore, 1, base) for base in parametros), return_exceptions=True
         )
-        progress_bar.progress(
-            max(progress_value, 10),
-            text=(
-                f"Carregando páginas do Compras.gov: {processed_pages}/{total_pages_count} "
-                f"| atas encontradas: {len(results)}"
-            ),
-        )
+        if all(isinstance(pagina, Exception) for pagina in primeiras):
+            raise primeiras[0]
+        tasks: List[asyncio.Task] = []
+        for base, pagina in zip(parametros, primeiras):
+            if isinstance(pagina, Exception):
+                continue
+            render_payload(pagina)
+            for numero in range(2, 2 + parse_remaining_pages(pagina.get("paginasRestantes"))):
+                tasks.append(asyncio.create_task(fetch_page(session, semaphore, numero, base)))
+        processadas = len(parametros)
+        total_paginas = processadas + len(tasks)
+        mostrar(processadas, total_paginas)
 
-        for page in range(2, total_pages_count + 1):
-            tasks.append(asyncio.create_task(fetch_page(session, semaphore, page, base_params)))
-
-        if total_pages_count == processed_pages:
-            progress_bar.progress(
-                100,
-                text=f"Busca concluída. {len(results)} atas encontradas.",
-            )
-            status_placeholder.success(f"Busca concluída. {len(results)} atas encontradas.")
-            return results
-
-        for idx, task in enumerate(asyncio.as_completed(tasks), start=processed_pages + 1):
+        for task in asyncio.as_completed(tasks):
+            processadas += 1
             try:
-                payload = await task
-                render_payload(payload)
-                progress_value = min(int(idx / max(total_pages_count, 1) * 100), 100)
-                status_placeholder.info(
-                    f"Página {idx}/{total_pages_count} carregada. {len(results)} atas encontradas até agora."
-                )
-                progress_bar.progress(
-                    progress_value,
-                    text=(
-                        f"Carregando páginas do Compras.gov: {idx}/{total_pages_count} "
-                        f"| atas encontradas: {len(results)}"
-                    ),
-                )
+                render_payload(await task)
+                mostrar(processadas, total_paginas)
             except Exception:
                 status_placeholder.warning(
                     f"Falha ao carregar uma das páginas. {len(results)} atas já foram encontradas até agora."
                 )
 
-        progress_bar.progress(
-            100,
-            text=f"Busca concluída. {len(results)} atas encontradas.",
-        )
+        progress_bar.progress(100, text=f"Busca concluída. {len(results)} atas encontradas.")
         status_placeholder.success(f"Busca concluída. {len(results)} atas encontradas.")
         return results
 
@@ -963,7 +951,6 @@ async def enrich_results_async(
             numero_ata = raw.get("numeroAtaRegistroPreco", "")
             unidade = raw.get("codigoUnidadeGerenciadora", "") or str(raw.get("codigoUasg", ""))
             numero_item = raw.get("numeroItem", "")
-            identificador = raw.get("numeroControlePncpAta", "")
             if not (numero_ata and unidade and numero_item):
                 continue
 
@@ -984,7 +971,7 @@ async def enrich_results_async(
 
             tasks.append(
                 asyncio.create_task(
-                    fetch_with_key(identificador, numero_ata, unidade, numero_item)
+                    fetch_with_key(chave_ata(raw), numero_ata, unidade, numero_item)
                 )
             )
         total_tasks = len(tasks)
@@ -1039,8 +1026,7 @@ def run_enrich(
 
 
 def run_search(
-    campo: str,
-    codigo: str,
+    consultas: List[Tuple[str, str]],
     federal_only: bool,
     uasg_sphere: Dict[str, str],
 ) -> List[Dict]:
@@ -1050,8 +1036,7 @@ def run_search(
         try:
             results = asyncio.run(
                 search_async(
-                    campo,
-                    codigo,
+                    consultas,
                     status_placeholder,
                     progress_bar,
                     federal_only=federal_only,
@@ -1197,47 +1182,84 @@ ESTILO_PESQUISA = {
 }
 
 
+LIMITE_SELECIONADOS = 10
+LIMITE_CONSULTAS = 60  # consultas à API por busca (cada código ou família é uma consulta)
+
+
+def catalogo_da_pesquisa(tipo: str, por_familia: bool) -> Tuple[list, str]:
+    if tipo == "Serviço":
+        return carregar_sugestoes_nome_codigo(CATSERV_PATH), "CATSERV"
+    if por_familia:
+        return carregar_sugestoes_nome_codigo(_data_path("catalogo_pdm.json")), "PDM"
+    return carregar_sugestoes_catmat(CATMAT_PATH), "CATMAT"
+
+
 @st.fragment
-def campo_pesquisa(tipo: str, por_familia: bool) -> None:
-    """Lista suspensa que filtra o CATMAT/CATSERV enquanto o usuário digita.
+def campo_pesquisa(tipo: str, por_familia: bool, chave_selecionados: str) -> None:
+    """Lista suspensa que filtra o CATMAT/CATSERV enquanto o usuário digita; cada escolha entra na lista de selecionados.
 
     Roda como fragmento: cada tecla atualiza só as sugestões, sem recarregar o mapa e os resultados da página.
-    Ao escolher (ou limpar) um item, a página inteira é recarregada com a nova escolha.
     """
-    if tipo == "Serviço":
-        itens, catalogo = carregar_sugestoes_nome_codigo(CATSERV_PATH), "CATSERV"
-    elif por_familia:
-        itens, catalogo = carregar_sugestoes_nome_codigo(_data_path("catalogo_pdm.json")), "PDM"
-    else:
-        itens, catalogo = carregar_sugestoes_catmat(CATMAT_PATH), "CATMAT"
-    modo = "familia" if por_familia else "item"
+    itens, catalogo = catalogo_da_pesquisa(tipo, por_familia)
+    chave_busca = f"adesao_pesquisa_{chave_selecionados}"
     escolha = st_searchbox(
         lambda termo: sugerir_itens(termo, itens, catalogo),
         label="Pesquisar serviço" if tipo == "Serviço" else ("Pesquisar família" if por_familia else "Pesquisar material"),
         placeholder="Digite o nome ou o código da família" if por_familia else "Digite o nome ou o código do item",
-        key=f"adesao_pesquisa_{tipo}_{modo}",
+        key=chave_busca,
         debounce=300,
         rerun_scope="fragment",
-        edit_after_submit="option",
         style_overrides=ESTILO_PESQUISA,
     )
-    chave = f"adesao_escolha_{tipo}_{modo}"
-    if escolha != st.session_state.get(chave):
-        st.session_state[chave] = escolha
+    if escolha is not None:
+        selecionados = st.session_state.setdefault(chave_selecionados, [])
+        if escolha.codigo not in {item.codigo for item in selecionados} and len(selecionados) < LIMITE_SELECIONADOS:
+            selecionados.append(escolha)
+        del st.session_state[chave_busca]  # limpa o campo para a próxima escolha
         st.rerun()
 
 
+consultas: List[Tuple[str, str]] = []
 if tipo:
     por_familia = tipo == "Material" and st.radio(
         "Pesquisar por", ["Nome do item", "Família (PDM)"], horizontal=True
     ) == "Família (PDM)"
-    campo_pesquisa(tipo, por_familia)
-    escolhida = st.session_state.get(f"adesao_escolha_{tipo}_{'familia' if por_familia else 'item'}")
-    if escolhida:
-        selected_label = escolhida.nome
-        # Material: as atas são buscadas pela família (PDM) do item; serviço: pelo código CATSERV.
-        campo_busca = "codigoPdm" if tipo == "Material" else "codigoItem"
-        codigo = escolhida.codigo_busca
+    chave_selecionados = f"adesao_selecionados_{tipo}_{'familia' if por_familia else 'item'}"
+    campo_pesquisa(tipo, por_familia, chave_selecionados)
+    selecionados = st.session_state.get(chave_selecionados, [])
+    rotulo_codigo = "PDM" if por_familia else ("CATMAT" if tipo == "Material" else "CATSERV")
+    for posicao, item in enumerate(list(selecionados)):
+        coluna_nome, coluna_remover = st.columns([12, 1])
+        coluna_nome.markdown(f"**{rotulo_codigo} {item.codigo}** · {item.nome}")
+        if coluna_remover.button("✕", key=f"remover_{chave_selecionados}_{item.codigo}", help="Remover"):
+            selecionados.pop(posicao)
+            st.rerun()
+
+    if selecionados:
+        selected_label = True
+        if tipo == "Material" and por_familia:
+            consultas = [("codigoPdm", item.codigo) for item in selecionados]
+        elif tipo == "Material":
+            if st.checkbox("Incluir atas da mesma família (PDM)", value=False):
+                consultas = [("codigoPdm", pdm) for pdm in dict.fromkeys(item.codigo_busca for item in selecionados)]
+            else:
+                consultas = [("codigoItem", item.codigo) for item in selecionados]
+        else:
+            if st.checkbox("Incluir atas da mesma classe de serviço", value=False):
+                servicos = carregar_sugestoes_nome_codigo(CATSERV_PATH)
+                classes = carregar_classes_servico(SERVICOS_CLASSE_PATH)
+                codigos = [
+                    servico.codigo
+                    for item in selecionados
+                    for servico in servicos_da_mesma_classe(item, servicos, classes)
+                ]
+                consultas = [("codigoItem", codigo) for codigo in dict.fromkeys(codigos)]
+            else:
+                consultas = [("codigoItem", item.codigo) for item in selecionados]
+        if len(consultas) > LIMITE_CONSULTAS:
+            st.caption(f"A busca foi limitada a {LIMITE_CONSULTAS} códigos.")
+            consultas = consultas[:LIMITE_CONSULTAS]
+        codigo = bool(consultas)
 
 uf_antes = None
 if selected_label:
@@ -1266,7 +1288,7 @@ start_button = st.button(
 )
 
 if start_button and tipo and codigo:
-    results = run_search(campo_busca, codigo, federal_only, uasg_sphere)
+    results = run_search(consultas, federal_only, uasg_sphere)
     st.session_state["atas"] = results
     # Estado escolhido antes da busca: vai direto para a lista desse estado; senão, abre o mapa.
     st.session_state["modo_exibicao"] = "Lista" if uf_antes else "Mapa"
@@ -1357,7 +1379,7 @@ if results:
                 # Código UASG do órgão
                 uasg_code = extract_uasg(raw) or "N/I"
 
-                detail = enriched.get(identificador, {})
+                detail = enriched.get(chave_ata(raw), {})
                 saldo_adesoes = detail.get("saldoAdesoes", "N/I")
                 saldo_remanejamento = detail.get("saldoRemanejamentoEmpenho", "N/I")
                 qtd_limite_adesao = detail.get("qtdLimiteAdesao", "N/I")
@@ -1416,6 +1438,7 @@ if results:
                     # Tags com todas as informações
                     st.markdown(
                         f"""<div class="ata-info-grid">
+                            <span class="ata-tag">🏷️ {"CATSERV" if str(raw.get("tipoItem", "")).startswith("Servi") else "CATMAT"} {raw.get("codigoItem", "N/I")}</span>
                             <span class="ata-tag">🔢 Item: {numero_item}</span>
                             <span class="ata-tag">🛒 Compra: {num_compra}</span>
                             <span class="ata-tag">🆔 ID Compra: {id_compra}</span>
