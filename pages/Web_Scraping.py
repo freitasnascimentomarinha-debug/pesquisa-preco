@@ -2217,21 +2217,13 @@ with col2:
                 usar_playwright = False
     navegador_ok, navegador_motivo = captura_pagina.disponivel()
     usar_navegador = st.checkbox(
-        "Usar o navegador (Playwright)",
+        "Usar o navegador como reserva (Playwright)",
         value=navegador_ok,
         disabled=not navegador_ok,
         help="Navegador do servidor, que carrega o JavaScript e fecha popups. Serve de reserva quando a leitura por texto não acha o preço "
-             "(ou de 1ª tentativa, conforme o modo abaixo). Sem ele, só há leitura por texto.",
+             "(e guarda o print dessas páginas). Sem ele, só há leitura por texto.",
     )
-    navegador_primeiro = False
-    if navegador_ok and usar_navegador:
-        navegador_primeiro = st.radio(
-            "Como ler cada página",
-            ["Texto primeiro; navegador só se o texto falhar", "Navegador primeiro; texto se o navegador falhar"],
-            index=0,
-            help="Texto primeiro é o modo mais rápido e o que menos pesa no servidor: o navegador (5 a 15 s por página) só entra nas páginas em que o texto "
-                 "não achou preço, e guarda o print delas. Nas demais, os prints que faltam saem pelo botão depois da pesquisa.",
-        ).startswith("Navegador primeiro")
+    navegador_primeiro = False  # modo fixo: leitura por texto primeiro; o navegador só entra nas páginas em que o texto não achou preço
     tempo_max_pagina = 2
     if navegador_ok:
         if usar_navegador:
@@ -2360,9 +2352,10 @@ if "scraping_resultados" in st.session_state and st.session_state["scraping_resu
             st.caption("Mesmas regras da Cotação Rápida: sem outliers, preços a ±30% da média, mapa comparativo na 1ª página, "
                        "endereço e data/hora do acesso de cada preço.")
             st.dataframe(relatorio_web.tabela_mapa_web(analise, precos_por_item), use_container_width=True, hide_index=True)
-            baixas = [r for r in resultados if r.get("confianca") == "baixa"]
+            baixas = [(r["descricao"], p) for r in analise for p in r["precos"] if p.get("confianca") == "baixa"]
             if baixas:
-                st.warning(f"{len(baixas)} preço(s) vieram da leitura do texto da página (confiança baixa): confira o anúncio antes de usar.")
+                lista_baixas = "\n".join(f"- **{desc}** — [{p.get('dominio') or p.get('url')}]({p.get('url')}) — {formatar_moeda_br(p['preco'])}" for desc, p in baixas)
+                st.warning(f"{len(baixas)} preço(s) do mapa vieram da leitura do texto da página (confiança baixa): confira o anúncio antes de usar.\n\n{lista_baixas}")
             with st.expander("📸 Prints reais das páginas dos preços do mapa", expanded=bool(prints)):
                 paginas_mapa = [{"url": p["url"], "preco": p["preco"]} for r in analise for p in r["precos"]]
                 paginas_sem_print = [p for p in paginas_mapa if not prints.get(p["url"], {}).get("imagem")]
