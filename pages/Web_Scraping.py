@@ -759,7 +759,7 @@ def buscar_tavily(query, chave, num_results=8, item=None, dominios=None):
 
 
 def buscar_na_loja(session, item, site, headers, num_results=8):
-    """Procura o item dentro de uma loja da memória ("item site:loja"): Serper, depois Tavily; sem API, uma tentativa pelo ddgs.
+    """Procura o item dentro de uma loja da memória ("item site:loja"): Tavily, depois Serper; sem API, uma tentativa pelo ddgs.
     Devolve só páginas da própria loja (até 3)."""
     def da_loja(url):
         return memoria_lojas.dominio(url) == site or memoria_lojas.dominio(url).endswith("." + site)
@@ -767,22 +767,21 @@ def buscar_na_loja(session, item, site, headers, num_results=8):
     # Com API (Serper/Tavily) não passa pelo DuckDuckGo; sem API, é uma tentativa só pelo ddgs (cada busca extra aumenta o risco de bloqueio)
     query = f"{item} site:{site}"
     urls = []
-    chave = chave_serper()
-    if chave and time.time() >= SERPER_ESTADO["ate"]:
-        urls = [u for u in buscar_serper(query, chave, num_results, item) if da_loja(u)]
-    chave_t = chave_tavily()
-    if not urls and chave_t and time.time() >= TAVILY_ESTADO["ate"]:
+    chave_t, chave_s = chave_tavily(), chave_serper()
+    if chave_t and time.time() >= TAVILY_ESTADO["ate"]:
         urls = [u for u in buscar_tavily(query, chave_t, num_results, item, dominios=[site]) if da_loja(u)]
-    if not urls and not chave and not chave_t and time.time() >= DDG_PROXIMA_TENTATIVA["ate"]:  # sem API: uma tentativa pelo ddgs
+    if not urls and chave_s and time.time() >= SERPER_ESTADO["ate"]:
+        urls = [u for u in buscar_serper(query, chave_s, num_results, item) if da_loja(u)]
+    if not urls and not chave_t and not chave_s and time.time() >= DDG_PROXIMA_TENTATIVA["ate"]:  # sem API: uma tentativa pelo ddgs
         urls = [u for u in buscar_ddgs_api(query, num_results, item) if da_loja(u)]
     return list(dict.fromkeys(urls))[:3]
 
 
 def buscar_urls(session, query, headers, num_results=8, item=None):
-    """APIs de busca com chave primeiro (Serper = Google; depois Tavily); sem chave, sem créditos ou com erro, a busca gratuita (ddgs > Google) assume.
+    """APIs de busca com chave primeiro (Tavily, cuja cota grátis renova todo mês; depois Serper = Google, cujos créditos grátis não renovam); sem chave, sem créditos ou com erro, a busca gratuita (ddgs > Google) assume.
     Se uma API respondeu mas não havia lojas que citem o item, tenta a próxima; se nenhuma achou, devolve vazio sem insistir nos gratuitos."""
-    provedores = [("Serper", chave_serper(), SERPER_ESTADO, buscar_serper, "Serper (Google)"),
-                  ("Tavily", chave_tavily(), TAVILY_ESTADO, buscar_tavily, "Tavily")]
+    provedores = [("Tavily", chave_tavily(), TAVILY_ESTADO, buscar_tavily, "Tavily"),
+                  ("Serper", chave_serper(), SERPER_ESTADO, buscar_serper, "Serper (Google)")]
     falhas, vazios = [], []
     for nome, chave, estado, funcao, rotulo in provedores:
         if not chave or time.time() < estado["ate"]:
@@ -1509,7 +1508,7 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
 
     consultas_serper_antes = SERPER_USO["n"]
     consultas_tavily_antes = TAVILY_USO["n"]
-    _apis_log = [n for n, c in (("Serper (Google)", chave_serper()), ("Tavily", chave_tavily())) if c]
+    _apis_log = [n for n, c in (("Tavily", chave_tavily()), ("Serper (Google)", chave_serper())) if c]
     if _apis_log:
         log_msg(log_container, logs, "🔑 Busca por API ativa: " + " → ".join(_apis_log) + "; DuckDuckGo (ddgs) fica de reserva", "info")
     else:
@@ -2159,96 +2158,6 @@ st.markdown("""
 
 # ===================== INTERFACE PRINCIPAL =====================
 
-import streamlit.components.v1 as _components
-
-_como_funciona_html = """
-<div style="background: linear-gradient(135deg, #1a1a1a 0%, #252525 100%); border: 1px solid #333; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; color: #e0e0e0; font-family: 'Segoe UI', sans-serif; font-size: 15px; line-height: 1.6;">
-    <div style="font-size: 1.2rem; font-weight: bold; color: #d4af37; margin-bottom: 1rem;">⚙️ Como Funciona o Web Scraping</div>
-    <div style="margin-bottom: 0.8rem;">Este módulo automatiza a pesquisa de preços na internet para fins de <b>cotação e estimativa de preços</b>,
-    em conformidade com a IN 65/2021. O sistema busca preços diretamente em sites de fornecedores
-    (ignorando marketplaces como Mercado Livre, Amazon, Shopee etc.) para obter valores mais próximos
-    da realidade praticada no comércio direto.</div>
-
-    <div style="font-weight:bold; color:#d4af37; margin-bottom: 0.5rem;">🔄 Fluxo de Execução:</div>
-    <div style="margin-left: 1rem; margin-bottom: 1rem;">
-        <div style="margin-bottom:0.3rem;">1. Você informa os itens que deseja pesquisar (um por linha)</div>
-        <div style="margin-bottom:0.3rem;">2. O sistema gera até <b>5 variações de busca</b> para cada item (ex: "caneta preço", "comprar caneta online", "caneta fornecedor")</div>
-        <div style="margin-bottom:0.3rem;">3. Para cada variação, busca URLs relevantes usando <b>mecanismos em cascata</b>:
-            <br><b>Serper (Google) → Tavily → DDGS API → Google</b> (as duas primeiras exigem chave nos Secrets)</div>
-        <div style="margin-bottom:0.3rem;">4. Acessa cada site encontrado e extrai preços usando <b>4 estratégias de detecção</b>:
-            <br>dados estruturados (JSON-LD) → meta tags → classes de preço no HTML → regex em R$</div>
-        <div style="margin-bottom:0.3rem;">5. Salva uma evidência formatada (snapshot) de cada página com preço encontrado</div>
-        <div style="margin-bottom:0.3rem;">6. Gera o <b>relatório padrão da Cotação Rápida</b> (PDF e Excel, com mapa comparativo) e exporta também CSV, JSON e PDF de evidências</div>
-    </div>
-
-    <div style="font-weight:bold; color:#d4af37; margin-bottom: 0.5rem;">⚙️ Configurações Disponíveis:</div>
-    <div style="margin-left: 1rem; margin-bottom: 1rem;">
-        <div style="margin-bottom:0.4rem;">• <b>Navegador Automatizado (Playwright):</b> Quando ativado, usa um navegador real (Chromium)
-            para acessar sites que carregam preços via JavaScript. É mais lento, mas captura preços
-            de sites dinâmicos que o modo padrão não consegue ler. <i>Recomendação: deixe desativado
-            na maioria dos casos; ative apenas se estiver recebendo poucos resultados.</i></div>
-        <div style="margin-bottom:0.4rem;">• <b>Máx. fontes por item:</b> Quantidade máxima de orçamentos diferentes que o sistema
-            buscará para cada material. <i>Recomendação: <b>3</b> fontes é o ideal — já atende
-            à IN 65/2021 e mantém a pesquisa rápida.</i></div>
-        <div style="margin-bottom:0.4rem;">• <b>Delay mínimo / máximo (seg):</b> Intervalo de espera entre cada requisição,
-            simulando comportamento humano. Evita bloqueios dos sites.
-            <i>Recomendação: mínimo <b>2s</b> e máximo <b>6s</b> (padrão) —
-            aumente para 4s/10s se pesquisar muitos itens de uma vez.</i></div>
-    </div>
-</div>
-"""
-with st.expander("🩺 Testar os buscadores (diagnóstico)", expanded=False):
-    st.caption("Faz uma requisição a cada buscador (e uma a cada API com chave: gasta 1 crédito de cada), a partir do servidor do aplicativo, e mostra a resposta bruta. "
-               "Serve para separar bloqueio do servidor de erro no código. Não use várias vezes seguidas.")
-    if st.button("Testar agora", key="testar_buscadores"):
-        import requests as _rq
-        from bs4 import BeautifulSoup as _BS
-        _h = gerar_headers()
-        _linhas = []
-        _frase = "fita isolante preço"
-        # 0) Serper (API com chave)
-        _chave = chave_serper()
-        if _chave:
-            DIAG_BUSCA.clear()
-            _achados_s = buscar_serper(_frase, _chave, 8, "fita isolante")
-            _linhas.append(("Serper (API)", "ok" if DIAG_BUSCA.get("Serper", "").startswith("ok") else "erro", DIAG_BUSCA.get("Serper", ""),
-                            ", ".join(extrair_dominio(u) for u in _achados_s[:5])))
-        else:
-            _linhas.append(("Serper (API)", "sem chave", "SERPER_API_KEY não encontrada nos Secrets", ""))
-        _chave_t = chave_tavily()
-        if _chave_t:
-            DIAG_BUSCA.clear()
-            _achados_t = buscar_tavily(_frase, _chave_t, 8, "fita isolante")
-            _linhas.append(("Tavily (API)", "ok" if DIAG_BUSCA.get("Tavily", "").startswith("ok") else "erro", DIAG_BUSCA.get("Tavily", ""),
-                            ", ".join(extrair_dominio(u) for u in _achados_t[:5])))
-        else:
-            _linhas.append(("Tavily (API)", "sem chave", "TAVILY_API_KEY não encontrada nos Secrets", ""))
-        # 1) pacote ddgs
-        try:
-            from ddgs import DDGS as _D
-            _r = list(_D().text(_frase, region="br-pt", max_results=8))
-            _linhas.append(("ddgs (pacote)", "ok", f"{len(_r)} resultados", ", ".join(x.get("href", "")[:50] for x in _r[:3])))
-        except Exception as _e:
-            _linhas.append(("ddgs (pacote)", "erro", type(_e).__name__, str(_e)[:160]))
-        # 2) HTML dos buscadores
-        for _nome, _url in (("DuckDuckGo HTML", f"https://html.duckduckgo.com/html/?q={quote_plus(_frase)}"),):
-            time.sleep(3)
-            try:
-                _resp = _rq.get(_url, headers=_h, timeout=15)
-                _sopa = _BS(_resp.text, "html.parser")
-                _titulo = (_sopa.title.string.strip() if _sopa.title and _sopa.title.string else "(sem título)")[:80]
-                _n = len(_sopa.select("a.result__a")) + len(_sopa.select("li.b_algo"))
-                _texto = " ".join(_sopa.get_text(" ", strip=True).split())[:350]
-                _linhas.append((_nome, f"HTTP {_resp.status_code}", f"{len(_resp.text)} bytes, {_n}" + ("" if isinstance(_n, str) else " resultados"), f"título: {_titulo} | texto: {_texto}"))
-            except Exception as _e:
-                _linhas.append((_nome, "erro", type(_e).__name__, str(_e)[:160]))
-        st.dataframe(pd.DataFrame(_linhas, columns=["Buscador", "Estado", "Resumo", "Detalhe"]), use_container_width=True, hide_index=True)
-        for _b, _e, _r, _d in _linhas:  # em lista, para ler inteiro no celular
-            st.markdown(f"**{_b}** — {_e} — {_r}")
-            st.code(_d, language=None)
-        st.caption("HTTP 202 no DuckDuckGo = limite de requisições (bloqueio). Serper/Tavily com 'chave recusada' = chave errada nos Secrets; 'sem créditos' = cota acabou. "
-                   "ddgs com erro 'Ratelimit' = bloqueio; 'No results' = busca sem resposta.")
-
 with st.expander("🧠 Memória de lojas (aprende com o uso)", expanded=False):
     st.caption("A cada pesquisa o sistema guarda as lojas que deram preço e os itens que cada uma cotou; nas próximas, tenta primeiro "
                f"essas lojas para itens parecidos. Sites que falharam {memoria_lojas.FALHAS_PARA_PULAR} vezes sem nunca dar preço são pulados.")
@@ -2276,9 +2185,6 @@ with st.expander("🧠 Memória de lojas (aprende com o uso)", expanded=False):
         if puladas:
             st.markdown(f"**Sites pulados** (cada método é pulado só depois de {memoria_lojas.FALHAS_PARA_PULAR} falhas dele mesmo; o navegador não é barrado por falhas da leitura por texto)")
             st.dataframe(pd.DataFrame(puladas), hide_index=True, use_container_width=True)
-
-with st.expander("⚙️ Como Funciona o Web Scraping", expanded=False):
-    _components.html(_como_funciona_html, height=700, scrolling=True)
 
 # Formulário de entrada
 st.markdown("### 📝 Itens para Pesquisa")
@@ -2333,7 +2239,7 @@ with col2:
                                                help="Se uma página travar, o navegador a abandona depois desse tempo, é reiniciado e a leitura por texto tenta no lugar.")
     else:
         st.caption(f"Navegador indisponível (leitura simples por texto): {navegador_motivo}")
-    _apis = [n for n, c in (("Serper (Google)", chave_serper()), ("Tavily", chave_tavily())) if c]
+    _apis = [n for n, c in (("Tavily", chave_tavily()), ("Serper (Google)", chave_serper())) if c]
     if _apis:
         st.caption("🔑 Busca por API ativa: " + " → ".join(_apis) + ". DuckDuckGo (ddgs) fica de reserva.")
     else:
@@ -2449,7 +2355,7 @@ if "scraping_resultados" in st.session_state and st.session_state["scraping_resu
                                            help="Quantas colunas de preço o mapa comparativo (tabela, PDF e Excel) mostra. O padrão é 3.")
             analise = web_precos.analisar_todos(itens_pesquisados, resultados, max_precos=precos_por_item)
             prints = st.session_state.get("prints_web", {})
-            info_relatorio = {"max_precos": precos_por_item, "prints": {u: v for u, v in prints.items() if v.get("imagem")}, "motores": " e ".join([n for n, c in (("Serper (Google)", chave_serper()), ("Tavily", chave_tavily())) if c] + ["DuckDuckGo"]),
+            info_relatorio = {"max_precos": precos_por_item, "prints": {u: v for u, v in prints.items() if v.get("imagem")}, "motores": " e ".join([n for n, c in (("Tavily", chave_tavily()), ("Serper (Google)", chave_serper())) if c] + ["DuckDuckGo"]),
                               "gerado_em": datetime.now().strftime("%d/%m/%Y %H:%M")}
             st.caption("Mesmas regras da Cotação Rápida: sem outliers, preços a ±30% da média, mapa comparativo na 1ª página, "
                        "endereço e data/hora do acesso de cada preço.")
@@ -2474,12 +2380,30 @@ if "scraping_resultados" in st.session_state and st.session_state["scraping_resu
                     st.success("Todas as páginas do mapa já têm print.")
                 else:
                     if st.button(f"📸 Tirar os prints das {len({p['url'] for p in paginas_sem_print})} página(s) que faltam", key="botao_prints_web"):
-                        barra = st.progress(0)
-                        texto_barra = st.empty()
+                        inicio_prints = time.time()
+                        estado_prints = {"ok": 0, "falha": 0, "linhas": []}
+                        st.caption("Cada página leva de 5 a 30 segundos. Não feche nem recarregue a aba até terminar.")
+                        barra = st.progress(0, text="Abrindo o navegador do servidor… (pode levar alguns segundos)")
+                        detalhe_prints = st.empty()
 
-                        def andamento(feitas, total, url):
-                            barra.progress(feitas / max(total, 1))
-                            texto_barra.text(f"Capturando {feitas + 1}/{total}: {extrair_dominio(url)}" if url else "Concluído")
+                        def andamento(feitas, total, url, resultado=None):
+                            """Atualiza a barra: antes de cada página (url) e depois dela (resultado com o print ou o erro)."""
+                            if resultado is not None:
+                                nome = extrair_dominio(url)
+                                if resultado.get("imagem"):
+                                    estado_prints["ok"] += 1
+                                    estado_prints["linhas"].append(f"✅ {nome}")
+                                else:
+                                    estado_prints["falha"] += 1
+                                    estado_prints["linhas"].append(f"⚠️ {nome} — {resultado.get('erro', 'erro')}")
+                                situacao = f"Página {feitas} de {total} pronta"
+                            elif url:
+                                situacao = f"Capturando {feitas + 1} de {total}: {extrair_dominio(url)}"
+                            else:
+                                situacao = f"Concluído: {feitas} de {total}"
+                            percentual = int(100 * feitas / max(total, 1))
+                            barra.progress(min(feitas / max(total, 1), 1.0), text=f"{situacao} · {percentual}% · {int(time.time() - inicio_prints)} s")
+                            detalhe_prints.markdown(f"**{estado_prints['ok']}** com print · **{estado_prints['falha']}** com erro\n\n" + "\n\n".join(estado_prints["linhas"][-6:]))
 
                         novos = captura_pagina.capturar_prints(paginas_sem_print, andamento)
                         st.session_state["prints_web"] = {**st.session_state.get("prints_web", {}), **novos}
