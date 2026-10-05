@@ -29,7 +29,7 @@ API = "https://api.github.com"
 
 
 def vazia() -> dict:
-    return {"versao": 1, "lojas": {}, "falhas": {}, "frases": {}, "buscas": 0, "sem_busca": {}}
+    return {"versao": 1, "lojas": {}, "falhas": {}, "frases": {}, "buscas": 0, "sem_busca": {}, "serper": {"mes": "", "n": 0}, "tavily": {"mes": "", "n": 0}}
 
 
 def dominio(url_ou_site: str) -> str:
@@ -197,6 +197,18 @@ def lojas_para_item(memoria: dict, item: str, limite: int = MAX_LOJAS_POR_ITEM) 
     return [(site, parecido) for _, _, _, site, parecido in candidatas[:limite]]
 
 
+def registrar_uso_api(memoria: dict, api: str, consultas: int) -> int:
+    """Soma as consultas feitas a uma API de busca ('serper' ou 'tavily') nesta pesquisa ao total do mês corrente. Devolve o total do mês."""
+    mes = _hoje()[:7]
+    uso = memoria.setdefault(api, {"mes": "", "n": 0})
+    if uso.get("mes") != mes:
+        uso["mes"], uso["n"] = mes, 0
+    if consultas > 0:
+        uso["n"] += consultas
+        memoria["_mudou"] = True
+    return uso["n"]
+
+
 def padrao_busca(memoria: dict, site: str) -> str:
     """Endereço de busca interna da loja que já funcionou (ex.: '/busca?q={q}'), ou vazio."""
     return memoria["lojas"].get(dominio(site), {}).get("busca", "")
@@ -298,6 +310,9 @@ def _normalizar(dados: dict) -> dict:
         memoria["frases"] = dict(dados.get("frases") or {})
         memoria["buscas"] = int(dados.get("buscas") or 0)
         memoria["sem_busca"] = dict(dados.get("sem_busca") or {})
+        for api in ("serper", "tavily"):
+            uso = dados.get(api) or {}
+            memoria[api] = {"mes": str(uso.get("mes", "")), "n": int(uso.get("n", 0) or 0)}
     return memoria
 
 
@@ -330,7 +345,7 @@ def carregar(segredos=None, requisicoes=None) -> tuple[dict, str]:
 
 def _para_gravar(memoria: dict) -> dict:
     return {"versao": 1, "atualizado": dt.datetime.now().isoformat(timespec="seconds"),
-            "lojas": memoria["lojas"], "falhas": memoria["falhas"], "frases": memoria.get("frases", {}), "buscas": memoria.get("buscas", 0), "sem_busca": memoria.get("sem_busca", {})}
+            "lojas": memoria["lojas"], "falhas": memoria["falhas"], "frases": memoria.get("frases", {}), "buscas": memoria.get("buscas", 0), "sem_busca": memoria.get("sem_busca", {}), "serper": memoria.get("serper", {"mes": "", "n": 0}), "tavily": memoria.get("tavily", {"mes": "", "n": 0})}
 
 
 def _juntar(local: dict, remota: dict) -> dict:
@@ -361,6 +376,12 @@ def _juntar(local: dict, remota: dict) -> dict:
         atual["acertos"] = max(atual.get("acertos", 0), dados.get("acertos", 0))
         atual["ultimo"] = max(atual.get("ultimo", ""), dados.get("ultimo", ""))
     junta["buscas"] = max(junta.get("buscas", 0), local.get("buscas", 0))
+    for api in ("serper", "tavily"):
+        ls, js = local.get(api, {}), junta.get(api, {})
+        if ls.get("mes") == js.get("mes"):
+            junta[api] = {"mes": ls.get("mes", ""), "n": max(ls.get("n", 0), js.get("n", 0))}
+        elif ls.get("mes", "") > js.get("mes", ""):
+            junta[api] = dict(ls)
     return junta
 
 
