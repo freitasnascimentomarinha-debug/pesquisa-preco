@@ -2013,6 +2013,38 @@ _como_funciona_html = """
     </div>
 </div>
 """
+with st.expander("🩺 Testar os buscadores (diagnóstico)", expanded=False):
+    st.caption("Faz UMA requisição a cada buscador, a partir do servidor do aplicativo, e mostra a resposta bruta. "
+               "Serve para separar bloqueio do servidor de erro no código. Não use várias vezes seguidas.")
+    if st.button("Testar agora", key="testar_buscadores"):
+        import requests as _rq
+        from bs4 import BeautifulSoup as _BS
+        _h = gerar_headers()
+        _linhas = []
+        _frase = "fita isolante preço"
+        # 1) pacote ddgs
+        try:
+            from ddgs import DDGS as _D
+            _r = list(_D().text(_frase, region="br-pt", max_results=8))
+            _linhas.append(("ddgs (pacote)", "ok", f"{len(_r)} resultados", ", ".join(x.get("href", "")[:50] for x in _r[:3])))
+        except Exception as _e:
+            _linhas.append(("ddgs (pacote)", "erro", type(_e).__name__, str(_e)[:160]))
+        # 2) HTML dos buscadores
+        for _nome, _url in (("DuckDuckGo HTML", f"https://html.duckduckgo.com/html/?q={quote_plus(_frase)}"),
+                            ("Bing", f"https://www.bing.com/search?q={quote_plus(_frase)}&setlang=pt-BR&count=8")):
+            time.sleep(3)
+            try:
+                _resp = _rq.get(_url, headers=_h, timeout=15)
+                _sopa = _BS(_resp.text, "html.parser")
+                _titulo = (_sopa.title.string.strip() if _sopa.title and _sopa.title.string else "(sem título)")[:80]
+                _n = len(_sopa.select("a.result__a")) + len(_sopa.select("li.b_algo"))
+                _linhas.append((_nome, f"HTTP {_resp.status_code}", f"{len(_resp.text)} bytes, {_n} resultados", f"título: {_titulo}"))
+            except Exception as _e:
+                _linhas.append((_nome, "erro", type(_e).__name__, str(_e)[:160]))
+        st.dataframe(pd.DataFrame(_linhas, columns=["Buscador", "Estado", "Resumo", "Detalhe"]), use_container_width=True, hide_index=True)
+        st.caption("HTTP 202 no DuckDuckGo = limite de requisições (bloqueio). Título com 'captcha'/'verifique' no Bing = ele pediu verificação humana. "
+                   "ddgs com erro 'Ratelimit' = bloqueio; 'No results' = busca sem resposta.")
+
 with st.expander("🧠 Memória de lojas (aprende com o uso)", expanded=False):
     st.caption("A cada pesquisa o sistema guarda as lojas que deram preço e os itens que cada uma cotou; nas próximas, tenta primeiro "
                f"essas lojas para itens parecidos. Sites que falharam {memoria_lojas.FALHAS_PARA_PULAR} vezes sem nunca dar preço são pulados.")
