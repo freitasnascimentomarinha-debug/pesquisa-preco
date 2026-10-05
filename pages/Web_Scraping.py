@@ -465,7 +465,7 @@ def _dedup_urls(urls, num_results=8):
     return unique[:num_results]
 
 
-INTERVALO_MIN_BUSCA_S = 2.0  # pausa mínima entre duas requisições a buscadores (DuckDuckGo, Google, Bing), de qualquer tipo
+INTERVALO_MIN_BUSCA_S = 2.0  # pausa mínima entre duas requisições a buscadores (DuckDuckGo, Google), de qualquer tipo
 ULTIMA_REQUISICAO_BUSCA = {"t": 0.0}
 
 
@@ -630,87 +630,177 @@ def buscar_google_requests(session, query, headers, num_results=8):
         return []
 
 
-def desembrulhar_link_bing(href):
-    """Os resultados do Bing costumam vir como https://www.bing.com/ck/a?...&u=a1<base64 do endereço real>: devolve o endereço real
-    (sem isso todos os resultados parecem do domínio bing.com e a deduplicação por domínio deixa só um)."""
-    import base64
-    from urllib.parse import parse_qs, urlparse
-
-    try:
-        partes = urlparse(href)
-        if not partes.netloc.endswith("bing.com"):
-            return href
-        valor = (parse_qs(partes.query).get("u") or [""])[0]
-        if valor.startswith("a1"):
-            bruto = valor[2:]
-            real = base64.urlsafe_b64decode(bruto + "=" * (-len(bruto) % 4)).decode("utf-8", "ignore")
-            if real.startswith("http"):
-                return real
-    except Exception:
-        pass
-    return href
-
-
 SINAIS_VENDA = re.compile(r"r\$|\bcompr(a|ar|e)\b|\bpre[çc]o|\bloja\b|\boferta|\bcomprar\b|\bfrete\b|\bcarrinho\b|\bem estoque\b|\bparcel")
 
 
-def buscar_bing_requests(session, query, headers, num_results=8, item=None):
-    """Busca no Bing como fallback adicional."""
-    intervalo_entre_buscas()
-    from bs4 import BeautifulSoup
+SERPER_URL = "https://google.serper.dev/search"
+FRASES_COM_SERPER = 3  # frases de busca por item quando há API de busca ativa (cada consulta gasta 1 crédito)
+SERPER_ESTADO = {"ate": 0.0}  # depois de erro de chave/créditos o Serper fica de fora por um tempo (a busca segue pelos buscadores gratuitos)
+SERPER_USO = {"n": 0}  # consultas ao Serper nesta execução do app
 
-    url = f"https://www.bing.com/search?q={quote_plus(query)}&setlang=pt-BR&cc=BR&mkt=pt-BR&count={num_results}"
-    bing_headers = dict(headers)
-    bing_headers["Referer"] = "https://www.bing.com/"
+
+def chave_serper():
+    """Chave do Serper nos Secrets (SERPER_API_KEY, no 1º nível ou dentro de uma seção) ou na variável de ambiente. Vazio se não houver."""
+    chave = ""
     try:
-        resp = session.get(url, headers=bing_headers, timeout=15)
-        if resp.status_code != 200:
-            DIAG_BUSCA["Bing"] = f"HTTP {resp.status_code}"
-            return []
+        chave, _ = memoria_lojas._procurar(st.secrets, "SERPER_API_KEY")
+    except Exception:
+        chave = ""
+    return str(chave or os.environ.get("SERPER_API_KEY", "")).strip().strip('"').strip()
 
-        soup = BeautifulSoup(resp.text, "html.parser")
-        urls = []
 
-        raizes_item = _raizes_do_item(item)
-        comerciais = []  # resultados com cara de venda (preço, R$, comprar, loja...): vêm na frente
-        outros = []
-        # Cada resultado é um título (h2) com link: aceita o formato clássico (li.b_algo) e variações de layout
-        for a_tag in soup.select("li.b_algo h2 a, #b_results h2 a, main h2 a, h2 a"):
-            href = desembrulhar_link_bing(a_tag.get("href", ""))
-            if not (href.startswith("http") and dominio_valido(href)) or href in comerciais or href in outros:
-                continue
-            bloco = a_tag.find_parent("li") or a_tag.find_parent("article") or a_tag.find_parent("div")
-            texto = (bloco.get_text(" ", strip=True) if bloco else a_tag.get_text(" ", strip=True)).lower()
-            if not _cita_o_item(f"{texto} {href}", raizes_item):
-                continue  # resultado que nem cita o item (outro assunto, outro idioma)
-            (comerciais if SINAIS_VENDA.search(texto) else outros).append(href)
-        # só ficam os resultados com cara de venda; artigos, definições e notícias não servem para cotação
-        urls = comerciais
-        if not urls and outros:
-            DIAG_BUSCA["Bing_sem_venda"] = f"{len(outros)} resultado(s) sem cara de venda descartado(s)"
+def buscar_serper(query, chave, num_results=8, item=None):
+    """Busca no Serper (resultados do Google, em JSON, mercado brasileiro). Não é scraping: é uma API com chave e cota própria, sem bloqueio por
+    endereço. Preenche DIAG_BUSCA['Serper'] com 'ok ...' ou o motivo do erro. Só ficam resultados que citam o item; os com cara de venda vão na frente."""
+    import requests as _rq
 
-        DIAG_BUSCA["Bing"] = f"{len(urls)} sites"
-        return _dedup_urls(urls, num_results)
-
+    try:
+        resp = _rq.post(SERPER_URL, headers={"X-API-KEY": chave, "Content-Type": "application/json"},
+                        json={"q": query, "gl": "br", "hl": "pt-br", "num": 10}, timeout=15)
     except Exception as erro:
-        DIAG_BUSCA["Bing"] = f"erro {type(erro).__name__}"
+        DIAG_BUSCA["Serper"] = f"erro {type(erro).__name__}"
         return []
+    SERPER_USO["n"] += 1
+    if resp.status_code != 200:
+        texto = (resp.text or "")[:120].replace("\n", " ")
+        if resp.status_code in (401, 403):
+            DIAG_BUSCA["Serper"] = f"chave recusada (HTTP {resp.status_code})"
+            SERPER_ESTADO["ate"] = time.time() + 600
+        elif resp.status_code in (400, 402) and ("credit" in texto.lower() or "balance" in texto.lower()):
+            DIAG_BUSCA["Serper"] = "sem créditos"
+            SERPER_ESTADO["ate"] = time.time() + 3600
+        elif resp.status_code == 429:
+            DIAG_BUSCA["Serper"] = "limite de consultas por segundo (HTTP 429)"
+            SERPER_ESTADO["ate"] = time.time() + 30
+        else:
+            DIAG_BUSCA["Serper"] = f"HTTP {resp.status_code} {texto}"
+        return []
+    try:
+        organicos = resp.json().get("organic", []) or []
+    except Exception:
+        DIAG_BUSCA["Serper"] = "resposta ilegível"
+        return []
+    raizes = _raizes_do_item(item)
+    comerciais, outros = [], []
+    for r in organicos:
+        link = r.get("link", "")
+        if not link or not dominio_valido(link):
+            continue
+        texto = f"{r.get('title', '')} {r.get('snippet', '')} {link}"
+        if not _cita_o_item(texto, raizes):
+            continue
+        (comerciais if SINAIS_VENDA.search(texto.lower()) else outros).append(link)
+    urls = comerciais + outros
+    DIAG_BUSCA["Serper"] = f"ok, {len(organicos)} resultados, {len(urls)} com o item"
+    return _dedup_urls(urls, num_results)
+
+
+TAVILY_URL = "https://api.tavily.com/search"
+TAVILY_ESTADO = {"ate": 0.0}
+TAVILY_USO = {"n": 0}
+
+
+def chave_tavily():
+    """Chave do Tavily nos Secrets (TAVILY_API_KEY, no 1º nível ou dentro de uma seção) ou na variável de ambiente. Vazio se não houver."""
+    chave = ""
+    try:
+        chave, _ = memoria_lojas._procurar(st.secrets, "TAVILY_API_KEY")
+    except Exception:
+        chave = ""
+    return str(chave or os.environ.get("TAVILY_API_KEY", "")).strip().strip('"').strip()
+
+
+def buscar_tavily(query, chave, num_results=8, item=None, dominios=None):
+    """Busca no Tavily (API de busca para IA, em JSON). `dominios`: restringe a esses sites (usado nas lojas da memória). Preenche
+    DIAG_BUSCA['Tavily'] com 'ok ...' ou o motivo do erro. Só ficam resultados que citam o item; os com cara de venda vão na frente."""
+    import requests as _rq
+
+    corpo = {"query": query, "search_depth": "basic", "max_results": 10, "topic": "general"}
+    if dominios:
+        corpo["include_domains"] = list(dominios)
+    try:
+        resp = _rq.post(TAVILY_URL, headers={"Authorization": f"Bearer {chave}", "Content-Type": "application/json"}, json=corpo, timeout=20)
+    except Exception as erro:
+        DIAG_BUSCA["Tavily"] = f"erro {type(erro).__name__}"
+        return []
+    TAVILY_USO["n"] += 1
+    if resp.status_code != 200:
+        texto = (resp.text or "")[:120].replace("\n", " ")
+        if resp.status_code == 401:
+            DIAG_BUSCA["Tavily"] = "chave recusada (HTTP 401)"
+            TAVILY_ESTADO["ate"] = time.time() + 600
+        elif resp.status_code in (402, 432, 433):
+            DIAG_BUSCA["Tavily"] = f"sem créditos/limite do plano (HTTP {resp.status_code})"
+            TAVILY_ESTADO["ate"] = time.time() + 3600
+        elif resp.status_code == 429:
+            DIAG_BUSCA["Tavily"] = "limite de consultas por minuto (HTTP 429)"
+            TAVILY_ESTADO["ate"] = time.time() + 30
+        else:
+            DIAG_BUSCA["Tavily"] = f"HTTP {resp.status_code} {texto}"
+        return []
+    try:
+        resultados = resp.json().get("results", []) or []
+    except Exception:
+        DIAG_BUSCA["Tavily"] = "resposta ilegível"
+        return []
+    raizes = _raizes_do_item(item)
+    comerciais, outros = [], []
+    for r in resultados:
+        link = r.get("url", "")
+        if not link or not dominio_valido(link):
+            continue
+        texto = f"{r.get('title', '')} {str(r.get('content', ''))[:500]} {link}"
+        if not _cita_o_item(texto, raizes):
+            continue
+        (comerciais if SINAIS_VENDA.search(texto.lower()) else outros).append(link)
+    urls = comerciais + outros
+    DIAG_BUSCA["Tavily"] = f"ok, {len(resultados)} resultados, {len(urls)} com o item"
+    return _dedup_urls(urls, num_results)
 
 
 def buscar_na_loja(session, item, site, headers, num_results=8):
-    """Procura o item dentro de uma loja da memória ("item site:loja") só no Bing.
+    """Procura o item dentro de uma loja da memória ("item site:loja"): Serper, depois Tavily; sem API, uma tentativa pelo ddgs.
     Devolve só páginas da própria loja (até 3)."""
     def da_loja(url):
         return memoria_lojas.dominio(url) == site or memoria_lojas.dominio(url).endswith("." + site)
 
-    # Só no Bing: o DuckDuckGo fica reservado para as frases principais (cada busca extra a ele aumenta o risco de bloqueio)
+    # Com API (Serper/Tavily) não passa pelo DuckDuckGo; sem API, é uma tentativa só pelo ddgs (cada busca extra aumenta o risco de bloqueio)
     query = f"{item} site:{site}"
-    urls = [u for u in buscar_bing_requests(session, query, headers, num_results, item) if da_loja(u)]
+    urls = []
+    chave = chave_serper()
+    if chave and time.time() >= SERPER_ESTADO["ate"]:
+        urls = [u for u in buscar_serper(query, chave, num_results, item) if da_loja(u)]
+    chave_t = chave_tavily()
+    if not urls and chave_t and time.time() >= TAVILY_ESTADO["ate"]:
+        urls = [u for u in buscar_tavily(query, chave_t, num_results, item, dominios=[site]) if da_loja(u)]
+    if not urls and not chave and not chave_t and time.time() >= DDG_PROXIMA_TENTATIVA["ate"]:  # sem API: uma tentativa pelo ddgs
+        urls = [u for u in buscar_ddgs_api(query, num_results, item) if da_loja(u)]
     return list(dict.fromkeys(urls))[:3]
 
 
 def buscar_urls(session, query, headers, num_results=8, item=None):
-    """Busca combinada: DDGS API > Google > Bing (o DuckDuckGo HTML saiu: é o mesmo buscador do ddgs). Se o DuckDuckGo falhar com sinal de bloqueio (erro, HTTP 202/403/429),
+    """APIs de busca com chave primeiro (Serper = Google; depois Tavily); sem chave, sem créditos ou com erro, a busca gratuita (ddgs > Google) assume.
+    Se uma API respondeu mas não havia lojas que citem o item, tenta a próxima; se nenhuma achou, devolve vazio sem insistir nos gratuitos."""
+    provedores = [("Serper", chave_serper(), SERPER_ESTADO, buscar_serper, "Serper (Google)"),
+                  ("Tavily", chave_tavily(), TAVILY_ESTADO, buscar_tavily, "Tavily")]
+    falhas, vazios = [], []
+    for nome, chave, estado, funcao, rotulo in provedores:
+        if not chave or time.time() < estado["ate"]:
+            continue
+        DIAG_BUSCA.clear()
+        urls = funcao(query, chave, num_results, item)
+        situacao = DIAG_BUSCA.get(nome, "")
+        if urls:
+            return urls, rotulo
+        (vazios if situacao.startswith("ok") else falhas).append(f"{nome}: {situacao}")
+    if vazios:
+        return [], "nenhum (" + "; ".join(vazios + falhas) + ")"
+    urls, motor = _buscar_urls_gratis(session, query, headers, num_results, item)
+    return urls, motor + (" — " + "; ".join(falhas) if falhas else "")
+
+
+def _buscar_urls_gratis(session, query, headers, num_results=8, item=None):
+    """Busca gratuita: DDGS API > Google (o DuckDuckGo HTML saiu: é o mesmo buscador do ddgs; o Bing saiu: não achava lojas). Se o DuckDuckGo falhar com sinal de bloqueio (erro, HTTP 202/403/429),
     ele descansa PAUSA_APOS_BLOQUEIO_DDG segundos antes de ser consultado de novo (insistir só prolonga o bloqueio); nesse intervalo a busca
     segue pelos outros. O motivo vai junto com o nome do buscador, para aparecer no log."""
     DIAG_BUSCA.clear()
@@ -743,11 +833,7 @@ def buscar_urls(session, query, headers, num_results=8, item=None):
     urls = buscar_google_requests(session, query, headers, num_results)
     if urls:
         return urls, f"Google — {nota}" if nota else "Google"
-    # 4. Bing
-    urls = buscar_bing_requests(session, query, headers, num_results, item)
-    if urls:
-        return urls, f"Bing — {nota}" if nota else "Bing"
-    outros = "; ".join(f"{k}: {v}" for k, v in DIAG_BUSCA.items() if k in ("Google", "Bing", "Bing_sem_venda"))
+    outros = "; ".join(f"{k}: {v}" for k, v in DIAG_BUSCA.items() if k in ("Google",))
     nota = "; ".join(x for x in (nota, outros) if x)
     return [], f"nenhum ({nota})" if nota else "nenhum"
 
@@ -1421,6 +1507,14 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
     if not onde_memoria.startswith("GitHub"):
         log_msg(log_container, logs, "🧠 " + memoria_lojas.diagnostico_secrets(st.secrets if _tem_secrets() else {}), "warn")
 
+    consultas_serper_antes = SERPER_USO["n"]
+    consultas_tavily_antes = TAVILY_USO["n"]
+    _apis_log = [n for n, c in (("Serper (Google)", chave_serper()), ("Tavily", chave_tavily())) if c]
+    if _apis_log:
+        log_msg(log_container, logs, "🔑 Busca por API ativa: " + " → ".join(_apis_log) + "; DuckDuckGo (ddgs) fica de reserva", "info")
+    else:
+        log_msg(log_container, logs, "🔑 Sem SERPER_API_KEY/TAVILY_API_KEY nos Secrets: a busca usa só o DuckDuckGo (gratuito, sujeito a bloqueio)", "warn")
+
     st.session_state["prints_web"] = {}  # prints desta pesquisa (o navegador guarda o print assim que acha o preço)
 
     def ler_com_navegador(url, item_nome):
@@ -1533,6 +1627,9 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
             # Selecionar variantes de busca aleatoriamente (usar mais variantes para maximizar cobertura)
             # Frases na ordem aprendida pela memória (as que mais rendem preços primeiro; de vez em quando a pior é testada); o laço para ao atingir as fontes
             variantes, explicacao_frases = memoria_lojas.ordenar_frases(memoria, VARIANTES_BUSCA + VARIANTES_RESERVA)
+            serper_ativo = (bool(chave_serper()) and time.time() >= SERPER_ESTADO["ate"]) or (bool(chave_tavily()) and time.time() >= TAVILY_ESTADO["ate"])  # há API de busca em uso
+            if serper_ativo:
+                variantes = variantes[:FRASES_COM_SERPER]  # o Google já devolve 10 lojas por consulta: poucas frases bastam e poupam a cota
             log_msg(log_container, logs, f"🧠 Frases de busca: {explicacao_frases}", "info")
             dominios_falhos = set()  # site que falhou neste item não é tentado de novo nas outras buscas do mesmo item
 
@@ -1544,7 +1641,7 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
                 navegador_ligado = leitor is not None and leitor.disponivel and navegador_primeiro
                 time.sleep(gerar_delay(0.3, 0.8) if navegador_ligado else gerar_delay(1.5, 3.0))
                 achado = None  # (resultado, url, método)
-                # 1) busca do próprio site da loja (sem buscador); 2) a página que já deu preço antes; 3) busca "site:" no Bing
+                # 1) busca do próprio site da loja (sem buscador); 2) a página que já deu preço antes; 3) busca "site:" pela API de busca
                 interna = tentar_busca_interna(site_memoria, item)
                 if interna:
                     achado = interna
@@ -1587,11 +1684,12 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
                 log_msg(log_container, logs, f"🔍 Buscando: \"{query}\"", "info")
 
                 # Delay antes da busca
-                delay = gerar_delay(2.0, 5.0)
-                log_msg(log_container, logs, f"⏳ Aguardando {delay:.1f}s...", "info")
+                delay = gerar_delay(0.3, 0.8) if serper_ativo else gerar_delay(2.0, 5.0)  # API com chave não precisa de pausa "humana"
+                if not serper_ativo:
+                    log_msg(log_container, logs, f"⏳ Aguardando {delay:.1f}s...", "info")
                 time.sleep(delay)
 
-                # Buscar URLs (DDGS API > DuckDuckGo HTML > Google > Bing)
+                # Buscar URLs (Serper > Tavily > ddgs > Google)
                 urls, engine = buscar_urls(session, query, headers, item=item)
 
                 if not urls:
@@ -1721,6 +1819,10 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
                 time.sleep(delay)
     finally:  # grava o que a pesquisa aprendeu mesmo que ela seja interrompida por um erro
         try:
+            for _nome_api, _uso, _antes in (("serper", SERPER_USO["n"], consultas_serper_antes), ("tavily", TAVILY_USO["n"], consultas_tavily_antes)):
+                if _uso - _antes:
+                    _total_mes = memoria_lojas.registrar_uso_api(memoria, _nome_api, _uso - _antes)
+                    log_msg(log_container, logs, f"🔑 {_nome_api.capitalize()}: {_uso - _antes} consulta(s) nesta pesquisa; {_total_mes} neste mês (confira o saldo no painel do serviço)", "info")
             log_msg(log_container, logs, "🧠 Memória de lojas: " + memoria_lojas.salvar(memoria, st.secrets if _tem_secrets() else {}), "info")
         except Exception:
             pass
@@ -2071,8 +2173,8 @@ _como_funciona_html = """
     <div style="margin-left: 1rem; margin-bottom: 1rem;">
         <div style="margin-bottom:0.3rem;">1. Você informa os itens que deseja pesquisar (um por linha)</div>
         <div style="margin-bottom:0.3rem;">2. O sistema gera até <b>5 variações de busca</b> para cada item (ex: "caneta preço", "comprar caneta online", "caneta fornecedor")</div>
-        <div style="margin-bottom:0.3rem;">3. Para cada variação, busca URLs relevantes usando <b>4 mecanismos em cascata</b>:
-            <br><b>DDGS API → DuckDuckGo HTML → Google → Bing</b></div>
+        <div style="margin-bottom:0.3rem;">3. Para cada variação, busca URLs relevantes usando <b>mecanismos em cascata</b>:
+            <br><b>Serper (Google) → Tavily → DDGS API → Google</b> (as duas primeiras exigem chave nos Secrets)</div>
         <div style="margin-bottom:0.3rem;">4. Acessa cada site encontrado e extrai preços usando <b>4 estratégias de detecção</b>:
             <br>dados estruturados (JSON-LD) → meta tags → classes de preço no HTML → regex em R$</div>
         <div style="margin-bottom:0.3rem;">5. Salva uma evidência formatada (snapshot) de cada página com preço encontrado</div>
@@ -2096,7 +2198,7 @@ _como_funciona_html = """
 </div>
 """
 with st.expander("🩺 Testar os buscadores (diagnóstico)", expanded=False):
-    st.caption("Faz uma requisição a cada buscador (duas ao Bing: uma bruta e uma pela leitura da pesquisa), a partir do servidor do aplicativo, e mostra a resposta bruta. "
+    st.caption("Faz uma requisição a cada buscador (e uma a cada API com chave: gasta 1 crédito de cada), a partir do servidor do aplicativo, e mostra a resposta bruta. "
                "Serve para separar bloqueio do servidor de erro no código. Não use várias vezes seguidas.")
     if st.button("Testar agora", key="testar_buscadores"):
         import requests as _rq
@@ -2104,6 +2206,23 @@ with st.expander("🩺 Testar os buscadores (diagnóstico)", expanded=False):
         _h = gerar_headers()
         _linhas = []
         _frase = "fita isolante preço"
+        # 0) Serper (API com chave)
+        _chave = chave_serper()
+        if _chave:
+            DIAG_BUSCA.clear()
+            _achados_s = buscar_serper(_frase, _chave, 8, "fita isolante")
+            _linhas.append(("Serper (API)", "ok" if DIAG_BUSCA.get("Serper", "").startswith("ok") else "erro", DIAG_BUSCA.get("Serper", ""),
+                            ", ".join(extrair_dominio(u) for u in _achados_s[:5])))
+        else:
+            _linhas.append(("Serper (API)", "sem chave", "SERPER_API_KEY não encontrada nos Secrets", ""))
+        _chave_t = chave_tavily()
+        if _chave_t:
+            DIAG_BUSCA.clear()
+            _achados_t = buscar_tavily(_frase, _chave_t, 8, "fita isolante")
+            _linhas.append(("Tavily (API)", "ok" if DIAG_BUSCA.get("Tavily", "").startswith("ok") else "erro", DIAG_BUSCA.get("Tavily", ""),
+                            ", ".join(extrair_dominio(u) for u in _achados_t[:5])))
+        else:
+            _linhas.append(("Tavily (API)", "sem chave", "TAVILY_API_KEY não encontrada nos Secrets", ""))
         # 1) pacote ddgs
         try:
             from ddgs import DDGS as _D
@@ -2112,17 +2231,13 @@ with st.expander("🩺 Testar os buscadores (diagnóstico)", expanded=False):
         except Exception as _e:
             _linhas.append(("ddgs (pacote)", "erro", type(_e).__name__, str(_e)[:160]))
         # 2) HTML dos buscadores
-        for _nome, _url in (("DuckDuckGo HTML", f"https://html.duckduckgo.com/html/?q={quote_plus(_frase)}"),
-                            ("Bing", f"https://www.bing.com/search?q={quote_plus(_frase)}&setlang=pt-BR&count=8")):
+        for _nome, _url in (("DuckDuckGo HTML", f"https://html.duckduckgo.com/html/?q={quote_plus(_frase)}"),):
             time.sleep(3)
             try:
                 _resp = _rq.get(_url, headers=_h, timeout=15)
                 _sopa = _BS(_resp.text, "html.parser")
                 _titulo = (_sopa.title.string.strip() if _sopa.title and _sopa.title.string else "(sem título)")[:80]
                 _n = len(_sopa.select("a.result__a")) + len(_sopa.select("li.b_algo"))
-                if _nome == "Bing":  # usa a mesma leitura da pesquisa e mostra o que ela acharia
-                    _achados = buscar_bing_requests(_rq.Session(), _frase, _h, 8)
-                    _n = f"{_n} no formato clássico; a pesquisa acharia {len(_achados)}: " + ", ".join(extrair_dominio(u) for u in _achados[:5])
                 _texto = " ".join(_sopa.get_text(" ", strip=True).split())[:350]
                 _linhas.append((_nome, f"HTTP {_resp.status_code}", f"{len(_resp.text)} bytes, {_n}" + ("" if isinstance(_n, str) else " resultados"), f"título: {_titulo} | texto: {_texto}"))
             except Exception as _e:
@@ -2131,7 +2246,7 @@ with st.expander("🩺 Testar os buscadores (diagnóstico)", expanded=False):
         for _b, _e, _r, _d in _linhas:  # em lista, para ler inteiro no celular
             st.markdown(f"**{_b}** — {_e} — {_r}")
             st.code(_d, language=None)
-        st.caption("HTTP 202 no DuckDuckGo = limite de requisições (bloqueio). Título com 'captcha'/'verifique' no Bing = ele pediu verificação humana. "
+        st.caption("HTTP 202 no DuckDuckGo = limite de requisições (bloqueio). Serper/Tavily com 'chave recusada' = chave errada nos Secrets; 'sem créditos' = cota acabou. "
                    "ddgs com erro 'Ratelimit' = bloqueio; 'No results' = busca sem resposta.")
 
 with st.expander("🧠 Memória de lojas (aprende com o uso)", expanded=False):
@@ -2218,6 +2333,11 @@ with col2:
                                                help="Se uma página travar, o navegador a abandona depois desse tempo, é reiniciado e a leitura por texto tenta no lugar.")
     else:
         st.caption(f"Navegador indisponível (leitura simples por texto): {navegador_motivo}")
+    _apis = [n for n, c in (("Serper (Google)", chave_serper()), ("Tavily", chave_tavily())) if c]
+    if _apis:
+        st.caption("🔑 Busca por API ativa: " + " → ".join(_apis) + ". DuckDuckGo (ddgs) fica de reserva.")
+    else:
+        st.caption("🔑 Sem chave de API de busca: usa só o DuckDuckGo (gratuito, sujeito a bloqueio). Ponha SERPER_API_KEY e/ou TAVILY_API_KEY nos Secrets do app.")
     max_fontes = st.number_input(
         "Máx. fontes por item",
         min_value=1,
@@ -2329,7 +2449,7 @@ if "scraping_resultados" in st.session_state and st.session_state["scraping_resu
                                            help="Quantas colunas de preço o mapa comparativo (tabela, PDF e Excel) mostra. O padrão é 3.")
             analise = web_precos.analisar_todos(itens_pesquisados, resultados, max_precos=precos_por_item)
             prints = st.session_state.get("prints_web", {})
-            info_relatorio = {"max_precos": precos_por_item, "prints": {u: v for u, v in prints.items() if v.get("imagem")}, "motores": "DuckDuckGo e Bing",
+            info_relatorio = {"max_precos": precos_por_item, "prints": {u: v for u, v in prints.items() if v.get("imagem")}, "motores": " e ".join([n for n, c in (("Serper (Google)", chave_serper()), ("Tavily", chave_tavily())) if c] + ["DuckDuckGo"]),
                               "gerado_em": datetime.now().strftime("%d/%m/%Y %H:%M")}
             st.caption("Mesmas regras da Cotação Rápida: sem outliers, preços a ±30% da média, mapa comparativo na 1ª página, "
                        "endereço e data/hora do acesso de cada preço.")
