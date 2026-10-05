@@ -9,7 +9,6 @@ from typing import Dict, List, Optional, Tuple
 
 import aiohttp
 import folium
-import requests
 import streamlit as st
 from streamlit_folium import st_folium
 from streamlit_searchbox import st_searchbox
@@ -22,12 +21,9 @@ recarregar_se_mudou('catmat_busca')  # evita módulo antigo em memória após de
 from catmat_busca import (  # noqa: E402
     CATMAT_PATH,
     CATSERV_PATH,
-    atualizado_em,
-    carregar_catalogo,
-    carregar_indice_catmat,
     carregar_sugestoes_catmat,
-    sugerir_materiais,
-    sugerir_servicos,
+    carregar_sugestoes_catserv,
+    sugerir_itens,
 )
 
 # ── Constantes da API ──────────────────────────────────────────────────────
@@ -456,30 +452,6 @@ def _data_path(filename: str) -> str:
 def load_catalog(path: str) -> Dict[str, str]:
     with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
-
-
-@st.cache_data(ttl=3600, show_spinner=False)
-def contar_atas(tipo: str, codigo: str) -> Optional[int]:
-    """Quantidade de itens de ata vigentes no período da busca para o código (None se a API falhar)."""
-    fim = dt.today().date()
-    parametros = {
-        "pagina": 1,
-        "tamanhoPagina": 10,
-        "dataVigenciaInicialMin": (fim - td(days=DATE_RANGE_DAYS - 1)).strftime("%Y-%m-%d"),
-        "dataVigenciaInicialMax": fim.strftime("%Y-%m-%d"),
-        "codigoPdm" if tipo == "Material" else "codigoItem": codigo,
-    }
-    try:
-        resposta = requests.get(API_URL, params=parametros, timeout=20)
-        return int(resposta.json()["totalRegistros"]) if resposta.status_code == 200 else None
-    except (requests.RequestException, ValueError, KeyError):
-        return None
-
-
-def texto_atas(quantidade: Optional[int]) -> str:
-    if quantidade is None:
-        return "atas: indisponível"
-    return "sem atas no período" if quantidade == 0 else f"{quantidade} itens de ata"
 
 
 def build_ata_url(identifier: str) -> str:
@@ -1208,26 +1180,13 @@ def campo_pesquisa(tipo: str) -> None:
     Ao escolher (ou limpar) um item, a página inteira é recarregada com a nova escolha.
     """
     if tipo == "Material":
-        catmat = carregar_indice_catmat(CATMAT_PATH)
-        sugestoes = carregar_sugestoes_catmat(CATMAT_PATH)
-
-        def buscar(termo: str) -> list:
-            return sugerir_materiais(termo, catmat, sugestoes)
-
+        itens, catalogo = carregar_sugestoes_catmat(CATMAT_PATH), "CATMAT"
     else:
-        catalogo_servico = carregar_catalogo(CATSERV_PATH)
-
-        def buscar(termo: str) -> list:
-            return sugerir_servicos(termo, catalogo_servico)
-
+        itens, catalogo = carregar_sugestoes_catserv(CATSERV_PATH), "CATSERV"
     escolha = st_searchbox(
-        buscar,
+        lambda termo: sugerir_itens(termo, itens, catalogo),
         label="Pesquisar material" if tipo == "Material" else "Pesquisar serviço",
-        placeholder=(
-            "Comece a digitar: notebook, luva de procedimento, papel a4 ou o código CATMAT/PDM"
-            if tipo == "Material"
-            else "Comece a digitar: manutenção de ar condicionado, limpeza ou o código CATSERV"
-        ),
+        placeholder="Digite o nome ou o código do item",
         key=f"adesao_pesquisa_{tipo}",
         debounce=300,
         rerun_scope="fragment",
@@ -1241,32 +1200,11 @@ def campo_pesquisa(tipo: str) -> None:
 
 
 if tipo:
-    data_catalogo = atualizado_em()
-    st.caption(
-        "Digite o nome, parte do nome ou o código "
-        + ("CATMAT/PDM" if tipo == "Material" else "CATSERV")
-        + " — a lista abaixo vai filtrando e sugerindo os itens do catálogo"
-        + (f" (catálogo oficial atualizado em {data_catalogo})." if data_catalogo else ".")
-        + (" 📦 = família de material (PDM) · 🔹 = item CATMAT. A busca de atas é feita pela família." if tipo == "Material" else "")
-    )
     campo_pesquisa(tipo)
     escolhida = st.session_state.get(f"adesao_escolha_{tipo}")
     if escolhida:
-        codigo = escolhida["codigo"]
-        selected_label = escolhida["nome"]
-        with st.spinner("Verificando atas vigentes..."):
-            quantidade_atas = contar_atas(tipo, codigo)
-        if tipo == "Material":
-            detalhes = [f"Família **{escolhida['nome']}** (PDM {codigo})"]
-            if escolhida.get("classe"):
-                detalhes.append(f"classe {escolhida['classe']}")
-            st.caption(" · ".join(detalhes) + f" · {texto_atas(quantidade_atas)}")
-            if escolhida.get("origem"):
-                st.caption(escolhida["origem"])
-        else:
-            st.caption(f"Serviço **{escolhida['nome']}** (CATSERV {codigo}) · {texto_atas(quantidade_atas)}")
-        if quantidade_atas == 0:
-            st.info("Este código não tem atas vigentes no período pesquisado. Experimente outra sugestão da lista.")
+        codigo = escolhida.codigo_busca  # material: as atas são buscadas pelo PDM do item escolhido
+        selected_label = escolhida.nome
 
 if selected_label:
     federal_only = st.checkbox("Buscar somente atas da esfera federal", value=True)
