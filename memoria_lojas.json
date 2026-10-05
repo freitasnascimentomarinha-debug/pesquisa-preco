@@ -1,9 +1,9 @@
 {
  "versao": 1,
- "atualizado": "2026-10-05T04:48:53",
+ "atualizado": "2026-10-05T04:56:57",
  "lojas": {
   "lojadomecanico.com.br": {
-   "acertos": 16,
+   "acertos": 17,
    "ultimo": "2026-10-05",
    "itens": [
     "fita isolante",
@@ -13,7 +13,7 @@
     "chave de fenda"
    ],
    "metodos": {
-    "navegador": 6,
+    "navegador": 7,
     "texto": 0
    },
    "paginas": {
@@ -34,13 +34,13 @@
    }
   },
   "telhanorte.com.br": {
-   "acertos": 7,
+   "acertos": 8,
    "ultimo": "2026-10-05",
    "itens": [
     "fita isolante"
    ],
    "metodos": {
-    "navegador": 3,
+    "navegador": 4,
     "texto": 0
    },
    "paginas": {
@@ -709,6 +709,46 @@
    "ultimo": "2026-10-04"
   },
   "collinsdictionary.com": {
+   "navegador": 2,
+   "texto": 2,
+   "ultimo": "2026-10-05"
+  },
+  "spanishdict.com": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-05"
+  },
+  "dictionary.cambridge.org": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-05"
+  },
+  "wordhippo.com": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-05"
+  },
+  "spanishstep.com": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-05"
+  },
+  "humanidades.com": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-05"
+  },
+  "thereadingtub.com": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-05"
+  },
+  "en.m.wiktionary.org": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-05"
+  },
+  "wework.com": {
    "navegador": 1,
    "texto": 1,
    "ultimo": "2026-10-05"
@@ -716,45 +756,45 @@
  },
  "frases": {
   "{item} comprar": {
-   "usos": 10.2464,
-   "acertos": 1.2322,
-   "ultimo": "2026-10-04"
+   "usos": 10.7341,
+   "acertos": 1.1706,
+   "ultimo": "2026-10-05"
   },
   "{item} preço": {
-   "usos": 12.0556,
-   "acertos": 4.6888,
+   "usos": 12.8302,
+   "acertos": 4.2317,
    "ultimo": "2026-10-05"
   },
   "venda de {item}": {
-   "usos": 10.2464,
-   "acertos": 1.4159,
-   "ultimo": "2026-10-04"
+   "usos": 10.7341,
+   "acertos": 1.3451,
+   "ultimo": "2026-10-05"
   },
   "{item} valor": {
-   "usos": 9.7331,
+   "usos": 10.2464,
    "acertos": 0.0,
-   "ultimo": "2026-10-04"
+   "ultimo": "2026-10-05"
   },
   "{item} atacado": {
-   "usos": 12.0556,
-   "acertos": 6.529,
+   "usos": 12.8302,
+   "acertos": 5.8924,
    "ultimo": "2026-10-05"
   },
   "{item} preço brasil": {
-   "usos": 8.6239,
-   "acertos": 0.0,
-   "ultimo": "2026-10-04"
-  },
-  "{item} comprar brasil": {
    "usos": 9.1927,
    "acertos": 0.0,
-   "ultimo": "2026-10-04"
+   "ultimo": "2026-10-05"
+  },
+  "{item} comprar brasil": {
+   "usos": 9.7331,
+   "acertos": 0.0,
+   "ultimo": "2026-10-05"
   },
   "comprar {item} online brasil": {
-   "usos": 11.6375,
-   "acertos": 2.7846,
+   "usos": 12.0556,
+   "acertos": 2.6454,
    "ultimo": "2026-10-05"
   }
  },
- "buscas": 19
+ "buscas": 21
 }
