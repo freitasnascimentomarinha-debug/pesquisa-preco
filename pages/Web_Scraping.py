@@ -219,6 +219,12 @@ DOMINIOS_IGNORADOS = [
     "google.com", "google.com.br", "youtube.com", "facebook.com",
     "instagram.com", "twitter.com", "linkedin.com", "wikipedia.org",
     "gov.br", "reddit.com", "tiktok.com",
+    # Universidades, justiça, legislativo, ministério público e militares: não vendem
+    ".edu.br", ".edu", ".jus.br", ".leg.br", ".mp.br", ".mil.br", "scielo.", "academia.edu", "researchgate.net",
+    # Jornais, portais de notícia e de conteúdo escolar
+    "jornal", "folha.", "estadao.", "correio", "diario", "gazeta", "cnn", "bbc.", "r7.com", "infomoney", "exame.com",
+    "olhardigital", "tecmundo", "techtudo", "canaltech", "mundoeducacao", "brasilescola", "todamateria", "significados.",
+    "infoescola", "dicio.com", "oglobo", "veja.abril", "istoe", "metropoles", "poder360",
     # Marketplaces
     "mercadolivre.com.br", "mercadolivre.com", "lista.mercadolivre.com.br",
     "produto.mercadolivre.com.br", "mlstatic.com",
@@ -298,6 +304,8 @@ def dominio_valido(url):
         dominio = urlparse(url).netloc.lower()
         # Rejeitar domínios na lista de ignorados
         if any(d in dominio for d in DOMINIOS_IGNORADOS):
+            return False
+        if re.match(r"^(www\.|[a-z0-9-]+\.)?(usp|unicamp|unesp|unb|uerj|uff|uft|ufrj|ufmg|ufsc|ufpr|ufrgs|ufba|ufpe|ufc|ufes|ufg|ufu|ufscar|ufop|ufpa|ufam|ufrn|ufpb|uespi|uepb|uece|uem|uel|udesc|unifesp|unir|unifei|utfpr|ifsp|ifrj|ifsc|ifpr|ifmg|ifba)\.br$", dominio):
             return False
         # Aceitar apenas domínios brasileiros (.com.br, .br) ou .com genéricos
         if dominio.endswith('.br') or dominio.endswith('.com') or dominio.endswith('.net') or dominio.endswith('.org'):
@@ -612,12 +620,15 @@ def desembrulhar_link_bing(href):
     return href
 
 
+SINAIS_VENDA = re.compile(r"r\$|\bcompr(a|ar|e)\b|\bpre[çc]o|\bloja\b|\boferta|\bcomprar\b|\bfrete\b|\bcarrinho\b|\bem estoque\b|\bparcel")
+
+
 def buscar_bing_requests(session, query, headers, num_results=8):
     """Busca no Bing como fallback adicional."""
     intervalo_entre_buscas()
     from bs4 import BeautifulSoup
 
-    url = f"https://www.bing.com/search?q={quote_plus(query)}&setlang=pt-BR&count={num_results}"
+    url = f"https://www.bing.com/search?q={quote_plus(query)}&setlang=pt-BR&cc=BR&mkt=pt-BR&count={num_results}"
     bing_headers = dict(headers)
     bing_headers["Referer"] = "https://www.bing.com/"
     try:
@@ -629,12 +640,17 @@ def buscar_bing_requests(session, query, headers, num_results=8):
         soup = BeautifulSoup(resp.text, "html.parser")
         urls = []
 
+        comerciais = []  # resultados com cara de venda (preço, R$, comprar, loja...): vêm na frente
+        outros = []
         for li in soup.select("li.b_algo"):
             a_tag = li.select_one("h2 a")
             if a_tag:
                 href = desembrulhar_link_bing(a_tag.get("href", ""))
                 if href.startswith("http") and dominio_valido(href):
-                    urls.append(href)
+                    texto = li.get_text(" ", strip=True).lower()
+                    (comerciais if SINAIS_VENDA.search(texto) else outros).append(href)
+        # havendo resultados de venda, os outros (artigos, definições, notícias) ficam de fora
+        urls = comerciais if comerciais else outros
 
         if not urls:
             for a_tag in soup.select("#b_results a[href^='http']"):
