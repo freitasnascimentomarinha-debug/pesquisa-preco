@@ -2038,10 +2038,14 @@ with st.expander("🩺 Testar os buscadores (diagnóstico)", expanded=False):
                 _sopa = _BS(_resp.text, "html.parser")
                 _titulo = (_sopa.title.string.strip() if _sopa.title and _sopa.title.string else "(sem título)")[:80]
                 _n = len(_sopa.select("a.result__a")) + len(_sopa.select("li.b_algo"))
-                _linhas.append((_nome, f"HTTP {_resp.status_code}", f"{len(_resp.text)} bytes, {_n} resultados", f"título: {_titulo}"))
+                _texto = " ".join(_sopa.get_text(" ", strip=True).split())[:350]
+                _linhas.append((_nome, f"HTTP {_resp.status_code}", f"{len(_resp.text)} bytes, {_n} resultados", f"título: {_titulo} | texto: {_texto}"))
             except Exception as _e:
                 _linhas.append((_nome, "erro", type(_e).__name__, str(_e)[:160]))
         st.dataframe(pd.DataFrame(_linhas, columns=["Buscador", "Estado", "Resumo", "Detalhe"]), use_container_width=True, hide_index=True)
+        for _b, _e, _r, _d in _linhas:  # em lista, para ler inteiro no celular
+            st.markdown(f"**{_b}** — {_e} — {_r}")
+            st.code(_d, language=None)
         st.caption("HTTP 202 no DuckDuckGo = limite de requisições (bloqueio). Título com 'captcha'/'verifique' no Bing = ele pediu verificação humana. "
                    "ddgs com erro 'Ratelimit' = bloqueio; 'No results' = busca sem resposta.")
 
