@@ -247,9 +247,12 @@ def preco_na_listagem(soup, item: str, url: str = "", cards: list[dict] | None =
     if len(cards) < MIN_CARDS_LISTAGEM:
         return None
     achados = sorted((c for c in cards if sinonimos.confere_nome(item, c["nome"])), key=lambda c: c["preco"])
-    if achados and embalagem.medidas(item):  # mesma medida do item primeiro; medida diferente fica de fora
-        iguais = [c for c in achados if embalagem.confere(item, c["nome"]) == "igual"]
-        achados = iguais or [c for c in achados if embalagem.confere(item, c["nome"]) != "diferente"]
+    if achados and embalagem.medidas(item):  # mesma medida do item primeiro; sem medida depois; medida diferente só se não houver outro
+        for grupo in ("igual", "sem_medida", "diferente"):
+            do_grupo = [c for c in achados if embalagem.confere(item, c["nome"]) == grupo]
+            if do_grupo:
+                achados = do_grupo
+                break
     if not achados:
         return None
     melhor = max(sinonimos.pontuacao(item, c["nome"]) for c in achados)  # os que mais se parecem com o pedido ("papel adesivo contact" > "papel adesivo leonora")
@@ -348,6 +351,7 @@ def registro_da_oferta(oferta: dict) -> dict | None:
         "dominio": dominio, "url": str(oferta.get("url") or ""), "titulo": str(oferta.get("titulo") or ""), "data_coleta": str(oferta.get("data_coleta") or ""),
         "origem_preco": str(oferta.get("origem_preco") or "não informada"), "confianca": str(oferta.get("confianca") or ""),
         "precos_na_pagina": len(oferta.get("precos_detectados") or []),
+        "medida_confere": str(oferta.get("medida_confere") or ""), "medida_ofertada": str(oferta.get("medida_ofertada") or ""),
     }
 
 
@@ -371,7 +375,16 @@ def analisar_item_web(descricao: str, ofertas: list[dict], remover: bool = True,
     limpos, resultado["faixa_validos"] = remover_outliers(registros) if remover else (list(registros), None)
     resultado["outliers"] = len(registros) - len(limpos)
     resultado["status"] = "sem_precos"
-    resultado["precos"] = selecionar_precos(limpos, max_precos, tolerancia)
+    # embalagem diferente da pedida só entra se faltar preço de embalagem igual (ou sem medida informada)
+    mesma_embalagem = [r for r in limpos if r.get("medida_confere") != "diferente"]
+    resultado["precos"] = selecionar_precos(mesma_embalagem, max_precos, tolerancia)
+    if len(resultado["precos"]) < max_precos and len(mesma_embalagem) < len(limpos):
+        resultado["precos"] = selecionar_precos(limpos, max_precos, tolerancia)
+    diferentes = [p for p in resultado["precos"] if p.get("medida_confere") == "diferente"]
+    if diferentes and descricao:  # a descrição do relatório passa a dizer a embalagem realmente cotada
+        cotadas = ", ".join(f"{p.get('medida_ofertada') or 'outra medida'} ({p['dominio']})" for p in diferentes)
+        resultado["descricao"] = f"{descricao} — ATENÇÃO: {len(diferentes)} preço(s) de embalagem diferente da pedida: {cotadas}"
+        resultado["unidade_curta"] = "embalagens variadas"
     if resultado["precos"]:
         resultado["stats"] = estatisticas([r["preco"] for r in resultado["precos"]])
         resultado["status"] = "ok" if len(resultado["precos"]) >= MIN_PRECOS else "insuficiente"

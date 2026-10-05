@@ -4,7 +4,7 @@
    = plástico/papel adesivo). Cada entrada diz como BUSCAR, que nomes de produto ACEITAR e que palavras EXCLUEM o anúncio
    (ex.: "esferográfica" nunca é caneta piloto; "toalha" nunca é papel contact).
 2. confere_nome(item, nome): o nome do produto (título da página, card da listagem, JSON-LD) é do item pedido? Sem sinônimo, exige a
-   1ª palavra do item (o substantivo: "papel", "caneta", "lâmpada") e pelo menos 60% das palavras; "papel toalha" não passa por "papel contact".
+   1ª palavra do item (o substantivo: "papel", "caneta", "lâmpada") e pelo menos metade das palavras; "papel toalha" não passa por "papel contact".
 Sem IA e sem internet. Para acrescentar um termo, basta uma nova entrada em SINONIMOS."""
 import math
 import re
@@ -166,7 +166,7 @@ def _palavras_chave(item: str) -> list[str]:
 def confere_nome(item: str, nome: str) -> bool:
     """O nome do produto anunciado corresponde ao item pedido?
     Com sinônimo: precisa casar um dos conjuntos 'aceitar' e nenhuma palavra de 'excluir'.
-    Sem sinônimo: a 1ª palavra do item (o substantivo) e pelo menos 60% das palavras do item (no máximo 4)."""
+    Sem sinônimo: a 1ª palavra do item (o substantivo) e pelo menos metade das palavras do item (no máximo 3)."""
     nome_norm = normalizar(nome)
     if not nome_norm.strip():
         return False
@@ -179,14 +179,15 @@ def confere_nome(item: str, nome: str) -> bool:
                 return False
             # o que sobra do item além do apelido (cor, tipo: 'azul' em 'caneta piloto azul') também precisa aparecer, na maioria
             resto = _resto_do_item(item, registro)
-            return not resto or sum(1 for p in resto if _tem(nome_norm, p)) >= math.ceil(0.6 * len(resto))
+            return not resto or sum(1 for p in resto if _tem(nome_norm, p)) >= math.ceil(0.5 * len(resto))
     palavras = _palavras_chave(embalagem.base(item))  # medida e embalagem ("500ml", "caixa") são conferidas à parte, em embalagem.py
+    palavras = [p for p in palavras if not p.isdigit()] or palavras  # números soltos ('26/6') não contam: cada loja escreve de um jeito
     if not palavras:
         return True
     if not _tem(nome_norm, palavras[0]):
         return False
     acertos = sum(1 for p in palavras if _tem(nome_norm, p))
-    return acertos >= max(1, min(math.ceil(0.6 * len(palavras)), 4))  # 60% das palavras; descrição longa: no máximo 4 exigidas
+    return acertos >= max(1, min(math.ceil(0.5 * len(palavras)), 3))  # metade das palavras; descrição longa: no máximo 3 exigidas
 
 
 def excluido(item: str, texto: str) -> bool:
