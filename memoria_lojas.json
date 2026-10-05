@@ -1,6 +1,6 @@
 {
  "versao": 1,
- "atualizado": "2026-10-05T21:04:30",
+ "atualizado": "2026-10-05T21:23:17",
  "lojas": {
   "lojadomecanico.com.br": {
    "acertos": 21,
@@ -73,9 +73,11 @@
    }
   },
   "kalunga.com.br": {
-   "acertos": 15,
+   "acertos": 17,
    "ultimo": "2026-10-05",
    "itens": [
+    "tinta guache vermelha",
+    "caneta marca texto amarelo",
     "resma de papel",
     "caneta esferográfica azul",
     "cola bastão",
@@ -90,7 +92,7 @@
    ],
    "metodos": {
     "navegador": 7,
-    "texto": 3
+    "texto": 5
    },
    "paginas": {
     "grampeador": "https://www.kalunga.com.br/depto/suprimentos-para-escritorio/grampeadores/26/1104",
@@ -98,7 +100,9 @@
     "cola bastão": "https://www.kalunga.com.br/depto/suprimentos-para-escritorio/colas-em-bastao/26/892",
     "lápis preto": "https://www.kalunga.com.br/busca/1?q=lapis-preto",
     "caneta esferográfica azul": "https://www.kalunga.com.br/depto/escrita-corretivos/canetas-esferograficas-1-6/11/1304",
-    "resma de papel": "https://www.kalunga.com.br/busca/resma-de-papel-a4/"
+    "resma de papel": "https://www.kalunga.com.br/busca/resma-de-papel-a4/",
+    "caneta marca texto amarelo": "https://www.kalunga.com.br/busca/marca-texto-amarelo/1",
+    "tinta guache vermelha": "https://www.kalunga.com.br/prod/tinta-guache-vermelho-250ml-2574-radex-po-1-un/700363"
    }
   },
   "lojascacula.com.br": {
@@ -164,9 +168,10 @@
    }
   },
   "tendaatacado.com.br": {
-   "acertos": 7,
+   "acertos": 8,
    "ultimo": "2026-10-05",
    "itens": [
+    "arroz 1 kg",
     "cola 250ml",
     "luva de limpeza",
     "papel a4",
@@ -177,16 +182,19 @@
    ],
    "metodos": {
     "navegador": 1,
-    "texto": 2
+    "texto": 3
    },
    "paginas": {
-    "cola 250ml": "https://www.tendaatacado.com.br/produto/refrigerante-coca-cola-250ml?srsltid=AU7gw4WwO0e0qeNZ_bREKSzXYS67bMuBkFJEMc7aH_jK6bxa3ELB0u7V"
+    "cola 250ml": "https://www.tendaatacado.com.br/produto/refrigerante-coca-cola-250ml?srsltid=AU7gw4WwO0e0qeNZ_bREKSzXYS67bMuBkFJEMc7aH_jK6bxa3ELB0u7V",
+    "arroz 1 kg": "https://www.tendaatacado.com.br/produto/arroz-tipo-1-maximo-5kg-14799"
    }
   },
   "atacadosaopaulo.com.br": {
-   "acertos": 9,
+   "acertos": 11,
    "ultimo": "2026-10-05",
    "itens": [
+    "tinta guache vermelha",
+    "caneta marca texto amarelo",
     "resma de papel",
     "caneta esferográfica azul",
     "luva de limpeza",
@@ -197,11 +205,13 @@
    ],
    "metodos": {
     "navegador": 6,
-    "texto": 1
+    "texto": 3
    },
    "paginas": {
     "caneta esferográfica azul": "https://www.atacadosaopaulo.com.br/ki-5-caixas-caneta-esferografica-1-0mm---3un-azul--1un-preto-e-1un-vermelho---caixa-fechada-50un/p?srsltid=AU7gw4Vyg5t9J9U2FbmQcIfvLVIMmm-1Qb4l5EoZNMZ7S025fHvaLGbp",
-    "resma de papel": "https://www.atacadosaopaulo.com.br/kit-10-resma-papel-sulfite-a4-210x297mm-75g-m2-amarelo/p?srsltid=AU7gw4VS8wfB8E9SGKNPb1eAlLwdVEp64NmKFyaX3KYjH85pgLWLafvV"
+    "resma de papel": "https://www.atacadosaopaulo.com.br/kit-10-resma-papel-sulfite-a4-210x297mm-75g-m2-amarelo/p?srsltid=AU7gw4VS8wfB8E9SGKNPb1eAlLwdVEp64NmKFyaX3KYjH85pgLWLafvV",
+    "caneta marca texto amarelo": "https://www.atacadosaopaulo.com.br/caneta-marca-texto-amarela-mp612---12un---masterprint/p",
+    "tinta guache vermelha": "https://www.atacadosaopaulo.com.br/tinta-guache-15ml-vermelho-fogo--12-unidades---acrilex/p"
    }
   },
   "hp.com": {
@@ -795,17 +805,19 @@
    }
   },
   "contabilista.com.br": {
-   "acertos": 1,
+   "acertos": 2,
    "ultimo": "2026-10-05",
    "itens": [
+    "tinta guache vermelha",
     "caneta esferográfica azul"
    ],
    "metodos": {
     "navegador": 1,
-    "texto": 0
+    "texto": 1
    },
    "paginas": {
-    "caneta esferográfica azul": "https://www.contabilista.com.br/escritorio-e-papelaria/caneta-esferografica-cristal-fina-0-8mm-azul-bic.html?srsltid=AU7gw4U_OtgxOvs2WZI6VejC-K-dCfN8rj_a27GFK44Dpp6U_cV867B6"
+    "caneta esferográfica azul": "https://www.contabilista.com.br/escritorio-e-papelaria/caneta-esferografica-cristal-fina-0-8mm-azul-bic.html?srsltid=AU7gw4U_OtgxOvs2WZI6VejC-K-dCfN8rj_a27GFK44Dpp6U_cV867B6",
+    "tinta guache vermelha": "https://www.contabilista.com.br/escolar/tinta-para-pintura/tinta-guache-250ml-vermelho-fogo-acrilex-507.html"
    }
   },
   "lepok.com.br": {
@@ -863,15 +875,82 @@
    "paginas": {
     "resma de papel": "https://www.intersupri.com.br/papel-sulfite-a4-report-premium-75g-suzano-resma-500-folhas-p2577?srsltid=AU7gw4XQ6rurR0zBxCLJbQbn9GvXMAFrHH8Sve3opMkwz7_Gkr-d2GVd"
    }
+  },
+  "papelariaartnova.com.br": {
+   "acertos": 2,
+   "ultimo": "2026-10-05",
+   "itens": [
+    "clips de papel",
+    "caneta marca texto amarelo"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 2
+   },
+   "paginas": {
+    "caneta marca texto amarelo": "https://www.papelariaartnova.com.br/escrita/marca-texto/caneta-marca-texto-faber-castell-grifpen-cx-c-12-unid-amarelo-mt-amzf",
+    "clips de papel": "https://www.papelariaartnova.com.br/papelaria/clips-e-prendedores"
+   }
+  },
+  "mundoware.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-05",
+   "itens": [
+    "caneta marca texto amarelo"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "paginas": {
+    "caneta marca texto amarelo": "https://www.mundoware.com.br/marca-texto-gel-amarelo-masterprint-mp613"
+   }
+  },
+  "tilibraexpress.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-05",
+   "itens": [
+    "clips de papel"
+   ],
+   "metodos": {
+    "navegador": 1,
+    "texto": 0
+   },
+   "paginas": {
+    "clips de papel": "https://www.tilibraexpress.com.br/escritorio/clips-para-papel"
+   }
+  },
+  "mercado.carrefour.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-05",
+   "itens": [
+    "arroz 1 kg"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "paginas": {
+    "arroz 1 kg": "https://mercado.carrefour.com.br/busca/pre%C3%A7o%20arroz"
+   }
+  },
+  "loja.cestanobre.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-05",
+   "itens": [
+    "arroz 1 kg"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "paginas": {
+    "arroz 1 kg": "https://loja.cestanobre.com.br/categorias/arroz-atacado"
+   }
   }
  },
  "falhas": {
   "alltape.com.br": {
-   "navegador": 0,
-   "texto": 1,
-   "ultimo": "2026-10-04"
-  },
-  "tilibraexpress.com.br": {
    "navegador": 0,
    "texto": 1,
    "ultimo": "2026-10-04"
@@ -1145,6 +1224,41 @@
    "navegador": 1,
    "texto": 1,
    "ultimo": "2026-10-05"
+  },
+  "tracxn.com": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-05"
+  },
+  "hn.ebay.com": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-05"
+  },
+  "carrefour.com.br": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-05"
+  },
+  "pt.accio.com": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-05"
+  },
+  "soriana.com": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-05"
+  },
+  "dimecuba.com": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-05"
+  },
+  "supermarket23.com": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-05"
   }
  },
  "frases": {
@@ -1154,8 +1268,8 @@
    "ultimo": "2026-10-05"
   },
   "{item} preço": {
-   "usos": 15.4812,
-   "acertos": 18.325,
+   "usos": 16.3193,
+   "acertos": 22.3931,
    "ultimo": "2026-10-05"
   },
   "venda de {item}": {
@@ -1164,18 +1278,18 @@
    "ultimo": "2026-10-05"
   },
   "{item} valor": {
-   "usos": 12.0556,
-   "acertos": 6.6575,
+   "usos": 12.8302,
+   "acertos": 6.0084,
    "ultimo": "2026-10-05"
   },
   "{item} atacado": {
-   "usos": 14.7296,
-   "acertos": 6.3314,
+   "usos": 15.2434,
+   "acertos": 7.6641,
    "ultimo": "2026-10-05"
   },
   "{item} preço brasil": {
-   "usos": 9.7331,
-   "acertos": 0.0,
+   "usos": 10.2464,
+   "acertos": 2.0,
    "ultimo": "2026-10-05"
   },
   "{item} comprar brasil": {
@@ -1189,7 +1303,7 @@
    "ultimo": "2026-10-05"
   }
  },
- "buscas": 34,
+ "buscas": 38,
  "sem_busca": {
   "arxiv.org": "2026-10-05",
   "papers.ssrn.com": "2026-10-05",
@@ -1225,14 +1339,20 @@
   "telerio.com.br": "2026-10-05",
   "martinsatacado.com.br": "2026-10-05",
   "atacadosaopaulo.com.br": "2026-10-05",
-  "soaresatacado.com.br": "2026-10-05"
+  "soaresatacado.com.br": "2026-10-05",
+  "cbinsights.com": "2026-10-05",
+  "gimba.com.br": "2026-10-05",
+  "m.casadopapel.com.br": "2026-10-05",
+  "metdata.com.br": "2026-10-05",
+  "pt.accio.com": "2026-10-05",
+  "supermarket23.com": "2026-10-05"
  },
  "serper": {
   "mes": "2026-10",
   "n": 15
  },
  "tavily": {
-  "mes": "",
-  "n": 0
+  "mes": "2026-10",
+  "n": 9
  }
 }
