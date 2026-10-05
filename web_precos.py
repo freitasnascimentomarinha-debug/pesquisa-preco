@@ -205,7 +205,9 @@ def _cards_da_listagem(soup) -> list[dict]:
 def preco_na_listagem(soup, item: str) -> dict | None:
     """Em página de listagem (3+ produtos), o preço do produto cujo nome cita o item. Vários produtos citam: o preço do do meio
     (mediana), que é mais típico do que a mediana de tudo (cola, cabos e outros itens da vitrine ficam de fora)."""
-    termos = _palavras(item)
+    import embalagem
+
+    termos = _palavras(embalagem.base(item))  # o nome sem medida e sem "caixa"/"pacote"/"UN": a medida é conferida à parte
     if not termos:
         return None
     cards = _cards_da_listagem(soup)
@@ -215,6 +217,9 @@ def preco_na_listagem(soup, item: str) -> dict | None:
         if not conjunto:
             continue
         achados = sorted((c for c in cards if conjunto <= c["palavras"]), key=lambda c: c["preco"])
+        if achados and embalagem.medidas(item):  # mesma medida do item primeiro; medida diferente fica de fora
+            iguais = [c for c in achados if embalagem.confere(item, c["nome"]) == "igual"]
+            achados = iguais or [c for c in achados if embalagem.confere(item, c["nome"]) != "diferente"]
         if achados:
             escolhido = achados[(len(achados) - 1) // 2]
             extra = f" (mediana de {len(achados)} produtos que citam o item)" if len(achados) > 1 else ""

@@ -58,6 +58,12 @@ NATUREZAS: dict[str, list[str]] = {
         "copo descartavel", "cafe", "acucar", "adocante", "guardanapo", "prato descartavel", "talher descartavel", "garrafa termica",
         "filtro de cafe", "cha", "leite", "agua mineral", "galao", "bandeja", "pote", "papel aluminio", "filme pvc", "mexedor",
     ],
+    "gêneros alimentícios": [
+        "arroz", "feijao", "macarrao", "farinha de trigo", "farinha de mandioca", "fuba", "oleo de soja", "azeite", "sal refinado", "sal grosso",
+        "acucar cristal", "acucar refinado", "leite em po", "leite integral", "cafe em po", "cafe torrado", "achocolatado", "biscoito", "bolacha",
+        "molho de tomate", "extrato de tomate", "sardinha", "atum", "milho verde", "ervilha", "vinagre", "tempero", "margarina", "manteiga",
+        "carne", "frango", "ovo", "queijo", "presunto", "pao", "farinha", "lentilha", "aveia", "flocos de milho", "creme de leite", "leite condensado",
+    ],
     "automotivo e lubrificantes": [
         "oleo lubrificante", "oleo de motor", "oleo", "graxa", "lubrificante", "aditivo", "filtro de oleo", "filtro de ar", "desengripante",
         "fluido de freio", "arla", "palheta", "pneu", "bateria automotiva", "wd 40", "wd40",
