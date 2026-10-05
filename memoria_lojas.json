@@ -1,6 +1,6 @@
 {
  "versao": 1,
- "atualizado": "2026-10-05T05:03:59",
+ "atualizado": "2026-10-05T19:07:12",
  "lojas": {
   "lojadomecanico.com.br": {
    "acertos": 18,
@@ -69,9 +69,10 @@
    }
   },
   "kalunga.com.br": {
-   "acertos": 10,
+   "acertos": 11,
    "ultimo": "2026-10-05",
    "itens": [
+    "cola bastão",
     "grampeador escolar",
     "grampeador",
     "caneta esferográfica azul",
@@ -83,11 +84,12 @@
    ],
    "metodos": {
     "navegador": 5,
-    "texto": 0
+    "texto": 1
    },
    "paginas": {
     "grampeador": "https://www.kalunga.com.br/depto/suprimentos-para-escritorio/grampeadores/26/1104",
-    "grampeador escolar": "https://www.kalunga.com.br/depto/suprimentos-para-escritorio/grampeadores/26/1104"
+    "grampeador escolar": "https://www.kalunga.com.br/depto/suprimentos-para-escritorio/grampeadores/26/1104",
+    "cola bastão": "https://www.kalunga.com.br/depto/suprimentos-para-escritorio/colas-em-bastao/26/892"
    }
   },
   "lojascacula.com.br": {
@@ -227,15 +229,19 @@
    }
   },
   "casadopapel.com.br": {
-   "acertos": 2,
-   "ultimo": "2026-10-04",
+   "acertos": 3,
+   "ultimo": "2026-10-05",
    "itens": [
+    "cola bastão",
     "papel a4",
     "papel crepom"
    ],
    "metodos": {
     "navegador": 1,
-    "texto": 0
+    "texto": 1
+   },
+   "paginas": {
+    "cola bastão": "https://www.casadopapel.com.br/escritorio/cola/cola-bastao"
    }
   },
   "tkshopping.com.br": {
@@ -526,6 +532,20 @@
    "paginas": {
     "parafuso sextavado 1/2": "https://www.atlasparafusos.com.br/produto/parafuso-sextavado-polegada-12-12-fios-aco-88-unc-rosca-grossa.html"
    }
+  },
+  "loja.silhouettebrasil.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-05",
+   "itens": [
+    "cola bastão"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "paginas": {
+    "cola bastão": "https://loja.silhouettebrasil.com.br/cola-em-bastao-mimo-21g-07350-p998210"
+   }
   }
  },
  "falhas": {
@@ -773,22 +793,27 @@
    "navegador": 1,
    "texto": 1,
    "ultimo": "2026-10-05"
+  },
+  "answers.microsoft.com": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-05"
   }
  },
  "frases": {
   "{item} comprar": {
-   "usos": 10.7341,
-   "acertos": 1.1706,
+   "usos": 11.1974,
+   "acertos": 1.1121,
    "ultimo": "2026-10-05"
   },
   "{item} preço": {
-   "usos": 13.1887,
-   "acertos": 4.0201,
+   "usos": 13.5293,
+   "acertos": 5.8191,
    "ultimo": "2026-10-05"
   },
   "venda de {item}": {
-   "usos": 10.7341,
-   "acertos": 1.3451,
+   "usos": 11.1974,
+   "acertos": 1.2778,
    "ultimo": "2026-10-05"
   },
   "{item} valor": {
@@ -797,25 +822,25 @@
    "ultimo": "2026-10-05"
   },
   "{item} atacado": {
-   "usos": 13.1887,
-   "acertos": 5.5978,
+   "usos": 13.5293,
+   "acertos": 5.3179,
    "ultimo": "2026-10-05"
   },
   "{item} preço brasil": {
-   "usos": 9.1927,
-   "acertos": 0.0,
-   "ultimo": "2026-10-05"
-  },
-  "{item} comprar brasil": {
    "usos": 9.7331,
    "acertos": 0.0,
    "ultimo": "2026-10-05"
   },
+  "{item} comprar brasil": {
+   "usos": 10.2464,
+   "acertos": 1.0,
+   "ultimo": "2026-10-05"
+  },
   "comprar {item} online brasil": {
-   "usos": 12.0556,
-   "acertos": 2.6454,
+   "usos": 12.4528,
+   "acertos": 2.5131,
    "ultimo": "2026-10-05"
   }
  },
- "buscas": 23
+ "buscas": 24
 }
