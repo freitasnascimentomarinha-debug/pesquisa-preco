@@ -642,20 +642,21 @@ def buscar_bing_requests(session, query, headers, num_results=8):
 
         comerciais = []  # resultados com cara de venda (preço, R$, comprar, loja...): vêm na frente
         outros = []
-        for li in soup.select("li.b_algo"):
-            a_tag = li.select_one("h2 a")
-            if a_tag:
-                href = desembrulhar_link_bing(a_tag.get("href", ""))
-                if href.startswith("http") and dominio_valido(href):
-                    texto = li.get_text(" ", strip=True).lower()
-                    (comerciais if SINAIS_VENDA.search(texto) else outros).append(href)
+        # Cada resultado é um título (h2) com link: aceita o formato clássico (li.b_algo) e variações de layout
+        for a_tag in soup.select("li.b_algo h2 a, #b_results h2 a, main h2 a, h2 a"):
+            href = desembrulhar_link_bing(a_tag.get("href", ""))
+            if not (href.startswith("http") and dominio_valido(href)) or href in comerciais or href in outros:
+                continue
+            bloco = a_tag.find_parent("li") or a_tag.find_parent("article") or a_tag.find_parent("div")
+            texto = (bloco.get_text(" ", strip=True) if bloco else a_tag.get_text(" ", strip=True)).lower()
+            (comerciais if SINAIS_VENDA.search(texto) else outros).append(href)
         # havendo resultados de venda, os outros (artigos, definições, notícias) ficam de fora
         urls = comerciais if comerciais else outros
 
-        if not urls:
-            for a_tag in soup.select("#b_results a[href^='http']"):
+        if not urls:  # último recurso: qualquer link externo da área de resultados
+            for a_tag in soup.select("#b_results a[href^='http'], main a[href^='http'], a[href*='bing.com/ck/a']"):
                 href = desembrulhar_link_bing(a_tag.get("href", ""))
-                if href.startswith("http") and dominio_valido(href):
+                if href.startswith("http") and not urlparse(href).netloc.endswith("bing.com") and dominio_valido(href):
                     urls.append(href)
 
         DIAG_BUSCA["Bing"] = f"{len(urls)} sites"
@@ -2018,7 +2019,7 @@ _como_funciona_html = """
 </div>
 """
 with st.expander("🩺 Testar os buscadores (diagnóstico)", expanded=False):
-    st.caption("Faz UMA requisição a cada buscador, a partir do servidor do aplicativo, e mostra a resposta bruta. "
+    st.caption("Faz uma requisição a cada buscador (duas ao Bing: uma bruta e uma pela leitura da pesquisa), a partir do servidor do aplicativo, e mostra a resposta bruta. "
                "Serve para separar bloqueio do servidor de erro no código. Não use várias vezes seguidas.")
     if st.button("Testar agora", key="testar_buscadores"):
         import requests as _rq
@@ -2042,8 +2043,11 @@ with st.expander("🩺 Testar os buscadores (diagnóstico)", expanded=False):
                 _sopa = _BS(_resp.text, "html.parser")
                 _titulo = (_sopa.title.string.strip() if _sopa.title and _sopa.title.string else "(sem título)")[:80]
                 _n = len(_sopa.select("a.result__a")) + len(_sopa.select("li.b_algo"))
+                if _nome == "Bing":  # usa a mesma leitura da pesquisa e mostra o que ela acharia
+                    _achados = buscar_bing_requests(_rq.Session(), _frase, _h, 8)
+                    _n = f"{_n} no formato clássico; a pesquisa acharia {len(_achados)}: " + ", ".join(extrair_dominio(u) for u in _achados[:5])
                 _texto = " ".join(_sopa.get_text(" ", strip=True).split())[:350]
-                _linhas.append((_nome, f"HTTP {_resp.status_code}", f"{len(_resp.text)} bytes, {_n} resultados", f"título: {_titulo} | texto: {_texto}"))
+                _linhas.append((_nome, f"HTTP {_resp.status_code}", f"{len(_resp.text)} bytes, {_n}" + ("" if isinstance(_n, str) else " resultados"), f"título: {_titulo} | texto: {_texto}"))
             except Exception as _e:
                 _linhas.append((_nome, "erro", type(_e).__name__, str(_e)[:160]))
         st.dataframe(pd.DataFrame(_linhas, columns=["Buscador", "Estado", "Resumo", "Detalhe"]), use_container_width=True, hide_index=True)

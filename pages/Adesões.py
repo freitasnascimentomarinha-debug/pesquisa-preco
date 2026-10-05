@@ -4,14 +4,15 @@ import json
 import os
 import re
 import sys
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime as dt, timedelta as td
 from typing import Dict, List, Optional, Tuple
 
 import aiohttp
 import folium
+import requests
 import streamlit as st
 from streamlit_folium import st_folium
-from streamlit_searchbox import st_searchbox
 
 # ── Caminhos dos dados do Projeto Adesões ──────────────────────────────────
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "Projeto Adesões")
@@ -21,12 +22,11 @@ recarregar_se_mudou('catmat_busca')  # evita módulo antigo em memória após de
 from catmat_busca import (  # noqa: E402
     CATMAT_PATH,
     CATSERV_PATH,
-    carregar_sugestoes_catmat,
-    carregar_sugestoes_nome_codigo,
-    carregar_classes_servico,
-    servicos_da_mesma_classe,
-    SERVICOS_CLASSE_PATH,
-    sugerir_itens,
+    atualizado_em,
+    buscar_familias,
+    buscar_servicos,
+    carregar_catalogo,
+    carregar_indice_catmat,
 )
 
 # ── Constantes da API ──────────────────────────────────────────────────────
@@ -34,6 +34,7 @@ API_URL = "https://dadosabertos.compras.gov.br/modulo-arp/2_consultarARPItem"
 API_URL_UNIDADES = "https://dadosabertos.compras.gov.br/modulo-arp/3_consultarUnidadesItem"
 MAX_CONCURRENCY = 4
 DATE_RANGE_DAYS = 360
+PAGE_SIZE = {"Material": 100, "Serviço": 100}
 API_CONNECT_TIMEOUT_SECONDS = 15
 API_SEARCH_READ_TIMEOUT_SECONDS = 90
 API_DETAIL_READ_TIMEOUT_SECONDS = 60
@@ -456,6 +457,35 @@ def load_catalog(path: str) -> Dict[str, str]:
         return json.load(f)
 
 
+@st.cache_data(ttl=3600, show_spinner=False)
+def contar_atas(tipo: str, codigo: str) -> Optional[int]:
+    """Quantidade de itens de ata vigentes no período da busca para o código (None se a API falhar)."""
+    fim = dt.today().date()
+    parametros = {
+        "pagina": 1,
+        "tamanhoPagina": 10,
+        "dataVigenciaInicialMin": (fim - td(days=DATE_RANGE_DAYS - 1)).strftime("%Y-%m-%d"),
+        "dataVigenciaInicialMax": fim.strftime("%Y-%m-%d"),
+        "codigoPdm" if tipo == "Material" else "codigoItem": codigo,
+    }
+    try:
+        resposta = requests.get(API_URL, params=parametros, timeout=20)
+        return int(resposta.json()["totalRegistros"]) if resposta.status_code == 200 else None
+    except (requests.RequestException, ValueError, KeyError):
+        return None
+
+
+def contar_atas_em_paralelo(tipo: str, codigos: List[str]) -> Dict[str, Optional[int]]:
+    with ThreadPoolExecutor(max_workers=8) as executor:
+        return dict(zip(codigos, executor.map(lambda codigo: contar_atas(tipo, codigo), codigos)))
+
+
+def texto_atas(quantidade: Optional[int]) -> str:
+    if quantidade is None:
+        return "atas: indisponível"
+    return "sem atas no período" if quantidade == 0 else f"{quantidade} itens de ata"
+
+
 def build_ata_url(identifier: str) -> str:
     try:
         orgao = identifier.split("-")[0]
@@ -586,11 +616,6 @@ def normalize_item(item: Dict) -> Optional[Tuple[str, str, str, str, str, str, s
     id_compra = item.get("idCompra") or item.get("numeroSequencialCompra") or "N/I"
     
     return numero_ata, unidade, fornecedor, identificador, url, str(numero_compra), str(id_compra)
-
-
-def chave_ata(raw: Dict) -> str:
-    """Identifica um item de ata: a mesma ata pode registrar vários itens (ex.: caneta azul e caneta preta)."""
-    return f"{raw.get('numeroControlePncpAta', '')}|{raw.get('numeroItem', '')}"
 
 
 def filter_results_by_uf(
@@ -745,14 +770,6 @@ def compute_state_centroids(geojson: Dict) -> Dict[str, Tuple[float, float]]:
 
 
 @st.cache_data
-def estados_do_mapa() -> Dict[str, str]:
-    """Sigla -> nome dos estados, em ordem alfabética de sigla."""
-    geojson = load_state_geojson(_data_path("brasil-estados.geojson"))
-    estados = {f["properties"]["sigla"]: f["properties"]["name"] for f in geojson.get("features", [])}
-    return dict(sorted(estados.items()))
-
-
-@st.cache_data
 def load_municipio_geojson(path: str) -> Dict:
     with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
@@ -804,14 +821,14 @@ async def fetch_page(
 
 
 async def search_async(
-    consultas: List[Tuple[str, str]],
+    tipo: str,
+    codigo: str,
     status_placeholder: st.delta_generator.DeltaGenerator,
     progress_bar,
     federal_only: bool,
     uasg_sphere: Dict[str, str],
     max_concurrency: int = MAX_CONCURRENCY,
 ) -> List[Dict]:
-    """Busca as atas de cada consulta (campo da API, código) e junta os resultados sem repetir item de ata."""
     timeout = aiohttp.ClientTimeout(
         total=None,
         connect=API_CONNECT_TIMEOUT_SECONDS,
@@ -823,6 +840,9 @@ async def search_async(
 
     seen = set()
     results: List[Dict] = []
+    tasks: List[asyncio.Task] = []
+    total_pages_count = 0
+    processed_pages = 0
 
     def render_payload(payload: Dict) -> None:
         for raw in payload.get("resultado", []):
@@ -835,59 +855,79 @@ async def search_async(
             normalized = normalize_item(raw)
             if not normalized:
                 continue
-            key = chave_ata(raw)
+            key = normalized[3]
             if key in seen:
                 continue
             seen.add(key)
             results.append(raw)
 
-    def mostrar(processadas: int, total: int) -> None:
-        status_placeholder.info(f"Página {processadas}/{total} carregada. {len(results)} atas encontradas até agora.")
-        progress_bar.progress(
-            max(min(int(processadas / max(total, 1) * 100), 100), 10),
-            text=f"Carregando páginas do Compras.gov: {processadas}/{total} | atas encontradas: {len(results)}",
-        )
-
     async with aiohttp.ClientSession(timeout=timeout, connector=connector) as session:
         end_date = dt.today().date()
         start_date = end_date - td(days=DATE_RANGE_DAYS - 1)
-        comuns = {
-            "tamanhoPagina": 100,
+        base_params: Dict[str, str] = {
+            "tamanhoPagina": PAGE_SIZE.get(tipo, 120),
             "dataVigenciaInicialMin": start_date.strftime("%Y-%m-%d"),
             "dataVigenciaInicialMax": end_date.strftime("%Y-%m-%d"),
         }
-        parametros = [{**comuns, campo: codigo} for campo, codigo in consultas]
+        if tipo == "Material":
+            base_params["codigoPdm"] = codigo
+        else:
+            base_params["codigoItem"] = codigo
 
         status_placeholder.info("Conectando ao Compras.gov e carregando a primeira página…")
         progress_bar.progress(5, text="Conectando ao Compras.gov…")
 
-        primeiras = await asyncio.gather(
-            *(fetch_page(session, semaphore, 1, base) for base in parametros), return_exceptions=True
+        first_page = await fetch_page(session, semaphore, 1, base_params)
+        total_pages_count = 1 + parse_remaining_pages(first_page.get("paginasRestantes"))
+        render_payload(first_page)
+        processed_pages = 1
+        progress_value = min(int(processed_pages / max(total_pages_count, 1) * 100), 100)
+        status_placeholder.info(
+            f"Página {processed_pages}/{total_pages_count} carregada. {len(results)} atas encontradas até agora."
         )
-        if all(isinstance(pagina, Exception) for pagina in primeiras):
-            raise primeiras[0]
-        tasks: List[asyncio.Task] = []
-        for base, pagina in zip(parametros, primeiras):
-            if isinstance(pagina, Exception):
-                continue
-            render_payload(pagina)
-            for numero in range(2, 2 + parse_remaining_pages(pagina.get("paginasRestantes"))):
-                tasks.append(asyncio.create_task(fetch_page(session, semaphore, numero, base)))
-        processadas = len(parametros)
-        total_paginas = processadas + len(tasks)
-        mostrar(processadas, total_paginas)
+        progress_bar.progress(
+            max(progress_value, 10),
+            text=(
+                f"Carregando páginas do Compras.gov: {processed_pages}/{total_pages_count} "
+                f"| atas encontradas: {len(results)}"
+            ),
+        )
 
-        for task in asyncio.as_completed(tasks):
-            processadas += 1
+        for page in range(2, total_pages_count + 1):
+            tasks.append(asyncio.create_task(fetch_page(session, semaphore, page, base_params)))
+
+        if total_pages_count == processed_pages:
+            progress_bar.progress(
+                100,
+                text=f"Busca concluída. {len(results)} atas encontradas.",
+            )
+            status_placeholder.success(f"Busca concluída. {len(results)} atas encontradas.")
+            return results
+
+        for idx, task in enumerate(asyncio.as_completed(tasks), start=processed_pages + 1):
             try:
-                render_payload(await task)
-                mostrar(processadas, total_paginas)
+                payload = await task
+                render_payload(payload)
+                progress_value = min(int(idx / max(total_pages_count, 1) * 100), 100)
+                status_placeholder.info(
+                    f"Página {idx}/{total_pages_count} carregada. {len(results)} atas encontradas até agora."
+                )
+                progress_bar.progress(
+                    progress_value,
+                    text=(
+                        f"Carregando páginas do Compras.gov: {idx}/{total_pages_count} "
+                        f"| atas encontradas: {len(results)}"
+                    ),
+                )
             except Exception:
                 status_placeholder.warning(
                     f"Falha ao carregar uma das páginas. {len(results)} atas já foram encontradas até agora."
                 )
 
-        progress_bar.progress(100, text=f"Busca concluída. {len(results)} atas encontradas.")
+        progress_bar.progress(
+            100,
+            text=f"Busca concluída. {len(results)} atas encontradas.",
+        )
         status_placeholder.success(f"Busca concluída. {len(results)} atas encontradas.")
         return results
 
@@ -951,6 +991,7 @@ async def enrich_results_async(
             numero_ata = raw.get("numeroAtaRegistroPreco", "")
             unidade = raw.get("codigoUnidadeGerenciadora", "") or str(raw.get("codigoUasg", ""))
             numero_item = raw.get("numeroItem", "")
+            identificador = raw.get("numeroControlePncpAta", "")
             if not (numero_ata and unidade and numero_item):
                 continue
 
@@ -971,7 +1012,7 @@ async def enrich_results_async(
 
             tasks.append(
                 asyncio.create_task(
-                    fetch_with_key(chave_ata(raw), numero_ata, unidade, numero_item)
+                    fetch_with_key(identificador, numero_ata, unidade, numero_item)
                 )
             )
         total_tasks = len(tasks)
@@ -1026,7 +1067,8 @@ def run_enrich(
 
 
 def run_search(
-    consultas: List[Tuple[str, str]],
+    tipo: str,
+    codigo: str,
     federal_only: bool,
     uasg_sphere: Dict[str, str],
 ) -> List[Dict]:
@@ -1036,7 +1078,8 @@ def run_search(
         try:
             results = asyncio.run(
                 search_async(
-                    consultas,
+                    tipo,
+                    codigo,
                     status_placeholder,
                     progress_bar,
                     federal_only=federal_only,
@@ -1117,27 +1160,6 @@ def build_map(results: List[Dict], uasg_index: Dict[str, Dict[str, str]]) -> fol
         ),
     ).add_to(mapa)
 
-    # Quantidade de atas escrita sobre cada estado (visível sem passar o mouse).
-    # pointer-events: none deixa o clique passar para o estado embaixo do rótulo.
-    for sigla, (lat, lon) in compute_state_centroids(geojson).items():
-        quantidade = counts_by_uf.get(sigla, 0)
-        if not quantidade:
-            continue
-        folium.Marker(
-            [lat, lon],
-            icon=folium.DivIcon(
-                icon_size=(46, 30),
-                icon_anchor=(23, 15),
-                html=(
-                    '<div style="pointer-events:none;text-align:center;line-height:1.05;'
-                    'font-family:sans-serif;color:#0a0a0a;text-shadow:0 0 3px #fff,0 0 3px #fff;">'
-                    f'<div style="font-size:10px;font-weight:600;">{sigla}</div>'
-                    f'<div style="font-size:13px;font-weight:800;">{quantidade}</div></div>'
-                ),
-            ),
-            interactive=False,
-        ).add_to(mapa)
-
     try:
         bounds = folium.GeoJson(geojson).get_bounds()
         mapa.fit_bounds(bounds, padding=(20, 20))
@@ -1168,112 +1190,83 @@ codigo = None
 federal_only = False
 uasg_sphere: Dict[str, str] = {}
 
-ESTILO_PESQUISA = {
-    "clear": {"icon": "cross", "clearable": "always", "stroke": "#d4af37", "fill": "#d4af37"},
-    "dropdown": {"rotate": True, "fill": "#d4af37"},
-    "searchbox": {
-        "control": {"backgroundColor": "#0a2540", "border": "1px solid #d4af37", "borderRadius": "8px", "boxShadow": "none"},
-        "input": {"color": "#ffffff"},
-        "singleValue": {"color": "#ffffff"},
-        "placeholder": {"color": "#94a3b8"},
-        "menuList": {"backgroundColor": "#0a2540", "maxHeight": "420px"},
-        "option": {"color": "#ffffff", "backgroundColor": "#0a2540", "highlightColor": "#1e3a5f"},
-    },
-}
-
-
-LIMITE_SELECIONADOS = 10
-LIMITE_CONSULTAS = 60  # consultas à API por busca (cada código ou família é uma consulta)
-
-
-def catalogo_da_pesquisa(tipo: str, por_familia: bool) -> Tuple[list, str]:
-    if tipo == "Serviço":
-        return carregar_sugestoes_nome_codigo(CATSERV_PATH), "CATSERV"
-    if por_familia:
-        return carregar_sugestoes_nome_codigo(_data_path("catalogo_pdm.json")), "PDM"
-    return carregar_sugestoes_catmat(CATMAT_PATH), "CATMAT"
-
-
-@st.fragment
-def campo_pesquisa(tipo: str, por_familia: bool, chave_selecionados: str) -> None:
-    """Lista suspensa que filtra o CATMAT/CATSERV enquanto o usuário digita; cada escolha entra na lista de selecionados.
-
-    Roda como fragmento: cada tecla atualiza só as sugestões, sem recarregar o mapa e os resultados da página.
-    """
-    itens, catalogo = catalogo_da_pesquisa(tipo, por_familia)
-    chave_busca = f"adesao_pesquisa_{chave_selecionados}"
-    escolha = st_searchbox(
-        lambda termo: sugerir_itens(termo, itens, catalogo),
-        label="Pesquisar serviço" if tipo == "Serviço" else ("Pesquisar família" if por_familia else "Pesquisar material"),
-        placeholder="Digite o nome ou o código da família" if por_familia else "Digite o nome ou o código do item",
-        key=chave_busca,
-        debounce=300,
-        rerun_scope="fragment",
-        style_overrides=ESTILO_PESQUISA,
-    )
-    if escolha is not None:
-        selecionados = st.session_state.setdefault(chave_selecionados, [])
-        if escolha.codigo not in {item.codigo for item in selecionados} and len(selecionados) < LIMITE_SELECIONADOS:
-            selecionados.append(escolha)
-        del st.session_state[chave_busca]  # limpa o campo para a próxima escolha
-        st.rerun()
-
-
-consultas: List[Tuple[str, str]] = []
 if tipo:
-    por_familia = tipo == "Material" and st.radio(
-        "Pesquisar por", ["Nome do item", "Família (PDM)"], horizontal=True
-    ) == "Família (PDM)"
-    chave_selecionados = f"adesao_selecionados_{tipo}_{'familia' if por_familia else 'item'}"
-    campo_pesquisa(tipo, por_familia, chave_selecionados)
-    selecionados = st.session_state.get(chave_selecionados, [])
-    rotulo_codigo = "PDM" if por_familia else ("CATMAT" if tipo == "Material" else "CATSERV")
-    for posicao, item in enumerate(list(selecionados)):
-        coluna_nome, coluna_remover = st.columns([12, 1])
-        coluna_nome.markdown(f"**{rotulo_codigo} {item.codigo}** · {item.nome}")
-        if coluna_remover.button("✕", key=f"remover_{chave_selecionados}_{item.codigo}", help="Remover"):
-            selecionados.pop(posicao)
-            st.rerun()
+    data_catalogo = atualizado_em()
+    st.caption(
+        "Pesquise pelo nome, por uma descrição (ex.: resma de papel a4) ou pelo código "
+        + ("CATMAT/PDM" if tipo == "Material" else "do serviço")
+        + (f" — catálogo oficial atualizado em {data_catalogo}." if data_catalogo else ".")
+    )
+    consulta = st.text_input(
+        "Pesquisar material" if tipo == "Material" else "Pesquisar serviço",
+        placeholder="Ex.: notebook, luva de procedimento, resma de papel a4" if tipo == "Material" else "Ex.: manutenção de ar condicionado",
+    ).strip()
 
-    if selecionados:
-        selected_label = True
-        if tipo == "Material" and por_familia:
-            consultas = [("codigoPdm", item.codigo) for item in selecionados]
-        elif tipo == "Material":
-            if st.checkbox("Incluir atas da mesma família (PDM)", value=False):
-                consultas = [("codigoPdm", pdm) for pdm in dict.fromkeys(item.codigo_busca for item in selecionados)]
-            else:
-                consultas = [("codigoItem", item.codigo) for item in selecionados]
+if tipo == "Material":
+    catmat = carregar_indice_catmat(CATMAT_PATH)
+    if consulta:
+        # Muitas famílias parecidas disputam as primeiras posições (ex.: dezenas de "PAPEL ..."): avalia as atas de
+        # até 40 delas para que a família que realmente tem atas não fique de fora, e mostra as 15 melhores.
+        familias = buscar_familias(consulta, catmat, limite=40)
+        atas = contar_atas_em_paralelo(tipo, [f["codigo"] for f in familias])
+        so_com_atas = st.checkbox("Mostrar apenas famílias com atas vigentes", value=True, key="familias_so_com_atas")
+        if so_com_atas and any(atas.values()):
+            familias = [f for f in familias if atas[f["codigo"]]]
+        elif so_com_atas and familias:
+            st.info("Nenhuma das famílias encontradas tem atas vigentes no período; mostrando todas.")
+        familias = familias[:15]
+        rotulos = {
+            f"{f['nome']} · PDM {f['codigo']} · {texto_atas(atas[f['codigo']])} · {f['nota']:.0f}%": f for f in familias
+        }
+        if rotulos:
+            selected_label = st.selectbox(
+                "Famílias de material encontradas (a busca de atas é feita pela família)", list(rotulos), index=0
+            )
+            escolhida = rotulos[selected_label]
+            st.caption(f"Classe: {escolhida['classe']} — {escolhida['exemplo']}")
+            codigo = escolhida["codigo"]
         else:
-            if st.checkbox("Incluir atas da mesma classe de serviço", value=False):
-                servicos = carregar_sugestoes_nome_codigo(CATSERV_PATH)
-                classes = carregar_classes_servico(SERVICOS_CLASSE_PATH)
-                codigos = [
-                    servico.codigo
-                    for item in selecionados
-                    for servico in servicos_da_mesma_classe(item, servicos, classes)
-                ]
-                consultas = [("codigoItem", codigo) for codigo in dict.fromkeys(codigos)]
-            else:
-                consultas = [("codigoItem", item.codigo) for item in selecionados]
-        if len(consultas) > LIMITE_CONSULTAS:
-            st.caption(f"A busca foi limitada a {LIMITE_CONSULTAS} códigos.")
-            consultas = consultas[:LIMITE_CONSULTAS]
-        codigo = bool(consultas)
+            st.warning("Nenhuma família de material encontrada. Tente outras palavras ou o código CATMAT do item.")
+    else:
+        materiais = load_catalog(_data_path("catalogo_pdm.json"))
+        selected_label = st.selectbox(
+            "Ou escolha na lista completa de famílias",
+            sorted(materiais.keys()),
+            index=None,
+            placeholder="Selecione uma família de material",
+        )
+        if selected_label:
+            codigo = materiais[selected_label]
 
-uf_antes = None
+if tipo == "Serviço":
+    catalogo_servico = carregar_catalogo(CATSERV_PATH)
+    if consulta:
+        servicos_encontrados = buscar_servicos(consulta, catalogo_servico)
+        atas = contar_atas_em_paralelo(tipo, [s["codigo"] for s in servicos_encontrados])
+        rotulos = {
+            f"{s['nome']} · cód. {s['codigo']} · {texto_atas(atas[s['codigo']])} · {s['nota']:.0f}%": s
+            for s in servicos_encontrados
+        }
+        if rotulos:
+            selected_label = st.selectbox("Serviços encontrados", list(rotulos), index=0)
+            codigo = rotulos[selected_label]["codigo"]
+        else:
+            st.warning("Nenhum serviço encontrado. Tente outras palavras ou o código do serviço.")
+    else:
+        servicos = load_catalog(_data_path("catalogo_servicos.json"))
+        selected_label = st.selectbox(
+            "Ou escolha na lista completa de serviços",
+            sorted(servicos.keys()),
+            index=None,
+            placeholder="Selecione um serviço",
+        )
+        if selected_label:
+            codigo = servicos[selected_label]
+
 if selected_label:
     federal_only = st.checkbox("Buscar somente atas da esfera federal", value=True)
     if federal_only:
         uasg_sphere = load_catalog(_data_path("esfera_uasg.json"))
-    ufs = estados_do_mapa()
-    uf_antes = st.selectbox(
-        "Estado",
-        list(ufs),
-        index=None,
-        format_func=lambda sigla: f"{sigla} – {ufs[sigla]}",
-        placeholder="Todos os estados (mostra o mapa)",
-    )
 
 # ── Estado de visualização ─────────────────────────────────────────────────
 st.session_state.setdefault("modo_exibicao", "Mapa")
@@ -1282,17 +1275,18 @@ if "selected_uf" not in st.session_state:
 next_mode = st.session_state.pop("next_modo_exibicao", None)
 if next_mode:
     st.session_state["modo_exibicao"] = next_mode
+if st.session_state.pop("reset_view", False):
+    st.session_state["modo_exibicao"] = "Mapa"
+    st.session_state["selected_uf"] = None
 
 start_button = st.button(
     "Buscar adesões", type="primary", use_container_width=True, disabled=not codigo
 )
 
 if start_button and tipo and codigo:
-    results = run_search(consultas, federal_only, uasg_sphere)
+    results = run_search(tipo, codigo, federal_only, uasg_sphere)
     st.session_state["atas"] = results
-    # Estado escolhido antes da busca: vai direto para a lista desse estado; senão, abre o mapa.
-    st.session_state["modo_exibicao"] = "Lista" if uf_antes else "Mapa"
-    st.session_state["selected_uf"] = uf_antes
+    st.session_state["reset_view"] = True
 elif start_button and not codigo:
     st.warning("Selecione um item antes de iniciar a busca.")
 
@@ -1379,7 +1373,7 @@ if results:
                 # Código UASG do órgão
                 uasg_code = extract_uasg(raw) or "N/I"
 
-                detail = enriched.get(chave_ata(raw), {})
+                detail = enriched.get(identificador, {})
                 saldo_adesoes = detail.get("saldoAdesoes", "N/I")
                 saldo_remanejamento = detail.get("saldoRemanejamentoEmpenho", "N/I")
                 qtd_limite_adesao = detail.get("qtdLimiteAdesao", "N/I")
@@ -1438,7 +1432,6 @@ if results:
                     # Tags com todas as informações
                     st.markdown(
                         f"""<div class="ata-info-grid">
-                            <span class="ata-tag">🏷️ {"CATSERV" if str(raw.get("tipoItem", "")).startswith("Servi") else "CATMAT"} {raw.get("codigoItem", "N/I")}</span>
                             <span class="ata-tag">🔢 Item: {numero_item}</span>
                             <span class="ata-tag">🛒 Compra: {num_compra}</span>
                             <span class="ata-tag">🆔 ID Compra: {id_compra}</span>
