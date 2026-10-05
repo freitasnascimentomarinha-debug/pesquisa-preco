@@ -524,7 +524,8 @@ def carregar_sugestoes_catmat(caminho: str) -> list[ItemSugestao]:
 
 
 @st.cache_resource(show_spinner=False)
-def carregar_sugestoes_catserv(caminho: str) -> list[ItemSugestao]:
+def carregar_sugestoes_nome_codigo(caminho: str) -> list[ItemSugestao]:
+    """Lista para o autocompletar a partir de um JSON nome -> código (famílias PDM ou serviços CATSERV)."""
     with open(caminho, "r", encoding="utf-8") as arquivo:
         catalogo = json.load(arquivo)
     return [

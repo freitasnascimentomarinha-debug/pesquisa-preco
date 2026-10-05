@@ -22,7 +22,7 @@ from catmat_busca import (  # noqa: E402
     CATMAT_PATH,
     CATSERV_PATH,
     carregar_sugestoes_catmat,
-    carregar_sugestoes_catserv,
+    carregar_sugestoes_nome_codigo,
     sugerir_itens,
 )
 
@@ -1198,49 +1198,46 @@ ESTILO_PESQUISA = {
 
 
 @st.fragment
-def campo_pesquisa(tipo: str) -> None:
+def campo_pesquisa(tipo: str, por_familia: bool) -> None:
     """Lista suspensa que filtra o CATMAT/CATSERV enquanto o usuário digita.
 
     Roda como fragmento: cada tecla atualiza só as sugestões, sem recarregar o mapa e os resultados da página.
     Ao escolher (ou limpar) um item, a página inteira é recarregada com a nova escolha.
     """
-    if tipo == "Material":
-        itens, catalogo = carregar_sugestoes_catmat(CATMAT_PATH), "CATMAT"
+    if tipo == "Serviço":
+        itens, catalogo = carregar_sugestoes_nome_codigo(CATSERV_PATH), "CATSERV"
+    elif por_familia:
+        itens, catalogo = carregar_sugestoes_nome_codigo(_data_path("catalogo_pdm.json")), "PDM"
     else:
-        itens, catalogo = carregar_sugestoes_catserv(CATSERV_PATH), "CATSERV"
+        itens, catalogo = carregar_sugestoes_catmat(CATMAT_PATH), "CATMAT"
+    modo = "familia" if por_familia else "item"
     escolha = st_searchbox(
         lambda termo: sugerir_itens(termo, itens, catalogo),
-        label="Pesquisar material" if tipo == "Material" else "Pesquisar serviço",
-        placeholder="Digite o nome ou o código do item",
-        key=f"adesao_pesquisa_{tipo}",
+        label="Pesquisar serviço" if tipo == "Serviço" else ("Pesquisar família" if por_familia else "Pesquisar material"),
+        placeholder="Digite o nome ou o código da família" if por_familia else "Digite o nome ou o código do item",
+        key=f"adesao_pesquisa_{tipo}_{modo}",
         debounce=300,
         rerun_scope="fragment",
         edit_after_submit="option",
         style_overrides=ESTILO_PESQUISA,
     )
-    chave = f"adesao_escolha_{tipo}"
+    chave = f"adesao_escolha_{tipo}_{modo}"
     if escolha != st.session_state.get(chave):
         st.session_state[chave] = escolha
         st.rerun()
 
 
 if tipo:
-    campo_pesquisa(tipo)
-    escolhida = st.session_state.get(f"adesao_escolha_{tipo}")
+    por_familia = tipo == "Material" and st.radio(
+        "Pesquisar por", ["Nome do item", "Família (PDM)"], horizontal=True
+    ) == "Família (PDM)"
+    campo_pesquisa(tipo, por_familia)
+    escolhida = st.session_state.get(f"adesao_escolha_{tipo}_{'familia' if por_familia else 'item'}")
     if escolhida:
         selected_label = escolhida.nome
-        if tipo == "Material":
-            abrangencia = st.radio(
-                "Buscar atas",
-                [f"Da família do item (PDM {escolhida.codigo_busca})", f"Somente do CATMAT {escolhida.codigo}"],
-                horizontal=True,
-            )
-            if abrangencia.startswith("Somente"):
-                campo_busca, codigo = "codigoItem", escolhida.codigo
-            else:
-                campo_busca, codigo = "codigoPdm", escolhida.codigo_busca
-        else:
-            campo_busca, codigo = "codigoItem", escolhida.codigo
+        # Material: as atas são buscadas pela família (PDM) do item; serviço: pelo código CATSERV.
+        campo_busca = "codigoPdm" if tipo == "Material" else "codigoItem"
+        codigo = escolhida.codigo_busca
 
 uf_antes = None
 if selected_label:
