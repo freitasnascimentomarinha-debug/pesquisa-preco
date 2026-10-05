@@ -1,13 +1,13 @@
 {
  "versao": 1,
- "atualizado": "2026-10-05T19:07:12",
+ "atualizado": "2026-10-05T20:00:33",
  "lojas": {
   "lojadomecanico.com.br": {
-   "acertos": 18,
+   "acertos": 19,
    "ultimo": "2026-10-05",
    "itens": [
-    "grampeador escolar",
     "fita isolante",
+    "grampeador escolar",
     "parafuso sextavado 1/2",
     "grampeador",
     "tomada 20a",
@@ -15,14 +15,15 @@
    ],
    "metodos": {
     "navegador": 8,
-    "texto": 0
+    "texto": 1
    },
    "paginas": {
     "grampeador": "https://www.lojadomecanico.com.br/subcategorias/37/501/grampeador-manual",
     "parafuso sextavado 1/2": "https://www.lojadomecanico.com.br/buscar/parafuso-1-2-polegada-sextavado",
-    "fita isolante": "https://www.lojadomecanico.com.br/setor/37/351/478/fitas-adesivas-fita-isolante",
+    "fita isolante": "https://lojadomecanico.com.br/busca?q=fita+isolante",
     "grampeador escolar": "https://www.lojadomecanico.com.br/subcategorias/37/501/grampeador-manual"
-   }
+   },
+   "busca": "/busca?q={q}"
   },
   "eletricaarea.com.br": {
    "acertos": 7,
@@ -36,14 +37,14 @@
    }
   },
   "telhanorte.com.br": {
-   "acertos": 8,
+   "acertos": 9,
    "ultimo": "2026-10-05",
    "itens": [
     "fita isolante"
    ],
    "metodos": {
     "navegador": 4,
-    "texto": 0
+    "texto": 1
    },
    "paginas": {
     "fita isolante": "https://www.telhanorte.com.br/eletrica/acessorios/fitas-isolantes"
@@ -740,8 +741,8 @@
    "ultimo": "2026-10-05"
   },
   "spanishdict.com": {
-   "navegador": 1,
-   "texto": 1,
+   "navegador": 2,
+   "texto": 2,
    "ultimo": "2026-10-05"
   },
   "dictionary.cambridge.org": {
@@ -798,6 +799,26 @@
    "navegador": 1,
    "texto": 1,
    "ultimo": "2026-10-05"
+  },
+  "papers.ssrn.com": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-05"
+  },
+  "sciencedirect.com": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-05"
+  },
+  "academic.oup.com": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-05"
+  },
+  "freeunitconvert.com": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-05"
   }
  },
  "frases": {
@@ -807,8 +828,8 @@
    "ultimo": "2026-10-05"
   },
   "{item} preço": {
-   "usos": 13.5293,
-   "acertos": 5.8191,
+   "usos": 13.8528,
+   "acertos": 5.5281,
    "ultimo": "2026-10-05"
   },
   "venda de {item}": {
@@ -817,13 +838,13 @@
    "ultimo": "2026-10-05"
   },
   "{item} valor": {
-   "usos": 10.2464,
+   "usos": 10.7341,
    "acertos": 0.0,
    "ultimo": "2026-10-05"
   },
   "{item} atacado": {
-   "usos": 13.5293,
-   "acertos": 5.3179,
+   "usos": 13.8528,
+   "acertos": 5.052,
    "ultimo": "2026-10-05"
   },
   "{item} preço brasil": {
@@ -842,5 +863,25 @@
    "ultimo": "2026-10-05"
   }
  },
- "buscas": 24
+ "buscas": 25,
+ "sem_busca": {
+  "arxiv.org": "2026-10-05",
+  "papers.ssrn.com": "2026-10-05",
+  "sciencedirect.com": "2026-10-05",
+  "academic.oup.com": "2026-10-05",
+  "picussecurity.com": "2026-10-05",
+  "link.springer.com": "2026-10-05",
+  "bing.com": "2026-10-05",
+  "loja.bradescoseguros.com.br": "2026-10-05",
+  "thecalculatorsite.com": "2026-10-05",
+  "unitconverters.net": "2026-10-05",
+  "rapidtables.com": "2026-10-05",
+  "mega-calculator.com": "2026-10-05",
+  "heightininches.com": "2026-10-05",
+  "coolconversion.com": "2026-10-05",
+  "calculateme.com": "2026-10-05",
+  "freeunitconvert.com": "2026-10-05",
+  "spanishdict.com": "2026-10-05",
+  "dictionary.cambridge.org": "2026-10-05"
+ }
 }
