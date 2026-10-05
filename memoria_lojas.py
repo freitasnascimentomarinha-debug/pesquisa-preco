@@ -31,7 +31,7 @@ API = "https://api.github.com"
 
 
 def vazia() -> dict:
-    return {"versao": 1, "lojas": {}, "falhas": {}, "frases": {}, "buscas": 0, "sem_busca": {}, "serper": {"mes": "", "n": 0}, "tavily": {"mes": "", "n": 0}}
+    return {"versao": 1, "lojas": {}, "falhas": {}, "frases": {}, "buscas": 0, "sem_busca": {}, "serper": {"mes": "", "n": 0}, "tavily": {"mes": "", "n": 0}, "nomes": {}}
 
 
 def dominio(url_ou_site: str) -> str:
@@ -355,6 +355,7 @@ def _normalizar(dados: dict) -> dict:
         memoria["frases"] = dict(dados.get("frases") or {})
         memoria["buscas"] = int(dados.get("buscas") or 0)
         memoria["sem_busca"] = dict(dados.get("sem_busca") or {})
+        memoria["nomes"] = dict(dados.get("nomes") or {})
         for api in ("serper", "tavily"):
             uso = dados.get(api) or {}
             memoria[api] = {"mes": str(uso.get("mes", "")), "n": int(uso.get("n", 0) or 0)}
@@ -390,7 +391,7 @@ def carregar(segredos=None, requisicoes=None) -> tuple[dict, str]:
 
 def _para_gravar(memoria: dict) -> dict:
     return {"versao": 1, "atualizado": dt.datetime.now().isoformat(timespec="seconds"),
-            "lojas": memoria["lojas"], "falhas": memoria["falhas"], "frases": memoria.get("frases", {}), "buscas": memoria.get("buscas", 0), "sem_busca": memoria.get("sem_busca", {}), "serper": memoria.get("serper", {"mes": "", "n": 0}), "tavily": memoria.get("tavily", {"mes": "", "n": 0})}
+            "lojas": memoria["lojas"], "falhas": memoria["falhas"], "frases": memoria.get("frases", {}), "buscas": memoria.get("buscas", 0), "sem_busca": memoria.get("sem_busca", {}), "serper": memoria.get("serper", {"mes": "", "n": 0}), "tavily": memoria.get("tavily", {"mes": "", "n": 0}), "nomes": memoria.get("nomes", {})}
 
 
 def _juntar(local: dict, remota: dict) -> dict:
@@ -424,6 +425,14 @@ def _juntar(local: dict, remota: dict) -> dict:
         atual["acertos"] = max(atual.get("acertos", 0), dados.get("acertos", 0))
         atual["ultimo"] = max(atual.get("ultimo", ""), dados.get("ultimo", ""))
     junta["buscas"] = max(junta.get("buscas", 0), local.get("buscas", 0))
+    for chave, aprendido in local.get("nomes", {}).items():  # nomes aprendidos: soma as duas versões
+        atual = junta.setdefault("nomes", {}).setdefault(chave, {"busca": "", "aceitar": [], "excluir": {}, "recusados": [], "origem": ""})
+        if aprendido.get("busca"):
+            atual["busca"], atual["origem"] = aprendido["busca"], aprendido.get("origem", "")
+        atual["aceitar"] = atual.get("aceitar", []) + [c for c in aprendido.get("aceitar", []) if c not in atual.get("aceitar", [])]
+        for termo, n in aprendido.get("excluir", {}).items():
+            atual.setdefault("excluir", {})[termo] = max(atual["excluir"].get(termo, 0), n)
+        atual["recusados"] = list(dict.fromkeys(atual.get("recusados", []) + aprendido.get("recusados", [])))[-30:]
     for api in ("serper", "tavily"):
         ls, js = local.get(api, {}), junta.get(api, {})
         if ls.get("mes") == js.get("mes"):
