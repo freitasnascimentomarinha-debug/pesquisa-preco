@@ -4,6 +4,7 @@ Gera, em 'Projeto Adesões/':
   - catalogo_catmat.csv.gz   itens CATMAT ativos (a API não faz busca por texto; as páginas pesquisam aqui)
   - catalogo_pdm.json        famílias (PDM) de material: nome -> código
   - catalogo_servicos.json   serviços (CATSERV): nome -> código
+  - catalogo_servicos_classe.json  serviço -> [código, nome] da classe (a "família" do serviço)
   - catalogo_meta.json       data da última atualização
 
 Uso:
@@ -110,6 +111,11 @@ def atualizar_servicos() -> None:
     if len(lista) < MINIMO_SERVICOS:
         raise RuntimeError(f"Catálogo de serviços incompleto ({len(lista)}); nada foi alterado.")
     _salvar_json("catalogo_servicos.json", lista)
+    classes = {
+        str(item["codigoServico"]): [item.get("codigoClasse"), (item.get("nomeClasse") or "").strip()]
+        for item in sorted(itens, key=lambda item: item["codigoServico"])
+    }
+    _salvar_json("catalogo_servicos_classe.json", classes)
     print(f"{len(lista)} serviços")
 
 

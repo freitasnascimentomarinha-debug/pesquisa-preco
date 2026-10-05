@@ -572,3 +572,34 @@ def sugerir_itens(consulta: str, itens: list[ItemSugestao], catalogo: str, limit
 
 def _curto(texto: str, tamanho: int = 180) -> str:
     return texto if len(texto) <= tamanho else texto[: tamanho - 1].rstrip(" ,") + "…"
+
+
+SERVICOS_CLASSE_PATH = os.path.join(CATALOGO_DIR, "catalogo_servicos_classe.json")
+
+
+@st.cache_resource(show_spinner=False)
+def carregar_classes_servico(caminho: str) -> dict[str, tuple[str, str]]:
+    """Código do serviço -> (código, nome) da classe CATSERV; {} se o arquivo não existir."""
+    try:
+        with open(caminho, "r", encoding="utf-8") as arquivo:
+            return {codigo: (str(classe[0]), str(classe[1])) for codigo, classe in json.load(arquivo).items() if classe[0]}
+    except (OSError, ValueError):
+        return {}
+
+
+def servicos_da_mesma_classe(item: ItemSugestao, servicos: list[ItemSugestao], classes: dict[str, tuple[str, str]], limite: int = 15) -> list[ItemSugestao]:
+    """Serviços da mesma classe CATSERV do serviço escolhido (ele primeiro); numa classe grande, os de nome mais parecido."""
+    classe = classes.get(item.codigo)
+    if not classe:
+        return [item]
+    mesma = [servico for servico in servicos if servico.codigo != item.codigo and classes.get(servico.codigo) == classe]
+    palavras = _tokens(item.nome)
+    ordem = _tokens_ordenados(item.nome)
+    principal = set(ordem[:2])  # "AR CONDICIONADO - ...": serviços que também começam assim vêm antes
+
+    def parecido(servico: ItemSugestao) -> tuple[int, int, int]:
+        outras = _tokens_ordenados(servico.nome)
+        return (-len(principal & set(outras[:3])), -len(palavras & set(outras)), len(servico.nome))
+
+    mesma.sort(key=parecido)
+    return [item] + mesma[: limite - 1]
