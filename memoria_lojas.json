@@ -1,6 +1,6 @@
 {
  "versao": 1,
- "atualizado": "2026-10-05T21:23:17",
+ "atualizado": "2026-10-05T21:56:58",
  "lojas": {
   "lojadomecanico.com.br": {
    "acertos": 21,
@@ -23,7 +23,13 @@
     "fita isolante": "https://lojadomecanico.com.br/busca?q=fita+isolante",
     "grampeador escolar": "https://www.lojadomecanico.com.br/subcategorias/37/501/grampeador-manual"
    },
-   "busca": "/busca?q={q}"
+   "busca": "/busca?q={q}",
+   "naturezas": {
+    "elétrico": 2,
+    "papelaria e escritório": 2,
+    "fixadores": 1,
+    "ferramentas": 1
+   }
   },
   "eletricaarea.com.br": {
    "acertos": 7,
@@ -34,6 +40,9 @@
    "metodos": {
     "navegador": 2,
     "texto": 0
+   },
+   "naturezas": {
+    "elétrico": 1
    }
   },
   "telhanorte.com.br": {
@@ -48,6 +57,9 @@
    },
    "paginas": {
     "fita isolante": "https://www.telhanorte.com.br/eletrica/acessorios/fitas-isolantes"
+   },
+   "naturezas": {
+    "elétrico": 1
    }
   },
   "hiperfer.com.br": {
@@ -55,7 +67,10 @@
    "ultimo": "2026-10-04",
    "itens": [
     "fita isolante"
-   ]
+   ],
+   "naturezas": {
+    "elétrico": 1
+   }
   },
   "copafer.com.br": {
    "acertos": 9,
@@ -70,6 +85,9 @@
    },
    "paginas": {
     "fita isolante": "https://www.copafer.com.br/fita-isolante-imperial-18-mm-x-10-metros-azul---hb004297980---3m/p?srsltid=AU7gw4VPiLzjUdwT0jl1kUEtak87ZFKwf5sA98piA2ZGBUHliacOEhOo"
+   },
+   "naturezas": {
+    "elétrico": 2
    }
   },
   "kalunga.com.br": {
@@ -103,6 +121,10 @@
     "resma de papel": "https://www.kalunga.com.br/busca/resma-de-papel-a4/",
     "caneta marca texto amarelo": "https://www.kalunga.com.br/busca/marca-texto-amarelo/1",
     "tinta guache vermelha": "https://www.kalunga.com.br/prod/tinta-guache-vermelho-250ml-2574-radex-po-1-un/700363"
+   },
+   "naturezas": {
+    "tintas e pintura": 1,
+    "papelaria e escritório": 12
    }
   },
   "lojascacula.com.br": {
@@ -110,42 +132,60 @@
    "ultimo": "2026-10-04",
    "itens": [
     "borracha escolar"
-   ]
+   ],
+   "naturezas": {
+    "papelaria e escritório": 1
+   }
   },
   "leonorashop.com.br": {
    "acertos": 1,
    "ultimo": "2026-10-04",
    "itens": [
     "borracha escolar"
-   ]
+   ],
+   "naturezas": {
+    "papelaria e escritório": 1
+   }
   },
   "casadastomadas.com.br": {
    "acertos": 2,
    "ultimo": "2026-10-04",
    "itens": [
     "tomada 20a"
-   ]
+   ],
+   "naturezas": {
+    "elétrico": 1
+   }
   },
   "fermaquinas.com.br": {
    "acertos": 1,
    "ultimo": "2026-10-04",
    "itens": [
     "chave de fenda"
-   ]
+   ],
+   "naturezas": {
+    "ferramentas": 1
+   }
   },
   "barzel.com.br": {
    "acertos": 1,
    "ultimo": "2026-10-04",
    "itens": [
     "chave de fenda"
-   ]
+   ],
+   "naturezas": {
+    "ferramentas": 1
+   }
   },
   "jofepar.com.br": {
    "acertos": 1,
    "ultimo": "2026-10-04",
    "itens": [
     "chave de fenda"
-   ]
+   ],
+   "naturezas": {
+    "ferramentas": 1
+   }
   },
   "br.my-best.com": {
    "acertos": 6,
@@ -165,6 +205,11 @@
     "grampeador": "https://br.my-best.com/18618",
     "grampeador escolar": "https://br.my-best.com/18618",
     "tv 49 polegadas led": "https://br.my-best.com/18763"
+   },
+   "naturezas": {
+    "elétrico": 2,
+    "papelaria e escritório": 2,
+    "limpeza e higiene": 1
    }
   },
   "tendaatacado.com.br": {
@@ -187,6 +232,12 @@
    "paginas": {
     "cola 250ml": "https://www.tendaatacado.com.br/produto/refrigerante-coca-cola-250ml?srsltid=AU7gw4WwO0e0qeNZ_bREKSzXYS67bMuBkFJEMc7aH_jK6bxa3ELB0u7V",
     "arroz 1 kg": "https://www.tendaatacado.com.br/produto/arroz-tipo-1-maximo-5kg-14799"
+   },
+   "naturezas": {
+    "gêneros alimentícios": 1,
+    "papelaria e escritório": 3,
+    "limpeza e higiene": 3,
+    "elétrico": 1
    }
   },
   "atacadosaopaulo.com.br": {
@@ -212,6 +263,11 @@
     "resma de papel": "https://www.atacadosaopaulo.com.br/kit-10-resma-papel-sulfite-a4-210x297mm-75g-m2-amarelo/p?srsltid=AU7gw4VS8wfB8E9SGKNPb1eAlLwdVEp64NmKFyaX3KYjH85pgLWLafvV",
     "caneta marca texto amarelo": "https://www.atacadosaopaulo.com.br/caneta-marca-texto-amarela-mp612---12un---masterprint/p",
     "tinta guache vermelha": "https://www.atacadosaopaulo.com.br/tinta-guache-15ml-vermelho-fogo--12-unidades---acrilex/p"
+   },
+   "naturezas": {
+    "tintas e pintura": 1,
+    "papelaria e escritório": 6,
+    "limpeza e higiene": 2
    }
   },
   "hp.com": {
@@ -224,6 +280,10 @@
    "metodos": {
     "navegador": 1,
     "texto": 0
+   },
+   "naturezas": {
+    "informática": 1,
+    "papelaria e escritório": 1
    }
   },
   "microtecpapelaria.com.br": {
@@ -231,21 +291,30 @@
    "ultimo": "2026-10-04",
    "itens": [
     "apontador"
-   ]
+   ],
+   "naturezas": {
+    "papelaria e escritório": 1
+   }
   },
   "meninodalampada.com.br": {
    "acertos": 1,
    "ultimo": "2026-10-04",
    "itens": [
     "lâmpada"
-   ]
+   ],
+   "naturezas": {
+    "elétrico": 1
+   }
   },
   "lojadaslampadas.com.br": {
    "acertos": 1,
    "ultimo": "2026-10-04",
    "itens": [
     "lâmpada"
-   ]
+   ],
+   "naturezas": {
+    "elétrico": 1
+   }
   },
   "jambo.com.br": {
    "acertos": 3,
@@ -256,6 +325,9 @@
    "metodos": {
     "navegador": 1,
     "texto": 0
+   },
+   "naturezas": {
+    "papelaria e escritório": 1
    }
   },
   "casadopapel.com.br": {
@@ -272,6 +344,9 @@
    },
    "paginas": {
     "cola bastão": "https://www.casadopapel.com.br/escritorio/cola/cola-bastao"
+   },
+   "naturezas": {
+    "papelaria e escritório": 3
    }
   },
   "tkshopping.com.br": {
@@ -279,28 +354,40 @@
    "ultimo": "2026-10-04",
    "itens": [
     "papel crepom"
-   ]
+   ],
+   "naturezas": {
+    "papelaria e escritório": 1
+   }
   },
   "atacadodolojista.com.br": {
    "acertos": 1,
    "ultimo": "2026-10-04",
    "itens": [
     "tomada 20a"
-   ]
+   ],
+   "naturezas": {
+    "elétrico": 1
+   }
   },
   "officinepapel.com.br": {
    "acertos": 1,
    "ultimo": "2026-10-04",
    "itens": [
     "papel a4 sulfite"
-   ]
+   ],
+   "naturezas": {
+    "papelaria e escritório": 1
+   }
   },
   "lavoropapeis.com.br": {
    "acertos": 1,
    "ultimo": "2026-10-04",
    "itens": [
     "papel a4 sulfite"
-   ]
+   ],
+   "naturezas": {
+    "papelaria e escritório": 1
+   }
   },
   "superpaguemenos.com.br": {
    "acertos": 5,
@@ -314,6 +401,10 @@
    "metodos": {
     "navegador": 2,
     "texto": 0
+   },
+   "naturezas": {
+    "gêneros alimentícios": 2,
+    "limpeza e higiene": 2
    }
   },
   "atacadao.com.br": {
@@ -327,6 +418,10 @@
    "metodos": {
     "navegador": 2,
     "texto": 0
+   },
+   "naturezas": {
+    "gêneros alimentícios": 2,
+    "limpeza e higiene": 1
    }
   },
   "zonacerealista.com.br": {
@@ -334,14 +429,20 @@
    "ultimo": "2026-10-04",
    "itens": [
     "arroz 1kg"
-   ]
+   ],
+   "naturezas": {
+    "gêneros alimentícios": 1
+   }
   },
   "edona.com.br": {
    "acertos": 1,
    "ultimo": "2026-10-04",
    "itens": [
     "sabão em pó"
-   ]
+   ],
+   "naturezas": {
+    "limpeza e higiene": 1
+   }
   },
   "astrodistribuidora.com": {
    "acertos": 1,
@@ -352,6 +453,9 @@
    "metodos": {
     "navegador": 1,
     "texto": 0
+   },
+   "naturezas": {
+    "papelaria e escritório": 1
    }
   },
   "carbonnara.com.br": {
@@ -363,6 +467,9 @@
    "metodos": {
     "navegador": 1,
     "texto": 0
+   },
+   "naturezas": {
+    "limpeza e higiene": 1
    }
   },
   "atacadaodalimpeza.com.br": {
@@ -374,6 +481,9 @@
    "metodos": {
     "navegador": 1,
     "texto": 0
+   },
+   "naturezas": {
+    "limpeza e higiene": 1
    }
   },
   "cleanons.com.br": {
@@ -385,6 +495,9 @@
    "metodos": {
     "navegador": 1,
     "texto": 0
+   },
+   "naturezas": {
+    "limpeza e higiene": 1
    }
   },
   "impressora.com.br": {
@@ -396,6 +509,9 @@
    "metodos": {
     "navegador": 1,
     "texto": 0
+   },
+   "naturezas": {
+    "informática": 1
    }
   },
   "ibyteatacado.com.br": {
@@ -411,6 +527,10 @@
    },
    "paginas": {
     "monitor led 21\"": "https://www.ibyteatacado.com.br/monitor-led-21-5-hdmi-goldentec/p"
+   },
+   "naturezas": {
+    "elétrico": 1,
+    "informática": 1
    }
   },
   "loja.casadosacodelixo.com.br": {
@@ -422,6 +542,9 @@
    "metodos": {
     "navegador": 1,
     "texto": 0
+   },
+   "naturezas": {
+    "limpeza e higiene": 1
    }
   },
   "brazzbrazz.com.br": {
@@ -433,6 +556,9 @@
    "metodos": {
     "navegador": 1,
     "texto": 0
+   },
+   "naturezas": {
+    "papelaria e escritório": 1
    }
   },
   "25demarcoonline.com.br": {
@@ -444,6 +570,9 @@
    "metodos": {
     "navegador": 1,
     "texto": 0
+   },
+   "naturezas": {
+    "papelaria e escritório": 1
    }
   },
   "canetasatacado.com.br": {
@@ -455,6 +584,9 @@
    "metodos": {
     "navegador": 1,
     "texto": 0
+   },
+   "naturezas": {
+    "papelaria e escritório": 1
    }
   },
   "soaresatacado.com.br": {
@@ -469,6 +601,9 @@
    },
    "paginas": {
     "caneta esferográfica azul": "https://www.soaresatacado.com.br/caneta-esferografica-bic-cristal-azul-50-unidades-1292/p?srsltid=AU7gw4XRTnkCHNfY21TZEo1o25ZYjfb2xTrSIiEX6L075x35wW9wfnTa"
+   },
+   "naturezas": {
+    "papelaria e escritório": 1
    }
   },
   "rdkluvas.com.br": {
@@ -480,6 +615,9 @@
    "metodos": {
     "navegador": 0,
     "texto": 1
+   },
+   "naturezas": {
+    "limpeza e higiene": 1
    }
   },
   "casadosgrampos.com.br": {
@@ -494,6 +632,9 @@
    },
    "paginas": {
     "grampeador": "https://casadosgrampos.com.br/tapecaria/grampeadores/"
+   },
+   "naturezas": {
+    "papelaria e escritório": 1
    }
   },
   "sodimac.com.br": {
@@ -508,6 +649,9 @@
    },
    "paginas": {
     "grampeador": "https://www.sodimac.com.br/sodimac-br/category/cat460255/grampeadores/"
+   },
+   "naturezas": {
+    "papelaria e escritório": 1
    }
   },
   "tbsbrasil.com.br": {
@@ -522,6 +666,9 @@
    },
    "paginas": {
     "grampeador": "https://tbsbrasil.com.br/grampeadores/"
+   },
+   "naturezas": {
+    "papelaria e escritório": 1
    }
   },
   "discpar.com.br": {
@@ -536,6 +683,9 @@
    },
    "paginas": {
     "parafuso sextavado 1/2": "https://www.discpar.com.br/sextavado"
+   },
+   "naturezas": {
+    "fixadores": 1
    }
   },
   "superproatacado.com.br": {
@@ -550,6 +700,9 @@
    },
    "paginas": {
     "parafuso sextavado 1/2": "https://www.superproatacado.com.br/ferragens/parafusos-e-buchas/parafuso-sextavado-polegada"
+   },
+   "naturezas": {
+    "fixadores": 1
    }
   },
   "atlasparafusos.com.br": {
@@ -564,6 +717,9 @@
    },
    "paginas": {
     "parafuso sextavado 1/2": "https://www.atlasparafusos.com.br/produto/parafuso-sextavado-polegada-12-12-fios-aco-88-unc-rosca-grossa.html"
+   },
+   "naturezas": {
+    "fixadores": 1
    }
   },
   "loja.silhouettebrasil.com.br": {
@@ -578,6 +734,9 @@
    },
    "paginas": {
     "cola bastão": "https://loja.silhouettebrasil.com.br/cola-em-bastao-mimo-21g-07350-p998210"
+   },
+   "naturezas": {
+    "papelaria e escritório": 1
    }
   },
   "acalanto.net.br": {
@@ -592,6 +751,9 @@
    },
    "paginas": {
     "lápis preto": "https://www.acalanto.net.br/lapis-preto"
+   },
+   "naturezas": {
+    "papelaria e escritório": 1
    }
   },
   "acasadasartes.com.br": {
@@ -606,6 +768,9 @@
    },
    "paginas": {
     "lápis preto": "https://www.acasadasartes.com.br/papelaria/lapis?srsltid=AU7gw4Xj7rwWuDiKGzJSzYx18xJ3QWLym832fzq1W-OOe9gNnLeBsgO6"
+   },
+   "naturezas": {
+    "papelaria e escritório": 1
    }
   },
   "nacasachinatem.com.br": {
@@ -620,6 +785,9 @@
    },
    "paginas": {
     "lápis preto": "https://www.nacasachinatem.com.br/material-escolar/lapis-preto?srsltid=AU7gw4VobhKlW1n-Ugr6w2SJzczs9nCJ4XmUFVfKrHQDGBr6rpm70GSi"
+   },
+   "naturezas": {
+    "papelaria e escritório": 1
    }
   },
   "lojafabercastell.com.br": {
@@ -634,6 +802,9 @@
    },
    "paginas": {
     "lápis preto": "https://www.lojafabercastell.com.br/depto/lapis-grafite?srsltid=AU7gw4U-xlj13DricdQmenNB0h7lMwjxpT3Z_rQuAxhBdFP0xr608RVJ"
+   },
+   "naturezas": {
+    "papelaria e escritório": 1
    }
   },
   "portinfo.com.br": {
@@ -648,6 +819,9 @@
    },
    "paginas": {
     "lápis preto": "https://www.portinfo.com.br/categoria/escritorio/lapis/lapis-preto?srsltid=AU7gw4Xq7iGA9HKsvNcZQG2yfxfK84JKilXVUS8c7jUfXYyV3eewatFj"
+   },
+   "naturezas": {
+    "papelaria e escritório": 1
    }
   },
   "grafitte.com.br": {
@@ -662,6 +836,9 @@
    },
    "paginas": {
     "lápis preto": "https://www.grafitte.com.br/lapis-lapiseira?srsltid=AU7gw4VQgX3LHT7p_ZyVaUqGdLlHnIOH-v8jq44o6k9PdVpwEh7k_Ttm"
+   },
+   "naturezas": {
+    "papelaria e escritório": 1
    }
   },
   "extramercado.com.br": {
@@ -676,6 +853,9 @@
    },
    "paginas": {
     "cola 250ml": "https://www.extramercado.com.br/produto/428768/refrigerante-coca-cola-garrafa-250ml"
+   },
+   "naturezas": {
+    "papelaria e escritório": 1
    }
   },
   "festval.com": {
@@ -690,6 +870,9 @@
    },
    "paginas": {
     "cola 250ml": "https://www.festval.com/refrigerante_coca-cola_garrafa_250ml/p?srsltid=AU7gw4WerIHf6iWaMGbhpIf17yzwtqDGMsVO4l7OI3mfQa1sOVptMqOH"
+   },
+   "naturezas": {
+    "papelaria e escritório": 1
    }
   },
   "philco.com.br": {
@@ -704,6 +887,9 @@
    },
    "paginas": {
     "tv 49 polegadas led": "https://www.philco.com.br/tvs/tvs-49-polegadas?srsltid=AU7gw4XyUZ202iXGw8y2xECF0yafcneUOGF-eBtc-3bYYNCGiY6T7kj4"
+   },
+   "naturezas": {
+    "elétrico": 1
    }
   },
   "havan.com.br": {
@@ -718,6 +904,9 @@
    },
    "paginas": {
     "frigobar": "https://www.havan.com.br/eletro/eletrodomesticos/frigobares/"
+   },
+   "naturezas": {
+    "eletrodomésticos": 1
    }
   },
   "midea.com.br": {
@@ -732,6 +921,9 @@
    },
    "paginas": {
     "frigobar": "https://www.midea.com.br/eletrodomesticos/frigobar?srsltid=AU7gw4Xj5ww3_GEFrUYjmafCr2OtXsOp4UbQ4QdkxzoP67oZ3gKrpnfw"
+   },
+   "naturezas": {
+    "eletrodomésticos": 1
    }
   },
   "loja.electrolux.com.br": {
@@ -746,6 +938,9 @@
    },
    "paginas": {
     "frigobar": "https://loja.electrolux.com.br/eletrodomesticos/frigobar"
+   },
+   "naturezas": {
+    "eletrodomésticos": 1
    }
   },
   "brastemp.com.br": {
@@ -760,6 +955,9 @@
    },
    "paginas": {
     "frigobar": "https://www.brastemp.com.br/eletrodomesticos/frigobar"
+   },
+   "naturezas": {
+    "eletrodomésticos": 1
    }
   },
   "compradiretaempresas.com.br": {
@@ -774,6 +972,9 @@
    },
    "paginas": {
     "frigobar": "https://www.compradiretaempresas.com.br/cozinha/frigobar?srsltid=AU7gw4UEJkggH62ijMqO9ZCi0qxz1pTh8c3nzmLyZA4r_kERgvPXSdgp"
+   },
+   "naturezas": {
+    "eletrodomésticos": 1
    }
   },
   "multiloja.com.br": {
@@ -788,6 +989,9 @@
    },
    "paginas": {
     "frigobar": "https://www.multiloja.com.br/eletrodomesticos/refrigeradores/frigobar?srsltid=AU7gw4UmrHa2t7Pp8sLpwpwba6esTo0YlHbwxqiYlWXodDOlIW3SZnkj"
+   },
+   "naturezas": {
+    "eletrodomésticos": 1
    }
   },
   "milium.com.br": {
@@ -802,6 +1006,9 @@
    },
    "paginas": {
     "caneta esferográfica azul": "https://www.milium.com.br/caneta-esferografica-azul-bic-cristal-1000333-2050000196331/p?srsltid=AU7gw4UX9UurNFwaNcTcltVnIGUK6vSSjXSkYpvRD55nsGVq0Nf4-HE7"
+   },
+   "naturezas": {
+    "papelaria e escritório": 1
    }
   },
   "contabilista.com.br": {
@@ -818,6 +1025,10 @@
    "paginas": {
     "caneta esferográfica azul": "https://www.contabilista.com.br/escritorio-e-papelaria/caneta-esferografica-cristal-fina-0-8mm-azul-bic.html?srsltid=AU7gw4U_OtgxOvs2WZI6VejC-K-dCfN8rj_a27GFK44Dpp6U_cV867B6",
     "tinta guache vermelha": "https://www.contabilista.com.br/escolar/tinta-para-pintura/tinta-guache-250ml-vermelho-fogo-acrilex-507.html"
+   },
+   "naturezas": {
+    "tintas e pintura": 1,
+    "papelaria e escritório": 1
    }
   },
   "lepok.com.br": {
@@ -832,6 +1043,9 @@
    },
    "paginas": {
     "caneta esferográfica azul": "https://www.lepok.com.br/produto/Caneta-Esferografica-Cristal-1.0mm-Azul-Cx-50-Und.-Bic/5000127?srsltid=AU7gw4US1iv_nEzQ_HNDVLmv5TYV1tR3XsBHnQs_URcvLSe9KZL8J4lQ"
+   },
+   "naturezas": {
+    "papelaria e escritório": 1
    }
   },
   "gimba.com.br": {
@@ -846,6 +1060,9 @@
    },
    "paginas": {
     "caneta esferográfica azul": "https://www.gimba.com.br/canetas-esferograficas/caneta-esferografica-bic-cristal-ponta-media-1mm-azul-1-un/?PID=23&srsltid=AU7gw4Ue3wuMgsMAWw2pK8eJ9jj-LRVX2vUNZW0SRh07edujzpSPxhhb"
+   },
+   "naturezas": {
+    "papelaria e escritório": 1
    }
   },
   "galpaodotoner.com.br": {
@@ -860,6 +1077,9 @@
    },
    "paginas": {
     "resma de papel": "https://www.galpaodotoner.com.br/produtos/resma-papel-branco-sulfite-a4-75g-210mmx297mm-500-folhas-office-branco-report-premium/?srsltid=AU7gw4UlSGYStoJVf81idhhq6zKjglPupVSEk6kB8OzSE5uMuc3DMkz2"
+   },
+   "naturezas": {
+    "papelaria e escritório": 1
    }
   },
   "intersupri.com.br": {
@@ -874,6 +1094,9 @@
    },
    "paginas": {
     "resma de papel": "https://www.intersupri.com.br/papel-sulfite-a4-report-premium-75g-suzano-resma-500-folhas-p2577?srsltid=AU7gw4XQ6rurR0zBxCLJbQbn9GvXMAFrHH8Sve3opMkwz7_Gkr-d2GVd"
+   },
+   "naturezas": {
+    "papelaria e escritório": 1
    }
   },
   "papelariaartnova.com.br": {
@@ -890,6 +1113,9 @@
    "paginas": {
     "caneta marca texto amarelo": "https://www.papelariaartnova.com.br/escrita/marca-texto/caneta-marca-texto-faber-castell-grifpen-cx-c-12-unid-amarelo-mt-amzf",
     "clips de papel": "https://www.papelariaartnova.com.br/papelaria/clips-e-prendedores"
+   },
+   "naturezas": {
+    "papelaria e escritório": 2
    }
   },
   "mundoware.com.br": {
@@ -904,6 +1130,9 @@
    },
    "paginas": {
     "caneta marca texto amarelo": "https://www.mundoware.com.br/marca-texto-gel-amarelo-masterprint-mp613"
+   },
+   "naturezas": {
+    "papelaria e escritório": 1
    }
   },
   "tilibraexpress.com.br": {
@@ -918,6 +1147,9 @@
    },
    "paginas": {
     "clips de papel": "https://www.tilibraexpress.com.br/escritorio/clips-para-papel"
+   },
+   "naturezas": {
+    "papelaria e escritório": 1
    }
   },
   "mercado.carrefour.com.br": {
@@ -932,6 +1164,9 @@
    },
    "paginas": {
     "arroz 1 kg": "https://mercado.carrefour.com.br/busca/pre%C3%A7o%20arroz"
+   },
+   "naturezas": {
+    "gêneros alimentícios": 1
    }
   },
   "loja.cestanobre.com.br": {
@@ -946,6 +1181,9 @@
    },
    "paginas": {
     "arroz 1 kg": "https://loja.cestanobre.com.br/categorias/arroz-atacado"
+   },
+   "naturezas": {
+    "gêneros alimentícios": 1
    }
   }
  },
