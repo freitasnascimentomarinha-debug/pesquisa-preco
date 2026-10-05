@@ -14,7 +14,8 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # módulos da raiz do projeto
 from atualizar_modulos import recarregar_se_mudou  # noqa: E402
-recarregar_se_mudou('cotacao_rapida', 'relatorio_cotacao_rapida', 'relatorio_nf_lote', 'web_precos', 'relatorio_web', 'memoria_lojas', 'captura_pagina')
+recarregar_se_mudou('cotacao_rapida', 'relatorio_cotacao_rapida', 'relatorio_nf_lote', 'web_precos', 'relatorio_web', 'memoria_lojas', 'captura_pagina', 'busca_interna')
+import busca_interna  # noqa: E402  (busca dentro do site da loja)
 import web_precos  # noqa: E402  (escolha do preço da página)
 import relatorio_web  # noqa: E402  (relatório padrão da Cotação Rápida)
 import memoria_lojas  # noqa: E402  (lojas aprendidas com o uso)
@@ -479,6 +480,7 @@ DDG_PROXIMA_TENTATIVA = {"ate": 0.0}  # depois de um bloqueio suspeito, o DuckDu
 PAUSA_APOS_BLOQUEIO_DDG = 60  # segundos (o descanso dobra a cada bloqueio seguido, até PAUSA_MAXIMA_DDG)
 PAUSA_MAXIMA_DDG = 600
 DDG_BLOQUEIOS_SEGUIDOS = {"n": 0}
+DDG_VAZIOS_SEGUIDOS = {"n": 0}  # o ddgs costuma disfarçar bloqueio de "sem resultados": 2 vazios seguidos são tratados como bloqueio
 
 
 def descansar_ddg():
@@ -492,6 +494,7 @@ def descansar_ddg():
 def ddg_voltou():
     DDG_PROXIMA_TENTATIVA["ate"] = 0.0
     DDG_BLOQUEIOS_SEGUIDOS["n"] = 0
+    DDG_VAZIOS_SEGUIDOS["n"] = 0
 
 
 def buscar_ddgs_api(query, num_results=8):
@@ -680,7 +683,7 @@ def buscar_na_loja(session, item, site, headers, num_results=8):
 
 
 def buscar_urls(session, query, headers, num_results=8):
-    """Busca combinada: DDGS API > DuckDuckGo HTML > Google > Bing. Se o DuckDuckGo falhar com sinal de bloqueio (erro, HTTP 202/403/429),
+    """Busca combinada: DDGS API > Google > Bing (o DuckDuckGo HTML saiu: é o mesmo buscador do ddgs). Se o DuckDuckGo falhar com sinal de bloqueio (erro, HTTP 202/403/429),
     ele descansa PAUSA_APOS_BLOQUEIO_DDG segundos antes de ser consultado de novo (insistir só prolonga o bloqueio); nesse intervalo a busca
     segue pelos outros. O motivo vai junto com o nome do buscador, para aparecer no log."""
     DIAG_BUSCA.clear()
@@ -693,17 +696,19 @@ def buscar_urls(session, query, headers, num_results=8):
         if urls:
             ddg_voltou()
             return urls, "DDGS API"
-        # 2. DuckDuckGo HTML: só quando o ddgs falhou com erro; se ele respondeu "0 resultados" sem erro, repetir no HTML é uma 2ª requisição à toa
-        urls = [] if DIAG_BUSCA.get("DDGS") == "0 sites" else buscar_duckduckgo(session, query, headers, num_results)
-        if urls:
-            ddg_voltou()
-            return urls, "DuckDuckGo HTML"
+        # (o DuckDuckGo HTML não é mais consultado: é o mesmo buscador do ddgs, e duas visitas por frase reforçam a cara de robô)
         sinais = [v for k, v in DIAG_BUSCA.items() if k in ("DDGS", "DuckDuckGo HTML")]
         if any(str(v).startswith(("erro", "HTTP 202", "HTTP 403", "HTTP 429", "HTTP 5")) for v in sinais):
             pausa = descansar_ddg()
             nota = "DuckDuckGo sem resposta (" + "; ".join(f"{k}: {v}" for k, v in DIAG_BUSCA.items() if k in ("DDGS", "DuckDuckGo HTML")) + f"); descansa {pausa} s"
         else:
-            nota = "DuckDuckGo sem resultados para esta frase"
+            DDG_VAZIOS_SEGUIDOS["n"] += 1
+            if DDG_VAZIOS_SEGUIDOS["n"] >= 2:
+                DDG_VAZIOS_SEGUIDOS["n"] = 0
+                pausa = descansar_ddg()
+                nota = f"DuckDuckGo respondeu vazio 2 vezes seguidas (provável bloqueio); descansa {pausa} s"
+            else:
+                nota = "DuckDuckGo sem resultados para esta frase"
     # 3. Google
     urls = buscar_google_requests(session, query, headers, num_results)
     if urls:
@@ -1454,6 +1459,31 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
                 return resultado_pagina, "texto", tentou
         return None, "texto", tentou
 
+
+    internas_tentadas = set()  # lojas cuja busca interna já foi tentada (por item)
+
+    def tentar_busca_interna(url_ou_site, item_nome):
+        """Procura o item na busca do próprio site da loja (sem buscador) e lê a página de resultados (texto; navegador se o texto falhar).
+        Devolve (resultado, url, método) ou None."""
+        site = memoria_lojas.dominio(url_ou_site)
+        if not site or (site, item_nome) in internas_tentadas or memoria_lojas.busca_interna_descartada(memoria, site):
+            return None
+        internas_tentadas.add((site, item_nome))
+        conhecido = memoria_lojas.padrao_busca(memoria, site)
+        url_busca, padrao = busca_interna.descobrir(session, site, item_nome, headers, conhecido)
+        if not url_busca:
+            memoria_lojas.registrar_sem_busca(memoria, site)
+            log_msg(log_container, logs, f"🔎 {site}: não achei a busca interna do site", "info")
+            return None
+        log_msg(log_container, logs, f"🔎 Buscando '{item_nome}' dentro do site {site}", "info")
+        time.sleep(gerar_delay(0.3, 0.8) if (leitor is not None and leitor.disponivel and navegador_primeiro) else gerar_delay(1.5, 3.0))
+        resultado_interno, metodo_interno, _ = ler_pagina(url_busca, item_nome)
+        if resultado_interno:
+            memoria_lojas.registrar_busca_interna(memoria, site, padrao)  # o acerto em si é registrado por quem chama
+            return resultado_interno, url_busca, metodo_interno
+        log_msg(log_container, logs, f"✗ A busca interna de {site} não deu preço", "warn")
+        return None
+
     try:
         for idx, item in enumerate(itens):
             item = item.strip()
@@ -1483,23 +1513,36 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
                 log_msg(log_container, logs, f"🧠 Loja da memória: {site_memoria} (já deu preço para '{item_parecido}')", "info")
                 navegador_ligado = leitor is not None and leitor.disponivel and navegador_primeiro
                 time.sleep(gerar_delay(0.3, 0.8) if navegador_ligado else gerar_delay(1.5, 3.0))
-                urls_loja = buscar_na_loja(session, item, site_memoria, headers)
+                achado = None  # (resultado, url, método)
+                # 1) busca do próprio site da loja (sem buscador); 2) a página que já deu preço antes; 3) busca "site:" no Bing
+                interna = tentar_busca_interna(site_memoria, item)
+                if interna:
+                    achado = interna
                 guardada = memoria_lojas.pagina_guardada(memoria, site_memoria, item_parecido)
-                if guardada and guardada not in urls_loja:
-                    urls_loja.append(guardada)  # atalho: a página que já deu preço (vale se os buscadores falharem)
-                for url in urls_loja:
+                if not achado and guardada:
                     time.sleep(gerar_delay(0.3, 0.8) if navegador_ligado else gerar_delay(1.5, 3.5))
-                    resultado, metodo_ok, _ = ler_pagina(url, item)
-                    if resultado:
-                        contador_item += 1
-                        resultado["resultado_id"] = f"{item_slug}_{contador_item}_{abs(hash(url)) % 10000}"
-                        resultado["item"] = item
-                        resultado["data_coleta"] = datetime.now().strftime("%d/%m/%Y %H:%M")
-                        candidatos_item.append(resultado)
-                        dominios_usados.add(extrair_dominio(url))
-                        memoria_lojas.registrar_acerto(memoria, url, item, metodo_ok)
-                        log_msg(log_container, logs, f"💰 Orçamento da memória — {formatar_moeda_br(resultado['preco'])} em {extrair_dominio(url)}", "orcamento")
-                        break
+                    r_guardada, m_guardada, _ = ler_pagina(guardada, item)
+                    if r_guardada:
+                        achado = (r_guardada, guardada, m_guardada)
+                if not achado:
+                    for url in buscar_na_loja(session, item, site_memoria, headers):
+                        if url == guardada:
+                            continue
+                        time.sleep(gerar_delay(0.3, 0.8) if navegador_ligado else gerar_delay(1.5, 3.5))
+                        r_url, m_url, _ = ler_pagina(url, item)
+                        if r_url:
+                            achado = (r_url, url, m_url)
+                            break
+                if achado:
+                    resultado, url, metodo_ok = achado
+                    contador_item += 1
+                    resultado["resultado_id"] = f"{item_slug}_{contador_item}_{abs(hash(url)) % 10000}"
+                    resultado["item"] = item
+                    resultado["data_coleta"] = datetime.now().strftime("%d/%m/%Y %H:%M")
+                    candidatos_item.append(resultado)
+                    dominios_usados.add(extrair_dominio(url))
+                    memoria_lojas.registrar_acerto(memoria, url, item, metodo_ok)
+                    log_msg(log_container, logs, f"💰 Orçamento da memória — {formatar_moeda_br(resultado['preco'])} em {extrair_dominio(url)}", "orcamento")
                 else:
                     log_msg(log_container, logs, f"✗ {site_memoria} não teve preço para '{item}' desta vez", "warn")
                 dominios_falhos.update({site_memoria, "www." + site_memoria})
@@ -1571,6 +1614,10 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
                     if not resultado:
                         resultado, metodo_ok, tentou_metodos = ler_pagina(url, item)
                         tentou_navegador, tentou_texto = tentou_metodos["navegador"], tentou_metodos["texto"]
+                        if not resultado:  # a página achada pelo buscador não deu preço: tenta a busca do próprio site
+                            interna_site = tentar_busca_interna(url, item)
+                            if interna_site:
+                                resultado, url, metodo_ok = interna_site
 
                     if resultado:
                         contador_item += 1

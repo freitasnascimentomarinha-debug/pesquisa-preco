@@ -29,7 +29,7 @@ API = "https://api.github.com"
 
 
 def vazia() -> dict:
-    return {"versao": 1, "lojas": {}, "falhas": {}, "frases": {}, "buscas": 0}
+    return {"versao": 1, "lojas": {}, "falhas": {}, "frases": {}, "buscas": 0, "sem_busca": {}}
 
 
 def dominio(url_ou_site: str) -> str:
@@ -197,6 +197,39 @@ def lojas_para_item(memoria: dict, item: str, limite: int = MAX_LOJAS_POR_ITEM) 
     return [(site, parecido) for _, _, _, site, parecido in candidatas[:limite]]
 
 
+def padrao_busca(memoria: dict, site: str) -> str:
+    """Endereço de busca interna da loja que já funcionou (ex.: '/busca?q={q}'), ou vazio."""
+    return memoria["lojas"].get(dominio(site), {}).get("busca", "")
+
+
+def registrar_busca_interna(memoria: dict, site: str, padrao: str) -> None:
+    if padrao:
+        loja = memoria["lojas"].setdefault(dominio(site), {"acertos": 0, "ultimo": "", "itens": []})
+        if loja.get("busca") != padrao:
+            loja["busca"] = padrao
+            memoria["_mudou"] = True
+    memoria.get("sem_busca", {}).pop(dominio(site), None)
+
+
+def registrar_sem_busca(memoria: dict, site: str) -> None:
+    """Nenhum endereço de busca interna funcionou nesta loja: não testa de novo por DIAS_SEM_BUSCA dias."""
+    memoria.setdefault("sem_busca", {})[dominio(site)] = _hoje()
+    memoria["_mudou"] = True
+
+
+DIAS_SEM_BUSCA = 30
+
+
+def busca_interna_descartada(memoria: dict, site: str) -> bool:
+    data = memoria.get("sem_busca", {}).get(dominio(site))
+    if not data:
+        return False
+    try:
+        return (dt.date.today() - dt.date.fromisoformat(data)).days < DIAS_SEM_BUSCA
+    except ValueError:
+        return False
+
+
 def pagina_guardada(memoria: dict, site: str, item_parecido: str) -> str:
     """Página da loja que já deu preço para esse item (vazio se não houver)."""
     return memoria["lojas"].get(site, {}).get("paginas", {}).get(item_parecido.strip().lower(), "")
@@ -264,6 +297,7 @@ def _normalizar(dados: dict) -> dict:
         memoria["falhas"] = {k: _migrar_falha(v) for k, v in dict(dados.get("falhas") or {}).items()}
         memoria["frases"] = dict(dados.get("frases") or {})
         memoria["buscas"] = int(dados.get("buscas") or 0)
+        memoria["sem_busca"] = dict(dados.get("sem_busca") or {})
     return memoria
 
 
@@ -296,7 +330,7 @@ def carregar(segredos=None, requisicoes=None) -> tuple[dict, str]:
 
 def _para_gravar(memoria: dict) -> dict:
     return {"versao": 1, "atualizado": dt.datetime.now().isoformat(timespec="seconds"),
-            "lojas": memoria["lojas"], "falhas": memoria["falhas"], "frases": memoria.get("frases", {}), "buscas": memoria.get("buscas", 0)}
+            "lojas": memoria["lojas"], "falhas": memoria["falhas"], "frases": memoria.get("frases", {}), "buscas": memoria.get("buscas", 0), "sem_busca": memoria.get("sem_busca", {})}
 
 
 def _juntar(local: dict, remota: dict) -> dict:
@@ -311,6 +345,11 @@ def _juntar(local: dict, remota: dict) -> dict:
         for metodo, n in loja.get("metodos", {}).items():
             metodos[metodo] = max(metodos.get(metodo, 0), n)
         junta["falhas"].pop(site, None)
+        atual.setdefault("paginas", {}).update({**atual.get("paginas", {}), **loja.get("paginas", {})})
+        if loja.get("busca"):
+            atual["busca"] = loja["busca"]
+    for site, data in local.get("sem_busca", {}).items():
+        junta["sem_busca"][site] = max(junta["sem_busca"].get(site, ""), data)
     for site, falha in local["falhas"].items():
         if site not in junta["lojas"]:
             nova, atual = _migrar_falha(falha), _migrar_falha(junta["falhas"].get(site, _falha_nova()))
