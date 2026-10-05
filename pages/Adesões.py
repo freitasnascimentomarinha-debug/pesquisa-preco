@@ -4,7 +4,6 @@ import json
 import os
 import re
 import sys
-from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime as dt, timedelta as td
 from typing import Dict, List, Optional, Tuple
 
@@ -13,6 +12,7 @@ import folium
 import requests
 import streamlit as st
 from streamlit_folium import st_folium
+from streamlit_searchbox import st_searchbox
 
 # ── Caminhos dos dados do Projeto Adesões ──────────────────────────────────
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "Projeto Adesões")
@@ -23,10 +23,11 @@ from catmat_busca import (  # noqa: E402
     CATMAT_PATH,
     CATSERV_PATH,
     atualizado_em,
-    buscar_familias,
-    buscar_servicos,
     carregar_catalogo,
     carregar_indice_catmat,
+    carregar_sugestoes_catmat,
+    sugerir_materiais,
+    sugerir_servicos,
 )
 
 # ── Constantes da API ──────────────────────────────────────────────────────
@@ -473,11 +474,6 @@ def contar_atas(tipo: str, codigo: str) -> Optional[int]:
         return int(resposta.json()["totalRegistros"]) if resposta.status_code == 200 else None
     except (requests.RequestException, ValueError, KeyError):
         return None
-
-
-def contar_atas_em_paralelo(tipo: str, codigos: List[str]) -> Dict[str, Optional[int]]:
-    with ThreadPoolExecutor(max_workers=8) as executor:
-        return dict(zip(codigos, executor.map(lambda codigo: contar_atas(tipo, codigo), codigos)))
 
 
 def texto_atas(quantidade: Optional[int]) -> str:
@@ -1190,78 +1186,87 @@ codigo = None
 federal_only = False
 uasg_sphere: Dict[str, str] = {}
 
+ESTILO_PESQUISA = {
+    "clear": {"icon": "cross", "clearable": "always", "stroke": "#d4af37", "fill": "#d4af37"},
+    "dropdown": {"rotate": True, "fill": "#d4af37"},
+    "searchbox": {
+        "control": {"backgroundColor": "#0a2540", "border": "1px solid #d4af37", "borderRadius": "8px", "boxShadow": "none"},
+        "input": {"color": "#ffffff"},
+        "singleValue": {"color": "#ffffff"},
+        "placeholder": {"color": "#94a3b8"},
+        "menuList": {"backgroundColor": "#0a2540", "maxHeight": "420px"},
+        "option": {"color": "#ffffff", "backgroundColor": "#0a2540", "highlightColor": "#1e3a5f"},
+    },
+}
+
+
+@st.fragment
+def campo_pesquisa(tipo: str) -> None:
+    """Lista suspensa que filtra o CATMAT/CATSERV enquanto o usuário digita.
+
+    Roda como fragmento: cada tecla atualiza só as sugestões, sem recarregar o mapa e os resultados da página.
+    Ao escolher (ou limpar) um item, a página inteira é recarregada com a nova escolha.
+    """
+    if tipo == "Material":
+        catmat = carregar_indice_catmat(CATMAT_PATH)
+        sugestoes = carregar_sugestoes_catmat(CATMAT_PATH)
+
+        def buscar(termo: str) -> list:
+            return sugerir_materiais(termo, catmat, sugestoes)
+
+    else:
+        catalogo_servico = carregar_catalogo(CATSERV_PATH)
+
+        def buscar(termo: str) -> list:
+            return sugerir_servicos(termo, catalogo_servico)
+
+    escolha = st_searchbox(
+        buscar,
+        label="Pesquisar material" if tipo == "Material" else "Pesquisar serviço",
+        placeholder=(
+            "Comece a digitar: notebook, luva de procedimento, papel a4 ou o código CATMAT/PDM"
+            if tipo == "Material"
+            else "Comece a digitar: manutenção de ar condicionado, limpeza ou o código CATSERV"
+        ),
+        key=f"adesao_pesquisa_{tipo}",
+        debounce=300,
+        rerun_scope="fragment",
+        edit_after_submit="option",
+        style_overrides=ESTILO_PESQUISA,
+    )
+    chave = f"adesao_escolha_{tipo}"
+    if escolha != st.session_state.get(chave):
+        st.session_state[chave] = escolha
+        st.rerun()
+
+
 if tipo:
     data_catalogo = atualizado_em()
     st.caption(
-        "Pesquise pelo nome, por uma descrição (ex.: resma de papel a4) ou pelo código "
-        + ("CATMAT/PDM" if tipo == "Material" else "do serviço")
-        + (f" — catálogo oficial atualizado em {data_catalogo}." if data_catalogo else ".")
+        "Digite o nome, parte do nome ou o código "
+        + ("CATMAT/PDM" if tipo == "Material" else "CATSERV")
+        + " — a lista abaixo vai filtrando e sugerindo os itens do catálogo"
+        + (f" (catálogo oficial atualizado em {data_catalogo})." if data_catalogo else ".")
+        + (" 📦 = família de material (PDM) · 🔹 = item CATMAT. A busca de atas é feita pela família." if tipo == "Material" else "")
     )
-    consulta = st.text_input(
-        "Pesquisar material" if tipo == "Material" else "Pesquisar serviço",
-        placeholder="Ex.: notebook, luva de procedimento, resma de papel a4" if tipo == "Material" else "Ex.: manutenção de ar condicionado",
-    ).strip()
-
-if tipo == "Material":
-    catmat = carregar_indice_catmat(CATMAT_PATH)
-    if consulta:
-        # Muitas famílias parecidas disputam as primeiras posições (ex.: dezenas de "PAPEL ..."): avalia as atas de
-        # até 40 delas para que a família que realmente tem atas não fique de fora, e mostra as 15 melhores.
-        familias = buscar_familias(consulta, catmat, limite=40)
-        atas = contar_atas_em_paralelo(tipo, [f["codigo"] for f in familias])
-        so_com_atas = st.checkbox("Mostrar apenas famílias com atas vigentes", value=True, key="familias_so_com_atas")
-        if so_com_atas and any(atas.values()):
-            familias = [f for f in familias if atas[f["codigo"]]]
-        elif so_com_atas and familias:
-            st.info("Nenhuma das famílias encontradas tem atas vigentes no período; mostrando todas.")
-        familias = familias[:15]
-        rotulos = {
-            f"{f['nome']} · PDM {f['codigo']} · {texto_atas(atas[f['codigo']])} · {f['nota']:.0f}%": f for f in familias
-        }
-        if rotulos:
-            selected_label = st.selectbox(
-                "Famílias de material encontradas (a busca de atas é feita pela família)", list(rotulos), index=0
-            )
-            escolhida = rotulos[selected_label]
-            st.caption(f"Classe: {escolhida['classe']} — {escolhida['exemplo']}")
-            codigo = escolhida["codigo"]
+    campo_pesquisa(tipo)
+    escolhida = st.session_state.get(f"adesao_escolha_{tipo}")
+    if escolhida:
+        codigo = escolhida["codigo"]
+        selected_label = escolhida["nome"]
+        with st.spinner("Verificando atas vigentes..."):
+            quantidade_atas = contar_atas(tipo, codigo)
+        if tipo == "Material":
+            detalhes = [f"Família **{escolhida['nome']}** (PDM {codigo})"]
+            if escolhida.get("classe"):
+                detalhes.append(f"classe {escolhida['classe']}")
+            st.caption(" · ".join(detalhes) + f" · {texto_atas(quantidade_atas)}")
+            if escolhida.get("origem"):
+                st.caption(escolhida["origem"])
         else:
-            st.warning("Nenhuma família de material encontrada. Tente outras palavras ou o código CATMAT do item.")
-    else:
-        materiais = load_catalog(_data_path("catalogo_pdm.json"))
-        selected_label = st.selectbox(
-            "Ou escolha na lista completa de famílias",
-            sorted(materiais.keys()),
-            index=None,
-            placeholder="Selecione uma família de material",
-        )
-        if selected_label:
-            codigo = materiais[selected_label]
-
-if tipo == "Serviço":
-    catalogo_servico = carregar_catalogo(CATSERV_PATH)
-    if consulta:
-        servicos_encontrados = buscar_servicos(consulta, catalogo_servico)
-        atas = contar_atas_em_paralelo(tipo, [s["codigo"] for s in servicos_encontrados])
-        rotulos = {
-            f"{s['nome']} · cód. {s['codigo']} · {texto_atas(atas[s['codigo']])} · {s['nota']:.0f}%": s
-            for s in servicos_encontrados
-        }
-        if rotulos:
-            selected_label = st.selectbox("Serviços encontrados", list(rotulos), index=0)
-            codigo = rotulos[selected_label]["codigo"]
-        else:
-            st.warning("Nenhum serviço encontrado. Tente outras palavras ou o código do serviço.")
-    else:
-        servicos = load_catalog(_data_path("catalogo_servicos.json"))
-        selected_label = st.selectbox(
-            "Ou escolha na lista completa de serviços",
-            sorted(servicos.keys()),
-            index=None,
-            placeholder="Selecione um serviço",
-        )
-        if selected_label:
-            codigo = servicos[selected_label]
+            st.caption(f"Serviço **{escolhida['nome']}** (CATSERV {codigo}) · {texto_atas(quantidade_atas)}")
+        if quantidade_atas == 0:
+            st.info("Este código não tem atas vigentes no período pesquisado. Experimente outra sugestão da lista.")
 
 if selected_label:
     federal_only = st.checkbox("Buscar somente atas da esfera federal", value=True)
