@@ -31,7 +31,6 @@ API_URL = "https://dadosabertos.compras.gov.br/modulo-arp/2_consultarARPItem"
 API_URL_UNIDADES = "https://dadosabertos.compras.gov.br/modulo-arp/3_consultarUnidadesItem"
 MAX_CONCURRENCY = 4
 DATE_RANGE_DAYS = 360
-PAGE_SIZE = {"Material": 100, "Serviço": 100}
 API_CONNECT_TIMEOUT_SECONDS = 15
 API_SEARCH_READ_TIMEOUT_SECONDS = 90
 API_DETAIL_READ_TIMEOUT_SECONDS = 60
@@ -738,6 +737,14 @@ def compute_state_centroids(geojson: Dict) -> Dict[str, Tuple[float, float]]:
 
 
 @st.cache_data
+def estados_do_mapa() -> Dict[str, str]:
+    """Sigla -> nome dos estados, em ordem alfabética de sigla."""
+    geojson = load_state_geojson(_data_path("brasil-estados.geojson"))
+    estados = {f["properties"]["sigla"]: f["properties"]["name"] for f in geojson.get("features", [])}
+    return dict(sorted(estados.items()))
+
+
+@st.cache_data
 def load_municipio_geojson(path: str) -> Dict:
     with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
@@ -789,7 +796,7 @@ async def fetch_page(
 
 
 async def search_async(
-    tipo: str,
+    campo: str,
     codigo: str,
     status_placeholder: st.delta_generator.DeltaGenerator,
     progress_bar,
@@ -833,14 +840,11 @@ async def search_async(
         end_date = dt.today().date()
         start_date = end_date - td(days=DATE_RANGE_DAYS - 1)
         base_params: Dict[str, str] = {
-            "tamanhoPagina": PAGE_SIZE.get(tipo, 120),
+            "tamanhoPagina": 100,
             "dataVigenciaInicialMin": start_date.strftime("%Y-%m-%d"),
             "dataVigenciaInicialMax": end_date.strftime("%Y-%m-%d"),
         }
-        if tipo == "Material":
-            base_params["codigoPdm"] = codigo
-        else:
-            base_params["codigoItem"] = codigo
+        base_params[campo] = codigo  # codigoPdm (família do material) ou codigoItem (código CATMAT/CATSERV exato)
 
         status_placeholder.info("Conectando ao Compras.gov e carregando a primeira página…")
         progress_bar.progress(5, text="Conectando ao Compras.gov…")
@@ -1035,7 +1039,7 @@ def run_enrich(
 
 
 def run_search(
-    tipo: str,
+    campo: str,
     codigo: str,
     federal_only: bool,
     uasg_sphere: Dict[str, str],
@@ -1046,7 +1050,7 @@ def run_search(
         try:
             results = asyncio.run(
                 search_async(
-                    tipo,
+                    campo,
                     codigo,
                     status_placeholder,
                     progress_bar,
@@ -1128,6 +1132,27 @@ def build_map(results: List[Dict], uasg_index: Dict[str, Dict[str, str]]) -> fol
         ),
     ).add_to(mapa)
 
+    # Quantidade de atas escrita sobre cada estado (visível sem passar o mouse).
+    # pointer-events: none deixa o clique passar para o estado embaixo do rótulo.
+    for sigla, (lat, lon) in compute_state_centroids(geojson).items():
+        quantidade = counts_by_uf.get(sigla, 0)
+        if not quantidade:
+            continue
+        folium.Marker(
+            [lat, lon],
+            icon=folium.DivIcon(
+                icon_size=(46, 30),
+                icon_anchor=(23, 15),
+                html=(
+                    '<div style="pointer-events:none;text-align:center;line-height:1.05;'
+                    'font-family:sans-serif;color:#0a0a0a;text-shadow:0 0 3px #fff,0 0 3px #fff;">'
+                    f'<div style="font-size:10px;font-weight:600;">{sigla}</div>'
+                    f'<div style="font-size:13px;font-weight:800;">{quantidade}</div></div>'
+                ),
+            ),
+            interactive=False,
+        ).add_to(mapa)
+
     try:
         bounds = folium.GeoJson(geojson).get_bounds()
         mapa.fit_bounds(bounds, padding=(20, 20))
@@ -1203,13 +1228,33 @@ if tipo:
     campo_pesquisa(tipo)
     escolhida = st.session_state.get(f"adesao_escolha_{tipo}")
     if escolhida:
-        codigo = escolhida.codigo_busca  # material: as atas são buscadas pelo PDM do item escolhido
         selected_label = escolhida.nome
+        if tipo == "Material":
+            abrangencia = st.radio(
+                "Buscar atas",
+                [f"Da família do item (PDM {escolhida.codigo_busca})", f"Somente do CATMAT {escolhida.codigo}"],
+                horizontal=True,
+            )
+            if abrangencia.startswith("Somente"):
+                campo_busca, codigo = "codigoItem", escolhida.codigo
+            else:
+                campo_busca, codigo = "codigoPdm", escolhida.codigo_busca
+        else:
+            campo_busca, codigo = "codigoItem", escolhida.codigo
 
+uf_antes = None
 if selected_label:
     federal_only = st.checkbox("Buscar somente atas da esfera federal", value=True)
     if federal_only:
         uasg_sphere = load_catalog(_data_path("esfera_uasg.json"))
+    ufs = estados_do_mapa()
+    uf_antes = st.selectbox(
+        "Estado",
+        list(ufs),
+        index=None,
+        format_func=lambda sigla: f"{sigla} – {ufs[sigla]}",
+        placeholder="Todos os estados (mostra o mapa)",
+    )
 
 # ── Estado de visualização ─────────────────────────────────────────────────
 st.session_state.setdefault("modo_exibicao", "Mapa")
@@ -1218,18 +1263,17 @@ if "selected_uf" not in st.session_state:
 next_mode = st.session_state.pop("next_modo_exibicao", None)
 if next_mode:
     st.session_state["modo_exibicao"] = next_mode
-if st.session_state.pop("reset_view", False):
-    st.session_state["modo_exibicao"] = "Mapa"
-    st.session_state["selected_uf"] = None
 
 start_button = st.button(
     "Buscar adesões", type="primary", use_container_width=True, disabled=not codigo
 )
 
 if start_button and tipo and codigo:
-    results = run_search(tipo, codigo, federal_only, uasg_sphere)
+    results = run_search(campo_busca, codigo, federal_only, uasg_sphere)
     st.session_state["atas"] = results
-    st.session_state["reset_view"] = True
+    # Estado escolhido antes da busca: vai direto para a lista desse estado; senão, abre o mapa.
+    st.session_state["modo_exibicao"] = "Lista" if uf_antes else "Mapa"
+    st.session_state["selected_uf"] = uf_antes
 elif start_button and not codigo:
     st.warning("Selecione um item antes de iniciar a busca.")
 
