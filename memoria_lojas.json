@@ -1,11 +1,12 @@
 {
  "versao": 1,
- "atualizado": "2026-10-05T04:56:57",
+ "atualizado": "2026-10-05T05:03:59",
  "lojas": {
   "lojadomecanico.com.br": {
-   "acertos": 17,
+   "acertos": 18,
    "ultimo": "2026-10-05",
    "itens": [
+    "grampeador escolar",
     "fita isolante",
     "parafuso sextavado 1/2",
     "grampeador",
@@ -13,13 +14,14 @@
     "chave de fenda"
    ],
    "metodos": {
-    "navegador": 7,
+    "navegador": 8,
     "texto": 0
    },
    "paginas": {
     "grampeador": "https://www.lojadomecanico.com.br/subcategorias/37/501/grampeador-manual",
     "parafuso sextavado 1/2": "https://www.lojadomecanico.com.br/buscar/parafuso-1-2-polegada-sextavado",
-    "fita isolante": "https://www.lojadomecanico.com.br/setor/37/351/478/fitas-adesivas-fita-isolante"
+    "fita isolante": "https://www.lojadomecanico.com.br/setor/37/351/478/fitas-adesivas-fita-isolante",
+    "grampeador escolar": "https://www.lojadomecanico.com.br/subcategorias/37/501/grampeador-manual"
    }
   },
   "eletricaarea.com.br": {
@@ -67,9 +69,10 @@
    }
   },
   "kalunga.com.br": {
-   "acertos": 9,
-   "ultimo": "2026-10-04",
+   "acertos": 10,
+   "ultimo": "2026-10-05",
    "itens": [
+    "grampeador escolar",
     "grampeador",
     "caneta esferográfica azul",
     "papel a4",
@@ -79,11 +82,12 @@
     "borracha escolar"
    ],
    "metodos": {
-    "navegador": 4,
+    "navegador": 5,
     "texto": 0
    },
    "paginas": {
-    "grampeador": "https://www.kalunga.com.br/depto/suprimentos-para-escritorio/grampeadores/26/1104"
+    "grampeador": "https://www.kalunga.com.br/depto/suprimentos-para-escritorio/grampeadores/26/1104",
+    "grampeador escolar": "https://www.kalunga.com.br/depto/suprimentos-para-escritorio/grampeadores/26/1104"
    }
   },
   "lojascacula.com.br": {
@@ -129,19 +133,21 @@
    ]
   },
   "br.my-best.com": {
-   "acertos": 4,
-   "ultimo": "2026-10-04",
+   "acertos": 5,
+   "ultimo": "2026-10-05",
    "itens": [
+    "grampeador escolar",
     "grampeador",
     "luva de limpeza",
     "fita isolante"
    ],
    "metodos": {
     "navegador": 0,
-    "texto": 2
+    "texto": 3
    },
    "paginas": {
-    "grampeador": "https://br.my-best.com/18618"
+    "grampeador": "https://br.my-best.com/18618",
+    "grampeador escolar": "https://br.my-best.com/18618"
    }
   },
   "tendaatacado.com.br": {
@@ -752,6 +758,21 @@
    "navegador": 1,
    "texto": 1,
    "ultimo": "2026-10-05"
+  },
+  "volvocars.com": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-05"
+  },
+  "usparts.volvocars.com": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-05"
+  },
+  "mayoclinic.org": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-05"
   }
  },
  "frases": {
@@ -761,8 +782,8 @@
    "ultimo": "2026-10-05"
   },
   "{item} preço": {
-   "usos": 12.8302,
-   "acertos": 4.2317,
+   "usos": 13.1887,
+   "acertos": 4.0201,
    "ultimo": "2026-10-05"
   },
   "venda de {item}": {
@@ -776,8 +797,8 @@
    "ultimo": "2026-10-05"
   },
   "{item} atacado": {
-   "usos": 12.8302,
-   "acertos": 5.8924,
+   "usos": 13.1887,
+   "acertos": 5.5978,
    "ultimo": "2026-10-05"
   },
   "{item} preço brasil": {
@@ -796,5 +817,5 @@
    "ultimo": "2026-10-05"
   }
  },
- "buscas": 21
+ "buscas": 23
 }
