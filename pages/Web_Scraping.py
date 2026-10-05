@@ -500,15 +500,34 @@ def ddg_voltou():
     DDG_VAZIOS_SEGUIDOS["n"] = 0
 
 
-def _com_cara_de_venda(resultados):
+def _raizes_do_item(item):
+    """Raízes (5 primeiras letras, sem acento) das palavras do item com mais de 3 letras: 'fita isolante' -> {'fita', 'isola'}."""
+    import unicodedata
+    texto = unicodedata.normalize("NFD", str(item or "").lower())
+    texto = "".join(c for c in texto if unicodedata.category(c) != "Mn")
+    return {p[:5] for p in re.findall(r"[a-z0-9]+", texto) if len(p) > 3}
+
+
+def _cita_o_item(texto, raizes):
+    """O texto (título, trecho ou endereço) cita pelo menos uma palavra do item? Sem raízes (item desconhecido), não filtra."""
+    if not raizes:
+        return True
+    import unicodedata
+    texto = "".join(c for c in unicodedata.normalize("NFD", str(texto).lower()) if unicodedata.category(c) != "Mn")
+    return any(r in texto for r in raizes)
+
+
+def _com_cara_de_venda(resultados, item=None):
     """Resultados do ddgs (dicts com title/body/href) cujo título, trecho ou endereço têm sinal de venda (R$, preço, comprar, loja, frete...).
     Frases genéricas ("valor", "atacado") trazem artigos científicos, calculadoras e notícias; esses ficam de fora."""
+    raizes = _raizes_do_item(item)
     return [r["href"] for r in resultados
             if r.get("href") and dominio_valido(r["href"])
-            and SINAIS_VENDA.search(f"{r.get('title', '')} {r.get('body', '')} {r['href']}".lower())]
+            and SINAIS_VENDA.search(f"{r.get('title', '')} {r.get('body', '')} {r['href']}".lower())
+            and _cita_o_item(f"{r.get('title', '')} {r.get('body', '')} {r['href']}", raizes)]
 
 
-def buscar_ddgs_api(query, num_results=8):
+def buscar_ddgs_api(query, num_results=8, item=None):
     """Busca usando o pacote ddgs (DuckDuckGo Search) — mais confiável em servidores."""
     intervalo_entre_buscas()
     try:
@@ -526,7 +545,7 @@ def buscar_ddgs_api(query, num_results=8):
         # o pacote levanta "No results found" quando a frase não tem resultado: não é bloqueio
         DIAG_BUSCA["DDGS"] = "0 sites" if "No results" in str(erro) else f"erro {type(erro).__name__}"
         return []
-    urls = _com_cara_de_venda(results)
+    urls = _com_cara_de_venda(results, item)
     # respondeu, mas nada com cara de venda: não é bloqueio (o contador de respostas vazias só conta "0 sites" puro)
     DIAG_BUSCA["DDGS"] = f"{len(urls)} sites" if urls or not results else f"0 sites ({len(results)} sem cara de venda)"
     return _dedup_urls(urls, num_results)
@@ -635,7 +654,7 @@ def desembrulhar_link_bing(href):
 SINAIS_VENDA = re.compile(r"r\$|\bcompr(a|ar|e)\b|\bpre[çc]o|\bloja\b|\boferta|\bcomprar\b|\bfrete\b|\bcarrinho\b|\bem estoque\b|\bparcel")
 
 
-def buscar_bing_requests(session, query, headers, num_results=8):
+def buscar_bing_requests(session, query, headers, num_results=8, item=None):
     """Busca no Bing como fallback adicional."""
     intervalo_entre_buscas()
     from bs4 import BeautifulSoup
@@ -652,6 +671,7 @@ def buscar_bing_requests(session, query, headers, num_results=8):
         soup = BeautifulSoup(resp.text, "html.parser")
         urls = []
 
+        raizes_item = _raizes_do_item(item)
         comerciais = []  # resultados com cara de venda (preço, R$, comprar, loja...): vêm na frente
         outros = []
         # Cada resultado é um título (h2) com link: aceita o formato clássico (li.b_algo) e variações de layout
@@ -661,6 +681,8 @@ def buscar_bing_requests(session, query, headers, num_results=8):
                 continue
             bloco = a_tag.find_parent("li") or a_tag.find_parent("article") or a_tag.find_parent("div")
             texto = (bloco.get_text(" ", strip=True) if bloco else a_tag.get_text(" ", strip=True)).lower()
+            if not _cita_o_item(f"{texto} {href}", raizes_item):
+                continue  # resultado que nem cita o item (outro assunto, outro idioma)
             (comerciais if SINAIS_VENDA.search(texto) else outros).append(href)
         # só ficam os resultados com cara de venda; artigos, definições e notícias não servem para cotação
         urls = comerciais
@@ -683,11 +705,11 @@ def buscar_na_loja(session, item, site, headers, num_results=8):
 
     # Só no Bing: o DuckDuckGo fica reservado para as frases principais (cada busca extra a ele aumenta o risco de bloqueio)
     query = f"{item} site:{site}"
-    urls = [u for u in buscar_bing_requests(session, query, headers, num_results) if da_loja(u)]
+    urls = [u for u in buscar_bing_requests(session, query, headers, num_results, item) if da_loja(u)]
     return list(dict.fromkeys(urls))[:3]
 
 
-def buscar_urls(session, query, headers, num_results=8):
+def buscar_urls(session, query, headers, num_results=8, item=None):
     """Busca combinada: DDGS API > Google > Bing (o DuckDuckGo HTML saiu: é o mesmo buscador do ddgs). Se o DuckDuckGo falhar com sinal de bloqueio (erro, HTTP 202/403/429),
     ele descansa PAUSA_APOS_BLOQUEIO_DDG segundos antes de ser consultado de novo (insistir só prolonga o bloqueio); nesse intervalo a busca
     segue pelos outros. O motivo vai junto com o nome do buscador, para aparecer no log."""
@@ -697,7 +719,7 @@ def buscar_urls(session, query, headers, num_results=8):
         nota = f"DuckDuckGo descansando por mais {DDG_PROXIMA_TENTATIVA['ate'] - time.time():.0f} s após bloqueio"
     else:
         # 1. Tentar DDGS API (mais confiável em ambientes de servidor)
-        urls = buscar_ddgs_api(query, num_results)
+        urls = buscar_ddgs_api(query, num_results, item)
         if urls:
             ddg_voltou()
             return urls, "DDGS API"
@@ -722,7 +744,7 @@ def buscar_urls(session, query, headers, num_results=8):
     if urls:
         return urls, f"Google — {nota}" if nota else "Google"
     # 4. Bing
-    urls = buscar_bing_requests(session, query, headers, num_results)
+    urls = buscar_bing_requests(session, query, headers, num_results, item)
     if urls:
         return urls, f"Bing — {nota}" if nota else "Bing"
     outros = "; ".join(f"{k}: {v}" for k, v in DIAG_BUSCA.items() if k in ("Google", "Bing", "Bing_sem_venda"))
@@ -1570,7 +1592,7 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
                 time.sleep(delay)
 
                 # Buscar URLs (DDGS API > DuckDuckGo HTML > Google > Bing)
-                urls, engine = buscar_urls(session, query, headers)
+                urls, engine = buscar_urls(session, query, headers, item=item)
 
                 if not urls:
                     log_msg(log_container, logs, f"⚠ Nenhum resultado encontrado para \"{query}\" — {engine}", "warn")
