@@ -1092,6 +1092,7 @@ def scraping_requests(session, url, headers, item_nome=None, html=None, _profund
         # Verificar se o conteúdo é relevante para o item buscado
         if item_nome and not _conteudo_relevante(html, titulo, item_nome, url):
             MOTIVO_REJEICAO["texto"] = "página não corresponde ao item"
+            MOTIVO_REJEICAO["titulo"] = titulo  # guardado para o sistema aprender o nome que as lojas usam
             return None
 
         # Medida/embalagem: título com outra medida da mesma grandeza (1 kg quando o item é 5 kg) é outro produto
@@ -1529,6 +1530,8 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
     # Memória de lojas: lojas que já deram preço para itens parecidos são tentadas primeiro; sites que sempre falham são pulados
     memoria, onde_memoria = memoria_lojas.carregar(st.secrets if _tem_secrets() else {})
     log_msg(log_container, logs, f"🧠 Memória de lojas: {len(memoria['lojas'])} loja(s) aprendida(s), {len(memoria['falhas'])} site(s) com falha — {onde_memoria}", "info")
+    sinonimos.carregar_aprendidos(memoria.setdefault("nomes", {}))  # nomes aprendidos com o uso (ensinados, sugeridos ou por exclusão)
+    st.session_state["sugestoes_nomes"] = {}
     classificadas = memoria_lojas.completar_naturezas(memoria)  # lojas aprendidas antes da classificação por natureza
     if classificadas:
         log_msg(log_container, logs, f"🧭 {classificadas} loja(s) da memória classificadas por natureza a partir dos itens que já cotaram", "info")
@@ -1843,6 +1846,9 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
                             reservas_logadas.add(resultado["resultado_id"])
                     else:
                         log_msg(log_container, logs, f"✗ Sem preço extraível de {dominio}" + (f" — {MOTIVO_REJEICAO['texto']}" if MOTIVO_REJEICAO["texto"] else ""), "error")
+                        if MOTIVO_REJEICAO["texto"] == "página não corresponde ao item" and MOTIVO_REJEICAO.get("titulo"):
+                            sinonimos.registrar_recusado(memoria["nomes"], item, MOTIVO_REJEICAO["titulo"])  # base para sugerir o nome das lojas
+                            memoria["_mudou"] = True
                         dominios_falhos.add(dominio)
                         if MOTIVO_REJEICAO["texto"] not in ("página não corresponde ao item", "página de busca/listagem sem o produto pedido") \
                                 and not MOTIVO_REJEICAO["texto"].startswith("embalagem"):  # a loja pode servir para outro item
@@ -1856,6 +1862,10 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
             estado_item = atualizar_estado_orcamentos(candidatos_item, max_fontes)
             if len(estado_item["validos"]) < max_fontes:
                 log_msg(log_container, logs, f"⚠ Apenas {len(estado_item['validos'])} orçamento(s) válido(s) encontrado(s) para '{item}'", "warn")
+                sugestao = sinonimos.sugerir(memoria["nomes"], item)
+                if sugestao:
+                    st.session_state["sugestoes_nomes"][item] = sugestao
+                    log_msg(log_container, logs, f"💡 As lojas parecem chamar '{item}' de '{sugestao['busca']}'. Confirme em \"Ensinar nomes ao sistema\", abaixo dos resultados", "info")
 
             orcamentos_item = atualizar_estado_orcamentos(candidatos_item, max_fontes)["validos"]
             resultados.extend(orcamentos_item)
@@ -2224,6 +2234,13 @@ with st.expander("🧠 Memória de lojas (aprende com o uso)", expanded=False):
                          hide_index=True, use_container_width=True)
         else:
             st.info("Nenhuma loja aprendida ainda: a memória se forma com as próximas pesquisas.")
+        nomes_vistos = {c: n for c, n in memoria_vista.get("nomes", {}).items() if n.get("busca") or n.get("excluir") or n.get("aceitar")}
+        if nomes_vistos:
+            st.markdown("**Nomes aprendidos** (como o item é buscado e que palavras recusam o anúncio)")
+            st.dataframe(pd.DataFrame([{"Item (como é pedido)": c, "Buscado como": n.get("busca", ""),
+                                        "Recusa anúncios com": ", ".join(sorted(n.get("excluir", {}), key=lambda t: -n["excluir"][t])[:10]),
+                                        "Origem": n.get("origem", "") or "exclusões"} for c, n in sorted(nomes_vistos.items())]),
+                         hide_index=True, use_container_width=True)
         resumo_nat = memoria_lojas.resumo_naturezas(memoria_vista)
         if resumo_nat:
             st.markdown("**Lojas por natureza do item** (para um item novo, as melhores lojas da natureza dele são tentadas pela busca do próprio site)")
@@ -2352,6 +2369,73 @@ if iniciar:
 
 # ===================== EXIBIÇÃO DE RESULTADOS =====================
 
+def _aplicar_nos_nomes(acao):
+    """Carrega a memória, aplica a ação nos nomes aprendidos, grava (GitHub) e já passa a valer nesta sessão."""
+    segredos = st.secrets if _tem_secrets() else {}
+    memoria_nomes, _ = memoria_lojas.carregar(segredos)
+    retorno = acao(memoria_nomes.setdefault("nomes", {}))
+    memoria_nomes["_mudou"] = True
+    mensagem = memoria_lojas.salvar(memoria_nomes, segredos)
+    sinonimos.carregar_aprendidos(memoria_nomes["nomes"])
+    return retorno, mensagem
+
+
+def secao_ensinar_nomes(resultados_brutos=None, opcoes_exclusao=None, labels_exclusao=None):
+    """Área "Ensinar nomes ao sistema": sugestões automáticas, anúncios que não são o item (com resultados) e ensino direto."""
+    sugestoes_nomes = st.session_state.get("sugestoes_nomes", {})
+    with st.expander("🔤 Ensinar nomes ao sistema (aprende com o uso)", expanded=bool(sugestoes_nomes)):
+        st.caption("O que se ensina aqui vale nas próximas pesquisas e fica na memória do GitHub. O sistema também aprende sozinho: quando muitos "
+                   "anúncios são recusados por terem outro nome, ele sugere o nome que as lojas usam.")
+        for item_sugerido, sugestao in list(sugestoes_nomes.items()):
+            exemplos = "; ".join(sugestao.get("exemplos", [])[:2])
+            st.markdown(f"💡 **{item_sugerido}**: as lojas parecem chamar esse item de **\"{sugestao['busca']}\"** (ex.: {exemplos}). É o mesmo produto?")
+            sim, nao = st.columns(2)
+            if sim.button("Sim, é o mesmo: ensinar", key=f"sugestao_sim_{item_sugerido}"):
+                chave, mensagem = _aplicar_nos_nomes(lambda nomes: sinonimos.ensinar(nomes, sinonimos.chave_aprendizado(item_sugerido),
+                                                                                      sugestao["busca"], origem="sugestão aceita"))
+                sugestoes_nomes.pop(item_sugerido, None)
+                st.success(f"Aprendido: '{chave}' será buscado como '{sugestao['busca']}'. {mensagem}")
+            if nao.button("Não é o mesmo produto", key=f"sugestao_nao_{item_sugerido}"):
+                sugestoes_nomes.pop(item_sugerido, None)
+                st.rerun()
+
+        if resultados_brutos:
+            errados = st.multiselect("Anúncios que NÃO são o item pedido (o sistema aprende a recusar anúncios assim):", options=opcoes_exclusao,
+                                     format_func=lambda resultado_id: labels_exclusao.get(resultado_id, resultado_id), key="anuncios_errados")
+            if st.button("🧠 Ensinar: esses anúncios não são o item", disabled=not errados):
+                por_id = {r["resultado_id"]: r for r in resultados_brutos}
+                por_item = {}
+                for resultado_id in errados:
+                    por_item.setdefault(por_id[resultado_id].get("item", ""), []).append(por_id[resultado_id].get("titulo", ""))
+                mantidos = {it: [r.get("titulo", "") for r in resultados_brutos if r.get("item") == it and r["resultado_id"] not in errados] for it in por_item}
+                aprendidas, mensagem = _aplicar_nos_nomes(lambda nomes: {it: sinonimos.aprender_exclusoes(nomes, it, nomes_exc, mantidos[it])
+                                                                         for it, nomes_exc in por_item.items()})
+                st.session_state["scraping_excluir_ids"] = list(dict.fromkeys(st.session_state.get("scraping_excluir_ids", []) + errados))
+                texto = "; ".join(f"{it}: recusar anúncios com {', '.join(p) or '(nada novo)'}" for it, p in aprendidas.items())
+                st.success(f"Aprendido — {texto}. Esses anúncios também saíram da composição. {mensagem}")
+
+        with st.form("ensinar_nome_manual", clear_on_submit=True):
+            st.markdown("**Ensinar um nome** (ex.: na repartição \"caneta piloto\" → nas lojas \"marcador para quadro branco\")")
+            col_rep, col_loja = st.columns(2)
+            nome_reparticao = col_rep.text_input("Como é pedido aqui")
+            nome_lojas = col_loja.text_input("Como as lojas anunciam")
+            recusar = st.text_input("Recusar anúncios que tenham (separe por vírgula)", placeholder="esferográfica, gel")
+            if st.form_submit_button("Ensinar") and nome_reparticao.strip():
+                chave, mensagem = _aplicar_nos_nomes(lambda nomes: sinonimos.ensinar(nomes, nome_reparticao, nome_lojas,
+                                                                                      [t for t in recusar.split(",") if t.strip()]))
+                st.success(f"Aprendido para '{chave}'. {mensagem}")
+        with st.form("esquecer_nome", clear_on_submit=True):
+            esquecer = st.text_input("Esquecer o que foi aprendido para (ex.: caneta piloto)")
+            if st.form_submit_button("Esquecer") and esquecer.strip():
+                chave_esq = sinonimos.chave_aprendizado(esquecer)
+                _, mensagem = _aplicar_nos_nomes(lambda nomes: [sinonimos.esquecer(nomes, c) for c in list(nomes)
+                                                                if c == sinonimos.normalizar(esquecer).strip() or c == chave_esq])
+                st.success(f"Esquecido. {mensagem}")
+
+
+if st.session_state.get("scraping_itens") and not st.session_state.get("scraping_resultados"):
+    secao_ensinar_nomes()  # pesquisa sem nenhum preço: é justamente quando as sugestões de nome mais ajudam
+
 if "scraping_resultados" in st.session_state and st.session_state["scraping_resultados"]:
     resultados_brutos = st.session_state["scraping_resultados"]
     opcoes_exclusao = []
@@ -2370,6 +2454,8 @@ if "scraping_resultados" in st.session_state and st.session_state["scraping_resu
         for resultado_id in st.session_state.get("scraping_excluir_ids", [])
         if resultado_id in opcoes_exclusao
     ]
+
+    secao_ensinar_nomes(resultados_brutos, opcoes_exclusao, labels_exclusao)
 
     st.markdown("#### Ajuste Manual da Composição")
     st.multiselect(
