@@ -651,26 +651,14 @@ def buscar_bing_requests(session, query, headers, num_results=8):
 
 
 def buscar_na_loja(session, item, site, headers, num_results=8):
-    """Procura o item dentro de uma loja da memória ("item site:loja"), com a mesma busca da página (ddgs > DuckDuckGo HTML).
+    """Procura o item dentro de uma loja da memória ("item site:loja") só no Bing.
     Devolve só páginas da própria loja (até 3)."""
-    from bs4 import BeautifulSoup
-    from urllib.parse import unquote
-
     def da_loja(url):
         return memoria_lojas.dominio(url) == site or memoria_lojas.dominio(url).endswith("." + site)
 
+    # Só no Bing: o DuckDuckGo fica reservado para as frases principais (cada busca extra a ele aumenta o risco de bloqueio)
     query = f"{item} site:{site}"
-    urls = []
-    if time.time() >= DDG_PROXIMA_TENTATIVA["ate"]:
-        DIAG_BUSCA.clear()
-        urls = [u for u in buscar_ddgs_api(query, num_results) if da_loja(u)]
-        if not urls:
-            urls = [u for u in buscar_duckduckgo(session, query, headers, num_results) if da_loja(u)]
-        sinais = [v for k, v in DIAG_BUSCA.items() if k in ("DDGS", "DuckDuckGo HTML")]
-        if not urls and any(str(v).startswith(("erro", "HTTP 202", "HTTP 403", "HTTP 429", "HTTP 5")) for v in sinais):
-            descansar_ddg()
-    if not urls:  # DuckDuckGo descansando ou sem resposta: o Bing também aceita "site:"
-        urls = [u for u in buscar_bing_requests(session, query, headers, num_results) if da_loja(u)]
+    urls = [u for u in buscar_bing_requests(session, query, headers, num_results) if da_loja(u)]
     return list(dict.fromkeys(urls))[:3]
 
 
@@ -688,8 +676,8 @@ def buscar_urls(session, query, headers, num_results=8):
         if urls:
             ddg_voltou()
             return urls, "DDGS API"
-        # 2. DuckDuckGo HTML scraping
-        urls = buscar_duckduckgo(session, query, headers, num_results)
+        # 2. DuckDuckGo HTML: só quando o ddgs falhou com erro; se ele respondeu "0 resultados" sem erro, repetir no HTML é uma 2ª requisição à toa
+        urls = [] if DIAG_BUSCA.get("DDGS") == "0 sites" else buscar_duckduckgo(session, query, headers, num_results)
         if urls:
             ddg_voltou()
             return urls, "DuckDuckGo HTML"
