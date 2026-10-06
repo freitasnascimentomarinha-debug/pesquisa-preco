@@ -1794,7 +1794,8 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
                     log_msg(log_container, logs, f"💰 Orçamento da memória — {formatar_moeda_br(resultado['preco'])} em {extrair_dominio(url)}", "orcamento")
                 else:
                     log_msg(log_container, logs, f"✗ {site_memoria} não teve preço para '{item}' desta vez", "warn")
-                dominios_falhos.update({site_memoria, "www." + site_memoria})
+                if achado or loja_sem_o_item:  # só fecha a loja se ela foi consultada e confirmou que não tem o item; senão a busca ainda pode achar a página dela
+                    dominios_falhos.update({site_memoria, "www." + site_memoria})
 
             for variante in variantes:
                 estado_item = atualizar_estado_orcamentos(candidatos_item, max_fontes)
