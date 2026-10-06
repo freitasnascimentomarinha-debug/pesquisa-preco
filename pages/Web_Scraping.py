@@ -657,7 +657,7 @@ TEMPO_MAX_ITEM_S = 120  # meta: cada item termina (com os preços que achou) em 
 TEMPO_MAX_LOJAS_MEMORIA_S = 40  # parte do tempo do item que pode ir para as lojas da memória antes da busca
 NAVEGADOR_MAX_POR_ITEM = 3  # páginas abertas no navegador por item (cada uma custa 10-15 s)
 MOTIVOS_PARA_NAVEGADOR = {"sem preço identificável (página dinâmica)", "não é página de produto"}  # só nesses o navegador pode achar o que o texto não achou
-FRASES_COM_SERPER = 3  # frases de busca por item quando há API de busca ativa (cada consulta gasta 1 crédito)
+FRASES_COM_API = 5  # frases de busca por item quando há API de busca ativa (cada consulta gasta 1 crédito; a pesquisa para ao fechar 3 preços)
 SERPER_ESTADO = {"ate": 0.0}  # depois de erro de chave/créditos o Serper fica de fora por um tempo (a busca segue pelos buscadores gratuitos)
 SERPER_USO = {"n": 0}  # consultas ao Serper nesta execução do app
 
@@ -800,12 +800,13 @@ def buscar_na_loja(session, item, site, headers, num_results=8):
     return list(dict.fromkeys(urls))[:3]
 
 
-def buscar_urls(session, query, headers, num_results=8, item=None):
+def buscar_urls(session, query, headers, num_results=10, item=None, complementar=False):
     """APIs de busca com chave primeiro (Tavily, cuja cota grátis renova todo mês; depois Serper = Google, cujos créditos grátis não renovam); sem chave, sem créditos ou com erro, a busca gratuita (ddgs > Google) assume.
     Se uma API respondeu mas não havia lojas que citem o item, tenta a próxima; se nenhuma achou, devolve vazio sem insistir nos gratuitos."""
     provedores = [("Tavily", chave_tavily(), TAVILY_ESTADO, buscar_tavily, "Tavily"),
                   ("Serper", chave_serper(), SERPER_ESTADO, buscar_serper, "Serper (Google)")]
     falhas, vazios = [], []
+    somados, rotulos = [], []  # `complementar`: item ainda sem os preços; junta o que TODAS as APIs devolvem (gasta 1 crédito de cada)
     for nome, chave, estado, funcao, rotulo in provedores:
         if not chave or time.time() < estado["ate"]:
             continue
@@ -813,8 +814,14 @@ def buscar_urls(session, query, headers, num_results=8, item=None):
         urls = funcao(query, chave, num_results, item)
         situacao = DIAG_BUSCA.get(nome, "")
         if urls:
-            return urls, rotulo
+            if not complementar:
+                return urls, rotulo
+            somados += urls
+            rotulos.append(rotulo)
+            continue
         (vazios if situacao.startswith("ok") else falhas).append(f"{nome}: {situacao}")
+    if somados:
+        return _dedup_urls(somados, num_results + 4), " + ".join(rotulos)
     if vazios:
         return [], "nenhum (" + "; ".join(vazios + falhas) + ")"
     urls, motor = _buscar_urls_gratis(session, query, headers, num_results, item)
@@ -1726,7 +1733,7 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
             variantes, explicacao_frases = memoria_lojas.ordenar_frases(memoria, VARIANTES_BUSCA + VARIANTES_RESERVA)
             serper_ativo = (bool(chave_serper()) and time.time() >= SERPER_ESTADO["ate"]) or (bool(chave_tavily()) and time.time() >= TAVILY_ESTADO["ate"])  # há API de busca em uso
             if serper_ativo:
-                variantes = variantes[:FRASES_COM_SERPER]  # o Google já devolve 10 lojas por consulta: poucas frases bastam e poupam a cota
+                variantes = variantes[:FRASES_COM_API]  # a pesquisa para ao fechar os preços: só os itens difíceis gastam as 5 frases
             log_msg(log_container, logs, f"🧠 Frases de busca: {explicacao_frases}", "info")
             dominios_falhos = set()  # site que falhou neste item não é tentado de novo nas outras buscas do mesmo item
 
@@ -1797,7 +1804,7 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
                 if achado or loja_sem_o_item:  # só fecha a loja se ela foi consultada e confirmou que não tem o item; senão a busca ainda pode achar a página dela
                     dominios_falhos.update({site_memoria, "www." + site_memoria})
 
-            for variante in variantes:
+            for numero_frase, variante in enumerate(variantes):
                 estado_item = atualizar_estado_orcamentos(candidatos_item, max_fontes)
                 if len(estado_item["validos"]) >= max_fontes:
                     log_msg(log_container, logs, f"✓ {max_fontes} orçamentos válidos encontrados para '{item}'. Avançando.", "success")
@@ -1816,7 +1823,8 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
                 time.sleep(delay)
 
                 # Buscar URLs (Serper > Tavily > ddgs > Google)
-                urls, engine = buscar_urls(session, query, headers, item=item)
+                # a partir da 2ª frase, item ainda sem os preços: pede às duas APIs (Tavily e Serper) e junta os sites
+                urls, engine = buscar_urls(session, query, headers, item=item, complementar=numero_frase >= 1)
 
                 if not urls:
                     log_msg(log_container, logs, f"⚠ Nenhum resultado encontrado para \"{query}\" — {engine}", "warn")
