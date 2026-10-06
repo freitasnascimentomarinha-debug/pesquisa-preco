@@ -1096,10 +1096,9 @@ def scraping_requests(session, url, headers, item_nome=None, html=None, _profund
             return None
 
         # Medida/embalagem: título com outra medida da mesma grandeza (1 kg quando o item é 5 kg) é outro produto
+        # Medida/embalagem: outra medida (1 kg quando o item é 5 kg) não descarta a página; o preço vale e o relatório avisa
         medida_confere = "sem_medida" if web_precos.eh_url_de_busca(url) else embalagem.confere(item_nome or "", titulo or "")
-        if medida_confere == "diferente":
-            MOTIVO_REJEICAO["texto"] = f"embalagem/medida diferente do item (página: {str(titulo)[:60]})"
-            return None
+        nome_ofertado = titulo
 
         # Só loja brasileira vendendo em reais: precisa de 2 sinais (.br, moeda BRL, pt-BR, "R$"); preço em outra moeda é rejeitado
         nacional, motivo_nacional = web_precos.site_nacional(url, html)
@@ -1121,6 +1120,7 @@ def scraping_requests(session, url, headers, item_nome=None, html=None, _profund
                 return produto
             if principal.get("nome"):
                 medida_confere = embalagem.confere(item_nome or "", principal["nome"])
+                nome_ofertado = principal["nome"]
         preco_medio = principal["preco"]
         if preco_medio not in precos:
             precos = sorted(set(precos) | {preco_medio})
@@ -1210,6 +1210,7 @@ body {{ font-family: 'Segoe UI', Arial, sans-serif; margin: 0; padding: 20px; ba
             "origem_preco": principal["origem"],
             "confianca": principal["confianca"],
             "medida_confere": medida_confere,
+            "medida_ofertada": embalagem.descrever(nome_ofertado or "").replace("medida ", "").replace("embalagem ", "") if medida_confere == "diferente" else "",
         }
     except Exception:
         return None
@@ -1671,7 +1672,7 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
                 log_msg(log_container, logs, f"🔤 Nome de mercado: '{item}' é buscado como '{termo_item}'; anúncios de outro produto parecido são recusados", "info")
             descricao_medida = embalagem.descrever(item)
             if descricao_medida:
-                log_msg(log_container, logs, f"📦 Unidade de fornecimento: {descricao_medida} — páginas com outra medida são descartadas; busca: '{termo_item}'", "info")
+                log_msg(log_container, logs, f"📦 Unidade de fornecimento: {descricao_medida} — a mesma medida tem preferência; outra medida só entra se faltar preço, e o relatório avisa; busca: '{termo_item}'", "info")
             natureza_item = naturezas.classificar(embalagem.base(item))
             log_msg(log_container, logs, f"🧭 Natureza do item: {natureza_item}" if natureza_item
                     else "🧭 Natureza do item: não reconhecida (usa só as lojas de itens parecidos e a busca)", "info")
@@ -1791,7 +1792,8 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
                     if not resultado:
                         resultado, metodo_ok, tentou_metodos = ler_pagina(url, item)
                         tentou_navegador, tentou_texto = tentou_metodos["navegador"], tentou_metodos["texto"]
-                        if not resultado and not str(MOTIVO_REJEICAO["texto"]).startswith("HTTP "):  # página sem preço (não erro de acesso): tenta a busca do próprio site
+                        # página sem preço de loja que a memória conhece: tenta a busca do próprio site (só nessas, para não deixar a pesquisa lenta)
+                        if not resultado and not str(MOTIVO_REJEICAO["texto"]).startswith("HTTP ") and memoria_lojas.dominio(url) in memoria["lojas"]:
                             interna_site = tentar_busca_interna(url, item)
                             if interna_site:
                                 resultado, url, metodo_ok = interna_site
@@ -1833,7 +1835,8 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
                                 log_container,
                                 logs,
                                 f"💰 Orçamento [{len(estado_item['validos'])}/{max_fontes}] — {formatar_moeda_br(resultado['preco'])} em {dominio}"
-                                + (" (medida confere)" if resultado.get("medida_confere") == "igual" else ""),
+                                + (" (medida confere)" if resultado.get("medida_confere") == "igual" else "")
+                                + (f" (embalagem diferente: {resultado.get('medida_ofertada') or 'outra medida'})" if resultado.get("medida_confere") == "diferente" else ""),
                                 "orcamento",
                             )
                         elif resultado["resultado_id"] not in estado_item["ids_descartados"] and resultado["resultado_id"] not in reservas_logadas:

@@ -48,7 +48,7 @@ def parece_busca(resp, item: str) -> bool:
     return len(re.findall(r"r\$\s*\d", texto)) >= 2
 
 
-def descobrir(session, site: str, item: str, headers: dict, padrao_conhecido: str = "", max_tentativas: int = 6):
+def descobrir(session, site: str, item: str, headers: dict, padrao_conhecido: str = "", max_tentativas: int = 4):
     """(url da busca, padrão que funcionou) ou ("", ""). Com `padrao_conhecido` (guardado na memória) não testa nada: usa direto."""
     if padrao_conhecido:
         return url_de(site, padrao_conhecido, item), padrao_conhecido

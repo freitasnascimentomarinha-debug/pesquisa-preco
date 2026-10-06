@@ -4,7 +4,7 @@
    = plástico/papel adesivo). Cada entrada diz como BUSCAR, que nomes de produto ACEITAR e que palavras EXCLUEM o anúncio
    (ex.: "esferográfica" nunca é caneta piloto; "toalha" nunca é papel contact).
 2. confere_nome(item, nome): o nome do produto (título da página, card da listagem, JSON-LD) é do item pedido? Sem sinônimo, exige a
-   1ª palavra do item (o substantivo: "papel", "caneta", "lâmpada") e pelo menos 60% das palavras; "papel toalha" não passa por "papel contact".
+   1ª palavra do item (o substantivo: "papel", "caneta", "lâmpada") e pelo menos metade das palavras; "papel toalha" não passa por "papel contact".
 Sem IA e sem internet. Para acrescentar um termo, basta uma nova entrada em SINONIMOS."""
 import math
 import re
@@ -61,11 +61,21 @@ SINONIMOS = [
      "busca": "envelope pardo kraft",
      "aceitar": [["envelope", "pardo"], ["envelope", "kraft"]],
      "excluir": ["caixa de pizza", "pizza"]},
+    {"nomes": ["geladeira", "refrigerador"],
+     "busca": "geladeira",
+     "aceitar": [["geladeira"], ["refrigerador"]],
+     "excluir": ["prateleira", "gaveta", "borracha", "gaxeta", "puxador", "filtro", "adesivo", "envelopamento", "capa", "porta latas",
+                 "organizador", "termostato", "compressor", "dobradica", "lampada", "pe nivelador", "peca", "brinquedo", "miniatura", "frigobar"]},
     {"nomes": ["agua sanitaria", "candida"],
      "busca": "água sanitária",
      "aceitar": [["agua", "sanitaria"], ["alvejante"], ["candida"]],
      "excluir": []},
 ]
+
+# substantivos genéricos: sozinhos não identificam o produto (papel toalha x papel offset); exigem também a palavra seguinte do item
+GENERICOS = {"papel", "caneta", "fita", "caixa", "saco", "sacola", "tinta", "cabo", "fio", "tubo", "filtro", "pasta", "cola", "lapis", "kit",
+             "jogo", "conjunto", "bloco", "capa", "porta", "suporte", "chave", "oleo", "sabao", "pano", "copo", "prato", "pote", "lampada",
+             "luva", "bota", "disco", "broca", "lixa", "massa", "pincel", "rolo", "escova", "esponja", "envelope", "etiqueta", "toalha", "tampa"}
 
 # palavras que não ajudam a reconhecer o produto
 VAZIAS = {"de", "da", "do", "das", "dos", "para", "com", "sem", "em", "e", "a", "o", "as", "os", "tipo", "cor", "c", "p", "x", "n", "no", "na"}
@@ -80,6 +90,8 @@ def normalizar(texto: str) -> str:
 def _raiz(palavra: str) -> str:
     """Raiz simples: sem plural e com no máximo 6 letras ('envelopes' -> 'envelo', 'transparente' -> 'transp')."""
     if len(palavra) > 3 and palavra.endswith("s"):
+        palavra = palavra[:-1]
+    if len(palavra) >= 5 and palavra[-1] in "ao":  # masculino/feminino: 'preta' casa 'preto', 'branca' casa 'branco'
         palavra = palavra[:-1]
     return palavra[:6]
 
@@ -166,7 +178,7 @@ def _palavras_chave(item: str) -> list[str]:
 def confere_nome(item: str, nome: str) -> bool:
     """O nome do produto anunciado corresponde ao item pedido?
     Com sinônimo: precisa casar um dos conjuntos 'aceitar' e nenhuma palavra de 'excluir'.
-    Sem sinônimo: a 1ª palavra do item (o substantivo) e pelo menos 60% das palavras do item (no máximo 4)."""
+    Sem sinônimo: a 1ª palavra do item (o substantivo) e pelo menos metade das palavras do item (no máximo 3)."""
     nome_norm = normalizar(nome)
     if not nome_norm.strip():
         return False
@@ -179,14 +191,18 @@ def confere_nome(item: str, nome: str) -> bool:
                 return False
             # o que sobra do item além do apelido (cor, tipo: 'azul' em 'caneta piloto azul') também precisa aparecer, na maioria
             resto = _resto_do_item(item, registro)
-            return not resto or sum(1 for p in resto if _tem(nome_norm, p)) >= math.ceil(0.6 * len(resto))
+            return not resto or sum(1 for p in resto if _tem(nome_norm, p)) >= math.ceil(0.5 * len(resto))
     palavras = _palavras_chave(embalagem.base(item))  # medida e embalagem ("500ml", "caixa") são conferidas à parte, em embalagem.py
+    palavras = [p for p in palavras if not p.isdigit()] or palavras  # números soltos ('26/6') não contam: cada loja escreve de um jeito
     if not palavras:
         return True
     if not _tem(nome_norm, palavras[0]):
         return False
     acertos = sum(1 for p in palavras if _tem(nome_norm, p))
-    return acertos >= max(1, min(math.ceil(0.6 * len(palavras)), 4))  # 60% das palavras; descrição longa: no máximo 4 exigidas
+    exigidas = max(1, min(math.ceil(0.5 * len(palavras)), 3))
+    if palavras[0] in GENERICOS and len(palavras) > 1 and not _tem(nome_norm, palavras[1]):
+        return False  # 'papel', 'caneta', 'lâmpada'... sozinhos não dizem o produto: 'papel offset' precisa de 'offset', 'lâmpada led' de 'led'
+    return acertos >= exigidas  # metade das palavras; descrição longa: no máximo 3 exigidas
 
 
 def excluido(item: str, texto: str) -> bool:
