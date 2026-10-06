@@ -1,6 +1,6 @@
 {
  "versao": 1,
- "atualizado": "2026-10-06T02:10:22",
+ "atualizado": "2026-10-06T14:04:23",
  "lojas": {
   "lojadomecanico.com.br": {
    "acertos": 23,
@@ -50,20 +50,22 @@
    }
   },
   "telhanorte.com.br": {
-   "acertos": 11,
-   "ultimo": "2026-10-05",
+   "acertos": 12,
+   "ultimo": "2026-10-06",
    "itens": [
+    "lâmpada",
     "fita isolante"
    ],
    "metodos": {
     "navegador": 4,
-    "texto": 3
+    "texto": 4
    },
    "paginas": {
-    "fita isolante": "https://www.telhanorte.com.br/eletrica/acessorios/fitas-isolantes"
+    "fita isolante": "https://www.telhanorte.com.br/eletrica/acessorios/fitas-isolantes",
+    "lâmpada": "https://www.telhanorte.com.br/iluminacao/lampadas"
    },
    "naturezas": {
-    "elétrico": 1
+    "elétrico": 2
    }
   },
   "hiperfer.com.br": {
@@ -97,9 +99,10 @@
    }
   },
   "kalunga.com.br": {
-   "acertos": 19,
-   "ultimo": "2026-10-05",
+   "acertos": 20,
+   "ultimo": "2026-10-06",
    "itens": [
+    "papel a4 sulfite",
     "caneta piloto azul",
     "papel contact",
     "tinta guache vermelha",
@@ -113,12 +116,11 @@
     "papel a4",
     "papel crepom",
     "apontador",
-    "papel a4 sulfite",
     "borracha escolar"
    ],
    "metodos": {
     "navegador": 7,
-    "texto": 7
+    "texto": 8
    },
    "paginas": {
     "grampeador": "https://www.kalunga.com.br/depto/suprimentos-para-escritorio/grampeadores/26/1104",
@@ -130,30 +132,35 @@
     "caneta marca texto amarelo": "https://www.kalunga.com.br/busca/marca-texto-amarelo/1",
     "tinta guache vermelha": "https://www.kalunga.com.br/prod/tinta-guache-vermelho-250ml-2574-radex-po-1-un/700363",
     "papel contact": "https://kalunga.com.br/?s=Papel+contact&post_type=product",
-    "caneta piloto azul": "https://www.kalunga.com.br/depto/escrita-corretivos/canetas-esferograficas-1-6/11/1304"
+    "caneta piloto azul": "https://www.kalunga.com.br/depto/escrita-corretivos/canetas-esferograficas-1-6/11/1304",
+    "papel a4 sulfite": "https://kalunga.com.br/?s=papel+sulfite+A4&post_type=product"
    },
    "naturezas": {
     "tintas e pintura": 1,
-    "papelaria e escritório": 14
+    "papelaria e escritório": 15
    },
    "busca": "/?s={q}&post_type=product"
   },
   "lojascacula.com.br": {
-   "acertos": 2,
+   "acertos": 5,
    "ultimo": "2026-10-06",
    "itens": [
+    "caneta marca texto amarelo",
+    "papel crepom",
     "papel contact",
     "borracha escolar"
    ],
    "naturezas": {
-    "papelaria e escritório": 2
+    "papelaria e escritório": 5
    },
    "metodos": {
     "navegador": 0,
-    "texto": 1
+    "texto": 4
    },
    "paginas": {
-    "papel contact": "https://www.lojascacula.com.br/papelaria/escolar/plastico-auto-adesivo"
+    "papel contact": "https://www.lojascacula.com.br/papelaria/escolar/plastico-auto-adesivo",
+    "papel crepom": "https://www.lojascacula.com.br/papelaria/escolar/papel-crepom",
+    "caneta marca texto amarelo": "https://www.lojascacula.com.br/papelaria/escrita-e-auxiliares/marca-texto"
    }
   },
   "leonorashop.com.br": {
@@ -177,13 +184,20 @@
    }
   },
   "fermaquinas.com.br": {
-   "acertos": 1,
-   "ultimo": "2026-10-04",
+   "acertos": 2,
+   "ultimo": "2026-10-06",
    "itens": [
     "chave de fenda"
    ],
    "naturezas": {
-    "ferramentas": 1
+    "ferramentas": 2
+   },
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "paginas": {
+    "chave de fenda": "https://www.fermaquinas.com.br/chave-de-fenda-5-16-x-6-eda/p"
    }
   },
   "barzel.com.br": {
@@ -197,13 +211,23 @@
    }
   },
   "jofepar.com.br": {
-   "acertos": 1,
-   "ultimo": "2026-10-04",
+   "acertos": 3,
+   "ultimo": "2026-10-06",
    "itens": [
+    "parafuso sextavado 1/2",
     "chave de fenda"
    ],
    "naturezas": {
-    "ferramentas": 1
+    "ferramentas": 2,
+    "fixadores": 1
+   },
+   "metodos": {
+    "navegador": 0,
+    "texto": 2
+   },
+   "paginas": {
+    "chave de fenda": "https://www.jofepar.com.br/chave-toco-fenda-noll-1-4-x-1-1-2-p8751",
+    "parafuso sextavado 1/2": "https://www.jofepar.com.br/parafuso-sextavado-ferro-ww-rosca-inteira-1-2-x-2-p574"
    }
   },
   "br.my-best.com": {
@@ -271,37 +295,53 @@
    "busca": "/busca?q={q}"
   },
   "atacadosaopaulo.com.br": {
-   "acertos": 13,
-   "ultimo": "2026-10-05",
+   "acertos": 25,
+   "ultimo": "2026-10-06",
    "itens": [
-    "detergente 500ml",
-    "caneta piloto azul",
-    "tinta guache vermelha",
-    "caneta marca texto amarelo",
-    "resma de papel",
-    "caneta esferográfica azul",
     "luva de limpeza",
+    "chave de fenda",
+    "caneta marca texto amarelo",
     "papel crepom",
-    "resma de papel a4",
+    "papel a4 sulfite",
+    "grampeador",
+    "fita isolante",
+    "papel contact",
+    "lápis preto",
     "detergente",
-    "papel a4 sulfite"
+    "caneta esferográfica azul",
+    "caneta piloto azul",
+    "detergente 500ml",
+    "tinta guache vermelha",
+    "resma de papel",
+    "resma de papel a4"
    ],
    "metodos": {
     "navegador": 7,
-    "texto": 4
+    "texto": 16
    },
    "paginas": {
     "caneta esferográfica azul": "https://www.atacadosaopaulo.com.br/ki-5-caixas-caneta-esferografica-1-0mm---3un-azul--1un-preto-e-1un-vermelho---caixa-fechada-50un/p?srsltid=AU7gw4Vyg5t9J9U2FbmQcIfvLVIMmm-1Qb4l5EoZNMZ7S025fHvaLGbp",
     "resma de papel": "https://www.atacadosaopaulo.com.br/kit-10-resma-papel-sulfite-a4-210x297mm-75g-m2-amarelo/p?srsltid=AU7gw4VS8wfB8E9SGKNPb1eAlLwdVEp64NmKFyaX3KYjH85pgLWLafvV",
     "caneta marca texto amarelo": "https://www.atacadosaopaulo.com.br/caneta-marca-texto-amarela-mp612---12un---masterprint/p",
     "tinta guache vermelha": "https://www.atacadosaopaulo.com.br/tinta-guache-15ml-vermelho-fogo--12-unidades---acrilex/p",
-    "caneta piloto azul": "https://www.atacadosaopaulo.com.br/ki-5-caixas-caneta-esferografica-1-0mm---3un-azul--1un-preto-e-1un-vermelho---caixa-fechada-50un/p?srsltid=AU7gw4Vyg5t9J9U2FbmQcIfvLVIMmm-1Qb4l5EoZNMZ7S025fHvaLGbp",
-    "detergente 500ml": "https://www.atacadosaopaulo.com.br/detergente-500-ml-neutro-5004-%25257C-un-%25257C-limpol/p"
+    "caneta piloto azul": "https://www.atacadosaopaulo.com.br/pincel-marcador-quadro-branco-recarregavel-azul---12un---compactor/p",
+    "detergente 500ml": "https://www.atacadosaopaulo.com.br/detergente-500-ml-neutro-5004-%25257C-un-%25257C-limpol/p",
+    "detergente": "https://www.atacadosaopaulo.com.br/detergente-concentrado-500ml-azulim-coco---un---start/p",
+    "lápis preto": "https://www.atacadosaopaulo.com.br/escolar/escrita-escolar/lapis-preto",
+    "papel contact": "https://www.atacadosaopaulo.com.br/escritorio/blocos---adesivos/plasticos-adesivo-contact",
+    "fita isolante": "https://www.atacadosaopaulo.com.br/fita-isolante-19mmx10m-antichamas-3410---un---fertak/p",
+    "grampeador": "https://www.atacadosaopaulo.com.br/escritorio/escritorio/grampeadores",
+    "papel a4 sulfite": "https://www.atacadosaopaulo.com.br/papeis---pastas/papeis/papel-sulfite",
+    "papel crepom": "https://www.atacadosaopaulo.com.br/papel-crepom-liso-2m-marrom---10fl---crep-mais/p",
+    "chave de fenda": "https://www.atacadosaopaulo.com.br/chave-de-fenda-3-16x5--2029---un---fertak/p",
+    "luva de limpeza": "https://www.atacadosaopaulo.com.br/luva-latex-multiuso-tamanho-m-amarelo-3015-inoven---par/p"
    },
    "naturezas": {
     "tintas e pintura": 1,
-    "papelaria e escritório": 7,
-    "limpeza e higiene": 3
+    "papelaria e escritório": 15,
+    "limpeza e higiene": 5,
+    "elétrico": 1,
+    "ferramentas": 1
    }
   },
   "hp.com": {
@@ -360,36 +400,41 @@
    }
   },
   "jambo.com.br": {
-   "acertos": 3,
-   "ultimo": "2026-10-04",
+   "acertos": 4,
+   "ultimo": "2026-10-06",
    "itens": [
+    "caneta esferográfica azul",
     "papel crepom"
    ],
    "metodos": {
     "navegador": 1,
-    "texto": 0
+    "texto": 1
    },
    "naturezas": {
-    "papelaria e escritório": 1
+    "papelaria e escritório": 2
+   },
+   "paginas": {
+    "caneta esferográfica azul": "https://www.jambo.com.br/escrita/canetas-e-marcadores/esferograficas/caneta-esferografica-1-0mm-azul-bic-cristal-835205"
    }
   },
   "casadopapel.com.br": {
-   "acertos": 4,
-   "ultimo": "2026-10-05",
+   "acertos": 5,
+   "ultimo": "2026-10-06",
    "itens": [
+    "papel crepom",
     "cola bastão",
-    "papel a4",
-    "papel crepom"
+    "papel a4"
    ],
    "metodos": {
     "navegador": 1,
-    "texto": 2
+    "texto": 3
    },
    "paginas": {
-    "cola bastão": "https://www.casadopapel.com.br/escritorio/cola/cola-bastao"
+    "cola bastão": "https://www.casadopapel.com.br/escritorio/cola/cola-bastao",
+    "papel crepom": "https://www.casadopapel.com.br/papel-crepom-comum-48cmx2m-amarelo-p36348-p991033"
    },
    "naturezas": {
-    "papelaria e escritório": 3
+    "papelaria e escritório": 4
    }
   },
   "tkshopping.com.br": {
@@ -403,13 +448,28 @@
    }
   },
   "atacadodolojista.com.br": {
-   "acertos": 1,
-   "ultimo": "2026-10-04",
+   "acertos": 4,
+   "ultimo": "2026-10-06",
    "itens": [
+    "parafuso sextavado 1/2",
+    "chave de fenda",
+    "grampeador",
     "tomada 20a"
    ],
    "naturezas": {
-    "elétrico": 1
+    "elétrico": 1,
+    "papelaria e escritório": 1,
+    "ferramentas": 1,
+    "fixadores": 1
+   },
+   "metodos": {
+    "navegador": 0,
+    "texto": 3
+   },
+   "paginas": {
+    "grampeador": "https://www.atacadodolojista.com.br/grampeador-pinador-3-em-1-sigma",
+    "chave de fenda": "https://www.atacadodolojista.com.br/chave-de-fenda-1-4-x-1-1-2-sigma-power",
+    "parafuso sextavado 1/2": "https://www.atacadodolojista.com.br/parafuso-sextavado-zincado-1-4x2-r-i-com-200-unidades-jomarca-"
    }
   },
   "officinepapel.com.br": {
@@ -433,26 +493,29 @@
    }
   },
   "superpaguemenos.com.br": {
-   "acertos": 6,
-   "ultimo": "2026-10-05",
+   "acertos": 8,
+   "ultimo": "2026-10-06",
    "itens": [
+    "luva de limpeza",
+    "detergente",
     "detergente 500ml",
     "feijão 1kg",
-    "detergente",
     "sabão em pó",
     "arroz 1kg"
    ],
    "metodos": {
     "navegador": 2,
-    "texto": 1
+    "texto": 3
    },
    "naturezas": {
     "gêneros alimentícios": 2,
-    "limpeza e higiene": 3
+    "limpeza e higiene": 5
    },
    "busca": "/busca?q={q}",
    "paginas": {
-    "detergente 500ml": "https://superpaguemenos.com.br/busca?q=Detergente+500ml"
+    "detergente 500ml": "https://superpaguemenos.com.br/busca?q=Detergente+500ml",
+    "detergente": "https://superpaguemenos.com.br/busca?q=detergente",
+    "luva de limpeza": "https://superpaguemenos.com.br/busca?q=luva+l%C3%A1tex+multiuso"
    }
   },
   "atacadao.com.br": {
@@ -739,20 +802,26 @@
    }
   },
   "superproatacado.com.br": {
-   "acertos": 1,
-   "ultimo": "2026-10-04",
+   "acertos": 3,
+   "ultimo": "2026-10-06",
    "itens": [
+    "lâmpada",
+    "chave de fenda",
     "parafuso sextavado 1/2"
    ],
    "metodos": {
     "navegador": 1,
-    "texto": 0
+    "texto": 2
    },
    "paginas": {
-    "parafuso sextavado 1/2": "https://www.superproatacado.com.br/ferragens/parafusos-e-buchas/parafuso-sextavado-polegada"
+    "parafuso sextavado 1/2": "https://www.superproatacado.com.br/ferragens/parafusos-e-buchas/parafuso-sextavado-polegada",
+    "chave de fenda": "https://www.superproatacado.com.br/ferramentas-manuais/chave-de-fenda-e-phillips",
+    "lâmpada": "https://www.superproatacado.com.br/material-eletrico/lampadas"
    },
    "naturezas": {
-    "fixadores": 1
+    "fixadores": 1,
+    "ferramentas": 1,
+    "elétrico": 1
    }
   },
   "atlasparafusos.com.br": {
@@ -790,20 +859,20 @@
    }
   },
   "acalanto.net.br": {
-   "acertos": 1,
-   "ultimo": "2026-10-05",
+   "acertos": 2,
+   "ultimo": "2026-10-06",
    "itens": [
     "lápis preto"
    ],
    "metodos": {
     "navegador": 0,
-    "texto": 1
+    "texto": 2
    },
    "paginas": {
     "lápis preto": "https://www.acalanto.net.br/lapis-preto"
    },
    "naturezas": {
-    "papelaria e escritório": 1
+    "papelaria e escritório": 2
    }
   },
   "acasadasartes.com.br": {
@@ -960,20 +1029,20 @@
    }
   },
   "midea.com.br": {
-   "acertos": 1,
-   "ultimo": "2026-10-05",
+   "acertos": 2,
+   "ultimo": "2026-10-06",
    "itens": [
     "frigobar"
    ],
    "metodos": {
     "navegador": 1,
-    "texto": 0
+    "texto": 1
    },
    "paginas": {
     "frigobar": "https://www.midea.com.br/eletrodomesticos/frigobar?srsltid=AU7gw4Xj5ww3_GEFrUYjmafCr2OtXsOp4UbQ4QdkxzoP67oZ3gKrpnfw"
    },
    "naturezas": {
-    "eletrodomésticos": 1
+    "eletrodomésticos": 2
    }
   },
   "loja.electrolux.com.br": {
@@ -1028,37 +1097,37 @@
    }
   },
   "multiloja.com.br": {
-   "acertos": 1,
-   "ultimo": "2026-10-05",
+   "acertos": 2,
+   "ultimo": "2026-10-06",
    "itens": [
     "frigobar"
    ],
    "metodos": {
     "navegador": 1,
-    "texto": 0
+    "texto": 1
    },
    "paginas": {
     "frigobar": "https://www.multiloja.com.br/eletrodomesticos/refrigeradores/frigobar?srsltid=AU7gw4UmrHa2t7Pp8sLpwpwba6esTo0YlHbwxqiYlWXodDOlIW3SZnkj"
    },
    "naturezas": {
-    "eletrodomésticos": 1
+    "eletrodomésticos": 2
    }
   },
   "milium.com.br": {
-   "acertos": 1,
-   "ultimo": "2026-10-05",
+   "acertos": 2,
+   "ultimo": "2026-10-06",
    "itens": [
     "caneta esferográfica azul"
    ],
    "metodos": {
     "navegador": 1,
-    "texto": 0
+    "texto": 1
    },
    "paginas": {
-    "caneta esferográfica azul": "https://www.milium.com.br/caneta-esferografica-azul-bic-cristal-1000333-2050000196331/p?srsltid=AU7gw4UX9UurNFwaNcTcltVnIGUK6vSSjXSkYpvRD55nsGVq0Nf4-HE7"
+    "caneta esferográfica azul": "https://www.milium.com.br/caneta-esferografica-azul-bic-cristal-1000333-2050000196331/p"
    },
    "naturezas": {
-    "papelaria e escritório": 1
+    "papelaria e escritório": 2
    }
   },
   "contabilista.com.br": {
@@ -1099,22 +1168,22 @@
    }
   },
   "gimba.com.br": {
-   "acertos": 2,
+   "acertos": 4,
    "ultimo": "2026-10-06",
    "itens": [
-    "caneta piloto azul",
-    "caneta esferográfica azul"
+    "caneta esferográfica azul",
+    "caneta piloto azul"
    ],
    "metodos": {
     "navegador": 1,
-    "texto": 1
+    "texto": 3
    },
    "paginas": {
     "caneta esferográfica azul": "https://www.gimba.com.br/canetas-esferograficas/caneta-esferografica-bic-cristal-ponta-media-1mm-azul-1-un/?PID=23&srsltid=AU7gw4Ue3wuMgsMAWw2pK8eJ9jj-LRVX2vUNZW0SRh07edujzpSPxhhb",
     "caneta piloto azul": "https://www.gimba.com.br/pincel-para-quadro-branco/pincel-marcador-pilot-quadro-branco-recarregavel-20mm-azul-1-un?PID=149"
    },
    "naturezas": {
-    "papelaria e escritório": 2
+    "papelaria e escritório": 4
    }
   },
   "galpaodotoner.com.br": {
@@ -1241,17 +1310,17 @@
    }
   },
   "papelariarenatodotriciclo.com.br": {
-   "acertos": 2,
+   "acertos": 3,
    "ultimo": "2026-10-06",
    "itens": [
     "papel contact"
    ],
    "metodos": {
     "navegador": 0,
-    "texto": 2
+    "texto": 3
    },
    "naturezas": {
-    "papelaria e escritório": 2
+    "papelaria e escritório": 3
    },
    "paginas": {
     "papel contact": "https://www.papelariarenatodotriciclo.com.br/papelaria/papel/papel-contact"
@@ -1275,17 +1344,17 @@
    }
   },
   "jcdecor.com.br": {
-   "acertos": 2,
+   "acertos": 3,
    "ultimo": "2026-10-06",
    "itens": [
     "papel contact"
    ],
    "metodos": {
     "navegador": 0,
-    "texto": 2
+    "texto": 3
    },
    "naturezas": {
-    "papelaria e escritório": 2
+    "papelaria e escritório": 3
    },
    "paginas": {
     "papel contact": "https://www.jcdecor.com.br/qual-a-diferenca-entre-vinil-adesivo-e-papel-contact"
@@ -1326,51 +1395,54 @@
    }
   },
   "tudomixatacado.com.br": {
-   "acertos": 1,
-   "ultimo": "2026-10-05",
+   "acertos": 2,
+   "ultimo": "2026-10-06",
    "itens": [
+    "luva de limpeza",
     "caneta piloto azul"
    ],
    "metodos": {
     "navegador": 0,
-    "texto": 1
+    "texto": 2
    },
    "naturezas": {
-    "papelaria e escritório": 1
+    "papelaria e escritório": 1,
+    "limpeza e higiene": 1
    },
    "paginas": {
-    "caneta piloto azul": "https://www.tudomixatacado.com.br/caneta-esferografica-pilot-1-0mm-media-bpgp-10r-ni-m-azul_8460"
+    "caneta piloto azul": "https://www.tudomixatacado.com.br/caneta-esferografica-pilot-1-0mm-media-bpgp-10r-ni-m-azul_8460",
+    "luva de limpeza": "https://www.tudomixatacado.com.br/luva-latex-flocada-go-safety-multiuso-amarela-m-1par_9287"
    }
   },
   "veluart.com.br": {
-   "acertos": 1,
+   "acertos": 2,
    "ultimo": "2026-10-06",
    "itens": [
     "papel contact"
    ],
    "metodos": {
     "navegador": 0,
-    "texto": 1
+    "texto": 2
    },
    "naturezas": {
-    "papelaria e escritório": 1
+    "papelaria e escritório": 2
    },
    "paginas": {
-    "papel contact": "https://www.veluart.com.br/papel-contact-transparente-25m"
+    "papel contact": "https://www.veluart.com.br/outros-departamentos/papel-contact"
    }
   },
   "nagem.com.br": {
-   "acertos": 1,
+   "acertos": 2,
    "ultimo": "2026-10-06",
    "itens": [
     "caneta piloto azul"
    ],
    "metodos": {
     "navegador": 0,
-    "texto": 1
+    "texto": 2
    },
    "naturezas": {
-    "papelaria e escritório": 1
+    "papelaria e escritório": 2
    },
    "paginas": {
     "caneta piloto azul": "https://www.nagem.com.br/produto/detalhes/034371/Marcador+Para+Quadro+Branco+Recarregavel+WBM-7+Azul+1+Unidade+Pilot"
@@ -1394,10 +1466,29 @@
    }
   },
   "papelecia.com.br": {
+   "acertos": 2,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "lápis preto",
+    "caneta piloto azul"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 2
+   },
+   "naturezas": {
+    "papelaria e escritório": 2
+   },
+   "paginas": {
+    "caneta piloto azul": "https://www.papelecia.com.br/marcador-pincel-quadro-branco-wbma-azul-un-pilot-4902505355783.html",
+    "lápis preto": "https://www.papelecia.com.br/lapis-preto-4700?sort=p.price&order=ASC"
+   }
+  },
+  "oceanob2b.com": {
    "acertos": 1,
    "ultimo": "2026-10-06",
    "itens": [
-    "caneta piloto azul"
+    "caneta esferográfica azul"
    ],
    "metodos": {
     "navegador": 0,
@@ -1407,7 +1498,332 @@
     "papelaria e escritório": 1
    },
    "paginas": {
-    "caneta piloto azul": "https://www.papelecia.com.br/marcador-pincel-quadro-branco-wbma-azul-un-pilot-4902505355783.html"
+    "caneta esferográfica azul": "https://www.oceanob2b.com/caneta-esferografica-bic-cristal-azul-caixa-50-unidades-p996738"
+   }
+  },
+  "supermuffato.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "detergente"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "limpeza e higiene": 1
+   },
+   "paginas": {
+    "detergente": "https://www.supermuffato.com.br/limpeza/detergentes"
+   }
+  },
+  "atacadomabel.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "lápis preto"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "papelaria e escritório": 1
+   },
+   "paginas": {
+    "lápis preto": "https://www.atacadomabel.com.br/categoria/lapislapiseiras"
+   }
+  },
+  "atacadopapelandia.com.br": {
+   "acertos": 2,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "caneta marca texto amarelo",
+    "lápis preto"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 2
+   },
+   "naturezas": {
+    "papelaria e escritório": 2
+   },
+   "paginas": {
+    "lápis preto": "https://www.atacadopapelandia.com.br/lapis",
+    "caneta marca texto amarelo": "https://www.atacadopapelandia.com.br/marca-texto"
+   }
+  },
+  "lojaogideao.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "lápis preto"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "papelaria e escritório": 1
+   },
+   "paginas": {
+    "lápis preto": "https://www.lojaogideao.com.br/produto/kit-lapis-preto-atacado-caixa-com-144-unidades-para-revenda-1901"
+   }
+  },
+  "staratacado.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "lápis preto"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "papelaria e escritório": 1
+   },
+   "paginas": {
+    "lápis preto": "https://staratacado.com.br/categoria-produto/escrita/lapis-escrita-preta"
+   }
+  },
+  "sofitas.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "fita isolante"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "elétrico": 1
+   },
+   "paginas": {
+    "fita isolante": "https://www.sofitas.com.br/fita-isolante-3m-scotch-33-19-mm-x-20-m"
+   }
+  },
+  "ferreiracosta.com": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "fita isolante"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "elétrico": 1
+   },
+   "paginas": {
+    "fita isolante": "https://www.ferreiracosta.com/pesquisa/app-fitas-isolantes"
+   }
+  },
+  "unicaserv.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "fita isolante"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "elétrico": 1
+   },
+   "paginas": {
+    "fita isolante": "https://www.unicaserv.com.br/ferramentas/ferramentas-de-uso-geral/2-rolos-de-fita-isolante-20-metros-eda-"
+   }
+  },
+  "telerio.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "frigobar"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "eletrodomésticos": 1
+   },
+   "paginas": {
+    "frigobar": "https://www.telerio.com.br/eletrodomesticos/frigobar-adega-e-cervejeira/frigobar?srsltid=AU7gw4UeAx4_1di-raAlTEyRBMOIgcowPGmWF_-wjLghQeDUdY7f84OX"
+   }
+  },
+  "lojacalcom.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "grampeador"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "papelaria e escritório": 1
+   },
+   "paginas": {
+    "grampeador": "https://www.lojacalcom.com.br/grampeador-manual/prod-9922213/"
+   }
+  },
+  "caixasecobox.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "papel crepom"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "papelaria e escritório": 1
+   },
+   "paginas": {
+    "papel crepom": "https://www.caixasecobox.com.br/papel-crepom"
+   }
+  },
+  "lojade199online.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "chave de fenda"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "ferramentas": 1
+   },
+   "paginas": {
+    "chave de fenda": "https://www.lojade199online.com.br/ferramentas/ferramentas-no-atacado-chaves.html"
+   }
+  },
+  "en.operferramentas.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "chave de fenda"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "ferramentas": 1
+   },
+   "paginas": {
+    "chave de fenda": "https://en.operferramentas.com.br/product-page/chave-fenda-phillips-6-pecas"
+   }
+  },
+  "palaciodasferramentas.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "chave de fenda"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "ferramentas": 1
+   },
+   "paginas": {
+    "chave de fenda": "https://palaciodasferramentas.com.br/ferramentas-manuais/chaves-ferramentas/chave-de-fenda"
+   }
+  },
+  "mezzaliramix.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "luva de limpeza"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "limpeza e higiene": 1
+   },
+   "paginas": {
+    "luva de limpeza": "https://www.mezzaliramix.com.br/ME346843"
+   }
+  },
+  "ilumilarlustres.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "lâmpada"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "elétrico": 1
+   },
+   "paginas": {
+    "lâmpada": "https://ilumilarlustres.com.br/lampadas"
+   }
+  },
+  "copalparafusos.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "parafuso sextavado 1/2"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "fixadores": 1
+   },
+   "paginas": {
+    "parafuso sextavado 1/2": "https://www.copalparafusos.com.br/19082"
+   }
+  },
+  "megalojista.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "parafuso sextavado 1/2"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "fixadores": 1
+   },
+   "paginas": {
+    "parafuso sextavado 1/2": "https://www.megalojista.com.br/parafuso-sextavado-rosca-inteira-1-2-12-bsw-x-2-1-2-asme-b18-2-1-aco-carbono-grau-2-zincado-branco.html"
+   }
+  },
+  "universodolar.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "parafuso sextavado 1/2"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "fixadores": 1
+   },
+   "paginas": {
+    "parafuso sextavado 1/2": "https://www.universodolar.com.br/parafuso-sextavado-1-2x2-1-2-galvanizado---kit-com-50-pecas-4764-jomarca-jomarca-11617"
    }
   }
  },
@@ -1488,14 +1904,14 @@
    "ultimo": "2026-10-04"
   },
   "artfloc.com.br": {
-   "navegador": 1,
-   "texto": 3,
-   "ultimo": "2026-10-04"
+   "navegador": 2,
+   "texto": 4,
+   "ultimo": "2026-10-06"
   },
   "atacadoideal.com.br": {
    "navegador": 0,
-   "texto": 1,
-   "ultimo": "2026-10-04"
+   "texto": 2,
+   "ultimo": "2026-10-06"
   },
   "papelariariomadeira.com.br": {
    "navegador": 1,
@@ -1513,9 +1929,9 @@
    "ultimo": "2026-10-05"
   },
   "loja.suzano.com.br": {
-   "navegador": 0,
-   "texto": 1,
-   "ultimo": "2026-10-04"
+   "navegador": 1,
+   "texto": 2,
+   "ultimo": "2026-10-06"
   },
   "soydechollos.com": {
    "navegador": 0,
@@ -1688,9 +2104,9 @@
    "ultimo": "2026-10-05"
   },
   "tracxn.com": {
-   "navegador": 2,
-   "texto": 2,
-   "ultimo": "2026-10-05"
+   "navegador": 3,
+   "texto": 3,
+   "ultimo": "2026-10-06"
   },
   "hn.ebay.com": {
    "navegador": 1,
@@ -1748,6 +2164,51 @@
    "ultimo": "2026-10-05"
   },
   "yelp.com": {
+   "navegador": 3,
+   "texto": 3,
+   "ultimo": "2026-10-06"
+  },
+  "webmotors.com.br": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-06"
+  },
+  "3m.com.br": {
+   "navegador": 0,
+   "texto": 1,
+   "ultimo": "2026-10-06"
+  },
+  "goiasatacado.com.br": {
+   "navegador": 0,
+   "texto": 1,
+   "ultimo": "2026-10-06"
+  },
+  "coinmarketcap.com": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-06"
+  },
+  "powertooljoy.com": {
+   "navegador": 0,
+   "texto": 1,
+   "ultimo": "2026-10-06"
+  },
+  "investing.com": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-06"
+  },
+  "ourolux.com.br": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-06"
+  },
+  "montparvirtual.com.br": {
+   "navegador": 0,
+   "texto": 1,
+   "ultimo": "2026-10-06"
+  },
+  "varejo.wurth.com.br": {
    "navegador": 1,
    "texto": 1,
    "ultimo": "2026-10-06"
@@ -1755,13 +2216,13 @@
  },
  "frases": {
   "{item} comprar": {
-   "usos": 11.6375,
-   "acertos": 2.0565,
-   "ultimo": "2026-10-05"
+   "usos": 12.0556,
+   "acertos": 4.9537,
+   "ultimo": "2026-10-06"
   },
   "{item} preço": {
-   "usos": 17.1519,
-   "acertos": 22.7637,
+   "usos": 18.611,
+   "acertos": 18.6149,
    "ultimo": "2026-10-06"
   },
   "venda de {item}": {
@@ -1770,13 +2231,13 @@
    "ultimo": "2026-10-06"
   },
   "{item} valor": {
-   "usos": 13.1887,
-   "acertos": 5.708,
-   "ultimo": "2026-10-05"
+   "usos": 15.4812,
+   "acertos": 9.4182,
+   "ultimo": "2026-10-06"
   },
   "{item} atacado": {
-   "usos": 16.3193,
-   "acertos": 9.5023,
+   "usos": 18.1105,
+   "acertos": 22.53,
    "ultimo": "2026-10-06"
   },
   "{item} preço brasil": {
@@ -1785,17 +2246,17 @@
    "ultimo": "2026-10-05"
   },
   "{item} comprar brasil": {
-   "usos": 10.2464,
-   "acertos": 1.0,
-   "ultimo": "2026-10-05"
+   "usos": 10.7341,
+   "acertos": 1.95,
+   "ultimo": "2026-10-06"
   },
   "comprar {item} online brasil": {
-   "usos": 12.8302,
-   "acertos": 2.3874,
-   "ultimo": "2026-10-05"
+   "usos": 13.1887,
+   "acertos": 3.268,
+   "ultimo": "2026-10-06"
   }
  },
- "buscas": 45,
+ "buscas": 60,
  "sem_busca": {
   "arxiv.org": "2026-10-05",
   "papers.ssrn.com": "2026-10-05",
@@ -1845,15 +2306,26 @@
   "produtos.solucoesindustriais.com.br": "2026-10-05",
   "caixamontada.com.br": "2026-10-05",
   "embalagenscia.com.br": "2026-10-05",
-  "papelariarenatodotriciclo.com.br": "2026-10-06"
+  "papelariarenatodotriciclo.com.br": "2026-10-06",
+  "atacadao.com.br": "2026-10-06",
+  "rdkluvas.com.br": "2026-10-06",
+  "lojafabercastell.com.br": "2026-10-06",
+  "atacadodolojista.com.br": "2026-10-06",
+  "multiloja.com.br": "2026-10-06",
+  "midea.com.br": "2026-10-06",
+  "lojascacula.com.br": "2026-10-06",
+  "jofepar.com.br": "2026-10-06",
+  "fermaquinas.com.br": "2026-10-06",
+  "barzel.com.br": "2026-10-06",
+  "atlasparafusos.com.br": "2026-10-06"
  },
  "serper": {
   "mes": "2026-10",
-  "n": 15
+  "n": 17
  },
  "tavily": {
   "mes": "2026-10",
-  "n": 24
+  "n": 68
  },
  "nomes": {
   "papel contact": {
@@ -1861,7 +2333,8 @@
    "aceitar": [],
    "excluir": {},
    "recusados": [
-    "Sai do Papel Portfolio Investments, Sai do Papel Funds, Sai do Papel Exits"
+    "Sai do Papel Portfolio Investments, Sai do Papel Funds, Sai do Papel Exits",
+    "Top Papel Semente Alternatives, Competitors"
    ],
    "origem": ""
   },
@@ -1872,7 +2345,87 @@
    "recusados": [
     "Signal-Based Selling: A Complete How-To Guide for 2026",
     "M. Dias Branco Portfolio Investments, M. Dias Branco Funds, M. Dias Branco Exits",
-    "Demons of Asteborg ganha pré-venda de mídia física para consoles retrô no Brasil - GameBlast"
+    "Demons of Asteborg ganha pré-venda de mídia física para consoles retrô no Brasil - GameBlast",
+    "Brazil's Azul to file for Chapter 11 bankruptcy protection, Valor reports"
+   ],
+   "origem": ""
+  },
+  "lapis preto": {
+   "busca": "",
+   "aceitar": [],
+   "excluir": {},
+   "recusados": [
+    "Lapis Advisors Portfolio Investments, Lapis Advisors Funds, Lapis Advisors Exits"
+   ],
+   "origem": ""
+  },
+  "fita isolante": {
+   "busca": "",
+   "aceitar": [],
+   "excluir": {},
+   "recusados": [
+    "FITA - Federation of International Trade Associations Company Overview, Contact Details & Competitors | LeadIQ",
+    "FITA Investments: Fund Performance | PitchBook"
+   ],
+   "origem": ""
+  },
+  "frigobar": {
+   "busca": "",
+   "aceitar": [],
+   "excluir": {},
+   "recusados": [
+    "Sem título"
+   ],
+   "origem": ""
+  },
+  "grampeador": {
+   "busca": "",
+   "aceitar": [],
+   "excluir": {},
+   "recusados": [
+    "Sem título"
+   ],
+   "origem": ""
+  },
+  "papel a4": {
+   "busca": "",
+   "aceitar": [],
+   "excluir": {},
+   "recusados": [
+    "Papel: origen, fabricación, características y deterioro",
+    "What does papel mean in Spanish?",
+    "papel in Spanish: Meaning, Usage and Examples | SpanishStep",
+    "PAPEL | translation Spanish to English: Cambridge Dictionary",
+    "Sem título",
+    "Sai do Papel Portfolio Investments, Sai do Papel Funds, Sai do Papel Exits"
+   ],
+   "origem": ""
+  },
+  "papel crepom": {
+   "busca": "",
+   "aceitar": [],
+   "excluir": {},
+   "recusados": [
+    "Top Papel Semente Alternatives, Competitors"
+   ],
+   "origem": ""
+  },
+  "caneta marca": {
+   "busca": "",
+   "aceitar": [],
+   "excluir": {},
+   "recusados": [
+    "Produto não encontrado - MUNDOWARE | um mundo de produtos para você"
+   ],
+   "origem": ""
+  },
+  "chave fenda": {
+   "busca": "",
+   "aceitar": [],
+   "excluir": {},
+   "recusados": [
+    "Tabela FIPE Fiat Argo 2019 - Preço Atualizado | Chaves na Mão",
+    "Fenda Technology - Products, Competitors, Financials, Employees, Headquarters Locations"
    ],
    "origem": ""
   }
