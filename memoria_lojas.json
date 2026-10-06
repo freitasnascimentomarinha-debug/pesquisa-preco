@@ -1,6 +1,6 @@
 {
  "versao": 1,
- "atualizado": "2026-10-06T14:04:23",
+ "atualizado": "2026-10-06T14:16:08",
  "lojas": {
   "lojadomecanico.com.br": {
    "acertos": 23,
@@ -50,22 +50,27 @@
    }
   },
   "telhanorte.com.br": {
-   "acertos": 12,
+   "acertos": 14,
    "ultimo": "2026-10-06",
    "itens": [
+    "tinta acrílica branca 18 litros",
+    "disjuntor 20a monopolar",
     "lâmpada",
     "fita isolante"
    ],
    "metodos": {
     "navegador": 4,
-    "texto": 4
+    "texto": 6
    },
    "paginas": {
     "fita isolante": "https://www.telhanorte.com.br/eletrica/acessorios/fitas-isolantes",
-    "lâmpada": "https://www.telhanorte.com.br/iluminacao/lampadas"
+    "lâmpada": "https://www.telhanorte.com.br/iluminacao/lampadas",
+    "disjuntor 20a monopolar": "https://www.telhanorte.com.br/disjuntor-monopolar-20a-curva-c-steck-1399381/p",
+    "tinta acrílica branca 18 litros": "https://www.telhanorte.com.br/tinta-acrilica"
    },
    "naturezas": {
-    "elétrico": 2
+    "elétrico": 3,
+    "tintas e pintura": 1
    }
   },
   "hiperfer.com.br": {
@@ -99,9 +104,11 @@
    }
   },
   "kalunga.com.br": {
-   "acertos": 20,
+   "acertos": 22,
    "ultimo": "2026-10-06",
    "itens": [
+    "cabo hdmi 2m",
+    "fita dupla face 12mm x 30m",
     "papel a4 sulfite",
     "caneta piloto azul",
     "papel contact",
@@ -120,7 +127,7 @@
    ],
    "metodos": {
     "navegador": 7,
-    "texto": 8
+    "texto": 10
    },
    "paginas": {
     "grampeador": "https://www.kalunga.com.br/depto/suprimentos-para-escritorio/grampeadores/26/1104",
@@ -133,11 +140,14 @@
     "tinta guache vermelha": "https://www.kalunga.com.br/prod/tinta-guache-vermelho-250ml-2574-radex-po-1-un/700363",
     "papel contact": "https://kalunga.com.br/?s=Papel+contact&post_type=product",
     "caneta piloto azul": "https://www.kalunga.com.br/depto/escrita-corretivos/canetas-esferograficas-1-6/11/1304",
-    "papel a4 sulfite": "https://kalunga.com.br/?s=papel+sulfite+A4&post_type=product"
+    "papel a4 sulfite": "https://kalunga.com.br/?s=papel+sulfite+A4&post_type=product",
+    "fita dupla face 12mm x 30m": "https://www.kalunga.com.br/prod/fita-adesiva-dupla-face-pp-12mm-x-30m-transparente-nao-tecido-tectape-rl-1-un/305205",
+    "cabo hdmi 2m": "https://www.kalunga.com.br/prod/cabo-hdmi-2-0-com-2-metros-copper-zg-bz020v2-app-tech-bt-1-un/746125"
    },
    "naturezas": {
     "tintas e pintura": 1,
-    "papelaria e escritório": 15
+    "papelaria e escritório": 15,
+    "informática": 1
    },
    "busca": "/?s={q}&post_type=product"
   },
@@ -256,9 +266,10 @@
    }
   },
   "tendaatacado.com.br": {
-   "acertos": 13,
-   "ultimo": "2026-10-05",
+   "acertos": 14,
+   "ultimo": "2026-10-06",
    "itens": [
+    "café em pó 500g",
     "lâmpada led branca e27",
     "caixa com envelopes pardo",
     "detergente 500ml",
@@ -275,7 +286,7 @@
    ],
    "metodos": {
     "navegador": 2,
-    "texto": 7
+    "texto": 8
    },
    "paginas": {
     "cola 250ml": "https://www.tendaatacado.com.br/produto/refrigerante-coca-cola-250ml?srsltid=AU7gw4WwO0e0qeNZ_bREKSzXYS67bMuBkFJEMc7aH_jK6bxa3ELB0u7V",
@@ -284,10 +295,11 @@
     "caneta piloto azul": "https://tendaatacado.com.br/busca?q=Caneta+piloto+azul",
     "detergente 500ml": "https://tendaatacado.com.br/busca?q=Detergente+500ml",
     "caixa com envelopes pardo": "https://tendaatacado.com.br/busca?q=Caixa+com+Envelopes+pardo",
-    "lâmpada led branca e27": "https://tendaatacado.com.br/busca?q=L%C3%A2mpada+led+branca+e27"
+    "lâmpada led branca e27": "https://tendaatacado.com.br/busca?q=L%C3%A2mpada+led+branca+e27",
+    "café em pó 500g": "https://www.tendaatacado.com.br/cafe-torrado-e-moido"
    },
    "naturezas": {
-    "gêneros alimentícios": 1,
+    "gêneros alimentícios": 2,
     "papelaria e escritório": 6,
     "limpeza e higiene": 4,
     "elétrico": 2
@@ -295,9 +307,12 @@
    "busca": "/busca?q={q}"
   },
   "atacadosaopaulo.com.br": {
-   "acertos": 25,
+   "acertos": 28,
    "ultimo": "2026-10-06",
    "itens": [
+    "água sanitária 2 litros",
+    "pasta suspensa kraft",
+    "pilha palito aaa c/ 4",
     "luva de limpeza",
     "chave de fenda",
     "caneta marca texto amarelo",
@@ -317,7 +332,7 @@
    ],
    "metodos": {
     "navegador": 7,
-    "texto": 16
+    "texto": 19
    },
    "paginas": {
     "caneta esferográfica azul": "https://www.atacadosaopaulo.com.br/ki-5-caixas-caneta-esferografica-1-0mm---3un-azul--1un-preto-e-1un-vermelho---caixa-fechada-50un/p?srsltid=AU7gw4Vyg5t9J9U2FbmQcIfvLVIMmm-1Qb4l5EoZNMZ7S025fHvaLGbp",
@@ -334,13 +349,16 @@
     "papel a4 sulfite": "https://www.atacadosaopaulo.com.br/papeis---pastas/papeis/papel-sulfite",
     "papel crepom": "https://www.atacadosaopaulo.com.br/papel-crepom-liso-2m-marrom---10fl---crep-mais/p",
     "chave de fenda": "https://www.atacadosaopaulo.com.br/chave-de-fenda-3-16x5--2029---un---fertak/p",
-    "luva de limpeza": "https://www.atacadosaopaulo.com.br/luva-latex-multiuso-tamanho-m-amarelo-3015-inoven---par/p"
+    "luva de limpeza": "https://www.atacadosaopaulo.com.br/luva-latex-multiuso-tamanho-m-amarelo-3015-inoven---par/p",
+    "pilha palito aaa c/ 4": "https://www.atacadosaopaulo.com.br/pilha-aaa-alcalina-1-5v-75636-2---4un---maxprint/p",
+    "pasta suspensa kraft": "https://www.atacadosaopaulo.com.br/pasta-suspensa-kraft-com-grampo-plastico-0002-x-0050-2---50un---dello/p",
+    "água sanitária 2 litros": "https://www.atacadosaopaulo.com.br/agua-sanitaria-2l---2lt---vix/p"
    },
    "naturezas": {
     "tintas e pintura": 1,
-    "papelaria e escritório": 15,
-    "limpeza e higiene": 5,
-    "elétrico": 1,
+    "papelaria e escritório": 16,
+    "limpeza e higiene": 6,
+    "elétrico": 2,
     "ferramentas": 1
    }
   },
@@ -493,9 +511,11 @@
    }
   },
   "superpaguemenos.com.br": {
-   "acertos": 8,
+   "acertos": 10,
    "ultimo": "2026-10-06",
    "itens": [
+    "água sanitária 2 litros",
+    "café em pó 500g",
     "luva de limpeza",
     "detergente",
     "detergente 500ml",
@@ -505,17 +525,19 @@
    ],
    "metodos": {
     "navegador": 2,
-    "texto": 3
+    "texto": 5
    },
    "naturezas": {
-    "gêneros alimentícios": 2,
-    "limpeza e higiene": 5
+    "gêneros alimentícios": 3,
+    "limpeza e higiene": 6
    },
    "busca": "/busca?q={q}",
    "paginas": {
     "detergente 500ml": "https://superpaguemenos.com.br/busca?q=Detergente+500ml",
     "detergente": "https://superpaguemenos.com.br/busca?q=detergente",
-    "luva de limpeza": "https://superpaguemenos.com.br/busca?q=luva+l%C3%A1tex+multiuso"
+    "luva de limpeza": "https://superpaguemenos.com.br/busca?q=luva+l%C3%A1tex+multiuso",
+    "café em pó 500g": "https://superpaguemenos.com.br/busca?q=Caf%C3%A9+em+p%C3%B3+500g",
+    "água sanitária 2 litros": "https://superpaguemenos.com.br/busca?q=%C3%A1gua+sanit%C3%A1ria+2+litros"
    }
   },
   "atacadao.com.br": {
@@ -701,19 +723,21 @@
    }
   },
   "soaresatacado.com.br": {
-   "acertos": 3,
-   "ultimo": "2026-10-05",
+   "acertos": 4,
+   "ultimo": "2026-10-06",
    "itens": [
+    "maizena 500g",
     "caneta piloto azul",
     "caneta esferográfica azul"
    ],
    "metodos": {
     "navegador": 3,
-    "texto": 0
+    "texto": 1
    },
    "paginas": {
     "caneta esferográfica azul": "https://www.soaresatacado.com.br/caneta-esferografica-bic-cristal-azul-50-unidades-1292/p?srsltid=AU7gw4XRTnkCHNfY21TZEo1o25ZYjfb2xTrSIiEX6L075x35wW9wfnTa",
-    "caneta piloto azul": "https://www.soaresatacado.com.br/caneta-esferografica-bic-cristal-azul-50-unidades-1292/p?srsltid=AU7gw4XRTnkCHNfY21TZEo1o25ZYjfb2xTrSIiEX6L075x35wW9wfnTa"
+    "caneta piloto azul": "https://www.soaresatacado.com.br/caneta-esferografica-bic-cristal-azul-50-unidades-1292/p?srsltid=AU7gw4XRTnkCHNfY21TZEo1o25ZYjfb2xTrSIiEX6L075x35wW9wfnTa",
+    "maizena 500g": "https://www.soaresatacado.com.br/amido-de-milho-maizena-500g-9990/p"
    },
    "naturezas": {
     "papelaria e escritório": 2
@@ -802,26 +826,29 @@
    }
   },
   "superproatacado.com.br": {
-   "acertos": 3,
+   "acertos": 4,
    "ultimo": "2026-10-06",
    "itens": [
+    "tinta acrílica branca 18 litros",
     "lâmpada",
     "chave de fenda",
     "parafuso sextavado 1/2"
    ],
    "metodos": {
     "navegador": 1,
-    "texto": 2
+    "texto": 3
    },
    "paginas": {
     "parafuso sextavado 1/2": "https://www.superproatacado.com.br/ferragens/parafusos-e-buchas/parafuso-sextavado-polegada",
     "chave de fenda": "https://www.superproatacado.com.br/ferramentas-manuais/chave-de-fenda-e-phillips",
-    "lâmpada": "https://www.superproatacado.com.br/material-eletrico/lampadas"
+    "lâmpada": "https://www.superproatacado.com.br/material-eletrico/lampadas",
+    "tinta acrílica branca 18 litros": "https://www.superproatacado.com.br/tintas-e-acessorios/tintas-e-colorantes"
    },
    "naturezas": {
     "fixadores": 1,
     "ferramentas": 1,
-    "elétrico": 1
+    "elétrico": 1,
+    "tintas e pintura": 1
    }
   },
   "atlasparafusos.com.br": {
@@ -961,17 +988,19 @@
    }
   },
   "extramercado.com.br": {
-   "acertos": 1,
-   "ultimo": "2026-10-05",
+   "acertos": 2,
+   "ultimo": "2026-10-06",
    "itens": [
+    "maizena 500g",
     "cola 250ml"
    ],
    "metodos": {
     "navegador": 0,
-    "texto": 1
+    "texto": 2
    },
    "paginas": {
-    "cola 250ml": "https://www.extramercado.com.br/produto/428768/refrigerante-coca-cola-garrafa-250ml"
+    "cola 250ml": "https://www.extramercado.com.br/produto/428768/refrigerante-coca-cola-garrafa-250ml",
+    "maizena 500g": "https://www.extramercado.com.br/produto/107347/amido-de-milho-maizena-500g"
    },
    "naturezas": {
     "papelaria e escritório": 1
@@ -1131,10 +1160,32 @@
    }
   },
   "contabilista.com.br": {
-   "acertos": 2,
-   "ultimo": "2026-10-05",
+   "acertos": 3,
+   "ultimo": "2026-10-06",
    "itens": [
+    "tesoura escolar 21cm",
     "tinta guache vermelha",
+    "caneta esferográfica azul"
+   ],
+   "metodos": {
+    "navegador": 1,
+    "texto": 2
+   },
+   "paginas": {
+    "caneta esferográfica azul": "https://www.contabilista.com.br/escritorio-e-papelaria/caneta-esferografica-cristal-fina-0-8mm-azul-bic.html?srsltid=AU7gw4U_OtgxOvs2WZI6VejC-K-dCfN8rj_a27GFK44Dpp6U_cV867B6",
+    "tinta guache vermelha": "https://www.contabilista.com.br/escolar/tinta-para-pintura/tinta-guache-250ml-vermelho-fogo-acrilex-507.html",
+    "tesoura escolar 21cm": "https://www.contabilista.com.br/escritorio-e-papelaria/tesoura-uso-geral/tesoura-uso-geral-21cm-brw-te2101.html"
+   },
+   "naturezas": {
+    "tintas e pintura": 1,
+    "papelaria e escritório": 2
+   }
+  },
+  "lepok.com.br": {
+   "acertos": 2,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "bombril pacote c/ 8",
     "caneta esferográfica azul"
    ],
    "metodos": {
@@ -1142,45 +1193,29 @@
     "texto": 1
    },
    "paginas": {
-    "caneta esferográfica azul": "https://www.contabilista.com.br/escritorio-e-papelaria/caneta-esferografica-cristal-fina-0-8mm-azul-bic.html?srsltid=AU7gw4U_OtgxOvs2WZI6VejC-K-dCfN8rj_a27GFK44Dpp6U_cV867B6",
-    "tinta guache vermelha": "https://www.contabilista.com.br/escolar/tinta-para-pintura/tinta-guache-250ml-vermelho-fogo-acrilex-507.html"
-   },
-   "naturezas": {
-    "tintas e pintura": 1,
-    "papelaria e escritório": 1
-   }
-  },
-  "lepok.com.br": {
-   "acertos": 1,
-   "ultimo": "2026-10-05",
-   "itens": [
-    "caneta esferográfica azul"
-   ],
-   "metodos": {
-    "navegador": 1,
-    "texto": 0
-   },
-   "paginas": {
-    "caneta esferográfica azul": "https://www.lepok.com.br/produto/Caneta-Esferografica-Cristal-1.0mm-Azul-Cx-50-Und.-Bic/5000127?srsltid=AU7gw4US1iv_nEzQ_HNDVLmv5TYV1tR3XsBHnQs_URcvLSe9KZL8J4lQ"
+    "caneta esferográfica azul": "https://www.lepok.com.br/produto/Caneta-Esferografica-Cristal-1.0mm-Azul-Cx-50-Und.-Bic/5000127?srsltid=AU7gw4US1iv_nEzQ_HNDVLmv5TYV1tR3XsBHnQs_URcvLSe9KZL8J4lQ",
+    "bombril pacote c/ 8": "https://www.lepok.com.br/produto/Esponja-De-Aco-60g-8-Unidades-Bombril/16529"
    },
    "naturezas": {
     "papelaria e escritório": 1
    }
   },
   "gimba.com.br": {
-   "acertos": 4,
+   "acertos": 5,
    "ultimo": "2026-10-06",
    "itens": [
+    "fita dupla face 12mm x 30m",
     "caneta esferográfica azul",
     "caneta piloto azul"
    ],
    "metodos": {
     "navegador": 1,
-    "texto": 3
+    "texto": 4
    },
    "paginas": {
     "caneta esferográfica azul": "https://www.gimba.com.br/canetas-esferograficas/caneta-esferografica-bic-cristal-ponta-media-1mm-azul-1-un/?PID=23&srsltid=AU7gw4Ue3wuMgsMAWw2pK8eJ9jj-LRVX2vUNZW0SRh07edujzpSPxhhb",
-    "caneta piloto azul": "https://www.gimba.com.br/pincel-para-quadro-branco/pincel-marcador-pilot-quadro-branco-recarregavel-20mm-azul-1-un?PID=149"
+    "caneta piloto azul": "https://www.gimba.com.br/pincel-para-quadro-branco/pincel-marcador-pilot-quadro-branco-recarregavel-20mm-azul-1-un?PID=149",
+    "fita dupla face 12mm x 30m": "https://www.gimba.com.br/fita-adesiva-dupla-face/fita-adesiva-dupla-face-fit-pel-pp-12mmx30m-acrilico-1-un?PID=160721"
    },
    "naturezas": {
     "papelaria e escritório": 4
@@ -1276,37 +1311,42 @@
    }
   },
   "mercado.carrefour.com.br": {
-   "acertos": 1,
-   "ultimo": "2026-10-05",
+   "acertos": 2,
+   "ultimo": "2026-10-06",
    "itens": [
+    "maizena 500g",
     "arroz 1 kg"
    ],
    "metodos": {
     "navegador": 0,
-    "texto": 1
+    "texto": 2
    },
    "paginas": {
-    "arroz 1 kg": "https://mercado.carrefour.com.br/busca/pre%C3%A7o%20arroz"
+    "arroz 1 kg": "https://mercado.carrefour.com.br/busca/pre%C3%A7o%20arroz",
+    "maizena 500g": "https://mercado.carrefour.com.br/busca?q=amido+de+milho+500g"
    },
    "naturezas": {
     "gêneros alimentícios": 1
-   }
+   },
+   "busca": "/busca?q={q}"
   },
   "loja.cestanobre.com.br": {
-   "acertos": 1,
-   "ultimo": "2026-10-05",
+   "acertos": 2,
+   "ultimo": "2026-10-06",
    "itens": [
+    "café em pó 500g",
     "arroz 1 kg"
    ],
    "metodos": {
     "navegador": 0,
-    "texto": 1
+    "texto": 2
    },
    "paginas": {
-    "arroz 1 kg": "https://loja.cestanobre.com.br/categorias/arroz-atacado"
+    "arroz 1 kg": "https://loja.cestanobre.com.br/categorias/arroz-atacado",
+    "café em pó 500g": "https://loja.cestanobre.com.br/categorias/cafe-atacado"
    },
    "naturezas": {
-    "gêneros alimentícios": 1
+    "gêneros alimentícios": 2
    }
   },
   "papelariarenatodotriciclo.com.br": {
@@ -1485,20 +1525,22 @@
    }
   },
   "oceanob2b.com": {
-   "acertos": 1,
+   "acertos": 2,
    "ultimo": "2026-10-06",
    "itens": [
+    "fita dupla face 12mm x 30m",
     "caneta esferográfica azul"
    ],
    "metodos": {
     "navegador": 0,
-    "texto": 1
+    "texto": 2
    },
    "naturezas": {
     "papelaria e escritório": 1
    },
    "paginas": {
-    "caneta esferográfica azul": "https://www.oceanob2b.com/caneta-esferografica-bic-cristal-azul-caixa-50-unidades-p996738"
+    "caneta esferográfica azul": "https://www.oceanob2b.com/caneta-esferografica-bic-cristal-azul-caixa-50-unidades-p996738",
+    "fita dupla face 12mm x 30m": "https://www.oceanob2b.com/fita-adesiva-dupla-face-4873-12mm-x-30m-scotch-3m-p996948"
    }
   },
   "supermuffato.com.br": {
@@ -1824,6 +1866,565 @@
    },
    "paginas": {
     "parafuso sextavado 1/2": "https://www.universodolar.com.br/parafuso-sextavado-1-2x2-1-2-galvanizado---kit-com-50-pecas-4764-jomarca-jomarca-11617"
+   }
+  },
+  "atacadoprodutosnaturais.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "maizena 500g"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "paginas": {
+    "maizena 500g": "https://www.atacadoprodutosnaturais.com.br/produto/amido-de-milho-500g"
+   }
+  },
+  "zaffari.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "maizena 500g"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "paginas": {
+    "maizena 500g": "https://www.zaffari.com.br/amido-de-milho-maizena-500g-1007134/p"
+   }
+  },
+  "beagaembalagem.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "bombril pacote c/ 8"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "paginas": {
+    "bombril pacote c/ 8": "https://beagaembalagem.com.br/produto/esponja-de-la-de-aco-c-8-unidades"
+   }
+  },
+  "triadelog.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "bombril pacote c/ 8"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "paginas": {
+    "bombril pacote c/ 8": "https://www.triadelog.com.br/esponja-de-aco-bombril-60g-pacote-c8-unidades"
+   }
+  },
+  "atacadonipocenter.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "pilha palito aaa c/ 4"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "elétrico": 1
+   },
+   "paginas": {
+    "pilha palito aaa c/ 4": "https://www.atacadonipocenter.com.br/produto/pilha-aaa-60-pecas-comum-16"
+   }
+  },
+  "atacadaodaspilhas.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "pilha palito aaa c/ 4"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "elétrico": 1
+   },
+   "paginas": {
+    "pilha palito aaa c/ 4": "https://www.atacadaodaspilhas.com.br/aaa"
+   }
+  },
+  "drogaraia.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "pilha palito aaa c/ 4"
+   ],
+   "metodos": {
+    "navegador": 1,
+    "texto": 0
+   },
+   "naturezas": {
+    "elétrico": 1
+   },
+   "paginas": {
+    "pilha palito aaa c/ 4": "https://www.drogaraia.com.br/duracell-pilha-aaa-palito-4-unidades.html"
+   }
+  },
+  "romaaviamentos.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "fita dupla face 12mm x 30m"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "paginas": {
+    "fita dupla face 12mm x 30m": "https://www.romaaviamentos.com.br/fitas/fita-dupla-face"
+   }
+  },
+  "atacadosaojorge.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "fita dupla face 12mm x 30m"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "paginas": {
+    "fita dupla face 12mm x 30m": "https://atacadosaojorge.com.br/produto/35501/fita-dupla-face-papel-adelbras-12mm-x-30m-adesivo-forte"
+   }
+  },
+  "pimaco.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "fita dupla face 12mm x 30m"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "paginas": {
+    "fita dupla face 12mm x 30m": "https://www.pimaco.com.br/produto/Fita-Dupla-Face-Papel-12mmx30m-Com-4-Rolos-Pimaco/5000329"
+   }
+  },
+  "adecil.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "fita dupla face 12mm x 30m"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "paginas": {
+    "fita dupla face 12mm x 30m": "https://www.adecil.com.br/produto/fita-dupla-face-papel-4880-12-mm-x-30-m-73862"
+   }
+  },
+  "recompapelaria.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "pasta suspensa kraft"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "papelaria e escritório": 1
+   },
+   "paginas": {
+    "pasta suspensa kraft": "https://recompapelaria.com.br/produto/pasta-suspensa-dello-002-kraft-com-grampo"
+   }
+  },
+  "blulivro.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "tesoura escolar 21cm"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "papelaria e escritório": 1
+   },
+   "paginas": {
+    "tesoura escolar 21cm": "https://www.blulivro.com.br/tesoura-multiuso-aco-inox-21cm-blister-10304"
+   }
+  },
+  "ggpel.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "tesoura escolar 21cm"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "papelaria e escritório": 1
+   },
+   "paginas": {
+    "tesoura escolar 21cm": "https://www.ggpel.com.br/tesoura-gatte-21cm-cabo-preto"
+   }
+  },
+  "fixcom.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "tesoura escolar 21cm"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "papelaria e escritório": 1
+   },
+   "paginas": {
+    "tesoura escolar 21cm": "https://www.fixcom.com.br/eko3tjwp2-tesoura-multiuso-85-inox-profissional-costura-artesanato-escolar-21cm"
+   }
+  },
+  "comercialsouzaatacado.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "água sanitária 2 litros"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "limpeza e higiene": 1
+   },
+   "paginas": {
+    "água sanitária 2 litros": "https://www.comercialsouzaatacado.com.br/catalogo-completo/agua-sanitaria-suprema-2-litros-cx-com-6-un-prd.html"
+   }
+  },
+  "lores.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "água sanitária 2 litros"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "limpeza e higiene": 1
+   },
+   "paginas": {
+    "água sanitária 2 litros": "https://www.lores.com.br/item/AGUA-SANITARIA-2-LITROS.html"
+   }
+  },
+  "cirilocabos.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "cabo hdmi 2m"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "informática": 1
+   },
+   "paginas": {
+    "cabo hdmi 2m": "https://www.cirilocabos.com.br/products/cabo-hdmi-20-premium-ultra-hd-4k5060-3d-chipsce-2-metros"
+   }
+  },
+  "atacadolibardi.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "cabo hdmi 2m"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "informática": 1
+   },
+   "paginas": {
+    "cabo hdmi 2m": "https://www.atacadolibardi.com.br/index.php/produtos-interna/cabo-hdmi-2m-xhhm255-65133"
+   }
+  },
+  "loja.daten.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "mouse óptico usb"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "informática": 1
+   },
+   "paginas": {
+    "mouse óptico usb": "https://loja.daten.com.br/products/mouse-daten-usb-opt-pt-1-8m"
+   }
+  },
+  "distribuidoradecftv.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "mouse óptico usb"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "informática": 1
+   },
+   "paginas": {
+    "mouse óptico usb": "https://www.distribuidoradecftv.com.br/deposito-fl/mouse-informatica/mouse-optico-usb-com-fio-preto-barato-mouses"
+   }
+  },
+  "afonsoruotolo.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "mouse óptico usb"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "informática": 1
+   },
+   "paginas": {
+    "mouse óptico usb": "https://www.afonsoruotolo.com.br/informatica/mouse-e-teclado/mouse"
+   }
+  },
+  "lojaluzdomundo.com": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "disjuntor 20a monopolar"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "elétrico": 1
+   },
+   "paginas": {
+    "disjuntor 20a monopolar": "https://www.lojaluzdomundo.com/disjuntor-monofasico-monopolar-20a-nema-soprano-unico"
+   }
+  },
+  "broketto.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "disjuntor 20a monopolar"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "elétrico": 1
+   },
+   "paginas": {
+    "disjuntor 20a monopolar": "https://broketto.com.br/busca?tag=disjuntor+20a"
+   }
+  },
+  "sertao.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "disjuntor 20a monopolar"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "elétrico": 1
+   },
+   "paginas": {
+    "disjuntor 20a monopolar": "https://www.sertao.com.br/disjuntor-sd61-monopolar-20a-steck-797801/p"
+   }
+  },
+  "lojamerc.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "fita veda rosca 18mm x 25m"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "hidráulica": 1
+   },
+   "paginas": {
+    "fita veda rosca 18mm x 25m": "https://www.lojamerc.com.br/fita-veda-rosca-18mm-x-25m---tigre---54501900/p"
+   }
+  },
+  "lojasolar.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "fita veda rosca 18mm x 25m"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "hidráulica": 1
+   },
+   "paginas": {
+    "fita veda rosca 18mm x 25m": "https://www.lojasolar.com.br/fita-veda-rosca-18mm-x-25m-branco-324-krona/p"
+   }
+  },
+  "acquafort.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "fita veda rosca 18mm x 25m"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "hidráulica": 1
+   },
+   "paginas": {
+    "fita veda rosca 18mm x 25m": "https://www.acquafort.com.br/99316/p"
+   }
+  },
+  "cadeirasparaescritorio.ind.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "cadeira giratória de escritório"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "paginas": {
+    "cadeira giratória de escritório": "https://www.cadeirasparaescritorio.ind.br"
+   }
+  },
+  "metromoveis.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "cadeira giratória de escritório"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "paginas": {
+    "cadeira giratória de escritório": "https://www.metromoveis.com.br/cadeiras-para-escritorio-giratorias.htm"
+   }
+  },
+  "dkadidecor.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "cadeira giratória de escritório"
+   ],
+   "metodos": {
+    "navegador": 1,
+    "texto": 0
+   },
+   "paginas": {
+    "cadeira giratória de escritório": "https://www.dkadidecor.com.br/cadeiras-giratoria-para-escritorio"
+   }
+  },
+  "madeiramadeira.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "cadeira giratória de escritório"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "paginas": {
+    "cadeira giratória de escritório": "https://www.madeiramadeira.com.br/moveis/moveis-para-escritorio/cadeiras-escritorio/cadeira-diretor"
+   }
+  },
+  "grupoeletromagazine.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "ventilador de mesa 30cm"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "eletrodomésticos": 1
+   },
+   "paginas": {
+    "ventilador de mesa 30cm": "https://www.grupoeletromagazine.com.br/ar-ventilacao/ventilador-de-mesa/ventilador-de-mesa-mondial-30cm-vsp-30-w-branco-110v"
+   }
+  },
+  "lojasommer.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "tinta acrílica branca 18 litros"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "tintas e pintura": 1
+   },
+   "paginas": {
+    "tinta acrílica branca 18 litros": "https://www.lojasommer.com.br/tinta-acrilica-fosco-standard-branco-18l-new-tintas-0027117.0000.000"
+   }
+  },
+  "sp.outletdastintas.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "tinta acrílica branca 18 litros"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "tintas e pintura": 1
+   },
+   "paginas": {
+    "tinta acrílica branca 18 litros": "https://sp.outletdastintas.com.br/produto/tinta-acrilica-economico-18l-branco-qualyvinil"
    }
   }
  },
@@ -2212,6 +2813,41 @@
    "navegador": 1,
    "texto": 1,
    "ultimo": "2026-10-06"
+  },
+  "dello.com.br": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-06"
+  },
+  "acrimet.com.br": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-06"
+  },
+  "tradingkey.com": {
+   "navegador": 1,
+   "texto": 2,
+   "ultimo": "2026-10-06"
+  },
+  "pcdiga.com": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-06"
+  },
+  "guerraatacado.com.br": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-06"
+  },
+  "comfy.com.br": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-06"
+  },
+  "casaevideo.com.br": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-06"
   }
  },
  "frases": {
@@ -2221,8 +2857,8 @@
    "ultimo": "2026-10-06"
   },
   "{item} preço": {
-   "usos": 18.611,
-   "acertos": 18.6149,
+   "usos": 19.2495,
+   "acertos": 22.7136,
    "ultimo": "2026-10-06"
   },
   "venda de {item}": {
@@ -2231,23 +2867,23 @@
    "ultimo": "2026-10-06"
   },
   "{item} valor": {
-   "usos": 15.4812,
-   "acertos": 9.4182,
+   "usos": 16.5033,
+   "acertos": 10.8549,
    "ultimo": "2026-10-06"
   },
   "{item} atacado": {
-   "usos": 18.1105,
-   "acertos": 22.53,
+   "usos": 19.1246,
+   "acertos": 29.0718,
    "ultimo": "2026-10-06"
   },
   "{item} preço brasil": {
-   "usos": 10.2464,
-   "acertos": 2.0,
-   "ultimo": "2026-10-05"
+   "usos": 10.7341,
+   "acertos": 3.9,
+   "ultimo": "2026-10-06"
   },
   "{item} comprar brasil": {
-   "usos": 10.7341,
-   "acertos": 1.95,
+   "usos": 11.6375,
+   "acertos": 2.7599,
    "ultimo": "2026-10-06"
   },
   "comprar {item} online brasil": {
@@ -2256,7 +2892,7 @@
    "ultimo": "2026-10-06"
   }
  },
- "buscas": 60,
+ "buscas": 75,
  "sem_busca": {
   "arxiv.org": "2026-10-05",
   "papers.ssrn.com": "2026-10-05",
@@ -2317,7 +2953,8 @@
   "jofepar.com.br": "2026-10-06",
   "fermaquinas.com.br": "2026-10-06",
   "barzel.com.br": "2026-10-06",
-  "atlasparafusos.com.br": "2026-10-06"
+  "atlasparafusos.com.br": "2026-10-06",
+  "hp.com": "2026-10-06"
  },
  "serper": {
   "mes": "2026-10",
@@ -2325,7 +2962,7 @@
  },
  "tavily": {
   "mes": "2026-10",
-  "n": 68
+  "n": 103
  },
  "nomes": {
   "papel contact": {
@@ -2426,6 +3063,98 @@
    "recusados": [
     "Tabela FIPE Fiat Argo 2019 - Preço Atualizado | Chaves na Mão",
     "Fenda Technology - Products, Competitors, Financials, Employees, Headquarters Locations"
+   ],
+   "origem": ""
+  },
+  "maizena": {
+   "busca": "",
+   "aceitar": [],
+   "excluir": {},
+   "recusados": [
+    "Vilanova"
+   ],
+   "origem": ""
+  },
+  "pilha palito": {
+   "busca": "",
+   "aceitar": [],
+   "excluir": {},
+   "recusados": [
+    "ABM Tech Stack: Build the Right Layers in 2026"
+   ],
+   "origem": ""
+  },
+  "fita dupla": {
+   "busca": "",
+   "aceitar": [],
+   "excluir": {},
+   "recusados": [
+    "Fitas Adesivas no Atacado | Preços Especiais na DTM FITAS",
+    "Dupla Studios - Products, Competitors, Financials, Employees, Headquarters Locations",
+    "M4 x 12mm Self Clinch Flush Head Stud"
+   ],
+   "origem": ""
+  },
+  "pasta suspensa": {
+   "busca": "",
+   "aceitar": [],
+   "excluir": {},
+   "recusados": [
+    "Top Kraft Macaroni & Cheese Alternatives, Competitors"
+   ],
+   "origem": ""
+  },
+  "cabo hdmi": {
+   "busca": "",
+   "aceitar": [],
+   "excluir": {},
+   "recusados": [
+    "HDMI FORUM ANNOUNCES VERSION 2.2 OF THE HDMI SPECIFICATION",
+    "HDMI FORUM 發表 HDMI 2.2 版規格",
+    "HDMI Licensing - Products, Competitors, Financials, Employees, Headquarters Locations"
+   ],
+   "origem": ""
+  },
+  "mouse optico": {
+   "busca": "",
+   "aceitar": [],
+   "excluir": {},
+   "recusados": [
+    "A computer mouse for your fingertips",
+    "How to Use a Keyboard and Mouse on Your Xbox One"
+   ],
+   "origem": ""
+  },
+  "fita veda": {
+   "busca": "",
+   "aceitar": [],
+   "excluir": {},
+   "recusados": [
+    "FITA - Federation of International Trade Associations Company Overview, Contact Details & Competitors | LeadIQ"
+   ],
+   "origem": ""
+  },
+  "ventilador mesa": {
+   "busca": "",
+   "aceitar": [],
+   "excluir": {},
+   "recusados": [
+    "Sem título",
+    "FP Atacado",
+    "Atas de Registro de Preço - Filtro | Metdata",
+    "Man accidentally buys 30cm strip of land for $13,000",
+    "Valor HospiceCare, 1048 E Fry Blvd, Sierra Vista, AZ 85635, US - MapQuest"
+   ],
+   "origem": ""
+  },
+  "tinta acrilica": {
+   "busca": "",
+   "aceitar": [],
+   "excluir": {},
+   "recusados": [
+    "Tinta Y Cafe, 9840 NE 2nd Ave, Miami Shores, FL 33138-2313, US - MapQuest",
+    "Atas de Registro de Preço - Filtro | Metdata",
+    "Trump lança aplicativo da Casa Branca"
    ],
    "origem": ""
   }
