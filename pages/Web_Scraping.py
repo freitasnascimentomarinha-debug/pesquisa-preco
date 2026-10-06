@@ -14,7 +14,8 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # módulos da raiz do projeto
 from atualizar_modulos import recarregar_se_mudou  # noqa: E402
-recarregar_se_mudou('embalagem', 'banco_sinonimos', 'sinonimos', 'naturezas', 'cotacao_rapida', 'relatorio_cotacao_rapida', 'relatorio_nf_lote', 'web_precos', 'relatorio_web', 'memoria_lojas', 'captura_pagina', 'busca_interna', 'naturezas')
+recarregar_se_mudou('desempenho', 'embalagem', 'banco_sinonimos', 'sinonimos', 'naturezas', 'cotacao_rapida', 'relatorio_cotacao_rapida', 'relatorio_nf_lote', 'web_precos', 'relatorio_web', 'memoria_lojas', 'captura_pagina', 'busca_interna', 'naturezas')
+import desempenho  # noqa: E402  (teste de desempenho: tempo e acertividade)
 import embalagem  # noqa: E402  (medida e unidade de fornecimento do item)
 import sinonimos  # noqa: E402  (nome de mercado do item e conferência do nome do produto)
 import naturezas  # noqa: E402  (natureza/ramo do item)
@@ -652,7 +653,10 @@ SINAIS_VENDA = re.compile(r"r\$|\bcompr(a|ar|e)\b|\bpre[çc]o|\bloja\b|\boferta|
 
 
 SERPER_URL = "https://google.serper.dev/search"
-TEMPO_MAX_LOJAS_MEMORIA_S = 90  # tempo máximo, por item, tentando as lojas da memória antes de ir para a busca
+TEMPO_MAX_ITEM_S = 120  # meta: cada item termina (com os preços que achou) em até 2 minutos
+TEMPO_MAX_LOJAS_MEMORIA_S = 40  # parte do tempo do item que pode ir para as lojas da memória antes da busca
+NAVEGADOR_MAX_POR_ITEM = 3  # páginas abertas no navegador por item (cada uma custa 10-15 s)
+MOTIVOS_PARA_NAVEGADOR = {"sem preço identificável (página dinâmica)", "não é página de produto"}  # só nesses o navegador pode achar o que o texto não achou
 FRASES_COM_SERPER = 3  # frases de busca por item quando há API de busca ativa (cada consulta gasta 1 crédito)
 SERPER_ESTADO = {"ate": 0.0}  # depois de erro de chave/créditos o Serper fica de fora por um tempo (a busca segue pelos buscadores gratuitos)
 SERPER_USO = {"n": 0}  # consultas ao Serper nesta execução do app
@@ -1071,6 +1075,32 @@ MOTIVO_REJEICAO = {"texto": ""}
 MOTIVOS_DEFINITIVOS = {"página não corresponde ao item", "página de busca/listagem sem o produto pedido", "a loja esconde o preço (pede CEP ou login)"}  # por que a última página foi rejeitada (aparece no log)
 
 
+PREFETCH = {}  # url -> (status, texto, url final): páginas baixadas em paralelo antes da leitura (consumidas por scraping_requests)
+
+
+def prefetch_paginas(urls, headers, max_workers=6, timeout=12):
+    """Baixa várias páginas ao mesmo tempo (sites diferentes, uma requisição cada) e guarda em PREFETCH; a leitura/avaliação segue uma a uma.
+    Troca N esperas de rede em fila por uma só (a mais lenta). Falha de rede aqui não é erro: a leitura normal tenta de novo."""
+    import requests as _rq
+    from concurrent.futures import ThreadPoolExecutor
+
+    def baixar(u):
+        try:
+            sessao = _rq.Session()
+            r = sessao.get(u, headers=headers, timeout=timeout, allow_redirects=True)
+            return u, (r.status_code, r.text if r.status_code == 200 else "", str(getattr(r, "url", "") or u))
+        except Exception:
+            return u, None
+
+    alvo = [u for u in dict.fromkeys(urls) if u not in PREFETCH]
+    if len(alvo) < 2:
+        return
+    with ThreadPoolExecutor(max_workers=min(max_workers, len(alvo))) as pool:
+        for u, resultado in pool.map(baixar, alvo):
+            if resultado:
+                PREFETCH[u] = resultado
+
+
 def scraping_requests(session, url, headers, item_nome=None, html=None, _profundidade=0):
     """Acessa uma página via requests e extrai informações. Em página de busca/listagem, o preço do produto que é do item é confirmado
     abrindo a página desse produto (uma vez, _profundidade=1): o endereço e o print passam a ser os do anúncio, e não os da lista."""
@@ -1079,12 +1109,21 @@ def scraping_requests(session, url, headers, item_nome=None, html=None, _profund
     MOTIVO_REJEICAO["texto"] = ""
     try:
         if html is None:  # `html` já vem pronto quando a página foi lida pelo navegador
-            resp = session.get(url, headers=headers, timeout=15, allow_redirects=True)
-            if resp.status_code != 200:
-                MOTIVO_REJEICAO["texto"] = f"HTTP {resp.status_code}"
-                return None
-            html = resp.text
-            url = str(getattr(resp, "url", "") or url) or url  # endereço final (a busca pode redirecionar direto para o produto)
+            pre = PREFETCH.pop(url, None)  # baixada em paralelo antes
+            if pre is not None:
+                status_pre, texto_pre, final_pre = pre
+                if status_pre != 200:
+                    MOTIVO_REJEICAO["texto"] = f"HTTP {status_pre}"
+                    return None
+                html = texto_pre
+                url = final_pre or url
+            else:
+                resp = session.get(url, headers=headers, timeout=15, allow_redirects=True)
+                if resp.status_code != 200:
+                    MOTIVO_REJEICAO["texto"] = f"HTTP {resp.status_code}"
+                    return None
+                html = resp.text
+                url = str(getattr(resp, "url", "") or url) or url  # endereço final (a busca pode redirecionar direto para o produto)
         titulo = extrair_titulo_pagina(html)
 
         # Verificar se é uma página de produto antes de gastar tempo extraindo preços
@@ -1550,6 +1589,7 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
     else:
         log_msg(log_container, logs, "🔑 Sem SERPER_API_KEY/TAVILY_API_KEY nos Secrets: a busca usa só o DuckDuckGo (gratuito, sujeito a bloqueio)", "warn")
 
+    st.session_state["tempos_itens"] = {}
     st.session_state["prints_web"] = {}  # prints desta pesquisa (o navegador guarda o print assim que acha o preço)
 
     def ler_com_navegador(url, item_nome):
@@ -1610,9 +1650,10 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
             resultado_pagina = ler_por_texto(url, item_nome, leve=True)
             if resultado_pagina:
                 return resultado_pagina, "texto", tentou
-            if MOTIVO_REJEICAO["texto"] in MOTIVOS_DEFINITIVOS:
-                return None, "texto", tentou  # a página foi lida e não é do item: o navegador veria o mesmo (economiza 10-15 s)
+            if not vale_abrir_navegador():
+                return None, "texto", tentou  # a página foi lida e não é do item (ou o item gastou o tempo/cota do navegador): economiza 10-15 s
         if navegador_ativo:
+            ITEM["navegador"] += 1
             resultado_pagina, _, tentou["navegador"] = ler_com_navegador(url, item_nome)
             if resultado_pagina:
                 return resultado_pagina, "navegador", tentou
@@ -1626,6 +1667,16 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
 
     internas_tentadas = set()  # lojas cuja busca interna já foi tentada (por item)
     INTERNA = {"sem_o_item": False}  # a última busca interna leu a lista da loja e o item não estava lá
+    ITEM = {"inicio": time.time(), "navegador": 0}  # relógio e navegador gasto no item atual
+
+    def tempo_restante_item():
+        return TEMPO_MAX_ITEM_S - (time.time() - ITEM["inicio"])
+
+    def vale_abrir_navegador():
+        """O navegador (10-15 s por página) só entra quando o texto falhou por motivo que ele resolve, sobra tempo e não passou da cota do item."""
+        motivo = str(MOTIVO_REJEICAO["texto"])
+        return ((motivo in MOTIVOS_PARA_NAVEGADOR or motivo.startswith(("HTTP 4", "HTTP 5")))
+                and ITEM["navegador"] < NAVEGADOR_MAX_POR_ITEM and tempo_restante_item() > 25)
 
     def tentar_busca_interna(url_ou_site, item_nome):
         """Procura o item na busca do próprio site da loja (sem buscador) e lê a página de resultados (texto; navegador se o texto falhar).
@@ -1666,6 +1717,9 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
             reservas_logadas = set()
             contador_item = 0
             item_slug = re.sub(r'[^a-zA-Z0-9]', '_', item)[:40] or "item"
+            ITEM["inicio"], ITEM["navegador"] = time.time(), 0
+            consultas_item_antes = SERPER_USO["n"] + TAVILY_USO["n"]
+            aviso_tempo = {"dado": False}
 
             # Selecionar variantes de busca aleatoriamente (usar mais variantes para maximizar cobertura)
             # Frases na ordem aprendida pela memória (as que mais rendem preços primeiro; de vez em quando a pior é testada); o laço para ao atingir as fontes
@@ -1695,15 +1749,15 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
             for site_memoria, item_parecido, natureza_loja in fila_memoria:
                 if len(atualizar_estado_orcamentos(candidatos_item, max_fontes)["validos"]) >= max_fontes:
                     break
-                if time.time() - inicio_memoria > TEMPO_MAX_LOJAS_MEMORIA_S:
+                if time.time() - inicio_memoria > TEMPO_MAX_LOJAS_MEMORIA_S or tempo_restante_item() < 60:
                     log_msg(log_container, logs, f"⏱ Lojas da memória: limite de {TEMPO_MAX_LOJAS_MEMORIA_S} s para este item; seguindo para a busca", "info")
                     break
                 if item_parecido:
                     log_msg(log_container, logs, f"🧠 Loja da memória: {site_memoria} (já deu preço para '{item_parecido}')", "info")
                 else:
                     log_msg(log_container, logs, f"🧭 Loja boa em {natureza_loja}: {site_memoria} (tentando a busca do próprio site, sem gastar consulta de API)", "info")
-                navegador_ligado = leitor is not None and leitor.disponivel and navegador_primeiro
-                time.sleep(gerar_delay(0.3, 0.8) if navegador_ligado else gerar_delay(1.5, 3.0))
+                navegador_ligado = (leitor is not None and leitor.disponivel and navegador_primeiro) or serper_ativo
+                time.sleep(gerar_delay(0.2, 0.5) if navegador_ligado else gerar_delay(1.5, 3.0))
                 achado = None  # (resultado, url, método)
                 # 1) busca do próprio site da loja (sem buscador); 2) a página que já deu preço antes; 3) busca "site:" pela API de busca
                 # (lojas vindas só da natureza não passam pelo passo 3: para não gastar crédito de API com loja que talvez nem venda o item)
@@ -1715,7 +1769,7 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
                 mesmo_item = sinonimos.normalizar(item_parecido).strip() == sinonimos.normalizar(item).strip()
                 guardada = memoria_lojas.pagina_guardada(memoria, site_memoria, item_parecido) if mesmo_item else ""
                 if not achado and guardada and not loja_sem_o_item:
-                    time.sleep(gerar_delay(0.3, 0.8) if navegador_ligado else gerar_delay(1.5, 3.5))
+                    time.sleep(gerar_delay(0.2, 0.5) if navegador_ligado else gerar_delay(1.5, 3.5))
                     r_guardada, m_guardada, _ = ler_pagina(guardada, item)
                     if r_guardada:
                         achado = (r_guardada, guardada, m_guardada)
@@ -1723,7 +1777,7 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
                     for url in buscar_na_loja(session, item, site_memoria, headers):
                         if url == guardada:
                             continue
-                        time.sleep(gerar_delay(0.3, 0.8) if navegador_ligado else gerar_delay(1.5, 3.5))
+                        time.sleep(gerar_delay(0.2, 0.5) if navegador_ligado else gerar_delay(1.5, 3.5))
                         r_url, m_url, _ = ler_pagina(url, item)
                         if r_url:
                             achado = (r_url, url, m_url)
@@ -1740,12 +1794,16 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
                     log_msg(log_container, logs, f"💰 Orçamento da memória — {formatar_moeda_br(resultado['preco'])} em {extrair_dominio(url)}", "orcamento")
                 else:
                     log_msg(log_container, logs, f"✗ {site_memoria} não teve preço para '{item}' desta vez", "warn")
-                dominios_falhos.update({site_memoria, "www." + site_memoria})
+                if achado or loja_sem_o_item:  # só fecha a loja se ela foi consultada e confirmou que não tem o item; senão a busca ainda pode achar a página dela
+                    dominios_falhos.update({site_memoria, "www." + site_memoria})
 
             for variante in variantes:
                 estado_item = atualizar_estado_orcamentos(candidatos_item, max_fontes)
                 if len(estado_item["validos"]) >= max_fontes:
                     log_msg(log_container, logs, f"✓ {max_fontes} orçamentos válidos encontrados para '{item}'. Avançando.", "success")
+                    break
+                if tempo_restante_item() <= 0:
+                    log_msg(log_container, logs, f"⏱ '{item}': passou de {TEMPO_MAX_ITEM_S} s; seguindo para o próximo item com o que foi achado", "warn")
                     break
 
                 query = variante.format(item=termo_item)
@@ -1770,9 +1828,16 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
                 log_msg(log_container, logs, f"📋 {len(urls)} resultados encontrados via {engine}", "info")
                 acertos_variante = 0  # preços válidos que esta frase rendeu
 
+                # lê várias páginas ao mesmo tempo: a leitura/avaliação segue uma a uma, mas a espera de rede é uma só
+                lote_pre = [u for u in urls if extrair_dominio(u) not in dominios_usados and extrair_dominio(u) not in dominios_falhos][:6]
+                if len(lote_pre) >= 2 and tempo_restante_item() > 10:
+                    prefetch_paginas(lote_pre, headers)
+
                 for url in urls:
                     estado_item = atualizar_estado_orcamentos(candidatos_item, max_fontes)
                     if len(estado_item["validos"]) >= max_fontes:
+                        break
+                    if tempo_restante_item() <= 0:
                         break
 
                     dominio = extrair_dominio(url)
@@ -1789,8 +1854,11 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
 
                     # Delay entre acessos a sites
                     # (com o navegador ativo a própria abertura da página já espaça os acessos: pausa curta)
-                    delay = gerar_delay(0.3, 0.8) if (leitor is not None and leitor.disponivel and navegador_primeiro) else gerar_delay(2.5, 6.0)
-                    log_msg(log_container, logs, f"⏳ Delay de navegação: {delay:.1f}s", "info")
+                    if url in PREFETCH or serper_ativo or (leitor is not None and leitor.disponivel and navegador_primeiro):
+                        delay = gerar_delay(0.1, 0.3)  # página já baixada (ou API de busca): cada site é visitado uma vez, sem espera "humana"
+                    else:
+                        delay = gerar_delay(2.5, 6.0)
+                        log_msg(log_container, logs, f"⏳ Delay de navegação: {delay:.1f}s", "info")
                     time.sleep(delay)
 
                     resultado = None
@@ -1891,10 +1959,17 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
             orcamentos_item = atualizar_estado_orcamentos(candidatos_item, max_fontes)["validos"]
             resultados.extend(orcamentos_item)
 
-            # Delay maior entre itens diferentes
+            # tempo do item (usado no teste de desempenho)
+            st.session_state.setdefault("tempos_itens", {})[item] = {
+                "segundos": round(time.time() - ITEM["inicio"], 1), "precos": len(orcamentos_item), "navegador": ITEM["navegador"],
+                "consultas_api": (SERPER_USO["n"] + TAVILY_USO["n"]) - consultas_item_antes}
+            PREFETCH.clear()
+
+            # Delay entre itens diferentes (com API de busca não há o que "esfriar": o próximo item usa outros sites)
             if idx < total_itens - 1:
-                delay = gerar_delay(4.0, 8.0)
-                log_msg(log_container, logs, f"⏳ Intervalo entre itens: {delay:.1f}s", "info")
+                delay = gerar_delay(0.5, 1.5) if serper_ativo else gerar_delay(4.0, 8.0)
+                if not serper_ativo:
+                    log_msg(log_container, logs, f"⏳ Intervalo entre itens: {delay:.1f}s", "info")
                 time.sleep(delay)
     finally:  # grava o que a pesquisa aprendeu mesmo que ela seja interrompida por um erro
         try:
@@ -2354,8 +2429,20 @@ col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 1])
 with col_btn2:
     iniciar = st.button("🚀 Iniciar Scraping", type="primary", use_container_width=True)
 
-if iniciar:
-    itens = [i.strip() for i in itens_input.strip().split("\n") if i.strip()]
+with st.expander("🧪 Teste de desempenho (meta: 3 preços por item em até 2 min na média e 90% a 100% de acertividade)", expanded=False):
+    st.caption("Roda 15 itens e mede o tempo de cada um e se os anúncios achados são mesmo do item. Use os itens que a memória já treinou ou itens "
+               "novos, para ver se o sistema funciona também com o que nunca viu. Demora cerca de 15 a 30 minutos.")
+    modo_teste = st.radio("Quais itens?", ["15 itens já treinados (os mais cotados na memória)", "15 itens novos (que a memória nunca viu)"], key="modo_teste")
+    iniciar_teste = st.button("▶️ Rodar o teste de desempenho", key="rodar_teste")
+
+if iniciar or iniciar_teste:
+    if iniciar_teste:
+        memoria_teste, _ = memoria_lojas.carregar(st.secrets if _tem_secrets() else {})
+        itens = desempenho.itens_treinados(memoria_teste) if modo_teste.startswith("15 itens já") else desempenho.itens_novos(memoria_teste)
+        st.info("Teste de desempenho com: " + "; ".join(itens))
+    else:
+        itens = [i.strip() for i in itens_input.strip().split("\n") if i.strip()]
+    inicio_execucao = time.time()
 
     if not itens:
         st.error("⚠️ Informe pelo menos um item para pesquisa.")
@@ -2387,6 +2474,40 @@ if iniciar:
         st.session_state["scraping_resultados"] = resultados
         st.session_state["scraping_itens"] = itens
         st.session_state["scraping_excluir_ids"] = []
+        if iniciar_teste:
+            st.session_state["teste_desempenho"] = {"modo": modo_teste, "itens": itens, "total_s": round(time.time() - inicio_execucao, 1),
+                                                    "tempos": dict(st.session_state.get("tempos_itens", {})), "resultados": resultados}
+        else:
+            st.session_state.pop("teste_desempenho", None)
+
+
+def mostrar_resultado_do_teste():
+    """Tabela do teste de desempenho: tempo por item, anúncios achados e acertividade (automática, e revisada por você na coluna 'Correto?')."""
+    teste = st.session_state.get("teste_desempenho")
+    if not teste:
+        return
+    st.markdown("### 🧪 Resultado do teste de desempenho")
+    st.caption(f"{teste['modo']} — duração total: {teste['total_s'] / 60:.1f} min")
+    analise_teste = web_precos.analisar_todos(teste["itens"], teste["resultados"], max_precos=desempenho.PRECOS_POR_ITEM)
+    linhas_preco, linhas_item, _ = desempenho.avaliar(teste["itens"], analise_teste, teste["tempos"])
+    st.markdown("**Anúncios achados** — desmarque \"Correto?\" nos que NÃO são o item pedido; a acertividade abaixo é recalculada:")
+    revisado = st.data_editor(pd.DataFrame(linhas_preco), key="revisao_teste", hide_index=True, use_container_width=True,
+                              disabled=[c for c in (linhas_preco[0].keys() if linhas_preco else []) if c != "Correto?"],
+                              column_config={"Endereço": st.column_config.LinkColumn("Endereço")})
+    metricas_teste = desempenho.metricas(linhas_item, revisado.to_dict("records") if len(revisado) else [])
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Tempo médio por item", f"{metricas_teste['tempo_medio_s']} s" if metricas_teste["tempo_medio_s"] is not None else "-",
+              "meta ≤ 120 s" if metricas_teste["meta_tempo_ok"] else "acima da meta de 120 s", delta_color="normal" if metricas_teste["meta_tempo_ok"] else "inverse")
+    c2.metric("Itens com 3 preços", f"{metricas_teste['pct_itens_completos']}%")
+    c3.metric("Anúncios certos", f"{metricas_teste['pct_precos_certos']}%",
+              "meta ≥ 90%" if metricas_teste["meta_acerto_ok"] else "abaixo da meta de 90%", delta_color="normal" if metricas_teste["meta_acerto_ok"] else "inverse")
+    c4.metric("Itens 100% certos", f"{metricas_teste['pct_itens_todos_certos']}%")
+    st.dataframe(pd.DataFrame(linhas_item), hide_index=True, use_container_width=True)
+    st.download_button("⬇️ Baixar o resultado do teste (CSV)", pd.DataFrame(linhas_item).to_csv(index=False).encode("utf-8-sig"),
+                       file_name="teste_desempenho.csv", mime="text/csv")
+
+
+mostrar_resultado_do_teste()
 
 # ===================== EXIBIÇÃO DE RESULTADOS =====================
 
