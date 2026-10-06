@@ -113,7 +113,7 @@ def confere(item: str, texto: str) -> str:
     if not comparaveis:
         return "sem_medida"
     for grandeza, valor in comparaveis:
-        if not any(g == grandeza and abs(v - valor) <= max(0.01 * valor, 0.001) for g, v in do_texto):
+        if not any(g == grandeza and abs(v - valor) <= max(0.03 * valor, 0.001) for g, v in do_texto):  # até 3%: 474 L conta como 480 L
             return "diferente"
     return "igual"
 

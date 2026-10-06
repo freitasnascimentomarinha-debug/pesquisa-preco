@@ -244,7 +244,7 @@ def preco_na_listagem(soup, item: str, url: str = "", cards: list[dict] | None =
     import sinonimos
 
     cards = cards if cards is not None else _cards_da_listagem(soup)
-    if len(cards) < MIN_CARDS_LISTAGEM:
+    if len(cards) < (1 if eh_url_de_busca(url) else MIN_CARDS_LISTAGEM):  # em endereço de busca/categoria, até 1 produto da lista vale
         return None
     achados = sorted((c for c in cards if sinonimos.confere_nome(item, c["nome"])), key=lambda c: c["preco"])
     if achados and embalagem.medidas(item):  # mesma medida do item primeiro; sem medida depois; medida diferente só se não houver outro
@@ -378,8 +378,14 @@ def analisar_item_web(descricao: str, ofertas: list[dict], remover: bool = True,
     # embalagem diferente da pedida só entra se faltar preço de embalagem igual (ou sem medida informada)
     mesma_embalagem = [r for r in limpos if r.get("medida_confere") != "diferente"]
     resultado["precos"] = selecionar_precos(mesma_embalagem, max_precos, tolerancia)
-    if len(resultado["precos"]) < max_precos and len(mesma_embalagem) < len(limpos):
-        resultado["precos"] = selecionar_precos(limpos, max_precos, tolerancia)
+    outras = [r for r in limpos if r.get("medida_confere") == "diferente"]
+    if len(resultado["precos"]) < max_precos and outras:
+        if resultado["precos"]:  # completa com as de outra embalagem mais próximas da média, sem tirar as de embalagem igual
+            media = sum(r["preco"] for r in resultado["precos"]) / len(resultado["precos"])
+            proximas = sorted((r for r in outras if abs(r["preco"] - media) <= tolerancia * media), key=lambda r: abs(r["preco"] - media))
+            resultado["precos"] = sorted(resultado["precos"] + proximas[:max_precos - len(resultado["precos"])], key=lambda r: r["preco"])
+        else:
+            resultado["precos"] = selecionar_precos(outras, max_precos, tolerancia)
     diferentes = [p for p in resultado["precos"] if p.get("medida_confere") == "diferente"]
     if diferentes and descricao:  # a descrição do relatório passa a dizer a embalagem realmente cotada
         cotadas = ", ".join(f"{p.get('medida_ofertada') or 'outra medida'} ({p['dominio']})" for p in diferentes)

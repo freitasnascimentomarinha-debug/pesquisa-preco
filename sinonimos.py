@@ -61,11 +61,21 @@ SINONIMOS = [
      "busca": "envelope pardo kraft",
      "aceitar": [["envelope", "pardo"], ["envelope", "kraft"]],
      "excluir": ["caixa de pizza", "pizza"]},
+    {"nomes": ["geladeira", "refrigerador"],
+     "busca": "geladeira",
+     "aceitar": [["geladeira"], ["refrigerador"]],
+     "excluir": ["prateleira", "gaveta", "borracha", "gaxeta", "puxador", "filtro", "adesivo", "envelopamento", "capa", "porta latas",
+                 "organizador", "termostato", "compressor", "dobradica", "lampada", "pe nivelador", "peca", "brinquedo", "miniatura", "frigobar"]},
     {"nomes": ["agua sanitaria", "candida"],
      "busca": "água sanitária",
      "aceitar": [["agua", "sanitaria"], ["alvejante"], ["candida"]],
      "excluir": []},
 ]
+
+# substantivos genéricos: sozinhos não identificam o produto (papel toalha x papel offset); exigem também a palavra seguinte do item
+GENERICOS = {"papel", "caneta", "fita", "caixa", "saco", "sacola", "tinta", "cabo", "fio", "tubo", "filtro", "pasta", "cola", "lapis", "kit",
+             "jogo", "conjunto", "bloco", "capa", "porta", "suporte", "chave", "oleo", "sabao", "pano", "copo", "prato", "pote", "lampada",
+             "luva", "bota", "disco", "broca", "lixa", "massa", "pincel", "rolo", "escova", "esponja", "envelope", "etiqueta", "toalha", "tampa"}
 
 # palavras que não ajudam a reconhecer o produto
 VAZIAS = {"de", "da", "do", "das", "dos", "para", "com", "sem", "em", "e", "a", "o", "as", "os", "tipo", "cor", "c", "p", "x", "n", "no", "na"}
@@ -80,6 +90,8 @@ def normalizar(texto: str) -> str:
 def _raiz(palavra: str) -> str:
     """Raiz simples: sem plural e com no máximo 6 letras ('envelopes' -> 'envelo', 'transparente' -> 'transp')."""
     if len(palavra) > 3 and palavra.endswith("s"):
+        palavra = palavra[:-1]
+    if len(palavra) >= 5 and palavra[-1] in "ao":  # masculino/feminino: 'preta' casa 'preto', 'branca' casa 'branco'
         palavra = palavra[:-1]
     return palavra[:6]
 
@@ -187,7 +199,10 @@ def confere_nome(item: str, nome: str) -> bool:
     if not _tem(nome_norm, palavras[0]):
         return False
     acertos = sum(1 for p in palavras if _tem(nome_norm, p))
-    return acertos >= max(1, min(math.ceil(0.5 * len(palavras)), 3))  # metade das palavras; descrição longa: no máximo 3 exigidas
+    exigidas = max(1, min(math.ceil(0.5 * len(palavras)), 3))
+    if palavras[0] in GENERICOS and len(palavras) > 1 and not _tem(nome_norm, palavras[1]):
+        return False  # 'papel', 'caneta', 'lâmpada'... sozinhos não dizem o produto: 'papel offset' precisa de 'offset', 'lâmpada led' de 'led'
+    return acertos >= exigidas  # metade das palavras; descrição longa: no máximo 3 exigidas
 
 
 def excluido(item: str, texto: str) -> bool:
