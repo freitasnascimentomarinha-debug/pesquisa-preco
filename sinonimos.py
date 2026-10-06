@@ -115,11 +115,13 @@ def carregar_aprendidos(nomes: dict | None) -> None:
 
 
 def _melhor_fixo(texto: str) -> tuple[dict | None, int]:
+    """A entrada cujo nome popular ABRE a descrição (sem medida/embalagem): 'tv 50 polegadas' usa o sinônimo de TV, mas
+    'suporte para tv' não (é outro produto); 'fio dental' não usa o de 'fio elétrico'."""
     melhor, tamanho = None, 0
     for registro in SINONIMOS:
         for nome in registro["nomes"]:
             nome_norm = normalizar(nome).strip()
-            if f" {nome_norm} " in texto and len(nome_norm) > tamanho:
+            if nome_norm and texto.startswith(f" {nome_norm} ") and len(nome_norm) > tamanho:
                 melhor, tamanho = registro, len(nome_norm)
     return melhor, tamanho
 
@@ -128,7 +130,10 @@ def entrada(item: str) -> dict | None:
     """A entrada de sinônimo que vale para o item: a da tabela fixa (nome mais longo que aparece nele) somada à aprendida com o uso
     (busca ensinada, nomes aceitos e palavras que recusam o anúncio). None se não houver nenhuma."""
     texto = normalizar(item)
-    fixo, _ = _melhor_fixo(texto)
+    fixo, tamanho = _melhor_fixo(normalizar(embalagem.base(item)))
+    fixo_inteiro, tamanho_inteiro = _melhor_fixo(texto)  # 'galão de água 20L': o nome popular inclui palavra de embalagem
+    if tamanho_inteiro > tamanho:
+        fixo = fixo_inteiro
     aprendido_chave = max((c for c in APRENDIDOS if f" {c} " in texto), key=len, default="")
     if not fixo and not aprendido_chave:
         return None
@@ -147,16 +152,28 @@ def entrada(item: str) -> dict | None:
 
 
 def termo_busca(item: str) -> str:
-    """Troca o nome do item pelo nome de mercado na busca, mantendo o resto ('caneta piloto azul' -> 'marcador para quadro branco azul')."""
+    """Troca o nome popular do item pelo nome comercial na busca e mantém o resto como foi escrito
+    ('caneta piloto azul' -> 'marcador para quadro branco azul'; 'fio elétrico 2,5mm' -> 'cabo flexível 2,5mm')."""
     registro = entrada(item)
     if not registro:
         return str(item or "").strip()
-    texto = normalizar(item)
-    for nome in sorted(registro["nomes"], key=len, reverse=True):  # tira todos os nomes do item que aparecem, do mais longo ao mais curto
-        nome_norm = normalizar(nome).strip()
-        while f" {nome_norm} " in texto:
-            texto = texto.replace(f" {nome_norm} ", " ", 1)
     ja_na_busca = set(normalizar(registro["busca"]).split())
+    tokens = str(item or "").split()
+    palavras_tokens = [normalizar(t).split() for t in tokens]
+    for nome in sorted(registro["nomes"], key=len, reverse=True):  # nome popular no começo: tira os tokens dele, o resto fica intacto
+        alvo = normalizar(nome).split()
+        lidas, j = [], 0
+        while j < len(tokens) and len(lidas) < len(alvo):
+            lidas += palavras_tokens[j]
+            j += 1
+        if alvo and lidas == alvo:
+            resto = [t for t, ws in zip(tokens[j:], palavras_tokens[j:]) if not (ws and all(w in ja_na_busca for w in ws))]
+            return (registro["busca"] + (" " + " ".join(resto) if resto else "")).strip()
+    texto = normalizar(item)
+    for nome in sorted(registro["nomes"], key=len, reverse=True):  # nome no meio (nomes aprendidos): tira de onde estiver
+        nome_norm = normalizar(nome).strip()
+        while nome_norm and f" {nome_norm} " in texto:
+            texto = texto.replace(f" {nome_norm} ", " ", 1)
     resto = [p for p in texto.split() if p not in ja_na_busca]
     return (registro["busca"] + (" " + " ".join(resto) if resto else "")).strip()
 
@@ -335,3 +352,34 @@ def aprender_exclusoes(nomes: dict, item: str, nomes_excluidos: list[str], nomes
 
 def esquecer(nomes: dict, chave: str) -> None:
     nomes.pop(chave, None)
+
+
+
+# ---------- banco de nomes populares x comerciais (banco_sinonimos.py) ----------
+
+def _entradas_do_banco() -> list[dict]:
+    """Converte o banco em entradas: busca pelo nome comercial; aceita o nome comercial (2 primeiras palavras) e, se permitido,
+    o popular; recusa as palavras indicadas. Nomes que já estão na tabela acima não são repetidos (a tabela acima prevalece)."""
+    import banco_sinonimos
+
+    ja_tem = {normalizar(n).strip() for registro in SINONIMOS for n in registro["nomes"]}
+    entradas = []
+    for nomes, busca, excluir, aceitar_popular in banco_sinonimos.BANCO:
+        novos = [n for n in nomes if normalizar(n).strip() not in ja_tem]
+        if not novos:
+            continue
+        aceitar = []
+        comercial = _palavras_chave(busca)[:2]
+        if comercial:
+            aceitar.append(comercial)
+        if aceitar_popular:
+            for nome in novos:
+                popular = _palavras_chave(nome)
+                if popular and popular not in aceitar:
+                    aceitar.append(popular)
+        entradas.append({"nomes": novos, "busca": busca, "aceitar": aceitar, "excluir": [normalizar(t).strip() for t in excluir]})
+        ja_tem.update(normalizar(n).strip() for n in novos)
+    return entradas
+
+
+SINONIMOS.extend(_entradas_do_banco())
