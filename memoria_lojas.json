@@ -1,11 +1,12 @@
 {
  "versao": 1,
- "atualizado": "2026-10-06T16:26:26",
+ "atualizado": "2026-10-06T17:01:40",
  "lojas": {
   "lojadomecanico.com.br": {
-   "acertos": 23,
-   "ultimo": "2026-10-05",
+   "acertos": 24,
+   "ultimo": "2026-10-06",
    "itens": [
+    "balde plástico 12 litros",
     "lâmpada led branca e27",
     "caneta piloto azul",
     "fita isolante",
@@ -17,7 +18,7 @@
    ],
    "metodos": {
     "navegador": 8,
-    "texto": 5
+    "texto": 6
    },
    "paginas": {
     "grampeador": "https://www.lojadomecanico.com.br/subcategorias/37/501/grampeador-manual",
@@ -25,14 +26,16 @@
     "fita isolante": "https://lojadomecanico.com.br/busca?q=fita+isolante",
     "grampeador escolar": "https://www.lojadomecanico.com.br/subcategorias/37/501/grampeador-manual",
     "caneta piloto azul": "https://lojadomecanico.com.br/busca?q=Caneta+piloto+azul",
-    "lâmpada led branca e27": "https://lojadomecanico.com.br/busca?q=L%C3%A2mpada+led+branca+e27"
+    "lâmpada led branca e27": "https://lojadomecanico.com.br/busca?q=L%C3%A2mpada+led+branca+e27",
+    "balde plástico 12 litros": "https://www.lojadomecanico.com.br/produto/126288/31/266/balde-plastico-para-concreto-12-litros-vonder-3315012000"
    },
    "busca": "/busca?q={q}",
    "naturezas": {
     "elétrico": 3,
     "papelaria e escritório": 3,
     "fixadores": 1,
-    "ferramentas": 1
+    "ferramentas": 1,
+    "limpeza e higiene": 1
    }
   },
   "eletricaarea.com.br": {
@@ -104,9 +107,10 @@
    }
   },
   "kalunga.com.br": {
-   "acertos": 22,
+   "acertos": 23,
    "ultimo": "2026-10-06",
    "itens": [
+    "calculadora de mesa 12 dígitos",
     "cabo hdmi 2m",
     "fita dupla face 12mm x 30m",
     "papel a4 sulfite",
@@ -127,7 +131,7 @@
    ],
    "metodos": {
     "navegador": 7,
-    "texto": 10
+    "texto": 11
    },
    "paginas": {
     "grampeador": "https://www.kalunga.com.br/depto/suprimentos-para-escritorio/grampeadores/26/1104",
@@ -142,35 +146,40 @@
     "caneta piloto azul": "https://www.kalunga.com.br/depto/escrita-corretivos/canetas-esferograficas-1-6/11/1304",
     "papel a4 sulfite": "https://kalunga.com.br/?s=papel+sulfite+A4&post_type=product",
     "fita dupla face 12mm x 30m": "https://www.kalunga.com.br/prod/fita-adesiva-dupla-face-pp-12mm-x-30m-transparente-nao-tecido-tectape-rl-1-un/305205",
-    "cabo hdmi 2m": "https://www.kalunga.com.br/prod/cabo-hdmi-2-0-com-2-metros-copper-zg-bz020v2-app-tech-bt-1-un/746125"
+    "cabo hdmi 2m": "https://www.kalunga.com.br/prod/cabo-hdmi-2-0-com-2-metros-copper-zg-bz020v2-app-tech-bt-1-un/746125",
+    "calculadora de mesa 12 dígitos": "https://www.kalunga.com.br/prod/calculadora-de-mesa-bateria-energia-solar-12-digitos-1200-spiral-digit-cx-1-un/159008"
    },
    "naturezas": {
     "tintas e pintura": 1,
     "papelaria e escritório": 15,
-    "informática": 1
+    "informática": 1,
+    "construção": 1
    },
    "busca": "/?s={q}&post_type=product"
   },
   "lojascacula.com.br": {
-   "acertos": 7,
+   "acertos": 8,
    "ultimo": "2026-10-06",
    "itens": [
+    "calculadora de mesa 12 dígitos",
     "caneta marca texto amarelo",
     "papel crepom",
     "papel contact",
     "borracha escolar"
    ],
    "naturezas": {
-    "papelaria e escritório": 7
+    "papelaria e escritório": 7,
+    "construção": 1
    },
    "metodos": {
     "navegador": 0,
-    "texto": 6
+    "texto": 7
    },
    "paginas": {
     "papel contact": "https://www.lojascacula.com.br/papelaria/escolar/plastico-auto-adesivo",
     "papel crepom": "https://www.lojascacula.com.br/papelaria/escolar/papel-crepom",
-    "caneta marca texto amarelo": "https://www.lojascacula.com.br/papelaria/escrita-e-auxiliares/marca-texto"
+    "caneta marca texto amarelo": "https://www.lojascacula.com.br/papelaria/escrita-e-auxiliares/marca-texto",
+    "calculadora de mesa 12 dígitos": "https://www.lojascacula.com.br/calculadora-de-mesa-12-digitos-pilha-dm-1200v-693627-2/p"
    }
   },
   "leonorashop.com.br": {
@@ -307,9 +316,15 @@
    "busca": "/busca?q={q}"
   },
   "atacadosaopaulo.com.br": {
-   "acertos": 41,
+   "acertos": 47,
    "ultimo": "2026-10-06",
    "itens": [
+    "calculadora de mesa 12 dígitos",
+    "máscara descartável tripla c/ 50",
+    "sabonete líquido 5 litros",
+    "desinfetante pinho 2 litros",
+    "balde plástico 12 litros",
+    "vassoura de piaçava",
     "caneta marca texto amarelo",
     "papel crepom",
     "luva de limpeza",
@@ -334,7 +349,7 @@
    ],
    "metodos": {
     "navegador": 7,
-    "texto": 32
+    "texto": 38
    },
    "paginas": {
     "caneta esferográfica azul": "https://www.atacadosaopaulo.com.br/ki-5-caixas-caneta-esferografica-1-0mm---3un-azul--1un-preto-e-1un-vermelho---caixa-fechada-50un/p?srsltid=AU7gw4Vyg5t9J9U2FbmQcIfvLVIMmm-1Qb4l5EoZNMZ7S025fHvaLGbp",
@@ -356,14 +371,22 @@
     "pasta suspensa kraft": "https://www.atacadosaopaulo.com.br/pasta-suspensa-kraft-com-grampo-plastico-0002-x-0050-2---50un---dello/p",
     "água sanitária 2 litros": "https://www.atacadosaopaulo.com.br/agua-sanitaria-2l---2lt---vix/p",
     "papel toalha interfolhado": "https://www.atacadosaopaulo.com.br/higiene---limpeza/papel-higienico-e-toalha/papel-toalha",
-    "régua de tomada 5 tomadas": "https://www.atacadosaopaulo.com.br/filtro-linha-5tom-bivolt-preto-qfl5---un---qualitronix/p"
+    "régua de tomada 5 tomadas": "https://www.atacadosaopaulo.com.br/filtro-linha-5tom-bivolt-preto-qfl5---un---qualitronix/p",
+    "vassoura de piaçava": "https://www.atacadosaopaulo.com.br/vassoura-piacava-n-3-35-bahia---un/p",
+    "balde plástico 12 litros": "https://www.atacadosaopaulo.com.br/balde-plastico-12-litros-preto-bc12pm-arqplast---un/p",
+    "desinfetante pinho 2 litros": "https://www.atacadosaopaulo.com.br/desinfetante-2-litros-pinho-0014-barra---un/p",
+    "sabonete líquido 5 litros": "https://www.atacadosaopaulo.com.br/sabonete-liquido-5l-erva-doce---un---premisse/p",
+    "máscara descartável tripla c/ 50": "https://www.atacadosaopaulo.com.br/mascara-descartavel-tripla-tnt-rosa-2167-splenda---50un/p",
+    "calculadora de mesa 12 dígitos": "https://www.atacadosaopaulo.com.br/calculadora-mesa-12-digitos-al8835b---un---alfacell/p"
    },
    "naturezas": {
     "tintas e pintura": 1,
     "papelaria e escritório": 23,
-    "limpeza e higiene": 9,
+    "limpeza e higiene": 13,
     "elétrico": 4,
-    "ferramentas": 2
+    "ferramentas": 2,
+    "EPI e segurança": 1,
+    "construção": 1
    }
   },
   "hp.com": {
@@ -440,23 +463,25 @@
    }
   },
   "casadopapel.com.br": {
-   "acertos": 5,
+   "acertos": 6,
    "ultimo": "2026-10-06",
    "itens": [
+    "fita adesiva marrom 48mm x 50m",
     "papel crepom",
     "cola bastão",
     "papel a4"
    ],
    "metodos": {
     "navegador": 1,
-    "texto": 3
+    "texto": 4
    },
    "paginas": {
     "cola bastão": "https://www.casadopapel.com.br/escritorio/cola/cola-bastao",
-    "papel crepom": "https://www.casadopapel.com.br/papel-crepom-comum-48cmx2m-amarelo-p36348-p991033"
+    "papel crepom": "https://www.casadopapel.com.br/papel-crepom-comum-48cmx2m-amarelo-p36348-p991033",
+    "fita adesiva marrom 48mm x 50m": "https://www.casadopapel.com.br/fita-adesiva-kraft-48mm-x-50m-marrom-p33014-p992974"
    },
    "naturezas": {
-    "papelaria e escritório": 4
+    "papelaria e escritório": 5
    }
   },
   "tkshopping.com.br": {
@@ -470,9 +495,11 @@
    }
   },
   "atacadodolojista.com.br": {
-   "acertos": 10,
+   "acertos": 12,
    "ultimo": "2026-10-06",
    "itens": [
+    "cola branca 1 litro",
+    "balde plástico 12 litros",
     "luva de limpeza",
     "parafuso sextavado 1/2",
     "grampeador",
@@ -483,14 +510,14 @@
    ],
    "naturezas": {
     "elétrico": 3,
-    "papelaria e escritório": 2,
+    "papelaria e escritório": 3,
     "ferramentas": 2,
     "fixadores": 2,
-    "limpeza e higiene": 1
+    "limpeza e higiene": 2
    },
    "metodos": {
     "navegador": 0,
-    "texto": 9
+    "texto": 11
    },
    "paginas": {
     "grampeador": "https://www.atacadodolojista.com.br/grampeador-pinador-3-em-1-sigma",
@@ -498,7 +525,9 @@
     "parafuso sextavado 1/2": "https://www.atacadodolojista.com.br/parafuso-sextavado-zincado-1-4x2-r-i-com-200-unidades-jomarca-",
     "régua de tomada 5 tomadas": "https://www.atacadodolojista.com.br/filtro-de-linha-5-tomadas-2p-t-1m-preto-metasul-14660-7898969329224",
     "fio flexível 2,5mm 100m": "https://www.atacadodolojista.com.br/cabo-flexivel-2-5-x-100m-750v-preto-sil-",
-    "luva de limpeza": "https://www.atacadodolojista.com.br/luva-multiuso-latex-g-sigma-power-17026-7899888426131"
+    "luva de limpeza": "https://www.atacadodolojista.com.br/luva-multiuso-latex-g-sigma-power-17026-7899888426131",
+    "balde plástico 12 litros": "https://www.atacadodolojista.com.br/balde-plastico-12-litros-alca-metal-preto-famplast-16724-7899359955016",
+    "cola branca 1 litro": "https://www.atacadodolojista.com.br/cola-branca-1kg-pacote-12-unidades-bravox"
    }
   },
   "officinepapel.com.br": {
@@ -522,9 +551,13 @@
    }
   },
   "superpaguemenos.com.br": {
-   "acertos": 15,
+   "acertos": 19,
    "ultimo": "2026-10-06",
    "itens": [
+    "álcool em gel 70% 500ml",
+    "sabonete líquido 5 litros",
+    "desinfetante pinho 2 litros",
+    "esponja multiuso dupla face",
     "luva de limpeza",
     "detergente",
     "álcool etílico 70% 1 litro",
@@ -539,11 +572,11 @@
    ],
    "metodos": {
     "navegador": 2,
-    "texto": 10
+    "texto": 14
    },
    "naturezas": {
     "gêneros alimentícios": 3,
-    "limpeza e higiene": 11
+    "limpeza e higiene": 15
    },
    "busca": "/busca?q={q}",
    "paginas": {
@@ -554,24 +587,32 @@
     "água sanitária 2 litros": "https://superpaguemenos.com.br/busca?q=%C3%A1gua+sanit%C3%A1ria+2+litros",
     "papel toalha interfolhado": "https://superpaguemenos.com.br/busca?q=Papel+toalha+interfolhado",
     "lixeira com pedal 15 litros": "https://superpaguemenos.com.br/busca?q=Lixeira+com+pedal+15+litros",
-    "álcool etílico 70% 1 litro": "https://superpaguemenos.com.br/busca?q=%C3%81lcool+et%C3%ADlico+70%25+1+litro"
+    "álcool etílico 70% 1 litro": "https://superpaguemenos.com.br/busca?q=%C3%81lcool+et%C3%ADlico+70%25+1+litro",
+    "esponja multiuso dupla face": "https://superpaguemenos.com.br/busca?q=Esponja+multiuso+dupla+face",
+    "desinfetante pinho 2 litros": "https://superpaguemenos.com.br/busca?q=Desinfetante+pinho+2+litros",
+    "sabonete líquido 5 litros": "https://superpaguemenos.com.br/busca?q=Sabonete+l%C3%ADquido+5+litros",
+    "álcool em gel 70% 500ml": "https://superpaguemenos.com.br/busca?q=%C3%81lcool+em+gel+70%25+500ml"
    }
   },
   "atacadao.com.br": {
-   "acertos": 4,
-   "ultimo": "2026-10-04",
+   "acertos": 5,
+   "ultimo": "2026-10-06",
    "itens": [
+    "sabonete líquido 5 litros",
     "feijão 1kg",
     "detergente",
     "arroz 1kg"
    ],
    "metodos": {
     "navegador": 2,
-    "texto": 0
+    "texto": 1
    },
    "naturezas": {
     "gêneros alimentícios": 2,
-    "limpeza e higiene": 1
+    "limpeza e higiene": 2
+   },
+   "paginas": {
+    "sabonete líquido 5 litros": "https://www.atacadao.com.br/sabonete-liquido-tacto-erva-doce-bombona-com-5l-60293-11564/p?srsltid=AU7gw4XE4b3U_JgDf3n2rERV-yJN_2bvVNskzqy7O7fyG5jv0iPmcoe5"
    }
   },
   "zonacerealista.com.br": {
@@ -692,31 +733,43 @@
    }
   },
   "loja.casadosacodelixo.com.br": {
-   "acertos": 1,
-   "ultimo": "2026-10-04",
+   "acertos": 4,
+   "ultimo": "2026-10-06",
    "itens": [
+    "sabonete líquido 5 litros",
+    "vassoura de piaçava",
+    "esponja multiuso dupla face",
     "saco de lixo de 100 litros"
    ],
    "metodos": {
     "navegador": 1,
-    "texto": 0
+    "texto": 3
    },
    "naturezas": {
-    "limpeza e higiene": 1
+    "limpeza e higiene": 4
+   },
+   "paginas": {
+    "esponja multiuso dupla face": "https://loja.casadosacodelixo.com.br/esponja-multiuso-dupla-face",
+    "vassoura de piaçava": "https://loja.casadosacodelixo.com.br/vassoura-de-piacava-perovinha",
+    "sabonete líquido 5 litros": "https://loja.casadosacodelixo.com.br/sabonete-liquido-deoline-linha-requinte-5-litros"
    }
   },
   "brazzbrazz.com.br": {
-   "acertos": 1,
-   "ultimo": "2026-10-04",
+   "acertos": 2,
+   "ultimo": "2026-10-06",
    "itens": [
+    "envelope saco branco 25x35",
     "papel a4"
    ],
    "metodos": {
     "navegador": 1,
-    "texto": 0
+    "texto": 1
    },
    "naturezas": {
-    "papelaria e escritório": 1
+    "papelaria e escritório": 2
+   },
+   "paginas": {
+    "envelope saco branco 25x35": "https://www.brazzbrazz.com.br/envelope-saco-25x35-scrity-branco-90g-1x1un-117114-9870000007114"
    }
   },
   "25demarcoonline.com.br": {
@@ -1177,44 +1230,50 @@
    }
   },
   "milium.com.br": {
-   "acertos": 4,
+   "acertos": 5,
    "ultimo": "2026-10-06",
    "itens": [
+    "esponja multiuso dupla face",
     "caneta marca texto amarelo",
     "caneta esferográfica azul"
    ],
    "metodos": {
     "navegador": 1,
-    "texto": 3
+    "texto": 4
    },
    "paginas": {
     "caneta esferográfica azul": "https://www.milium.com.br/caneta-esferografica-azul-bic-cristal-1000333-2050000196331/p",
-    "caneta marca texto amarelo": "https://www.milium.com.br/marca-texto-amarelo-faber-castell-1004406-7891360623090/p"
+    "caneta marca texto amarelo": "https://www.milium.com.br/marca-texto-amarelo-faber-castell-1004406-7891360623090/p",
+    "esponja multiuso dupla face": "https://www.milium.com.br/esponja-dupla-face-multiuso-forta-1005158-7896565700256/p"
    },
    "naturezas": {
-    "papelaria e escritório": 4
+    "papelaria e escritório": 4,
+    "limpeza e higiene": 1
    }
   },
   "contabilista.com.br": {
-   "acertos": 4,
+   "acertos": 5,
    "ultimo": "2026-10-06",
    "itens": [
+    "calculadora de mesa 12 dígitos",
     "caneta esferográfica azul",
     "tesoura escolar 21cm",
     "tinta guache vermelha"
    ],
    "metodos": {
     "navegador": 1,
-    "texto": 3
+    "texto": 4
    },
    "paginas": {
     "caneta esferográfica azul": "https://www.contabilista.com.br/escritorio-e-papelaria/caneta-esferografica-cristal-fina-0-8mm-azul-bic.html",
     "tinta guache vermelha": "https://www.contabilista.com.br/escolar/tinta-para-pintura/tinta-guache-250ml-vermelho-fogo-acrilex-507.html",
-    "tesoura escolar 21cm": "https://www.contabilista.com.br/escritorio-e-papelaria/tesoura-uso-geral/tesoura-uso-geral-21cm-brw-te2101.html"
+    "tesoura escolar 21cm": "https://www.contabilista.com.br/escritorio-e-papelaria/tesoura-uso-geral/tesoura-uso-geral-21cm-brw-te2101.html",
+    "calculadora de mesa 12 dígitos": "https://www.contabilista.com.br/calculadora-mesa-c-bobina-12-digitos-hr-100rc-preta-casio.html"
    },
    "naturezas": {
     "tintas e pintura": 1,
-    "papelaria e escritório": 3
+    "papelaria e escritório": 3,
+    "construção": 1
    }
   },
   "lepok.com.br": {
@@ -1567,24 +1626,26 @@
    }
   },
   "oceanob2b.com": {
-   "acertos": 4,
+   "acertos": 5,
    "ultimo": "2026-10-06",
    "itens": [
+    "pasta az lombo largo",
     "caneta esferográfica azul",
     "arquivo morto caixa de papelão",
     "fita dupla face 12mm x 30m"
    ],
    "metodos": {
     "navegador": 0,
-    "texto": 4
+    "texto": 5
    },
    "naturezas": {
-    "papelaria e escritório": 3
+    "papelaria e escritório": 4
    },
    "paginas": {
     "caneta esferográfica azul": "https://www.oceanob2b.com/caneta-esferografica-bic-cristal-azul-caixa-50-unidades-p996738",
     "fita dupla face 12mm x 30m": "https://www.oceanob2b.com/fita-adesiva-dupla-face-4873-12mm-x-30m-scotch-3m-p996948",
-    "arquivo morto caixa de papelão": "https://www.oceanob2b.com/escritorio-e-papelaria/caixa-e-arquivos"
+    "arquivo morto caixa de papelão": "https://www.oceanob2b.com/escritorio-e-papelaria/caixa-e-arquivos",
+    "pasta az lombo largo": "https://www.oceanob2b.com/pasta-az-oficio-staples-folhas-bem-organizadas-oceano-b2b-p994862"
    }
   },
   "supermuffato.com.br": {
@@ -1929,31 +1990,44 @@
    }
   },
   "zaffari.com.br": {
-   "acertos": 1,
+   "acertos": 2,
    "ultimo": "2026-10-06",
    "itens": [
+    "desinfetante pinho 2 litros",
     "maizena 500g"
    ],
    "metodos": {
     "navegador": 0,
-    "texto": 1
+    "texto": 2
    },
    "paginas": {
-    "maizena 500g": "https://www.zaffari.com.br/amido-de-milho-maizena-500g-1007134/p"
+    "maizena 500g": "https://www.zaffari.com.br/amido-de-milho-maizena-500g-1007134/p",
+    "desinfetante pinho 2 litros": "https://www.zaffari.com.br/desinfetante-girando-sol-pinho-2-litros-1022611/p?srsltid=AU7gw4X0FEIeHuIi9FpcHVK8wG_L5cW2S_WuIvinTvuXeBtgHu6mDlB4"
+   },
+   "naturezas": {
+    "limpeza e higiene": 1
    }
   },
   "beagaembalagem.com.br": {
-   "acertos": 1,
+   "acertos": 3,
    "ultimo": "2026-10-06",
    "itens": [
+    "luva nitrílica tamanho m c/ 100",
+    "vassoura de piaçava",
     "bombril pacote c/ 8"
    ],
    "metodos": {
     "navegador": 0,
-    "texto": 1
+    "texto": 3
    },
    "paginas": {
-    "bombril pacote c/ 8": "https://beagaembalagem.com.br/produto/esponja-de-la-de-aco-c-8-unidades"
+    "bombril pacote c/ 8": "https://beagaembalagem.com.br/produto/esponja-de-la-de-aco-c-8-unidades",
+    "vassoura de piaçava": "https://beagaembalagem.com.br/produto/vassoura-piacava",
+    "luva nitrílica tamanho m c/ 100": "https://beagaembalagem.com.br/produto/luva-nitrilica-tamanho-m-cor-preta-c-100-unidades"
+   },
+   "naturezas": {
+    "limpeza e higiene": 1,
+    "EPI e segurança": 1
    }
   },
   "triadelog.com.br": {
@@ -2008,20 +2082,23 @@
    }
   },
   "drogaraia.com.br": {
-   "acertos": 1,
+   "acertos": 2,
    "ultimo": "2026-10-06",
    "itens": [
+    "álcool em gel 70% 500ml",
     "pilha palito aaa c/ 4"
    ],
    "metodos": {
-    "navegador": 1,
+    "navegador": 2,
     "texto": 0
    },
    "naturezas": {
-    "elétrico": 1
+    "elétrico": 1,
+    "limpeza e higiene": 1
    },
    "paginas": {
-    "pilha palito aaa c/ 4": "https://www.drogaraia.com.br/duracell-pilha-aaa-palito-4-unidades.html"
+    "pilha palito aaa c/ 4": "https://www.drogaraia.com.br/duracell-pilha-aaa-palito-4-unidades.html",
+    "álcool em gel 70% 500ml": "https://www.drogaraia.com.br/search?w=alcool+gel"
    }
   },
   "romaaviamentos.com.br": {
@@ -2086,20 +2163,24 @@
    }
   },
   "recompapelaria.com.br": {
-   "acertos": 1,
+   "acertos": 3,
    "ultimo": "2026-10-06",
    "itens": [
+    "fita adesiva marrom 48mm x 50m",
+    "pasta az lombo largo",
     "pasta suspensa kraft"
    ],
    "metodos": {
     "navegador": 0,
-    "texto": 1
+    "texto": 3
    },
    "naturezas": {
-    "papelaria e escritório": 1
+    "papelaria e escritório": 3
    },
    "paginas": {
-    "pasta suspensa kraft": "https://recompapelaria.com.br/produto/pasta-suspensa-dello-002-kraft-com-grampo"
+    "pasta suspensa kraft": "https://recompapelaria.com.br/produto/pasta-suspensa-dello-002-kraft-com-grampo",
+    "pasta az lombo largo": "https://recompapelaria.com.br/produto/pasta-registradora-az-lombo-largo-oficio-tigrada-frama",
+    "fita adesiva marrom 48mm x 50m": "https://recompapelaria.com.br/produto/fita-adesiva-marrom-48mmx50m-adel"
    }
   },
   "blulivro.com.br": {
@@ -2154,20 +2235,22 @@
    }
   },
   "comercialsouzaatacado.com.br": {
-   "acertos": 1,
+   "acertos": 2,
    "ultimo": "2026-10-06",
    "itens": [
+    "desinfetante pinho 2 litros",
     "água sanitária 2 litros"
    ],
    "metodos": {
     "navegador": 0,
-    "texto": 1
+    "texto": 2
    },
    "naturezas": {
-    "limpeza e higiene": 1
+    "limpeza e higiene": 2
    },
    "paginas": {
-    "água sanitária 2 litros": "https://www.comercialsouzaatacado.com.br/catalogo-completo/agua-sanitaria-suprema-2-litros-cx-com-6-un-prd.html"
+    "água sanitária 2 litros": "https://www.comercialsouzaatacado.com.br/catalogo-completo/agua-sanitaria-suprema-2-litros-cx-com-6-un-prd.html",
+    "desinfetante pinho 2 litros": "https://www.comercialsouzaatacado.com.br/marcas/suprema/desinfetante-suprema-2-litros-pinho-cx-com-6-un-prd.html"
    }
   },
   "lores.com.br": {
@@ -2239,21 +2322,27 @@
    }
   },
   "distribuidoradecftv.com.br": {
-   "acertos": 1,
+   "acertos": 3,
    "ultimo": "2026-10-06",
    "itens": [
+    "pendrive 32gb",
+    "calculadora de mesa 12 dígitos",
     "mouse óptico usb"
    ],
    "metodos": {
     "navegador": 0,
-    "texto": 1
+    "texto": 3
    },
    "naturezas": {
-    "informática": 1
+    "informática": 2,
+    "construção": 1
    },
    "paginas": {
-    "mouse óptico usb": "https://www.distribuidoradecftv.com.br/deposito-fl/mouse-informatica/mouse-optico-usb-com-fio-preto-barato-mouses"
-   }
+    "mouse óptico usb": "https://www.distribuidoradecftv.com.br/deposito-fl/mouse-informatica/mouse-optico-usb-com-fio-preto-barato-mouses",
+    "calculadora de mesa 12 dígitos": "https://www.distribuidoradecftv.com.br/calculadoras/calculadora-de-mesa-grande-12-digitos-3826b",
+    "pendrive 32gb": "https://distribuidoradecftv.com.br/busca?q=pen+drive+32GB"
+   },
+   "busca": "/busca?q={q}"
   },
   "afonsoruotolo.com.br": {
    "acertos": 1,
@@ -2676,20 +2765,23 @@
    }
   },
   "infopel.com.br": {
-   "acertos": 1,
+   "acertos": 2,
    "ultimo": "2026-10-06",
    "itens": [
+    "cola branca 1 litro",
     "régua de tomada 5 tomadas"
    ],
    "metodos": {
     "navegador": 0,
-    "texto": 1
+    "texto": 2
    },
    "naturezas": {
-    "elétrico": 1
+    "elétrico": 1,
+    "papelaria e escritório": 1
    },
    "paginas": {
-    "régua de tomada 5 tomadas": "https://www.infopel.com.br/produtos/filtro-linha-5-tomadas-cabo-6-metros-7203-forceline"
+    "régua de tomada 5 tomadas": "https://www.infopel.com.br/produtos/filtro-linha-5-tomadas-cabo-6-metros-7203-forceline",
+    "cola branca 1 litro": "https://www.infopel.com.br/produtos/cola-1-litro-branca-448-maxi-cola-frama-sg82g/?srsltid=AU7gw4WzanIvi_5nip7uP8ojlzQ2QbApBUvVs30cCwq9IUP2hHUS3NJ4"
    }
   },
   "papelkraftsp.com.br": {
@@ -2761,20 +2853,25 @@
    }
   },
   "dnac.com.br": {
-   "acertos": 1,
+   "acertos": 3,
    "ultimo": "2026-10-06",
    "itens": [
+    "máscara descartável tripla c/ 50",
+    "álcool em gel 70% 500ml",
     "álcool etílico 70% 1 litro"
    ],
    "metodos": {
     "navegador": 0,
-    "texto": 1
+    "texto": 3
    },
    "naturezas": {
-    "limpeza e higiene": 1
+    "limpeza e higiene": 2,
+    "EPI e segurança": 1
    },
    "paginas": {
-    "álcool etílico 70% 1 litro": "https://www.dnac.com.br/limpeza/limpeza-casa/alcool/caixa-alcool-70-liquido-etilico-antisseptico-1l-caixa-com-12-unidades-clarity"
+    "álcool etílico 70% 1 litro": "https://www.dnac.com.br/limpeza/limpeza-casa/alcool/caixa-alcool-70-liquido-etilico-antisseptico-1l-caixa-com-12-unidades-clarity",
+    "álcool em gel 70% 500ml": "https://www.dnac.com.br/caixa-12un-alcool-gel-70-500ml-clarity-higienizacao",
+    "máscara descartável tripla c/ 50": "https://www.dnac.com.br/descartaveis/hospitalares/mascaras/mascara-cirurgica-hospitalar-estetica-descartavel-tnt-azul-caixa-50-unidades"
    }
   },
   "multdistribuidora.com.br": {
@@ -3237,6 +3334,550 @@
    "paginas": {
     "caneta marca texto amarelo": "https://www.lojasencopel.com.br/produto/caneta-marca-texto-amarelo--masterprint--mp612-1137.html"
    }
+  },
+  "gastronomiaedecoracao.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "esponja multiuso dupla face"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "limpeza e higiene": 1
+   },
+   "paginas": {
+    "esponja multiuso dupla face": "https://www.gastronomiaedecoracao.com.br/produtos/esponja-multiuso-dupla-face-espuma-lavar-loucas-cozinha"
+   }
+  },
+  "grupo3colinas.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "vassoura de piaçava"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "limpeza e higiene": 1
+   },
+   "paginas": {
+    "vassoura de piaçava": "https://grupo3colinas.com.br/produto/vassoura-piacava-no5-caixa-com-12-unidades-sem-cabo"
+   }
+  },
+  "hipersul.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "vassoura de piaçava"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "limpeza e higiene": 1
+   },
+   "paginas": {
+    "vassoura de piaçava": "https://www.hipersul.com.br/vassoura-de-piacava"
+   }
+  },
+  "lojarrlimp.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "vassoura de piaçava"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "limpeza e higiene": 1
+   },
+   "paginas": {
+    "vassoura de piaçava": "https://www.lojarrlimp.com.br/vassoura-piacava-chapa-vermelha-n-1"
+   }
+  },
+  "vendasshop.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "rodo de borracha 40cm"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "papelaria e escritório": 1
+   },
+   "paginas": {
+    "rodo de borracha 40cm": "https://www.vendasshop.com.br/utensilios-de-limpeza/rodo-puxa-e-seca-tudo-borracha-dupla-40-cm-com-cabo-profissional"
+   }
+  },
+  "cvdescartaveis.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "rodo de borracha 40cm"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "papelaria e escritório": 1
+   },
+   "paginas": {
+    "rodo de borracha 40cm": "https://www.cvdescartaveis.com.br/vassouras-rodos-e-acessorios/rodos/rodo-40-cm-pacote-c12-unidades-sem-cabo"
+   }
+  },
+  "mrlimpeza.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "rodo de borracha 40cm"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "papelaria e escritório": 1
+   },
+   "paginas": {
+    "rodo de borracha 40cm": "https://mrlimpeza.com.br/produto/rodo-borracha-simples-plastico-40cm-com-cabo-120m"
+   }
+  },
+  "bonete.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "balde plástico 12 litros"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "limpeza e higiene": 1
+   },
+   "paginas": {
+    "balde plástico 12 litros": "https://www.bonete.com.br/balde-plastico-com-tampa-branco-12-litros"
+   }
+  },
+  "energiacomercio.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "balde plástico 12 litros"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "limpeza e higiene": 1
+   },
+   "paginas": {
+    "balde plástico 12 litros": "https://www.energiacomercio.com.br/construcao-civil/balde-plastico-12-lts-005500001"
+   }
+  },
+  "villaverdeagro.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "desinfetante pinho 2 litros"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "limpeza e higiene": 1
+   },
+   "paginas": {
+    "desinfetante pinho 2 litros": "https://villaverdeagro.com.br/produto/desinfetante-desinfect-clean-2-litros-pinho"
+   }
+  },
+  "b2b.granado.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "sabonete líquido 5 litros"
+   ],
+   "metodos": {
+    "navegador": 1,
+    "texto": 0
+   },
+   "naturezas": {
+    "limpeza e higiene": 1
+   },
+   "paginas": {
+    "sabonete líquido 5 litros": "https://b2b.granado.com.br/b2b/linhas-granado/terrapeutics/5l-terrapeutics"
+   }
+  },
+  "recopelfestas.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "sabonete líquido 5 litros"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "limpeza e higiene": 1
+   },
+   "paginas": {
+    "sabonete líquido 5 litros": "https://www.recopelfestas.com.br/sabonete-liquido-topbel-erva-doce-bombona-com-5-litros-unidade"
+   }
+  },
+  "jaledistribuidora.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "sabonete líquido 5 litros"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "limpeza e higiene": 1
+   },
+   "paginas": {
+    "sabonete líquido 5 litros": "https://www.jaledistribuidora.com.br/higiene-pessoal/sabonetes-5-litros?srsltid=AU7gw4XNnkkf49XsIqd6REyrQ6ha17AO4xa8DWAfs231ItqIxidaiUi-"
+   }
+  },
+  "giovannababy.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "álcool em gel 70% 500ml"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "limpeza e higiene": 1
+   },
+   "paginas": {
+    "álcool em gel 70% 500ml": "https://www.giovannababy.com.br/alcool-gel-higienizante-giovanna-baby-classic-500ml/p"
+   }
+  },
+  "ripz.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "álcool em gel 70% 500ml"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "limpeza e higiene": 1
+   },
+   "paginas": {
+    "álcool em gel 70% 500ml": "https://www.ripz.com.br/alcool-em-gel-70-antisseptico-500ml-premisse-p46639?srsltid=AU7gw4U0FYvu_zjMb0s_VnMgVfabu7UTsDtJt0QyMDs9ou-tYrVRjsCM"
+   }
+  },
+  "drogasil.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "álcool em gel 70% 500ml"
+   ],
+   "metodos": {
+    "navegador": 1,
+    "texto": 0
+   },
+   "naturezas": {
+    "limpeza e higiene": 1
+   },
+   "paginas": {
+    "álcool em gel 70% 500ml": "https://www.drogasil.com.br/needs-gel-antisseptico-com-calendula-alcool-70-442g-500ml.html"
+   }
+  },
+  "cliniflex.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "máscara descartável tripla c/ 50"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "EPI e segurança": 1
+   },
+   "paginas": {
+    "máscara descartável tripla c/ 50": "https://www.cliniflex.com.br/descartaveis/toucas-e-mascaras/mascara-tripla-c-elastico-branca-pacote-c-50-un-medix"
+   }
+  },
+  "magazinemedica.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "máscara descartável tripla c/ 50"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "EPI e segurança": 1
+   },
+   "paginas": {
+    "máscara descartável tripla c/ 50": "https://magazinemedica.com.br/produtos/mascara-cirurgica-tripla-celastico-canvisa-50un-descarpack"
+   }
+  },
+  "papelaoecia.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "luva nitrílica tamanho m c/ 100"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "EPI e segurança": 1
+   },
+   "paginas": {
+    "luva nitrílica tamanho m c/ 100": "https://www.papelaoecia.com.br/luva-nitrilica-100-unid-tamanho-m"
+   }
+  },
+  "fastepis.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "luva nitrílica tamanho m c/ 100"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "EPI e segurança": 1
+   },
+   "paginas": {
+    "luva nitrílica tamanho m c/ 100": "https://www.fastepis.com.br/luvas-de-protecao/procedimento-descartaveis/luva-nitrilica-sem-po-caixa-c100-unidades-azul-medix-ca-44528"
+   }
+  },
+  "lapisdecorpapelaria.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "pasta az lombo largo"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "papelaria e escritório": 1
+   },
+   "paginas": {
+    "pasta az lombo largo": "https://www.lapisdecorpapelaria.com.br/pastas/pasta-registradora-a-z/pasta-registradora-az-lombo-largo-preto"
+   }
+  },
+  "gpkbrasil.com": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "envelope saco branco 25x35"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "papelaria e escritório": 1
+   },
+   "paginas": {
+    "envelope saco branco 25x35": "https://gpkbrasil.com/produto/envelope-saco-br36-250mm-x-353mm-branco-com-10"
+   }
+  },
+  "envelopemania.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "envelope saco branco 25x35"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "papelaria e escritório": 1
+   },
+   "paginas": {
+    "envelope saco branco 25x35": "https://www.envelopemania.com.br/Envelope-Saco-Branco-Offset-SOF-035-250mmx353mm-90g-Cx-c250-Scrity"
+   }
+  },
+  "fitaadesivaonline.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "fita adesiva marrom 48mm x 50m"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "papelaria e escritório": 1
+   },
+   "paginas": {
+    "fita adesiva marrom 48mm x 50m": "https://www.fitaadesivaonline.com.br/100Un-48x50-Marrom-Fita-Adesiva-Tight-Tape"
+   }
+  },
+  "sixpel.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "fita adesiva marrom 48mm x 50m"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "papelaria e escritório": 1
+   },
+   "paginas": {
+    "fita adesiva marrom 48mm x 50m": "https://sixpel.com.br/produto/fita-adesiva-marrom-48mm-x-50m-alltape"
+   }
+  },
+  "atmdistribuicao.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "fita adesiva marrom 48mm x 50m"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "papelaria e escritório": 1
+   },
+   "paginas": {
+    "fita adesiva marrom 48mm x 50m": "https://www.atmdistribuicao.com.br/fita-adesiva-marrom-para-empacotamento-48mmx50m"
+   }
+  },
+  "elastobor.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "fita adesiva marrom 48mm x 50m"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "papelaria e escritório": 1
+   },
+   "paginas": {
+    "fita adesiva marrom 48mm x 50m": "https://www.elastobor.com.br/fita-adesiva-3m-para-embalagem-48mm-x-50m-marrom/p"
+   }
+  },
+  "digitusul.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "cola branca 1 litro"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "papelaria e escritório": 1
+   },
+   "paginas": {
+    "cola branca 1 litro": "https://www.digitusul.com.br/cola-branca-1kg-41114?srsltid=AU7gw4VTT9ZDcFq1feGNAT_t3On6FX7NLqOQbeeX4H6HhZgBZEETPkIf"
+   }
+  },
+  "spiral.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "calculadora de mesa 12 dígitos"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "construção": 1
+   },
+   "paginas": {
+    "calculadora de mesa 12 dígitos": "https://www.spiral.com.br/prod/calculadora-de-mesa-bateria-energia-solar-12-digitos-preto-1238-spiral-digit-pt-1-un/159072"
+   }
+  },
+  "tekdistribuidor.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "calculadora de mesa 12 dígitos"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "construção": 1
+   },
+   "paginas": {
+    "calculadora de mesa 12 dígitos": "https://www.tekdistribuidor.com.br/calculadora-eletronica-de-mesa-com-12-digitos-mv-4132-elgin?srsltid=AU7gw4XZYY-mzTvNARQ1spLGWZOu6Nt6Yu85K7hQhjngaNvvBx702Qli"
+   }
+  },
+  "masterdrive.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "pendrive 32gb"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "informática": 1
+   },
+   "paginas": {
+    "pendrive 32gb": "https://www.masterdrive.com.br/pendrive-32gb-atacado-masterdrive-usb-3-0-diamante-ultra-rapido"
+   }
+  },
+  "ibyte.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "pendrive 32gb"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "informática": 1
+   },
+   "paginas": {
+    "pendrive 32gb": "https://www.ibyte.com.br/armazenamento/pen-drive?srsltid=AU7gw4VftpS_vlnhNomFpFoxr9FnMABrO_sFh66qA6zyrsU96s4nRqU-"
+   }
   }
  },
  "falhas": {
@@ -3592,7 +4233,7 @@
   },
   "goiasatacado.com.br": {
    "navegador": 0,
-   "texto": 1,
+   "texto": 2,
    "ultimo": "2026-10-06"
   },
   "coinmarketcap.com": {
@@ -3636,8 +4277,8 @@
    "ultimo": "2026-10-06"
   },
   "tradingkey.com": {
-   "navegador": 1,
-   "texto": 2,
+   "navegador": 2,
+   "texto": 3,
    "ultimo": "2026-10-06"
   },
   "pcdiga.com": {
@@ -3671,8 +4312,8 @@
    "ultimo": "2026-10-06"
   },
   "gruplast.com.br": {
-   "navegador": 1,
-   "texto": 1,
+   "navegador": 2,
+   "texto": 2,
    "ultimo": "2026-10-06"
   },
   "eletricasantaefigenia.com.br": {
@@ -3729,22 +4370,77 @@
    "navegador": 0,
    "texto": 1,
    "ultimo": "2026-10-06"
+  },
+  "papyser.com": {
+   "navegador": 0,
+   "texto": 1,
+   "ultimo": "2026-10-06"
+  },
+  "skala.com.br": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-06"
+  },
+  "limpezaviabrasil.com.br": {
+   "navegador": 0,
+   "texto": 1,
+   "ultimo": "2026-10-06"
+  },
+  "serdalatacado.com.br": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-06"
+  },
+  "lojasqueiroz.com.br": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-06"
+  },
+  "envelopel.com.br": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-06"
+  },
+  "foroni.com.br": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-06"
+  },
+  "supplypack.com.br": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-06"
+  },
+  "glauberatacadista.com.br": {
+   "navegador": 0,
+   "texto": 1,
+   "ultimo": "2026-10-06"
+  },
+  "lojaslinna.com.br": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-06"
+  },
+  "ebay.com": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-06"
   }
  },
  "frases": {
   "{item} comprar": {
-   "usos": 12.4528,
-   "acertos": 6.706,
+   "usos": 13.1887,
+   "acertos": 6.0522,
    "ultimo": "2026-10-06"
   },
   "{item} preço": {
-   "usos": 19.7169,
-   "acertos": 36.3727,
+   "usos": 19.839,
+   "acertos": 37.3278,
    "ultimo": "2026-10-06"
   },
   "venda de {item}": {
-   "usos": 11.6375,
-   "acertos": 4.2139,
+   "usos": 12.0556,
+   "acertos": 5.0032,
    "ultimo": "2026-10-06"
   },
   "{item} valor": {
@@ -3753,27 +4449,27 @@
    "ultimo": "2026-10-06"
   },
   "{item} atacado": {
-   "usos": 19.7445,
-   "acertos": 36.4719,
+   "usos": 19.8754,
+   "acertos": 39.2274,
    "ultimo": "2026-10-06"
   },
   "{item} preço brasil": {
-   "usos": 10.7341,
-   "acertos": 3.9,
+   "usos": 11.6375,
+   "acertos": 5.4197,
    "ultimo": "2026-10-06"
   },
   "{item} comprar brasil": {
-   "usos": 13.1887,
-   "acertos": 7.6726,
+   "usos": 14.4522,
+   "acertos": 9.1019,
    "ultimo": "2026-10-06"
   },
   "comprar {item} online brasil": {
-   "usos": 14.1602,
-   "acertos": 4.6069,
+   "usos": 14.9931,
+   "acertos": 7.6074,
    "ultimo": "2026-10-06"
   }
  },
- "buscas": 99,
+ "buscas": 114,
  "sem_busca": {
   "arxiv.org": "2026-10-05",
   "papers.ssrn.com": "2026-10-05",
@@ -3840,15 +4536,19 @@
   "papelecia.com.br": "2026-10-06",
   "universodolar.com.br": "2026-10-06",
   "megalojista.com.br": "2026-10-06",
-  "grupoeletromagazine.com.br": "2026-10-06"
+  "grupoeletromagazine.com.br": "2026-10-06",
+  "raextintores.com.br": "2026-10-06",
+  "epizeus.com.br": "2026-10-06",
+  "dnac.com.br": "2026-10-06",
+  "fg.com.br": "2026-10-06"
  },
  "serper": {
   "mes": "2026-10",
-  "n": 39
+  "n": 61
  },
  "tavily": {
   "mes": "2026-10",
-  "n": 164
+  "n": 201
  },
  "nomes": {
   "papel contact": {
@@ -4121,6 +4821,85 @@
    "excluir": {},
    "recusados": [
     "Sem título"
+   ],
+   "origem": ""
+  },
+  "desinfetante pinho": {
+   "busca": "",
+   "aceitar": [],
+   "excluir": {},
+   "recusados": [
+    "Raphael Pinho Portfolio Investments, Raphael Pinho Funds, Raphael Pinho Exits",
+    "Tres Litros Beer, 118 Ne St, Salida, CO 81201, US - MapQuest",
+    "Sem título"
+   ],
+   "origem": ""
+  },
+  "sabonete liquido": {
+   "busca": "",
+   "aceitar": [],
+   "excluir": {},
+   "recusados": [
+    "Litros To Go, 1622 Federal Rd, Ste 5, Houston, TX 77015, US - MapQuest",
+    "Liquido Ventures Portfolio Investments, Liquido Ventures Funds, Liquido Ventures Exits"
+   ],
+   "origem": ""
+  },
+  "envelope branco": {
+   "busca": "",
+   "aceitar": [],
+   "excluir": {},
+   "recusados": [
+    "ENVELOPE SACO 25X35 25 X 35cm sufite 90g 4X0 - GRÁFICA CORPORATE",
+    "M. Dias Branco Portfolio Investments, M. Dias Branco Funds, M. Dias Branco Exits",
+    "ENVELOPE SACO KRAFT BOLHA 25X35 N.8",
+    "Grafica Completa - BH - Agilidade e Qualidade - Verificando acesso...",
+    "Scrity: Envelopes Saco"
+   ],
+   "origem": ""
+  },
+  "fita adesiva": {
+   "busca": "",
+   "aceitar": [],
+   "excluir": {},
+   "recusados": [
+    "FITA - Federation of International Trade Associations Company Overview, Contact Details & Competitors | LeadIQ",
+    "FITA Investments: Fund Performance | PitchBook"
+   ],
+   "origem": ""
+  },
+  "cola branca": {
+   "busca": "",
+   "aceitar": [],
+   "excluir": {},
+   "recusados": [
+    "Sem título",
+    "Brava Energia - Products, Competitors, Financials, Employees, Headquarters Locations"
+   ],
+   "origem": ""
+  },
+  "calculadora mesa": {
+   "busca": "",
+   "aceitar": [],
+   "excluir": {},
+   "recusados": [
+    "Calculadora de Frete Correios PAC e SEDEX · ModelosHub",
+    "Conversor de Criptomoeda e Ferramenta Calculadora Grátis | CoinGecko",
+    "Calculadora Correios Online: como calcular frete Correios [grátis]"
+   ],
+   "origem": ""
+  },
+  "pendrive 32gb": {
+   "busca": "",
+   "aceitar": [],
+   "excluir": {},
+   "recusados": [
+    "32 GB Usb Flash Drives - Office Depot",
+    "ASUS Brings 32GB RAM Option Within Everyone’s Reach with Exclusive Vivobook S16 Starting at C$799.99",
+    "Computadores, Notebooks e Tudo em Inform�tica | Login - Verificando acesso...",
+    "USB 3.0 Flash Drive 32GB High Speed Storage | RadioShack",
+    "Shop All USB Flash Drives: Thumb Drives for Data On-The-Go | Sandisk",
+    "USB Flash Drives"
    ],
    "origem": ""
   }
