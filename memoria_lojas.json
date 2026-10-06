@@ -1,6 +1,6 @@
 {
  "versao": 1,
- "atualizado": "2026-10-05T22:29:47",
+ "atualizado": "2026-10-06T02:10:22",
  "lojas": {
   "lojadomecanico.com.br": {
    "acertos": 23,
@@ -139,13 +139,21 @@
    "busca": "/?s={q}&post_type=product"
   },
   "lojascacula.com.br": {
-   "acertos": 1,
-   "ultimo": "2026-10-04",
+   "acertos": 2,
+   "ultimo": "2026-10-06",
    "itens": [
+    "papel contact",
     "borracha escolar"
    ],
    "naturezas": {
-    "papelaria e escritório": 1
+    "papelaria e escritório": 2
+   },
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "paginas": {
+    "papel contact": "https://www.lojascacula.com.br/papelaria/escolar/plastico-auto-adesivo"
    }
   },
   "leonorashop.com.br": {
@@ -1091,20 +1099,22 @@
    }
   },
   "gimba.com.br": {
-   "acertos": 1,
-   "ultimo": "2026-10-05",
+   "acertos": 2,
+   "ultimo": "2026-10-06",
    "itens": [
+    "caneta piloto azul",
     "caneta esferográfica azul"
    ],
    "metodos": {
     "navegador": 1,
-    "texto": 0
+    "texto": 1
    },
    "paginas": {
-    "caneta esferográfica azul": "https://www.gimba.com.br/canetas-esferograficas/caneta-esferografica-bic-cristal-ponta-media-1mm-azul-1-un/?PID=23&srsltid=AU7gw4Ue3wuMgsMAWw2pK8eJ9jj-LRVX2vUNZW0SRh07edujzpSPxhhb"
+    "caneta esferográfica azul": "https://www.gimba.com.br/canetas-esferograficas/caneta-esferografica-bic-cristal-ponta-media-1mm-azul-1-un/?PID=23&srsltid=AU7gw4Ue3wuMgsMAWw2pK8eJ9jj-LRVX2vUNZW0SRh07edujzpSPxhhb",
+    "caneta piloto azul": "https://www.gimba.com.br/pincel-para-quadro-branco/pincel-marcador-pilot-quadro-branco-recarregavel-20mm-azul-1-un?PID=149"
    },
    "naturezas": {
-    "papelaria e escritório": 1
+    "papelaria e escritório": 2
    }
   },
   "galpaodotoner.com.br": {
@@ -1178,20 +1188,22 @@
    }
   },
   "tilibraexpress.com.br": {
-   "acertos": 1,
-   "ultimo": "2026-10-05",
+   "acertos": 2,
+   "ultimo": "2026-10-06",
    "itens": [
+    "caneta piloto azul",
     "clips de papel"
    ],
    "metodos": {
-    "navegador": 1,
+    "navegador": 2,
     "texto": 0
    },
    "paginas": {
-    "clips de papel": "https://www.tilibraexpress.com.br/escritorio/clips-para-papel"
+    "clips de papel": "https://www.tilibraexpress.com.br/escritorio/clips-para-papel",
+    "caneta piloto azul": "https://www.tilibraexpress.com.br/marcador-para-quadro-branco-200-azul"
    },
    "naturezas": {
-    "papelaria e escritório": 1
+    "papelaria e escritório": 2
    }
   },
   "mercado.carrefour.com.br": {
@@ -1229,17 +1241,17 @@
    }
   },
   "papelariarenatodotriciclo.com.br": {
-   "acertos": 1,
-   "ultimo": "2026-10-05",
+   "acertos": 2,
+   "ultimo": "2026-10-06",
    "itens": [
     "papel contact"
    ],
    "metodos": {
     "navegador": 0,
-    "texto": 1
+    "texto": 2
    },
    "naturezas": {
-    "papelaria e escritório": 1
+    "papelaria e escritório": 2
    },
    "paginas": {
     "papel contact": "https://www.papelariarenatodotriciclo.com.br/papelaria/papel/papel-contact"
@@ -1263,20 +1275,20 @@
    }
   },
   "jcdecor.com.br": {
-   "acertos": 1,
-   "ultimo": "2026-10-05",
+   "acertos": 2,
+   "ultimo": "2026-10-06",
    "itens": [
     "papel contact"
    ],
    "metodos": {
     "navegador": 0,
-    "texto": 1
+    "texto": 2
    },
    "naturezas": {
-    "papelaria e escritório": 1
+    "papelaria e escritório": 2
    },
    "paginas": {
-    "papel contact": "https://www.jcdecor.com.br/papel-contact"
+    "papel contact": "https://www.jcdecor.com.br/qual-a-diferenca-entre-vinil-adesivo-e-papel-contact"
    }
   },
   "papelariazonca.com.br": {
@@ -1328,6 +1340,74 @@
    },
    "paginas": {
     "caneta piloto azul": "https://www.tudomixatacado.com.br/caneta-esferografica-pilot-1-0mm-media-bpgp-10r-ni-m-azul_8460"
+   }
+  },
+  "veluart.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "papel contact"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "papelaria e escritório": 1
+   },
+   "paginas": {
+    "papel contact": "https://www.veluart.com.br/papel-contact-transparente-25m"
+   }
+  },
+  "nagem.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "caneta piloto azul"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "papelaria e escritório": 1
+   },
+   "paginas": {
+    "caneta piloto azul": "https://www.nagem.com.br/produto/detalhes/034371/Marcador+Para+Quadro+Branco+Recarregavel+WBM-7+Azul+1+Unidade+Pilot"
+   }
+  },
+  "brwoficial.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "caneta piloto azul"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "papelaria e escritório": 1
+   },
+   "paginas": {
+    "caneta piloto azul": "https://www.brwoficial.com.br/marcador-quadro-branco-azul-com-ponta-redonda---caixa-c--12un/p"
+   }
+  },
+  "papelecia.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "caneta piloto azul"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "papelaria e escritório": 1
+   },
+   "paginas": {
+    "caneta piloto azul": "https://www.papelecia.com.br/marcador-pincel-quadro-branco-wbma-azul-un-pilot-4902505355783.html"
    }
   }
  },
@@ -1643,9 +1723,9 @@
    "ultimo": "2026-10-05"
   },
   "zoominfo.com": {
-   "navegador": 2,
-   "texto": 2,
-   "ultimo": "2026-10-05"
+   "navegador": 3,
+   "texto": 3,
+   "ultimo": "2026-10-06"
   },
   "cbinsights.com": {
    "navegador": 1,
@@ -1666,6 +1746,11 @@
    "navegador": 1,
    "texto": 1,
    "ultimo": "2026-10-05"
+  },
+  "yelp.com": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-06"
   }
  },
  "frases": {
@@ -1675,14 +1760,14 @@
    "ultimo": "2026-10-05"
   },
   "{item} preço": {
-   "usos": 16.8442,
-   "acertos": 21.9542,
-   "ultimo": "2026-10-05"
+   "usos": 17.1519,
+   "acertos": 22.7637,
+   "ultimo": "2026-10-06"
   },
   "venda de {item}": {
-   "usos": 11.1974,
-   "acertos": 1.2778,
-   "ultimo": "2026-10-05"
+   "usos": 11.6375,
+   "acertos": 4.2139,
+   "ultimo": "2026-10-06"
   },
   "{item} valor": {
    "usos": 13.1887,
@@ -1690,9 +1775,9 @@
    "ultimo": "2026-10-05"
   },
   "{item} atacado": {
-   "usos": 15.9217,
-   "acertos": 8.4236,
-   "ultimo": "2026-10-05"
+   "usos": 16.3193,
+   "acertos": 9.5023,
+   "ultimo": "2026-10-06"
   },
   "{item} preço brasil": {
    "usos": 10.2464,
@@ -1710,7 +1795,7 @@
    "ultimo": "2026-10-05"
   }
  },
- "buscas": 43,
+ "buscas": 45,
  "sem_busca": {
   "arxiv.org": "2026-10-05",
   "papers.ssrn.com": "2026-10-05",
@@ -1759,7 +1844,8 @@
   "goiasatacado.com.br": "2026-10-05",
   "produtos.solucoesindustriais.com.br": "2026-10-05",
   "caixamontada.com.br": "2026-10-05",
-  "embalagenscia.com.br": "2026-10-05"
+  "embalagenscia.com.br": "2026-10-05",
+  "papelariarenatodotriciclo.com.br": "2026-10-06"
  },
  "serper": {
   "mes": "2026-10",
@@ -1767,6 +1853,28 @@
  },
  "tavily": {
   "mes": "2026-10",
-  "n": 19
+  "n": 24
+ },
+ "nomes": {
+  "papel contact": {
+   "busca": "",
+   "aceitar": [],
+   "excluir": {},
+   "recusados": [
+    "Sai do Papel Portfolio Investments, Sai do Papel Funds, Sai do Papel Exits"
+   ],
+   "origem": ""
+  },
+  "caneta piloto": {
+   "busca": "",
+   "aceitar": [],
+   "excluir": {},
+   "recusados": [
+    "Signal-Based Selling: A Complete How-To Guide for 2026",
+    "M. Dias Branco Portfolio Investments, M. Dias Branco Funds, M. Dias Branco Exits",
+    "Demons of Asteborg ganha pré-venda de mídia física para consoles retrô no Brasil - GameBlast"
+   ],
+   "origem": ""
+  }
  }
 }
