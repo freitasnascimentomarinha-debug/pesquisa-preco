@@ -14,7 +14,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # módulos da raiz do projeto
 from atualizar_modulos import recarregar_se_mudou  # noqa: E402
-recarregar_se_mudou('embalagem', 'sinonimos', 'naturezas', 'cotacao_rapida', 'relatorio_cotacao_rapida', 'relatorio_nf_lote', 'web_precos', 'relatorio_web', 'memoria_lojas', 'captura_pagina', 'busca_interna', 'naturezas')
+recarregar_se_mudou('embalagem', 'banco_sinonimos', 'sinonimos', 'naturezas', 'cotacao_rapida', 'relatorio_cotacao_rapida', 'relatorio_nf_lote', 'web_precos', 'relatorio_web', 'memoria_lojas', 'captura_pagina', 'busca_interna', 'naturezas')
 import embalagem  # noqa: E402  (medida e unidade de fornecimento do item)
 import sinonimos  # noqa: E402  (nome de mercado do item e conferência do nome do produto)
 import naturezas  # noqa: E402  (natureza/ramo do item)
@@ -2407,6 +2407,11 @@ def secao_ensinar_nomes(resultados_brutos=None, opcoes_exclusao=None, labels_exc
     with st.expander("🔤 Ensinar nomes ao sistema (aprende com o uso)", expanded=bool(sugestoes_nomes)):
         st.caption("O que se ensina aqui vale nas próximas pesquisas e fica na memória do GitHub. O sistema também aprende sozinho: quando muitos "
                    "anúncios são recusados por terem outro nome, ele sugere o nome que as lojas usam.")
+        if st.checkbox(f"Ver o banco de nomes populares que o sistema já conhece ({sum(len(r['nomes']) for r in sinonimos.SINONIMOS)} nomes)",
+                       key="ver_banco_nomes"):
+            st.dataframe(pd.DataFrame([{"Como é pedido": ", ".join(r["nomes"]), "Buscado nas lojas como": r["busca"],
+                                        "Recusa anúncios com": ", ".join(r["excluir"][:8])} for r in sinonimos.SINONIMOS]),
+                         hide_index=True, use_container_width=True, height=320)
         for item_sugerido, sugestao in list(sugestoes_nomes.items()):
             exemplos = "; ".join(sugestao.get("exemplos", [])[:2])
             st.markdown(f"💡 **{item_sugerido}**: as lojas parecem chamar esse item de **\"{sugestao['busca']}\"** (ex.: {exemplos}). É o mesmo produto?")
