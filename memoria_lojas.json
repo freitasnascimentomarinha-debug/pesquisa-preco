@@ -1,6 +1,6 @@
 {
  "versao": 1,
- "atualizado": "2026-10-06T14:16:08",
+ "atualizado": "2026-10-06T15:42:57",
  "lojas": {
   "lojadomecanico.com.br": {
    "acertos": 23,
@@ -307,9 +307,11 @@
    "busca": "/busca?q={q}"
   },
   "atacadosaopaulo.com.br": {
-   "acertos": 28,
+   "acertos": 30,
    "ultimo": "2026-10-06",
    "itens": [
+    "régua de tomada 5 tomadas",
+    "papel toalha interfolhado",
     "água sanitária 2 litros",
     "pasta suspensa kraft",
     "pilha palito aaa c/ 4",
@@ -332,7 +334,7 @@
    ],
    "metodos": {
     "navegador": 7,
-    "texto": 19
+    "texto": 21
    },
    "paginas": {
     "caneta esferográfica azul": "https://www.atacadosaopaulo.com.br/ki-5-caixas-caneta-esferografica-1-0mm---3un-azul--1un-preto-e-1un-vermelho---caixa-fechada-50un/p?srsltid=AU7gw4Vyg5t9J9U2FbmQcIfvLVIMmm-1Qb4l5EoZNMZ7S025fHvaLGbp",
@@ -352,13 +354,15 @@
     "luva de limpeza": "https://www.atacadosaopaulo.com.br/luva-latex-multiuso-tamanho-m-amarelo-3015-inoven---par/p",
     "pilha palito aaa c/ 4": "https://www.atacadosaopaulo.com.br/pilha-aaa-alcalina-1-5v-75636-2---4un---maxprint/p",
     "pasta suspensa kraft": "https://www.atacadosaopaulo.com.br/pasta-suspensa-kraft-com-grampo-plastico-0002-x-0050-2---50un---dello/p",
-    "água sanitária 2 litros": "https://www.atacadosaopaulo.com.br/agua-sanitaria-2l---2lt---vix/p"
+    "água sanitária 2 litros": "https://www.atacadosaopaulo.com.br/agua-sanitaria-2l---2lt---vix/p",
+    "papel toalha interfolhado": "https://www.atacadosaopaulo.com.br/higiene---limpeza/papel-higienico-e-toalha/papel-toalha",
+    "régua de tomada 5 tomadas": "https://www.atacadosaopaulo.com.br/filtro-linha-5tom-bivolt-preto-qfl5---un---qualitronix/p"
    },
    "naturezas": {
     "tintas e pintura": 1,
     "papelaria e escritório": 16,
-    "limpeza e higiene": 6,
-    "elétrico": 2,
+    "limpeza e higiene": 7,
+    "elétrico": 3,
     "ferramentas": 1
    }
   },
@@ -466,28 +470,32 @@
    }
   },
   "atacadodolojista.com.br": {
-   "acertos": 4,
+   "acertos": 6,
    "ultimo": "2026-10-06",
    "itens": [
+    "fio flexível 2,5mm 100m",
+    "régua de tomada 5 tomadas",
     "parafuso sextavado 1/2",
     "chave de fenda",
     "grampeador",
     "tomada 20a"
    ],
    "naturezas": {
-    "elétrico": 1,
+    "elétrico": 3,
     "papelaria e escritório": 1,
     "ferramentas": 1,
     "fixadores": 1
    },
    "metodos": {
     "navegador": 0,
-    "texto": 3
+    "texto": 5
    },
    "paginas": {
     "grampeador": "https://www.atacadodolojista.com.br/grampeador-pinador-3-em-1-sigma",
     "chave de fenda": "https://www.atacadodolojista.com.br/chave-de-fenda-1-4-x-1-1-2-sigma-power",
-    "parafuso sextavado 1/2": "https://www.atacadodolojista.com.br/parafuso-sextavado-zincado-1-4x2-r-i-com-200-unidades-jomarca-"
+    "parafuso sextavado 1/2": "https://www.atacadodolojista.com.br/parafuso-sextavado-zincado-1-4x2-r-i-com-200-unidades-jomarca-",
+    "régua de tomada 5 tomadas": "https://www.atacadodolojista.com.br/filtro-de-linha-5-tomadas-2p-t-1m-preto-metasul-14660-7898969329224",
+    "fio flexível 2,5mm 100m": "https://www.atacadodolojista.com.br/cabo-flexivel-2-5-x-100m-750v-preto-sil-"
    }
   },
   "officinepapel.com.br": {
@@ -511,9 +519,12 @@
    }
   },
   "superpaguemenos.com.br": {
-   "acertos": 10,
+   "acertos": 13,
    "ultimo": "2026-10-06",
    "itens": [
+    "álcool etílico 70% 1 litro",
+    "lixeira com pedal 15 litros",
+    "papel toalha interfolhado",
     "água sanitária 2 litros",
     "café em pó 500g",
     "luva de limpeza",
@@ -525,11 +536,11 @@
    ],
    "metodos": {
     "navegador": 2,
-    "texto": 5
+    "texto": 8
    },
    "naturezas": {
     "gêneros alimentícios": 3,
-    "limpeza e higiene": 6
+    "limpeza e higiene": 9
    },
    "busca": "/busca?q={q}",
    "paginas": {
@@ -537,7 +548,10 @@
     "detergente": "https://superpaguemenos.com.br/busca?q=detergente",
     "luva de limpeza": "https://superpaguemenos.com.br/busca?q=luva+l%C3%A1tex+multiuso",
     "café em pó 500g": "https://superpaguemenos.com.br/busca?q=Caf%C3%A9+em+p%C3%B3+500g",
-    "água sanitária 2 litros": "https://superpaguemenos.com.br/busca?q=%C3%A1gua+sanit%C3%A1ria+2+litros"
+    "água sanitária 2 litros": "https://superpaguemenos.com.br/busca?q=%C3%A1gua+sanit%C3%A1ria+2+litros",
+    "papel toalha interfolhado": "https://superpaguemenos.com.br/busca?q=Papel+toalha+interfolhado",
+    "lixeira com pedal 15 litros": "https://superpaguemenos.com.br/busca?q=Lixeira+com+pedal+15+litros",
+    "álcool etílico 70% 1 litro": "https://superpaguemenos.com.br/busca?q=%C3%81lcool+et%C3%ADlico+70%25+1+litro"
    }
   },
   "atacadao.com.br": {
@@ -568,13 +582,21 @@
    }
   },
   "edona.com.br": {
-   "acertos": 1,
-   "ultimo": "2026-10-04",
+   "acertos": 2,
+   "ultimo": "2026-10-06",
    "itens": [
+    "papel toalha interfolhado",
     "sabão em pó"
    ],
    "naturezas": {
-    "limpeza e higiene": 1
+    "limpeza e higiene": 2
+   },
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "paginas": {
+    "papel toalha interfolhado": "https://edona.com.br/collections/papel-interfolha"
    }
   },
   "astrodistribuidora.com": {
@@ -826,9 +848,10 @@
    }
   },
   "superproatacado.com.br": {
-   "acertos": 4,
+   "acertos": 5,
    "ultimo": "2026-10-06",
    "itens": [
+    "fio flexível 2,5mm 100m",
     "tinta acrílica branca 18 litros",
     "lâmpada",
     "chave de fenda",
@@ -836,18 +859,19 @@
    ],
    "metodos": {
     "navegador": 1,
-    "texto": 3
+    "texto": 4
    },
    "paginas": {
     "parafuso sextavado 1/2": "https://www.superproatacado.com.br/ferragens/parafusos-e-buchas/parafuso-sextavado-polegada",
     "chave de fenda": "https://www.superproatacado.com.br/ferramentas-manuais/chave-de-fenda-e-phillips",
     "lâmpada": "https://www.superproatacado.com.br/material-eletrico/lampadas",
-    "tinta acrílica branca 18 litros": "https://www.superproatacado.com.br/tintas-e-acessorios/tintas-e-colorantes"
+    "tinta acrílica branca 18 litros": "https://www.superproatacado.com.br/tintas-e-acessorios/tintas-e-colorantes",
+    "fio flexível 2,5mm 100m": "https://www.superproatacado.com.br/cabo-flexivel-2-5mm-amarelo-750v-100m-megatron-202711/p"
    },
    "naturezas": {
     "fixadores": 1,
     "ferramentas": 1,
-    "elétrico": 1,
+    "elétrico": 2,
     "tintas e pintura": 1
    }
   },
@@ -1525,22 +1549,24 @@
    }
   },
   "oceanob2b.com": {
-   "acertos": 2,
+   "acertos": 3,
    "ultimo": "2026-10-06",
    "itens": [
+    "arquivo morto caixa de papelão",
     "fita dupla face 12mm x 30m",
     "caneta esferográfica azul"
    ],
    "metodos": {
     "navegador": 0,
-    "texto": 2
+    "texto": 3
    },
    "naturezas": {
-    "papelaria e escritório": 1
+    "papelaria e escritório": 2
    },
    "paginas": {
     "caneta esferográfica azul": "https://www.oceanob2b.com/caneta-esferografica-bic-cristal-azul-caixa-50-unidades-p996738",
-    "fita dupla face 12mm x 30m": "https://www.oceanob2b.com/fita-adesiva-dupla-face-4873-12mm-x-30m-scotch-3m-p996948"
+    "fita dupla face 12mm x 30m": "https://www.oceanob2b.com/fita-adesiva-dupla-face-4873-12mm-x-30m-scotch-3m-p996948",
+    "arquivo morto caixa de papelão": "https://www.oceanob2b.com/escritorio-e-papelaria/caixa-e-arquivos"
    }
   },
   "supermuffato.com.br": {
@@ -1925,20 +1951,23 @@
    }
   },
   "atacadonipocenter.com.br": {
-   "acertos": 1,
+   "acertos": 2,
    "ultimo": "2026-10-06",
    "itens": [
+    "garrafa térmica 1 litro",
     "pilha palito aaa c/ 4"
    ],
    "metodos": {
     "navegador": 0,
-    "texto": 1
+    "texto": 2
    },
    "naturezas": {
-    "elétrico": 1
+    "elétrico": 1,
+    "copa e cozinha": 1
    },
    "paginas": {
-    "pilha palito aaa c/ 4": "https://www.atacadonipocenter.com.br/produto/pilha-aaa-60-pecas-comum-16"
+    "pilha palito aaa c/ 4": "https://www.atacadonipocenter.com.br/produto/pilha-aaa-60-pecas-comum-16",
+    "garrafa térmica 1 litro": "https://www.atacadonipocenter.com.br/categoria/ud-cozinha/garrafa-termica-e-isotermica"
    }
   },
   "atacadaodaspilhas.com.br": {
@@ -2426,6 +2455,336 @@
    "paginas": {
     "tinta acrílica branca 18 litros": "https://sp.outletdastintas.com.br/produto/tinta-acrilica-economico-18l-branco-qualyvinil"
    }
+  },
+  "pertoatacadista.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "cotonete caixa c/ 75"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "paginas": {
+    "cotonete caixa c/ 75": "https://pertoatacadista.com.br/produtos/6264835/hastes-flexiveis-com-pontas-de-algodao-cotonetes-caixa-75un"
+   }
+  },
+  "allmagazine.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "cotonete caixa c/ 75"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "paginas": {
+    "cotonete caixa c/ 75": "https://www.allmagazine.com.br/algodao-hidrofilo-farol-hastes-flexiveis"
+   }
+  },
+  "utilidadesclinicas.com.br": {
+   "acertos": 2,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "álcool etílico 70% 1 litro",
+    "cotonete caixa c/ 75"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 2
+   },
+   "paginas": {
+    "cotonete caixa c/ 75": "https://www.utilidadesclinicas.com.br/haste-flexivel-com-pontas-de-algod-o-75-unidades-cottonbaby-cot22349a.html",
+    "álcool etílico 70% 1 litro": "https://www.utilidadesclinicas.com.br/alcool-prolink-70-1l-prolink-pro15274a.html"
+   },
+   "naturezas": {
+    "limpeza e higiene": 1
+   }
+  },
+  "constamed.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "cotonete caixa c/ 75"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "paginas": {
+    "cotonete caixa c/ 75": "https://www.constamed.com.br/haste-flexivel-com-pontas-de-algodao-75-unidades"
+   }
+  },
+  "welmed.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "cotonete caixa c/ 75"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "paginas": {
+    "cotonete caixa c/ 75": "https://www.welmed.com.br/produto/hastes-flexiveis-com-ponta-de-algodao-dengo-contem-75-unidades-3576"
+   }
+  },
+  "raextintores.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "extintor de incêndio abc 4kg"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "EPI e segurança": 1
+   },
+   "paginas": {
+    "extintor de incêndio abc 4kg": "https://www.raextintores.com.br/5j34rnau8-extintor-pqs-8kg-abc-recondicionado"
+   }
+  },
+  "epizeus.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "extintor de incêndio abc 4kg"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "EPI e segurança": 1
+   },
+   "paginas": {
+    "extintor de incêndio abc 4kg": "https://www.epizeus.com.br/extintor-pqs-4kg-abc"
+   }
+  },
+  "distribuidorasupermix.lojaintegrada.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "extintor de incêndio abc 4kg"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "EPI e segurança": 1
+   },
+   "paginas": {
+    "extintor de incêndio abc 4kg": "https://distribuidorasupermix.lojaintegrada.com.br/extintor-po-abc-06-kg"
+   }
+  },
+  "atacadobrindes.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "garrafa térmica 1 litro"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "copa e cozinha": 1
+   },
+   "paginas": {
+    "garrafa térmica 1 litro": "https://www.atacadobrindes.com.br/termicos/garrafa-termica-de-inox-prata-1l"
+   }
+  },
+  "lojamor.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "garrafa térmica 1 litro"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "copa e cozinha": 1
+   },
+   "paginas": {
+    "garrafa térmica 1 litro": "https://www.lojamor.com.br/garrafa-termica-total-inox-fit-1-litro-25105101/p"
+   }
+  },
+  "tuyo.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "garrafa térmica 1 litro"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "copa e cozinha": 1
+   },
+   "paginas": {
+    "garrafa térmica 1 litro": "https://tuyo.com.br/products/garrafa-termica-1l"
+   }
+  },
+  "eletronicasantana.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "régua de tomada 5 tomadas"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "elétrico": 1
+   },
+   "paginas": {
+    "régua de tomada 5 tomadas": "https://www.eletronicasantana.com.br/filtro-de-linha-com-5-tomadas-datasound-forceline-5001-da-01919/p"
+   }
+  },
+  "infopel.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "régua de tomada 5 tomadas"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "elétrico": 1
+   },
+   "paginas": {
+    "régua de tomada 5 tomadas": "https://www.infopel.com.br/produtos/filtro-linha-5-tomadas-cabo-6-metros-7203-forceline"
+   }
+  },
+  "papelkraftsp.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "arquivo morto caixa de papelão"
+   ],
+   "metodos": {
+    "navegador": 1,
+    "texto": 0
+   },
+   "naturezas": {
+    "papelaria e escritório": 1
+   },
+   "paginas": {
+    "arquivo morto caixa de papelão": "https://www.papelkraftsp.com.br/caixas-arquivo-morto"
+   }
+  },
+  "caixasplasticaseta.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "lixeira com pedal 15 litros"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "limpeza e higiene": 1
+   },
+   "paginas": {
+    "lixeira com pedal 15 litros": "https://www.caixasplasticaseta.com.br/produtos/lixeira-com-tampa-e-pedal-de-haste-metalica-15-litros"
+   }
+  },
+  "atacadaopostotreze.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "lixeira com pedal 15 litros"
+   ],
+   "metodos": {
+    "navegador": 1,
+    "texto": 0
+   },
+   "naturezas": {
+    "limpeza e higiene": 1
+   },
+   "paginas": {
+    "lixeira com pedal 15 litros": "https://www.atacadaopostotreze.com.br/lixeira-plus-15lts-cpedal-mb/p"
+   }
+  },
+  "lojaplasvale.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "lixeira com pedal 15 litros"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "limpeza e higiene": 1
+   },
+   "paginas": {
+    "lixeira com pedal 15 litros": "https://www.lojaplasvale.com.br/lixeira-plastica-com-pedal-15l-plasvale"
+   }
+  },
+  "dnac.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "álcool etílico 70% 1 litro"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "limpeza e higiene": 1
+   },
+   "paginas": {
+    "álcool etílico 70% 1 litro": "https://www.dnac.com.br/limpeza/limpeza-casa/alcool/caixa-alcool-70-liquido-etilico-antisseptico-1l-caixa-com-12-unidades-clarity"
+   }
+  },
+  "multdistribuidora.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "álcool etílico 70% 1 litro"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "limpeza e higiene": 1
+   },
+   "paginas": {
+    "álcool etílico 70% 1 litro": "https://www.multdistribuidora.com.br/alcool-liquido-araucaria-70-1litro"
+   }
+  },
+  "santil.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-06",
+   "itens": [
+    "fio flexível 2,5mm 100m"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "elétrico": 1
+   },
+   "paginas": {
+    "fio flexível 2,5mm 100m": "https://www.santil.com.br/cabo-flexivel-25mm-preto-750v-rolo-100-metros-sil/p"
+   }
   }
  },
  "falhas": {
@@ -2511,7 +2870,7 @@
   },
   "atacadoideal.com.br": {
    "navegador": 0,
-   "texto": 2,
+   "texto": 3,
    "ultimo": "2026-10-06"
   },
   "papelariariomadeira.com.br": {
@@ -2750,9 +3109,9 @@
    "ultimo": "2026-10-05"
   },
   "indeed.com": {
-   "navegador": 1,
-   "texto": 1,
-   "ultimo": "2026-10-05"
+   "navegador": 3,
+   "texto": 3,
+   "ultimo": "2026-10-06"
   },
   "leadiq.com": {
    "navegador": 1,
@@ -2848,6 +3207,31 @@
    "navegador": 1,
    "texto": 1,
    "ultimo": "2026-10-06"
+  },
+  "papeisquality.com.br": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-06"
+  },
+  "visiondistribuidora.com.br": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-06"
+  },
+  "gruplast.com.br": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-06"
+  },
+  "eletricasantaefigenia.com.br": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-06"
+  },
+  "eletricatakei.com.br": {
+   "navegador": 0,
+   "texto": 1,
+   "ultimo": "2026-10-06"
   }
  },
  "frases": {
@@ -2857,8 +3241,8 @@
    "ultimo": "2026-10-06"
   },
   "{item} preço": {
-   "usos": 19.2495,
-   "acertos": 22.7136,
+   "usos": 19.4759,
+   "acertos": 21.8522,
    "ultimo": "2026-10-06"
   },
   "venda de {item}": {
@@ -2867,13 +3251,13 @@
    "ultimo": "2026-10-06"
   },
   "{item} valor": {
-   "usos": 16.5033,
-   "acertos": 10.8549,
+   "usos": 17.2943,
+   "acertos": 9.2139,
    "ultimo": "2026-10-06"
   },
   "{item} atacado": {
-   "usos": 19.1246,
-   "acertos": 29.0718,
+   "usos": 19.4483,
+   "acertos": 33.9053,
    "ultimo": "2026-10-06"
   },
   "{item} preço brasil": {
@@ -2887,12 +3271,12 @@
    "ultimo": "2026-10-06"
   },
   "comprar {item} online brasil": {
-   "usos": 13.1887,
-   "acertos": 3.268,
+   "usos": 13.5293,
+   "acertos": 5.1046,
    "ultimo": "2026-10-06"
   }
  },
- "buscas": 75,
+ "buscas": 84,
  "sem_busca": {
   "arxiv.org": "2026-10-05",
   "papers.ssrn.com": "2026-10-05",
@@ -2962,7 +3346,7 @@
  },
  "tavily": {
   "mes": "2026-10",
-  "n": 103
+  "n": 125
  },
  "nomes": {
   "papel contact": {
@@ -3155,6 +3539,61 @@
     "Tinta Y Cafe, 9840 NE 2nd Ave, Miami Shores, FL 33138-2313, US - MapQuest",
     "Atas de Registro de Preço - Filtro | Metdata",
     "Trump lança aplicativo da Casa Branca"
+   ],
+   "origem": ""
+  },
+  "cotonete": {
+   "busca": "",
+   "aceitar": [],
+   "excluir": {},
+   "recusados": [
+    "Produto não encontrado - Bellamonalisa Cosméticos"
+   ],
+   "origem": ""
+  },
+  "papel toalha": {
+   "busca": "",
+   "aceitar": [],
+   "excluir": {},
+   "recusados": [
+    "Sai do Papel Portfolio Investments, Sai do Papel Funds, Sai do Papel Exits"
+   ],
+   "origem": ""
+  },
+  "regua tomada": {
+   "busca": "",
+   "aceitar": [],
+   "excluir": {},
+   "recusados": [
+    "Atas de Registro de Preço - Filtro | Metdata"
+   ],
+   "origem": ""
+  },
+  "arquivo morto": {
+   "busca": "",
+   "aceitar": [],
+   "excluir": {},
+   "recusados": [
+    "Sem título",
+    "Empresa de Arquivo de Documentação 2026 Company Profile: Valuation, Investors, Acquisition | PitchBook"
+   ],
+   "origem": ""
+  },
+  "lixeira pedal": {
+   "busca": "",
+   "aceitar": [],
+   "excluir": {},
+   "recusados": [
+    "Cesto com Pedal 15 Litros – Bralimpia Equipamentos"
+   ],
+   "origem": ""
+  },
+  "fio flexivel": {
+   "busca": "",
+   "aceitar": [],
+   "excluir": {},
+   "recusados": [
+    "Jacobs Farm del Cabo Company Overview, Contact Details & Competitors | LeadIQ"
    ],
    "origem": ""
   }
