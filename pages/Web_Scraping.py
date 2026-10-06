@@ -2446,8 +2446,14 @@ with st.expander("🧪 Teste de desempenho (meta: 3 preços por item em até 2 m
 if iniciar or iniciar_teste:
     if iniciar_teste:
         memoria_teste, _ = memoria_lojas.carregar(st.secrets if _tem_secrets() else {})
-        itens = desempenho.itens_treinados(memoria_teste) if modo_teste.startswith("15 itens já") else desempenho.itens_novos(memoria_teste)
-        st.info("Teste de desempenho com: " + "; ".join(itens))
+        if modo_teste.startswith("15 itens já"):
+            itens = desempenho.itens_treinados(memoria_teste)
+            st.info("Teste de desempenho com: " + "; ".join(itens))
+        else:
+            itens, ineditos = desempenho.itens_novos_info(memoria_teste)
+            aviso_repetidos = "" if ineditos == len(itens) else (f" ({ineditos} inéditos; os outros {len(itens) - ineditos} já foram vistos pela memória em testes anteriores, "
+                                                                f"porque o banco de itens inéditos acabou)")
+            st.info("Teste de desempenho com: " + "; ".join(itens) + aviso_repetidos)
     else:
         itens = [i.strip() for i in itens_input.strip().split("\n") if i.strip()]
     inicio_execucao = time.time()
