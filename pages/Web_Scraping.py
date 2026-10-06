@@ -652,6 +652,7 @@ SINAIS_VENDA = re.compile(r"r\$|\bcompr(a|ar|e)\b|\bpre[çc]o|\bloja\b|\boferta|
 
 
 SERPER_URL = "https://google.serper.dev/search"
+TEMPO_MAX_LOJAS_MEMORIA_S = 90  # tempo máximo, por item, tentando as lojas da memória antes de ir para a busca
 FRASES_COM_SERPER = 3  # frases de busca por item quando há API de busca ativa (cada consulta gasta 1 crédito)
 SERPER_ESTADO = {"ate": 0.0}  # depois de erro de chave/créditos o Serper fica de fora por um tempo (a busca segue pelos buscadores gratuitos)
 SERPER_USO = {"n": 0}  # consultas ao Serper nesta execução do app
@@ -1065,7 +1066,9 @@ def _eh_pagina_produto(html, titulo):
     return True
 
 
-MOTIVO_REJEICAO = {"texto": ""}  # por que a última página foi rejeitada (aparece no log)
+MOTIVO_REJEICAO = {"texto": ""}
+# a página foi lida e com certeza não serve: abrir no navegador não muda o resultado
+MOTIVOS_DEFINITIVOS = {"página não corresponde ao item", "página de busca/listagem sem o produto pedido", "a loja esconde o preço (pede CEP ou login)"}  # por que a última página foi rejeitada (aparece no log)
 
 
 def scraping_requests(session, url, headers, item_nome=None, html=None, _profundidade=0):
@@ -1569,7 +1572,7 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
                     st.session_state["prints_web"][url] = captura
                     log_msg(log_container, logs, f"📸 Print guardado de {extrair_dominio(url)}", "info")
             else:
-                log_msg(log_container, logs, f"⚠ O navegador abriu {extrair_dominio(url)} mas não achou preço ({MOTIVO_REJEICAO['texto'] or 'sem motivo'}); tentando a leitura por texto", "warn")
+                log_msg(log_container, logs, f"⚠ O navegador abriu {extrair_dominio(url)} mas não achou preço ({MOTIVO_REJEICAO['texto'] or 'sem motivo'})", "warn")
         finally:
             leitor.liberar()
         return resultado_navegador, True, True
@@ -1585,6 +1588,9 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
             resultado_texto = scraping_requests(session, url, headers, item_nome=item_nome)
             if resultado_texto:
                 break
+            motivo = MOTIVO_REJEICAO["texto"]
+            if motivo and not motivo.startswith(("HTTP 429", "HTTP 5", "HTTP 403")):
+                break  # a página foi lida e não serve: repetir não muda nada (só erros passageiros de acesso merecem nova tentativa)
             if tentativa < tentativas - 1:
                 retry_delay = gerar_delay(3.0, 7.0)
                 log_msg(log_container, logs, f"🔄 Retry {tentativa + 1}/{MAX_RETRIES} em {retry_delay:.1f}s...", "warn")
@@ -1604,6 +1610,8 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
             resultado_pagina = ler_por_texto(url, item_nome, leve=True)
             if resultado_pagina:
                 return resultado_pagina, "texto", tentou
+            if MOTIVO_REJEICAO["texto"] in MOTIVOS_DEFINITIVOS:
+                return None, "texto", tentou  # a página foi lida e não é do item: o navegador veria o mesmo (economiza 10-15 s)
         if navegador_ativo:
             resultado_pagina, _, tentou["navegador"] = ler_com_navegador(url, item_nome)
             if resultado_pagina:
@@ -1617,10 +1625,12 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
 
 
     internas_tentadas = set()  # lojas cuja busca interna já foi tentada (por item)
+    INTERNA = {"sem_o_item": False}  # a última busca interna leu a lista da loja e o item não estava lá
 
     def tentar_busca_interna(url_ou_site, item_nome):
         """Procura o item na busca do próprio site da loja (sem buscador) e lê a página de resultados (texto; navegador se o texto falhar).
         Devolve (resultado, url, método) ou None."""
+        INTERNA["sem_o_item"] = False
         site = memoria_lojas.dominio(url_ou_site)
         if not site or (site, item_nome) in internas_tentadas or memoria_lojas.busca_interna_descartada(memoria, site):
             return None
@@ -1634,6 +1644,7 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
         log_msg(log_container, logs, f"🔎 Buscando '{item_nome}' dentro do site {site}", "info")
         time.sleep(gerar_delay(0.3, 0.8) if (leitor is not None and leitor.disponivel and navegador_primeiro) else gerar_delay(1.5, 3.0))
         resultado_interno, metodo_interno, _ = ler_pagina(url_busca, item_nome)
+        INTERNA["sem_o_item"] = not resultado_interno and MOTIVO_REJEICAO["texto"] in MOTIVOS_DEFINITIVOS
         if resultado_interno:
             memoria_lojas.registrar_busca_interna(memoria, site, padrao)  # o acerto em si é registrado por quem chama
             return resultado_interno, url_busca, metodo_interno
@@ -1680,8 +1691,12 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
             fila_memoria = [(site, parecido, "") for site, parecido in lojas_parecidas]
             fila_memoria += [(site, "", natureza_item) for site, _ in
                              memoria_lojas.lojas_por_natureza(memoria, natureza_item, excluir=[site for site, _ in lojas_parecidas])]
+            inicio_memoria = time.time()
             for site_memoria, item_parecido, natureza_loja in fila_memoria:
                 if len(atualizar_estado_orcamentos(candidatos_item, max_fontes)["validos"]) >= max_fontes:
+                    break
+                if time.time() - inicio_memoria > TEMPO_MAX_LOJAS_MEMORIA_S:
+                    log_msg(log_container, logs, f"⏱ Lojas da memória: limite de {TEMPO_MAX_LOJAS_MEMORIA_S} s para este item; seguindo para a busca", "info")
                     break
                 if item_parecido:
                     log_msg(log_container, logs, f"🧠 Loja da memória: {site_memoria} (já deu preço para '{item_parecido}')", "info")
@@ -1695,13 +1710,16 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
                 interna = tentar_busca_interna(site_memoria, item)
                 if interna:
                     achado = interna
-                guardada = memoria_lojas.pagina_guardada(memoria, site_memoria, item_parecido)
-                if not achado and guardada:
+                loja_sem_o_item = INTERNA["sem_o_item"]  # a lista da própria loja não tem o item: não insiste nela
+                # a página guardada só serve se for do MESMO item (a de 'caneta piloto azul' não é a de 'caneta piloto preta')
+                mesmo_item = sinonimos.normalizar(item_parecido).strip() == sinonimos.normalizar(item).strip()
+                guardada = memoria_lojas.pagina_guardada(memoria, site_memoria, item_parecido) if mesmo_item else ""
+                if not achado and guardada and not loja_sem_o_item:
                     time.sleep(gerar_delay(0.3, 0.8) if navegador_ligado else gerar_delay(1.5, 3.5))
                     r_guardada, m_guardada, _ = ler_pagina(guardada, item)
                     if r_guardada:
                         achado = (r_guardada, guardada, m_guardada)
-                if not achado and not natureza_loja:
+                if not achado and not natureza_loja and not loja_sem_o_item:
                     for url in buscar_na_loja(session, item, site_memoria, headers):
                         if url == guardada:
                             continue
