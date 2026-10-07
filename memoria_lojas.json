@@ -1,11 +1,12 @@
 {
  "versao": 1,
- "atualizado": "2026-10-06T17:01:40",
+ "atualizado": "2026-10-07T18:34:33",
  "lojas": {
   "lojadomecanico.com.br": {
-   "acertos": 24,
-   "ultimo": "2026-10-06",
+   "acertos": 25,
+   "ultimo": "2026-10-07",
    "itens": [
+    "furadeira",
     "balde plástico 12 litros",
     "lâmpada led branca e27",
     "caneta piloto azul",
@@ -18,7 +19,7 @@
    ],
    "metodos": {
     "navegador": 8,
-    "texto": 6
+    "texto": 7
    },
    "paginas": {
     "grampeador": "https://www.lojadomecanico.com.br/subcategorias/37/501/grampeador-manual",
@@ -27,14 +28,15 @@
     "grampeador escolar": "https://www.lojadomecanico.com.br/subcategorias/37/501/grampeador-manual",
     "caneta piloto azul": "https://lojadomecanico.com.br/busca?q=Caneta+piloto+azul",
     "lâmpada led branca e27": "https://lojadomecanico.com.br/busca?q=L%C3%A2mpada+led+branca+e27",
-    "balde plástico 12 litros": "https://www.lojadomecanico.com.br/produto/126288/31/266/balde-plastico-para-concreto-12-litros-vonder-3315012000"
+    "balde plástico 12 litros": "https://www.lojadomecanico.com.br/produto/126288/31/266/balde-plastico-para-concreto-12-litros-vonder-3315012000",
+    "furadeira": "https://www.lojadomecanico.com.br/subcategorias/21/221/furadeira"
    },
    "busca": "/busca?q={q}",
    "naturezas": {
     "elétrico": 3,
     "papelaria e escritório": 3,
     "fixadores": 1,
-    "ferramentas": 1,
+    "ferramentas": 2,
     "limpeza e higiene": 1
    }
   },
@@ -275,9 +277,14 @@
    }
   },
   "tendaatacado.com.br": {
-   "acertos": 14,
-   "ultimo": "2026-10-06",
+   "acertos": 19,
+   "ultimo": "2026-10-07",
    "itens": [
+    "ventilador de parede",
+    "ferro de passar",
+    "ferro a vapor",
+    "sanduicheira",
+    "batedeira",
     "café em pó 500g",
     "lâmpada led branca e27",
     "caixa com envelopes pardo",
@@ -294,8 +301,8 @@
     "papel a4 sulfite"
    ],
    "metodos": {
-    "navegador": 2,
-    "texto": 8
+    "navegador": 4,
+    "texto": 11
    },
    "paginas": {
     "cola 250ml": "https://www.tendaatacado.com.br/produto/refrigerante-coca-cola-250ml?srsltid=AU7gw4WwO0e0qeNZ_bREKSzXYS67bMuBkFJEMc7aH_jK6bxa3ELB0u7V",
@@ -305,13 +312,19 @@
     "detergente 500ml": "https://tendaatacado.com.br/busca?q=Detergente+500ml",
     "caixa com envelopes pardo": "https://tendaatacado.com.br/busca?q=Caixa+com+Envelopes+pardo",
     "lâmpada led branca e27": "https://tendaatacado.com.br/busca?q=L%C3%A2mpada+led+branca+e27",
-    "café em pó 500g": "https://www.tendaatacado.com.br/cafe-torrado-e-moido"
+    "café em pó 500g": "https://www.tendaatacado.com.br/cafe-torrado-e-moido",
+    "batedeira": "https://www.tendaatacado.com.br/produto/batedeira-pratica-preta-mondial-110v",
+    "sanduicheira": "https://www.tendaatacado.com.br/sanduicheira",
+    "ferro a vapor": "https://www.tendaatacado.com.br/ferro-de-passar",
+    "ferro de passar": "https://www.tendaatacado.com.br/ferro-de-passar",
+    "ventilador de parede": "https://tendaatacado.com.br/busca?q=VENTILADOR+DE+PAREDE"
    },
    "naturezas": {
     "gêneros alimentícios": 2,
     "papelaria e escritório": 6,
     "limpeza e higiene": 4,
-    "elétrico": 2
+    "elétrico": 2,
+    "eletrodomésticos": 4
    },
    "busca": "/busca?q={q}"
   },
@@ -495,9 +508,10 @@
    }
   },
   "atacadodolojista.com.br": {
-   "acertos": 12,
-   "ultimo": "2026-10-06",
+   "acertos": 13,
+   "ultimo": "2026-10-07",
    "itens": [
+    "ferro a vapor",
     "cola branca 1 litro",
     "balde plástico 12 litros",
     "luva de limpeza",
@@ -517,7 +531,7 @@
    },
    "metodos": {
     "navegador": 0,
-    "texto": 11
+    "texto": 12
    },
    "paginas": {
     "grampeador": "https://www.atacadodolojista.com.br/grampeador-pinador-3-em-1-sigma",
@@ -527,7 +541,8 @@
     "fio flexível 2,5mm 100m": "https://www.atacadodolojista.com.br/cabo-flexivel-2-5-x-100m-750v-preto-sil-",
     "luva de limpeza": "https://www.atacadodolojista.com.br/luva-multiuso-latex-g-sigma-power-17026-7899888426131",
     "balde plástico 12 litros": "https://www.atacadodolojista.com.br/balde-plastico-12-litros-alca-metal-preto-famplast-16724-7899359955016",
-    "cola branca 1 litro": "https://www.atacadodolojista.com.br/cola-branca-1kg-pacote-12-unidades-bravox"
+    "cola branca 1 litro": "https://www.atacadodolojista.com.br/cola-branca-1kg-pacote-12-unidades-bravox",
+    "ferro a vapor": "https://www.atacadodolojista.com.br/ferro-de-passar-a-vapor-iron-press-1400w-220v-elgin-16136-7908412553387"
    }
   },
   "officinepapel.com.br": {
@@ -595,9 +610,10 @@
    }
   },
   "atacadao.com.br": {
-   "acertos": 5,
-   "ultimo": "2026-10-06",
+   "acertos": 6,
+   "ultimo": "2026-10-07",
    "itens": [
+    "batedeira",
     "sabonete líquido 5 litros",
     "feijão 1kg",
     "detergente",
@@ -605,14 +621,16 @@
    ],
    "metodos": {
     "navegador": 2,
-    "texto": 1
+    "texto": 2
    },
    "naturezas": {
     "gêneros alimentícios": 2,
-    "limpeza e higiene": 2
+    "limpeza e higiene": 2,
+    "eletrodomésticos": 1
    },
    "paginas": {
-    "sabonete líquido 5 litros": "https://www.atacadao.com.br/sabonete-liquido-tacto-erva-doce-bombona-com-5l-60293-11564/p?srsltid=AU7gw4XE4b3U_JgDf3n2rERV-yJN_2bvVNskzqy7O7fyG5jv0iPmcoe5"
+    "sabonete líquido 5 litros": "https://www.atacadao.com.br/sabonete-liquido-tacto-erva-doce-bombona-com-5l-60293-11564/p?srsltid=AU7gw4XE4b3U_JgDf3n2rERV-yJN_2bvVNskzqy7O7fyG5jv0iPmcoe5",
+    "batedeira": "https://www.atacadao.com.br/batedeira-mondial-b-44-127v-unidade-76109/p"
    }
   },
   "zonacerealista.com.br": {
@@ -714,22 +732,25 @@
    }
   },
   "ibyteatacado.com.br": {
-   "acertos": 2,
-   "ultimo": "2026-10-04",
+   "acertos": 3,
+   "ultimo": "2026-10-07",
    "itens": [
+    "garrafa térmica",
     "monitor led 21\"",
     "impressora tanque"
    ],
    "metodos": {
     "navegador": 2,
-    "texto": 0
+    "texto": 1
    },
    "paginas": {
-    "monitor led 21\"": "https://www.ibyteatacado.com.br/monitor-led-21-5-hdmi-goldentec/p"
+    "monitor led 21\"": "https://www.ibyteatacado.com.br/monitor-led-21-5-hdmi-goldentec/p",
+    "garrafa térmica": "https://www.ibyteatacado.com.br/goldentec/copos-e-garrafas-termicas-gt"
    },
    "naturezas": {
     "elétrico": 1,
-    "informática": 1
+    "informática": 1,
+    "copa e cozinha": 1
    }
   },
   "loja.casadosacodelixo.com.br": {
@@ -904,9 +925,12 @@
    }
   },
   "superproatacado.com.br": {
-   "acertos": 8,
-   "ultimo": "2026-10-06",
+   "acertos": 11,
+   "ultimo": "2026-10-07",
    "itens": [
+    "ventilador de parede",
+    "furadeira",
+    "parafusadeira",
     "lâmpada",
     "grampeador",
     "fita isolante",
@@ -917,7 +941,7 @@
    ],
    "metodos": {
     "navegador": 1,
-    "texto": 7
+    "texto": 10
    },
    "paginas": {
     "parafuso sextavado 1/2": "https://www.superproatacado.com.br/ferragens/parafusos-e-buchas/parafuso-sextavado-polegada",
@@ -926,15 +950,20 @@
     "tinta acrílica branca 18 litros": "https://www.superproatacado.com.br/tintas-e-acessorios/tintas-e-colorantes",
     "fio flexível 2,5mm 100m": "https://www.superproatacado.com.br/cabo-flexivel-2-5mm-amarelo-750v-100m-megatron-202711/p",
     "fita isolante": "https://www.superproatacado.com.br/fita-isolante-scotch-33-para-uso-profissional-19mmx20m-3m-121606/p",
-    "grampeador": "https://www.superproatacado.com.br/ferramentas-manuais/grampeador-manual-e-acessorios?srsltid=AU7gw4XVy6PJDtzlzfPBKMcG5smnF7evmRHKe2GpNna7s8UjFo3P9EDr"
+    "grampeador": "https://www.superproatacado.com.br/ferramentas-manuais/grampeador-manual-e-acessorios?srsltid=AU7gw4XVy6PJDtzlzfPBKMcG5smnF7evmRHKe2GpNna7s8UjFo3P9EDr",
+    "parafusadeira": "https://www.superproatacado.com.br/maquinas-eletricas-e-pneumaticas/furadeiras-e-parafusadeiras",
+    "furadeira": "https://superproatacado.com.br/busca?q=FURADEIRA",
+    "ventilador de parede": "https://www.superproatacado.com.br/ventilador-de-parede-60cm-preto-ventisol-431818/p"
    },
    "naturezas": {
     "fixadores": 1,
-    "ferramentas": 1,
+    "ferramentas": 3,
     "elétrico": 4,
     "tintas e pintura": 1,
-    "papelaria e escritório": 1
-   }
+    "papelaria e escritório": 1,
+    "eletrodomésticos": 1
+   },
+   "busca": "/busca?q={q}"
   },
   "atlasparafusos.com.br": {
    "acertos": 1,
@@ -1111,17 +1140,19 @@
    }
   },
   "philco.com.br": {
-   "acertos": 1,
-   "ultimo": "2026-10-05",
+   "acertos": 2,
+   "ultimo": "2026-10-07",
    "itens": [
+    "multiprocessador de alimentos",
     "tv 49 polegadas led"
    ],
    "metodos": {
     "navegador": 1,
-    "texto": 0
+    "texto": 1
    },
    "paginas": {
-    "tv 49 polegadas led": "https://www.philco.com.br/tvs/tvs-49-polegadas?srsltid=AU7gw4XyUZ202iXGw8y2xECF0yafcneUOGF-eBtc-3bYYNCGiY6T7kj4"
+    "tv 49 polegadas led": "https://www.philco.com.br/tvs/tvs-49-polegadas?srsltid=AU7gw4XyUZ202iXGw8y2xECF0yafcneUOGF-eBtc-3bYYNCGiY6T7kj4",
+    "multiprocessador de alimentos": "https://www.philco.com.br/cozinha/multiprocessadores-e-processadores?srsltid=AU7gw4W6MvLxdUFPM473cO458MbeINyGoNxKmNpHIcs2K6u0FIOJYDeI"
    },
    "naturezas": {
     "elétrico": 1
@@ -1145,54 +1176,64 @@
    }
   },
   "midea.com.br": {
-   "acertos": 3,
-   "ultimo": "2026-10-06",
+   "acertos": 4,
+   "ultimo": "2026-10-07",
    "itens": [
+    "freezer horizontal 1 porta",
     "frigobar"
    ],
    "metodos": {
     "navegador": 1,
-    "texto": 2
+    "texto": 3
    },
    "paginas": {
-    "frigobar": "https://www.midea.com.br/eletrodomesticos/frigobar?srsltid=AU7gw4Xj5ww3_GEFrUYjmafCr2OtXsOp4UbQ4QdkxzoP67oZ3gKrpnfw"
+    "frigobar": "https://www.midea.com.br/eletrodomesticos/frigobar?srsltid=AU7gw4Xj5ww3_GEFrUYjmafCr2OtXsOp4UbQ4QdkxzoP67oZ3gKrpnfw",
+    "freezer horizontal 1 porta": "https://www.midea.com.br/eletrodomesticos/freezer/freezer-1-porta?srsltid=AU7gw4XqQsYaWsSYq9-PZvOKgSheq865WQjd2YMSWPvj3IRGWDaSwb3h"
    },
    "naturezas": {
-    "eletrodomésticos": 3
+    "eletrodomésticos": 4
    }
   },
   "loja.electrolux.com.br": {
-   "acertos": 1,
-   "ultimo": "2026-10-05",
+   "acertos": 4,
+   "ultimo": "2026-10-07",
    "itens": [
+    "geladeira",
+    "freezer horizontal 1 porta",
+    "chaleira elétrica",
     "frigobar"
    ],
    "metodos": {
     "navegador": 1,
-    "texto": 0
+    "texto": 3
    },
    "paginas": {
-    "frigobar": "https://loja.electrolux.com.br/eletrodomesticos/frigobar"
+    "frigobar": "https://loja.electrolux.com.br/eletrodomesticos/frigobar",
+    "chaleira elétrica": "https://loja.electrolux.com.br/eletroportateis/chaleira-eletrica",
+    "freezer horizontal 1 porta": "https://loja.electrolux.com.br/eletrodomesticos/freezers/freezer-horizontal-1--porta",
+    "geladeira": "https://loja.electrolux.com.br/eletrodomesticos/geladeiras---refrigeradores"
    },
    "naturezas": {
-    "eletrodomésticos": 1
+    "eletrodomésticos": 4
    }
   },
   "brastemp.com.br": {
-   "acertos": 1,
-   "ultimo": "2026-10-05",
+   "acertos": 2,
+   "ultimo": "2026-10-07",
    "itens": [
+    "geladeira",
     "frigobar"
    ],
    "metodos": {
     "navegador": 1,
-    "texto": 0
+    "texto": 1
    },
    "paginas": {
-    "frigobar": "https://www.brastemp.com.br/eletrodomesticos/frigobar"
+    "frigobar": "https://www.brastemp.com.br/eletrodomesticos/frigobar",
+    "geladeira": "https://www.brastemp.com.br/eletrodomesticos/geladeira---refrigerador"
    },
    "naturezas": {
-    "eletrodomésticos": 1
+    "eletrodomésticos": 2
    }
   },
   "compradiretaempresas.com.br": {
@@ -1213,42 +1254,49 @@
    }
   },
   "multiloja.com.br": {
-   "acertos": 3,
-   "ultimo": "2026-10-06",
+   "acertos": 4,
+   "ultimo": "2026-10-07",
    "itens": [
+    "multiprocessador de alimentos",
     "frigobar"
    ],
    "metodos": {
     "navegador": 1,
-    "texto": 2
+    "texto": 3
    },
    "paginas": {
-    "frigobar": "https://www.multiloja.com.br/eletrodomesticos/refrigeradores/frigobar?srsltid=AU7gw4UmrHa2t7Pp8sLpwpwba6esTo0YlHbwxqiYlWXodDOlIW3SZnkj"
+    "frigobar": "https://www.multiloja.com.br/eletrodomesticos/refrigeradores/frigobar?srsltid=AU7gw4UmrHa2t7Pp8sLpwpwba6esTo0YlHbwxqiYlWXodDOlIW3SZnkj",
+    "multiprocessador de alimentos": "https://www.multiloja.com.br/eletroportateis/cozinha/multiprocessador-e-processador?srsltid=AU7gw4X_un0Wvhv6aaUQDzRYpWI0CN3HJJYJmEWK7WvhqbojNJTGV2nJ"
    },
    "naturezas": {
     "eletrodomésticos": 3
    }
   },
   "milium.com.br": {
-   "acertos": 5,
-   "ultimo": "2026-10-06",
+   "acertos": 7,
+   "ultimo": "2026-10-07",
    "itens": [
+    "furadeira",
+    "parafusadeira",
     "esponja multiuso dupla face",
     "caneta marca texto amarelo",
     "caneta esferográfica azul"
    ],
    "metodos": {
     "navegador": 1,
-    "texto": 4
+    "texto": 6
    },
    "paginas": {
     "caneta esferográfica azul": "https://www.milium.com.br/caneta-esferografica-azul-bic-cristal-1000333-2050000196331/p",
     "caneta marca texto amarelo": "https://www.milium.com.br/marca-texto-amarelo-faber-castell-1004406-7891360623090/p",
-    "esponja multiuso dupla face": "https://www.milium.com.br/esponja-dupla-face-multiuso-forta-1005158-7896565700256/p"
+    "esponja multiuso dupla face": "https://www.milium.com.br/esponja-dupla-face-multiuso-forta-1005158-7896565700256/p",
+    "parafusadeira": "https://www.milium.com.br/ferramentas-eletricas/furadeiras-e-parafusadeiras?srsltid=AU7gw4VBNViBCUFkC9kasCP5F-hNEk_LFV_Bitxo3LZep7ztrYwX5OCz",
+    "furadeira": "https://www.milium.com.br/ferramentas-eletricas/furadeiras-e-parafusadeiras?srsltid=AU7gw4VJiyAKOnNZbKq2lpeJiaiXmlx7H44LECbyy0TXjGYIVdJWs0t4"
    },
    "naturezas": {
     "papelaria e escritório": 4,
-    "limpeza e higiene": 1
+    "limpeza e higiene": 1,
+    "ferramentas": 2
    }
   },
   "contabilista.com.br": {
@@ -1755,20 +1803,23 @@
    }
   },
   "ferreiracosta.com": {
-   "acertos": 2,
-   "ultimo": "2026-10-06",
+   "acertos": 3,
+   "ultimo": "2026-10-07",
    "itens": [
+    "bebedouro",
     "fita isolante"
    ],
    "metodos": {
     "navegador": 0,
-    "texto": 2
+    "texto": 3
    },
    "naturezas": {
-    "elétrico": 2
+    "elétrico": 2,
+    "eletrodomésticos": 1
    },
    "paginas": {
-    "fita isolante": "https://www.ferreiracosta.com/pesquisa/app-fitas-isolantes"
+    "fita isolante": "https://www.ferreiracosta.com/pesquisa/app-fitas-isolantes",
+    "bebedouro": "https://www.ferreiracosta.com/Categoria/bebedouros-e-purificadores"
    }
   },
   "unicaserv.com.br": {
@@ -1789,20 +1840,24 @@
    }
   },
   "telerio.com.br": {
-   "acertos": 2,
-   "ultimo": "2026-10-06",
+   "acertos": 4,
+   "ultimo": "2026-10-07",
    "itens": [
+    "freezer horizontal 1 porta",
+    "sanduicheira",
     "frigobar"
    ],
    "metodos": {
     "navegador": 0,
-    "texto": 2
+    "texto": 4
    },
    "naturezas": {
-    "eletrodomésticos": 2
+    "eletrodomésticos": 4
    },
    "paginas": {
-    "frigobar": "https://www.telerio.com.br/eletrodomesticos/frigobar-adega-e-cervejeira/frigobar?srsltid=AU7gw4UeAx4_1di-raAlTEyRBMOIgcowPGmWF_-wjLghQeDUdY7f84OX"
+    "frigobar": "https://www.telerio.com.br/eletrodomesticos/frigobar-adega-e-cervejeira/frigobar?srsltid=AU7gw4UeAx4_1di-raAlTEyRBMOIgcowPGmWF_-wjLghQeDUdY7f84OX",
+    "sanduicheira": "https://www.telerio.com.br/eletroportateis/eletroportateis-para-cozinha/sanduicheira-e-grill?srsltid=AU7gw4XrbyT7URX0lzayBl3pjJaEzO49Tq9tfoMBFITVH_WkYP7o6JoE",
+    "freezer horizontal 1 porta": "https://www.telerio.com.br/eletrodomesticos/freezer/1%20Porta/200?PS=12&map=c,c,specificationFilter_192,ft&srsltid=AU7gw4WIK3haPCz1C2wbTyQMN16Dv9afTnShPopGqKM2XJiWDIWvgI7c"
    }
   },
   "lojacalcom.com.br": {
@@ -2045,23 +2100,26 @@
    }
   },
   "atacadonipocenter.com.br": {
-   "acertos": 2,
-   "ultimo": "2026-10-06",
+   "acertos": 3,
+   "ultimo": "2026-10-07",
    "itens": [
+    "chaleira elétrica",
     "garrafa térmica 1 litro",
     "pilha palito aaa c/ 4"
    ],
    "metodos": {
     "navegador": 0,
-    "texto": 2
+    "texto": 3
    },
    "naturezas": {
     "elétrico": 1,
-    "copa e cozinha": 1
+    "copa e cozinha": 1,
+    "eletrodomésticos": 1
    },
    "paginas": {
     "pilha palito aaa c/ 4": "https://www.atacadonipocenter.com.br/produto/pilha-aaa-60-pecas-comum-16",
-    "garrafa térmica 1 litro": "https://www.atacadonipocenter.com.br/categoria/ud-cozinha/garrafa-termica-e-isotermica"
+    "garrafa térmica 1 litro": "https://www.atacadonipocenter.com.br/categoria/ud-cozinha/garrafa-termica-e-isotermica",
+    "chaleira elétrica": "https://www.atacadonipocenter.com.br/categoria/ud-cozinha/chaleira"
    }
   },
   "atacadaodaspilhas.com.br": {
@@ -2322,43 +2380,49 @@
    }
   },
   "distribuidoradecftv.com.br": {
-   "acertos": 3,
-   "ultimo": "2026-10-06",
+   "acertos": 4,
+   "ultimo": "2026-10-07",
    "itens": [
+    "ventilador de parede",
     "pendrive 32gb",
     "calculadora de mesa 12 dígitos",
     "mouse óptico usb"
    ],
    "metodos": {
     "navegador": 0,
-    "texto": 3
+    "texto": 4
    },
    "naturezas": {
     "informática": 2,
-    "construção": 1
+    "construção": 1,
+    "eletrodomésticos": 1
    },
    "paginas": {
     "mouse óptico usb": "https://www.distribuidoradecftv.com.br/deposito-fl/mouse-informatica/mouse-optico-usb-com-fio-preto-barato-mouses",
     "calculadora de mesa 12 dígitos": "https://www.distribuidoradecftv.com.br/calculadoras/calculadora-de-mesa-grande-12-digitos-3826b",
-    "pendrive 32gb": "https://distribuidoradecftv.com.br/busca?q=pen+drive+32GB"
+    "pendrive 32gb": "https://distribuidoradecftv.com.br/busca?q=pen+drive+32GB",
+    "ventilador de parede": "https://www.distribuidoradecftv.com.br/eletrodomesticos-e-eletroportateis/ventilador-de-parede-comercial-60cm-bivolt-branco-ventisol-p"
    },
    "busca": "/busca?q={q}"
   },
   "afonsoruotolo.com.br": {
-   "acertos": 1,
-   "ultimo": "2026-10-06",
+   "acertos": 2,
+   "ultimo": "2026-10-07",
    "itens": [
+    "bebedouro",
     "mouse óptico usb"
    ],
    "metodos": {
     "navegador": 0,
-    "texto": 1
+    "texto": 2
    },
    "naturezas": {
-    "informática": 1
+    "informática": 1,
+    "eletrodomésticos": 1
    },
    "paginas": {
-    "mouse óptico usb": "https://www.afonsoruotolo.com.br/informatica/mouse-e-teclado/mouse"
+    "mouse óptico usb": "https://www.afonsoruotolo.com.br/informatica/mouse-e-teclado/mouse",
+    "bebedouro": "https://www.afonsoruotolo.com.br/lazer-e-utilidades/bebedouros-e-purificadores/?srsltid=AU7gw4WMNp_JG0m69mHRSpMbQWdeFpDj2pKYrrdbgl7PfI8DGZBgCRU7"
    }
   },
   "lojaluzdomundo.com": {
@@ -2714,20 +2778,22 @@
    }
   },
   "lojamor.com.br": {
-   "acertos": 1,
-   "ultimo": "2026-10-06",
+   "acertos": 2,
+   "ultimo": "2026-10-07",
    "itens": [
+    "garrafa térmica",
     "garrafa térmica 1 litro"
    ],
    "metodos": {
     "navegador": 0,
-    "texto": 1
+    "texto": 2
    },
    "naturezas": {
-    "copa e cozinha": 1
+    "copa e cozinha": 2
    },
    "paginas": {
-    "garrafa térmica 1 litro": "https://www.lojamor.com.br/garrafa-termica-total-inox-fit-1-litro-25105101/p"
+    "garrafa térmica 1 litro": "https://www.lojamor.com.br/garrafa-termica-total-inox-fit-1-litro-25105101/p",
+    "garrafa térmica": "https://www.lojamor.com.br/garrafa-termica-total-inox-fit-1-litro-25105101/p"
    }
   },
   "tuyo.com.br": {
@@ -3878,6 +3944,766 @@
    "paginas": {
     "pendrive 32gb": "https://www.ibyte.com.br/armazenamento/pen-drive?srsltid=AU7gw4VftpS_vlnhNomFpFoxr9FnMABrO_sFh66qA6zyrsU96s4nRqU-"
    }
+  },
+  "lojadobebedouro.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-07",
+   "itens": [
+    "bebedouro"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "eletrodomésticos": 1
+   },
+   "paginas": {
+    "bebedouro": "https://www.lojadobebedouro.com.br"
+   }
+  },
+  "dutramaquinas.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-07",
+   "itens": [
+    "bebedouro"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "eletrodomésticos": 1
+   },
+   "paginas": {
+    "bebedouro": "https://www.dutramaquinas.com.br/c/casa-eletroportateis-bebedouros"
+   }
+  },
+  "ibbl.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-07",
+   "itens": [
+    "bebedouro"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "eletrodomésticos": 1
+   },
+   "paginas": {
+    "bebedouro": "https://www.ibbl.com.br/bebedouros"
+   }
+  },
+  "fujiokadistribuidor.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-07",
+   "itens": [
+    "bebedouro"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "eletrodomésticos": 1
+   },
+   "paginas": {
+    "bebedouro": "https://www.fujiokadistribuidor.com.br/eletrodomesticos/ouro"
+   }
+  },
+  "catral.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-07",
+   "itens": [
+    "secador de mão"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "paginas": {
+    "secador de mão": "https://www.catral.com.br/utilidades/secador-de-maos?srsltid=AU7gw4XPxQ5iC5RpT-H30HTCNmJ0k7qoY6RKoMxX-Tltbh67fJ_eTQwo"
+   }
+  },
+  "cadence.com.br": {
+   "acertos": 2,
+   "ultimo": "2026-10-07",
+   "itens": [
+    "chaleira elétrica",
+    "secador de mão"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 2
+   },
+   "paginas": {
+    "secador de mão": "https://www.cadence.com.br/beleza-e-saude/secadores/cadence/234/Bivolt?O=reviewRate+desc%2C+score+desc&PS=48&map=c,c,b,productClusterSearchableIds,specificationFilter_42&srsltid=AU7gw4U_Jq6uWIGFz5eYynJrFBs23bCh5nDYsMbkb0snCaxTdOPGZqie",
+    "chaleira elétrica": "https://www.cadence.com.br/cozinha/chaleiras-eletricas?srsltid=AU7gw4UQf4eH0e-9Az7AAHuwuoNx0jtCPkrYYeqtZG4Y3NMDBr22-ch3"
+   },
+   "naturezas": {
+    "eletrodomésticos": 1
+   }
+  },
+  "mallory.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-07",
+   "itens": [
+    "secador de mão"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "paginas": {
+    "secador de mão": "https://www.mallory.com.br/secador/cuidados-pessoais/secadores?map=ft%2Cc%2Ccategory-1&srsltid=AU7gw4VO2-YzmdpIP_O81-Fv76ox6UaxRD6IggNEPFBPyshUswbf4Qit"
+   }
+  },
+  "distribuidoramegamix.com.br": {
+   "acertos": 2,
+   "ultimo": "2026-10-07",
+   "itens": [
+    "furadeira",
+    "parafusadeira"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 2
+   },
+   "naturezas": {
+    "ferramentas": 2
+   },
+   "paginas": {
+    "parafusadeira": "https://www.distribuidoramegamix.com.br/ferramentas-atacado/furadeira-parafusadeira-atacado.html",
+    "furadeira": "https://www.distribuidoramegamix.com.br/ferramentas-atacado/furadeira-parafusadeira-atacado.html"
+   }
+  },
+  "dxatacado.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-07",
+   "itens": [
+    "parafusadeira"
+   ],
+   "metodos": {
+    "navegador": 1,
+    "texto": 0
+   },
+   "naturezas": {
+    "ferramentas": 1
+   },
+   "paginas": {
+    "parafusadeira": "https://www.dxatacado.com.br/products/parafusadeira-furadeira-portatil"
+   }
+  },
+  "atacadaodasferramentas.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-07",
+   "itens": [
+    "parafusadeira"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "ferramentas": 1
+   },
+   "paginas": {
+    "parafusadeira": "https://www.atacadaodasferramentas.com.br/ferramentas/eletrica/parafusadeira?page=3"
+   }
+  },
+  "casadosoldador.com.br": {
+   "acertos": 2,
+   "ultimo": "2026-10-07",
+   "itens": [
+    "furadeira",
+    "parafusadeira"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 2
+   },
+   "naturezas": {
+    "ferramentas": 2
+   },
+   "paginas": {
+    "parafusadeira": "https://casadosoldador.com.br/parafusadeiras-725",
+    "furadeira": "https://casadosoldador.com.br/furadeira-eletrica-360?srsltid=AU7gw4WcPYWjBO_4Tatv46uErEvrXCKI4wtX7P0gFarWacHQA7_ULPIu"
+   }
+  },
+  "lojaboschferramentas.com.br": {
+   "acertos": 2,
+   "ultimo": "2026-10-07",
+   "itens": [
+    "furadeira",
+    "parafusadeira"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 2
+   },
+   "naturezas": {
+    "ferramentas": 2
+   },
+   "paginas": {
+    "parafusadeira": "https://www.lojaboschferramentas.com.br/ferramentas-bateria-12v-18v/furadeiras-e-parafusadeiras/parafusadeiras?srsltid=AU7gw4WaW8VDR-fPTsg5mSnbC0I3HKT_NZhpsbNBHGy0Q7qLAfxTJ1y_",
+    "furadeira": "https://www.lojaboschferramentas.com.br/ferramentas-bateria-12v-18v/furadeiras-e-parafusadeiras?srsltid=AU7gw4X0ngTUmvX_qx318U6PdGRpHhUy92BUnNfnRYMp4GCE4EKVWL-1"
+   }
+  },
+  "casadasfuradeiras.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-07",
+   "itens": [
+    "furadeira"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "ferramentas": 1
+   },
+   "paginas": {
+    "furadeira": "https://www.casadasfuradeiras.com.br"
+   }
+  },
+  "promobit.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-07",
+   "itens": [
+    "furadeira"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "ferramentas": 1
+   },
+   "paginas": {
+    "furadeira": "https://www.promobit.com.br/blog/melhor-furadeira"
+   }
+  },
+  "loja.triptem.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-07",
+   "itens": [
+    "liquidificador industrial"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "eletrodomésticos": 1
+   },
+   "paginas": {
+    "liquidificador industrial": "https://loja.triptem.com.br/bares-e-lanchonetes/liquidificador-industrial"
+   }
+  },
+  "engefrio.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-07",
+   "itens": [
+    "liquidificador industrial"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "eletrodomésticos": 1
+   },
+   "paginas": {
+    "liquidificador industrial": "https://engefrio.com.br/equipamentos/liquidificador-industrial"
+   }
+  },
+  "loja.skymsen.com": {
+   "acertos": 1,
+   "ultimo": "2026-10-07",
+   "itens": [
+    "liquidificador industrial"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "eletrodomésticos": 1
+   },
+   "paginas": {
+    "liquidificador industrial": "https://loja.skymsen.com/produto/listar/41?srsltid=AU7gw4UBl0ntZVHb0Z82T_kkrZHw8IdOhBVTit-rmw5OYDAuZs4dhTZ7"
+   }
+  },
+  "overfrio.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-07",
+   "itens": [
+    "liquidificador industrial"
+   ],
+   "metodos": {
+    "navegador": 1,
+    "texto": 0
+   },
+   "naturezas": {
+    "eletrodomésticos": 1
+   },
+   "paginas": {
+    "liquidificador industrial": "https://www.overfrio.com.br/restaurante/liquidificador"
+   }
+  },
+  "pontoequipamentos.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-07",
+   "itens": [
+    "liquidificador industrial"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "eletrodomésticos": 1
+   },
+   "paginas": {
+    "liquidificador industrial": "https://www.pontoequipamentos.com.br/lanchonete/liquidificadores/"
+   }
+  },
+  "evitra.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-07",
+   "itens": [
+    "liquidificador industrial"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "eletrodomésticos": 1
+   },
+   "paginas": {
+    "liquidificador industrial": "https://evitra.com.br/produtos/liquidificador-alta-rotacao-2l-industrial-em-inox-800w/?srsltid=AU7gw4Xhse-PUP_Dm7gM3dxD6_zXOOJ2XX1RZX7F7GUrgK7rWYazB5k6"
+   }
+  },
+  "gazin.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-07",
+   "itens": [
+    "multiprocessador de alimentos"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "paginas": {
+    "multiprocessador de alimentos": "https://www.gazin.com.br/categoria/processadores-de-alimentos?srsltid=AU7gw4Vzsu0trGu2Z2di1HJbe2h7JXqjY4TGsiKCPQ7axz-kTojxP5Ra"
+   }
+  },
+  "walita.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-07",
+   "itens": [
+    "multiprocessador de alimentos"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "paginas": {
+    "multiprocessador de alimentos": "https://www.walita.com.br/eletroportateis-para-cozinha/processadores-de-alimentos?srsltid=AU7gw4UCScCWNCyOHA32vJrSNPoVHlXcntUZw6gI8ra6TYpDjP-h7Nan"
+   }
+  },
+  "kitchenaid.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-07",
+   "itens": [
+    "batedeira"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "eletrodomésticos": 1
+   },
+   "paginas": {
+    "batedeira": "https://www.kitchenaid.com.br/eletroportateis/batedeira"
+   }
+  },
+  "oster.com.br": {
+   "acertos": 2,
+   "ultimo": "2026-10-07",
+   "itens": [
+    "chaleira elétrica",
+    "batedeira"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 2
+   },
+   "naturezas": {
+    "eletrodomésticos": 2
+   },
+   "paginas": {
+    "batedeira": "https://www.oster.com.br/cozinha/batedeiras",
+    "chaleira elétrica": "https://www.oster.com.br/cozinha/chaleiras-eletricas"
+   }
+  },
+  "empresas.iskisita.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-07",
+   "itens": [
+    "batedeira"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "eletrodomésticos": 1
+   },
+   "paginas": {
+    "batedeira": "https://empresas.iskisita.com.br/batedeira-topi-4019-303355"
+   }
+  },
+  "britania.com.br": {
+   "acertos": 2,
+   "ultimo": "2026-10-07",
+   "itens": [
+    "chaleira elétrica",
+    "batedeira"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 2
+   },
+   "naturezas": {
+    "eletrodomésticos": 2
+   },
+   "paginas": {
+    "batedeira": "https://www.britania.com.br/cozinha/batedeiras?srsltid=AU7gw4VA9c3bnQOO5yUTBeF_Vra0zaND_M0PTCpJwwyQq3wcvQ_sfiUM",
+    "chaleira elétrica": "https://www.britania.com.br/cozinha/chaleiras-eletricas?srsltid=AU7gw4W9SOsqdFBmYq3XhapnN86UKJQuuxlXZCaQ29zxF5ZtUhVO6mEH"
+   }
+  },
+  "atacadaomultimarcas.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-07",
+   "itens": [
+    "sanduicheira"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "eletrodomésticos": 1
+   },
+   "paginas": {
+    "sanduicheira": "https://www.atacadaomultimarcas.com.br/eletroportateis/cozinha/sanduicheira-e-gril"
+   }
+  },
+  "colombo.com.br": {
+   "acertos": 2,
+   "ultimo": "2026-10-07",
+   "itens": [
+    "ferro de passar",
+    "sanduicheira"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 2
+   },
+   "naturezas": {
+    "eletrodomésticos": 2
+   },
+   "paginas": {
+    "sanduicheira": "https://www.colombo.com.br/busca?q=sanduicheira-grill",
+    "ferro de passar": "https://www.colombo.com.br/busca?q=ferro-passar&srsltid=AU7gw4Up9ogIciQhshvmUSPP5PMw1aUSp8vlvYx2RFb1isKo_KS4mDP3"
+   }
+  },
+  "pernambucanas.com.br": {
+   "acertos": 2,
+   "ultimo": "2026-10-07",
+   "itens": [
+    "chaleira elétrica",
+    "sanduicheira"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 2
+   },
+   "naturezas": {
+    "eletrodomésticos": 2
+   },
+   "paginas": {
+    "sanduicheira": "https://www.pernambucanas.com.br/eletronicos/eletroportateis/sanduicheira-e-grill?srsltid=AU7gw4Um2lXmbYmkUAGGzTfjhXVcfqkFahOFYUDYx00PkbGTg7jxi7Nr",
+    "chaleira elétrica": "https://www.pernambucanas.com.br/eletronicos/eletroportateis/chaleira"
+   }
+  },
+  "peguepegue.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-07",
+   "itens": [
+    "garrafa térmica"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "copa e cozinha": 1
+   },
+   "paginas": {
+    "garrafa térmica": "https://www.peguepegue.com.br/atacado"
+   }
+  },
+  "braswu.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-07",
+   "itens": [
+    "garrafa térmica"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "copa e cozinha": 1
+   },
+   "paginas": {
+    "garrafa térmica": "https://www.braswu.com.br/cozinha/garrafas/garrafas-termicas"
+   }
+  },
+  "emporiodagarrafa.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-07",
+   "itens": [
+    "garrafa térmica"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "copa e cozinha": 1
+   },
+   "paginas": {
+    "garrafa térmica": "https://emporiodagarrafa.com.br"
+   }
+  },
+  "termolar.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-07",
+   "itens": [
+    "garrafa térmica"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "copa e cozinha": 1
+   },
+   "paginas": {
+    "garrafa térmica": "https://termolar.com.br"
+   }
+  },
+  "multicanalatacado.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-07",
+   "itens": [
+    "ferro a vapor"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "paginas": {
+    "ferro a vapor": "https://www.multicanalatacado.com.br/ferro-vapor-antiaderente-oster-220v-478664"
+   }
+  },
+  "site.fastshop.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-07",
+   "itens": [
+    "ferro a vapor"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "paginas": {
+    "ferro a vapor": "https://site.fastshop.com.br/eletroportatil/equipamento-de-limpeza/ferro-de-passar"
+   }
+  },
+  "ferrodepassar.com": {
+   "acertos": 1,
+   "ultimo": "2026-10-07",
+   "itens": [
+    "ferro a vapor"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "paginas": {
+    "ferro a vapor": "https://ferrodepassar.com"
+   }
+  },
+  "ipermaq.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-07",
+   "itens": [
+    "ferro de passar"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "eletrodomésticos": 1
+   },
+   "paginas": {
+    "ferro de passar": "https://ipermaq.com.br/passadoria/ferro-de-passar/?srsltid=AU7gw4UYMic0aHthE6fDyxbC372vBDwQ_ZjagqXQUaxZH_4F-JyupfD6"
+   }
+  },
+  "minipreco.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-07",
+   "itens": [
+    "ferro de passar"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "eletrodomésticos": 1
+   },
+   "paginas": {
+    "ferro de passar": "https://www.minipreco.com.br/outlet/ferro-de-passar-e-vaporizador?srsltid=AU7gw4W6GOXd8TS4_bqY5ivVLpohPfJwfiaL-CVA3papX_wqsX5opRzI"
+   }
+  },
+  "consul.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-07",
+   "itens": [
+    "freezer horizontal 1 porta"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "eletrodomésticos": 1
+   },
+   "paginas": {
+    "freezer horizontal 1 porta": "https://www.consul.com.br/eletrodomesticos/freezer/horizontal"
+   }
+  },
+  "lojarelux.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-07",
+   "itens": [
+    "freezer horizontal 1 porta"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "eletrodomésticos": 1
+   },
+   "paginas": {
+    "freezer horizontal 1 porta": "https://lojarelux.com.br/produto/freezer-horizontal-1-portas-com-tampo-liso/"
+   }
+  },
+  "ramsons.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-07",
+   "itens": [
+    "freezer horizontal 1 porta"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "eletrodomésticos": 1
+   },
+   "paginas": {
+    "freezer horizontal 1 porta": "https://www.ramsons.com.br/eletrodomesticos/freezer/freezerhorizontal1porta?srsltid=AU7gw4XBsKxJVad9ZFqaQMDD4T7Lov1fR-UJbXn8Ll6ExVIQvPh3s7U0"
+   }
+  },
+  "ventoecia.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-07",
+   "itens": [
+    "ventilador de parede"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "eletrodomésticos": 1
+   },
+   "paginas": {
+    "ventilador de parede": "https://www.ventoecia.com.br/ventilador-de-parede"
+   }
+  },
+  "eletricasantaefigenia.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-07",
+   "itens": [
+    "ventilador de parede"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "eletrodomésticos": 1
+   },
+   "paginas": {
+    "ventilador de parede": "https://www.eletricasantaefigenia.com.br/ventilador-de-parede-ventisol-power-70cm-preto-com-3-pas-cor-cinza-70-cm-de-diam/prod-9860879/"
+   }
+  },
+  "tvlar.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-07",
+   "itens": [
+    "geladeira"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "eletrodomésticos": 1
+   },
+   "paginas": {
+    "geladeira": "https://www.tvlar.com.br/eletrodomesticos/geladeira"
+   }
+  },
+  "samsung.com": {
+   "acertos": 1,
+   "ultimo": "2026-10-07",
+   "itens": [
+    "geladeira"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "eletrodomésticos": 1
+   },
+   "paginas": {
+    "geladeira": "https://www.samsung.com/br/refrigerators/all-refrigerators"
+   }
   }
  },
  "falhas": {
@@ -3973,8 +4799,8 @@
   },
   "feraatacado.com": {
    "navegador": 0,
-   "texto": 1,
-   "ultimo": "2026-10-04"
+   "texto": 2,
+   "ultimo": "2026-10-07"
   },
   "martinsatacado.com.br": {
    "navegador": 3,
@@ -3997,9 +4823,9 @@
    "ultimo": "2026-10-04"
   },
   "obramax.com.br": {
-   "navegador": 1,
-   "texto": 1,
-   "ultimo": "2026-10-04"
+   "navegador": 3,
+   "texto": 3,
+   "ultimo": "2026-10-07"
   },
   "somosverdes.com.br": {
    "navegador": 1,
@@ -4168,8 +4994,8 @@
   },
   "carrefour.com.br": {
    "navegador": 1,
-   "texto": 1,
-   "ultimo": "2026-10-05"
+   "texto": 2,
+   "ultimo": "2026-10-07"
   },
   "pt.accio.com": {
    "navegador": 1,
@@ -4297,9 +5123,9 @@
    "ultimo": "2026-10-06"
   },
   "casaevideo.com.br": {
-   "navegador": 1,
-   "texto": 1,
-   "ultimo": "2026-10-06"
+   "navegador": 2,
+   "texto": 3,
+   "ultimo": "2026-10-07"
   },
   "papeisquality.com.br": {
    "navegador": 1,
@@ -4307,18 +5133,13 @@
    "ultimo": "2026-10-06"
   },
   "visiondistribuidora.com.br": {
-   "navegador": 1,
-   "texto": 1,
-   "ultimo": "2026-10-06"
+   "navegador": 2,
+   "texto": 2,
+   "ultimo": "2026-10-07"
   },
   "gruplast.com.br": {
    "navegador": 2,
    "texto": 2,
-   "ultimo": "2026-10-06"
-  },
-  "eletricasantaefigenia.com.br": {
-   "navegador": 1,
-   "texto": 1,
    "ultimo": "2026-10-06"
   },
   "eletricatakei.com.br": {
@@ -4358,8 +5179,8 @@
   },
   "taqi.com.br": {
    "navegador": 0,
-   "texto": 1,
-   "ultimo": "2026-10-06"
+   "texto": 3,
+   "ultimo": "2026-10-07"
   },
   "shoppaper.com.br": {
    "navegador": 0,
@@ -4425,23 +5246,168 @@
    "navegador": 1,
    "texto": 1,
    "ultimo": "2026-10-06"
+  },
+  "atacadaodosbebedouros.com.br": {
+   "navegador": 0,
+   "texto": 1,
+   "ultimo": "2026-10-07"
+  },
+  "parceiraoatacadista.com.br": {
+   "navegador": 0,
+   "texto": 1,
+   "ultimo": "2026-10-07"
+  },
+  "portuguese.alibaba.com": {
+   "navegador": 0,
+   "texto": 1,
+   "ultimo": "2026-10-07"
+  },
+  "interhasa.net": {
+   "navegador": 0,
+   "texto": 1,
+   "ultimo": "2026-10-07"
+  },
+  "fyassi.net": {
+   "navegador": 0,
+   "texto": 1,
+   "ultimo": "2026-10-07"
+  },
+  "tetch.net": {
+   "navegador": 0,
+   "texto": 1,
+   "ultimo": "2026-10-07"
+  },
+  "pt.made-in-china.com": {
+   "navegador": 0,
+   "texto": 2,
+   "ultimo": "2026-10-07"
+  },
+  "exceldryer.com": {
+   "navegador": 0,
+   "texto": 1,
+   "ultimo": "2026-10-07"
+  },
+  "geminus.com.br": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-07"
+  },
+  "casapinheiro.com": {
+   "navegador": 0,
+   "texto": 1,
+   "ultimo": "2026-10-07"
+  },
+  "planetclean.com.br": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-07"
+  },
+  "tmax-tool.com": {
+   "navegador": 0,
+   "texto": 1,
+   "ultimo": "2026-10-07"
+  },
+  "quemfornece.com": {
+   "navegador": 0,
+   "texto": 1,
+   "ultimo": "2026-10-07"
+  },
+  "swidd.com.br": {
+   "navegador": 0,
+   "texto": 1,
+   "ultimo": "2026-10-07"
+  },
+  "jmequipamentos.com": {
+   "navegador": 0,
+   "texto": 1,
+   "ultimo": "2026-10-07"
+  },
+  "skymsen.com": {
+   "navegador": 0,
+   "texto": 1,
+   "ultimo": "2026-10-07"
+  },
+  "casadoacougueiro.com.br": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-07"
+  },
+  "pandasnacozinha.com.br": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-07"
+  },
+  "koerich.com.br": {
+   "navegador": 0,
+   "texto": 2,
+   "ultimo": "2026-10-07"
+  },
+  "lebiscuit.com.br": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-07"
+  },
+  "caelatacado.com.br": {
+   "navegador": 2,
+   "texto": 2,
+   "ultimo": "2026-10-07"
+  },
+  "cristalatacado.com.br": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-07"
+  },
+  "simonetti.com.br": {
+   "navegador": 1,
+   "texto": 2,
+   "ultimo": "2026-10-07"
+  },
+  "haers.com": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-07"
+  },
+  "comprasparaguai.com.br": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-07"
+  },
+  "coingecko.com": {
+   "navegador": 2,
+   "texto": 2,
+   "ultimo": "2026-10-07"
+  },
+  "extra.com.br": {
+   "navegador": 2,
+   "texto": 2,
+   "ultimo": "2026-10-07"
+  },
+  "melhoresparacomprar.com.br": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-07"
+  },
+  "hayamax.com.br": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-07"
   }
  },
  "frases": {
   "{item} comprar": {
-   "usos": 13.1887,
-   "acertos": 6.0522,
-   "ultimo": "2026-10-06"
+   "usos": 13.8528,
+   "acertos": 5.4621,
+   "ultimo": "2026-10-07"
   },
   "{item} preço": {
-   "usos": 19.839,
-   "acertos": 37.3278,
-   "ultimo": "2026-10-06"
+   "usos": 19.9253,
+   "acertos": 39.3633,
+   "ultimo": "2026-10-07"
   },
   "venda de {item}": {
-   "usos": 12.0556,
-   "acertos": 5.0032,
-   "ultimo": "2026-10-06"
+   "usos": 15.4812,
+   "acertos": 12.5865,
+   "ultimo": "2026-10-07"
   },
   "{item} valor": {
    "usos": 17.6802,
@@ -4449,9 +5415,9 @@
    "ultimo": "2026-10-06"
   },
   "{item} atacado": {
-   "usos": 19.8754,
-   "acertos": 39.2274,
-   "ultimo": "2026-10-06"
+   "usos": 19.9391,
+   "acertos": 37.5524,
+   "ultimo": "2026-10-07"
   },
   "{item} preço brasil": {
    "usos": 11.6375,
@@ -4459,17 +5425,17 @@
    "ultimo": "2026-10-06"
   },
   "{item} comprar brasil": {
-   "usos": 14.4522,
-   "acertos": 9.1019,
-   "ultimo": "2026-10-06"
+   "usos": 16.1256,
+   "acertos": 9.4148,
+   "ultimo": "2026-10-07"
   },
   "comprar {item} online brasil": {
-   "usos": 14.9931,
-   "acertos": 7.6074,
-   "ultimo": "2026-10-06"
+   "usos": 15.7071,
+   "acertos": 10.3248,
+   "ultimo": "2026-10-07"
   }
  },
- "buscas": 114,
+ "buscas": 129,
  "sem_busca": {
   "arxiv.org": "2026-10-05",
   "papers.ssrn.com": "2026-10-05",
@@ -4540,15 +5506,16 @@
   "raextintores.com.br": "2026-10-06",
   "epizeus.com.br": "2026-10-06",
   "dnac.com.br": "2026-10-06",
-  "fg.com.br": "2026-10-06"
+  "fg.com.br": "2026-10-06",
+  "lojamor.com.br": "2026-10-07"
  },
  "serper": {
   "mes": "2026-10",
-  "n": 61
+  "n": 99
  },
  "tavily": {
   "mes": "2026-10",
-  "n": 201
+  "n": 254
  },
  "nomes": {
   "papel contact": {
@@ -4900,6 +5867,113 @@
     "USB 3.0 Flash Drive 32GB High Speed Storage | RadioShack",
     "Shop All USB Flash Drives: Thumb Drives for Data On-The-Go | Sandisk",
     "USB Flash Drives"
+   ],
+   "origem": ""
+  },
+  "bebedouro": {
+   "busca": "",
+   "aceitar": [],
+   "excluir": {},
+   "recusados": [
+    "Sem título"
+   ],
+   "origem": ""
+  },
+  "liquidificador industrial": {
+   "busca": "",
+   "aceitar": [],
+   "excluir": {},
+   "recusados": [
+    "Banco Industrial do Brasil S/A Company Overview, Contact Details & Competitors | LeadIQ",
+    "Como comprar acções de 5 euros de casinos online?"
+   ],
+   "origem": ""
+  },
+  "multiprocessador alimentos": {
+   "busca": "",
+   "aceitar": [],
+   "excluir": {},
+   "recusados": [
+    "SLC Alimentos - Products, Competitors, Financials, Employees, Headquarters Locations"
+   ],
+   "origem": ""
+  },
+  "batedeira": {
+   "busca": "",
+   "aceitar": [],
+   "excluir": {},
+   "recusados": [
+    "Sem título"
+   ],
+   "origem": ""
+  },
+  "sanduicheira": {
+   "busca": "",
+   "aceitar": [],
+   "excluir": {},
+   "recusados": [
+    "Atacado São Paulo :: Atacado de Papelaria",
+    "Sem título"
+   ],
+   "origem": ""
+  },
+  "chaleira eletrica": {
+   "busca": "",
+   "aceitar": [],
+   "excluir": {},
+   "recusados": [
+    "Sem título"
+   ],
+   "origem": ""
+  },
+  "ferro vapor": {
+   "busca": "",
+   "aceitar": [],
+   "excluir": {},
+   "recusados": [
+    "Sem título"
+   ],
+   "origem": ""
+  },
+  "ferro passar": {
+   "busca": "",
+   "aceitar": [],
+   "excluir": {},
+   "recusados": [
+    "Sem título",
+    "Demons of Asteborg ganha pré-venda de mídia física para consoles retrô no Brasil - GameBlast"
+   ],
+   "origem": ""
+  },
+  "freezer horizontal": {
+   "busca": "",
+   "aceitar": [],
+   "excluir": {},
+   "recusados": [
+    "Sem título",
+    "AS Porta de Barcelona, Autopista Ap7 Km 165 (Área De Servicio De Porta De Barcelona), Martorell, 08755, ES - MapQuest",
+    "Bebida na Porta - Products, Competitors, Financials, Employees, Headquarters Locations"
+   ],
+   "origem": ""
+  },
+  "ventilador parede": {
+   "busca": "",
+   "aceitar": [],
+   "excluir": {},
+   "recusados": [
+    "Atas de Registro de Preço - Filtro | Metdata",
+    "Ponto Frio - Products, Competitors, Financials, Employees, Headquarters Locations",
+    "Sem título"
+   ],
+   "origem": ""
+  },
+  "geladeira": {
+   "busca": "",
+   "aceitar": [],
+   "excluir": {},
+   "recusados": [
+    "RCELL - Melhores marcas de Celulares e Eletrônicos para Revender",
+    "Sem título"
    ],
    "origem": ""
   }
