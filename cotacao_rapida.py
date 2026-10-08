@@ -28,6 +28,12 @@ MIN_PRECOS = 3  # abaixo disso o item é sinalizado (IN SEGES/ME nº 65/2021 rec
 TOLERANCIA = 0.30  # cada preço deve ficar a até 30% (para mais ou para menos) da média dos preços listados
 JANELA_DIAS = 365
 MAX_FAMILIAS = 12
+TOLERANCIA_ESTIMATIVA = 0.40  # preço médio dentro de ±40% da estimativa do usuário = coerente
+LIMIAR_FAMILIA_COM_ESTIMATIVA = 45.0  # com estimativa, famílias menos parecidas também são consultadas (para achar outro CATMAT possível)
+LIMIAR_ALTERNATIVA = 45.0  # % mínimo de correspondência para um CATMAT não escolhido ser sugerido como alternativa pelo preço
+MIN_REGISTROS_ALTERNATIVA = 2
+LIMIAR_ALTERNATIVA_FORTE = 70.0  # com o preço já coerente, só vale sugerir outro CATMAT que também case bem
+MAX_ALTERNATIVAS = 3
 MAX_CANDIDATOS_SERVICO = 40  # serviços do catálogo cujos preços são conferidos antes de escolher os 3 melhores
 DECLARACOES_DE_SERVICO = {"servico", "prestacao", "contratacao", "terceirizacao"}
 MARCADORES_SERVICO = {"servico", "prestacao", "contratacao", "locacao", "terceirizacao"} | TERMOS_ACAO
@@ -211,7 +217,7 @@ def resultado_vazio(descricao: str, tipo: str = "Material") -> dict:
     return {
         "descricao": descricao, "tipo": tipo, "status": "sem_catmat", "catmats": [], "precos": [], "stats": None,
         "unidade": "", "unidade_curta": "", "brutos": 0, "outliers": 0, "faixa_validos": None,
-        "falha_api": False, "melhor_proximo": None, "proximos": [], "limiar": LIMIAR_SERVICO if tipo == "Serviço" else LIMIAR_CORRESPONDENCIA,
+        "falha_api": False, "melhor_proximo": None, "proximos": [], "alternativas_preco": [], "limiar": LIMIAR_SERVICO if tipo == "Serviço" else LIMIAR_CORRESPONDENCIA,
     }
 
 
@@ -250,10 +256,11 @@ def _preco_valido(registro: dict) -> bool:
     return True
 
 
-def _cotar_material(descricao: str, catmat: IndiceCatmat, inicio: str, fim: str) -> dict:
+def _cotar_material(descricao: str, catmat: IndiceCatmat, inicio: str, fim: str, estimativa: float | None = None) -> dict:
     resultado = resultado_vazio(descricao, "Material")
     limiar = resultado["limiar"]
-    familias = [f for f in buscar_familias(descricao, catmat, limite=MAX_FAMILIAS) if f["nota"] >= min(LIMIAR_FAMILIA, limiar - 10)]
+    corte_familia = min(LIMIAR_FAMILIA, limiar - 10) if not estimativa else LIMIAR_FAMILIA_COM_ESTIMATIVA
+    familias = [f for f in buscar_familias(descricao, catmat, limite=MAX_FAMILIAS) if f["nota"] >= corte_familia]
     if not familias:
         return resultado
     with ThreadPoolExecutor(max_workers=4) as executor:
@@ -277,6 +284,16 @@ def _cotar_material(descricao: str, catmat: IndiceCatmat, inicio: str, fim: str)
     resultado["proximos"] = [{"codigo": c[2], "correspondencia": c[0], "descricao": c[3]} for c in classificados[:MAX_CATMAT]]
     resultado["melhor_proximo"] = resultado["proximos"][0] if classificados else None
     escolhidos = [c for c in classificados if c[0] >= limiar][:MAX_CATMAT]
+    if estimativa:  # CATMAT que não entraram na cotação, com o preço que praticam: serve para conferir a estimativa do usuário
+        escolhidos_codigos = {c[2] for c in escolhidos}
+        for nota, _, codigo, descricao_catalogo in classificados:
+            if codigo in escolhidos_codigos or nota < LIMIAR_ALTERNATIVA:
+                continue
+            mesma_unidade, _, unidade_curta = _unidade_dominante(por_item[codigo])
+            precos = [r["preco"] for r in mesma_unidade]
+            if len(precos) >= MIN_REGISTROS_ALTERNATIVA:
+                resultado["alternativas_preco"].append({"codigo": codigo, "correspondencia": nota, "descricao": descricao_catalogo, "mediana": float(statistics.median(precos)),
+                                                        "registros": len(precos), "unidade": unidade_curta})
     return _concluir(resultado, escolhidos, por_item) if escolhidos else resultado
 
 
@@ -336,14 +353,58 @@ def _comeca_pelo_objeto(nome: str, objeto: str) -> bool:
 _ORDEM_STATUS = {"ok": 3, "insuficiente": 2, "sem_precos": 1, "sem_catmat": 0}
 
 
-def cotar_item(descricao: str, catmat: IndiceCatmat, catalogo_servico: list[dict] | None = None, tipo: str = "Material", hoje: dt.date | None = None) -> dict:
+def _brl(valor: float) -> str:
+    return "R$ " + f"{valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+def aplicar_estimativa(resultado: dict, estimativa: float | None) -> dict:
+    """Confere a cotação com o preço que o usuário estima para o item: o preço médio dos CATMAT escolhidos bate com a estimativa? E algum CATMAT que ficou
+    de fora (parecido, mas abaixo do mínimo) pratica preço mais próximo dela? Só avisa: nunca troca o CATMAT sozinho.
+    Preenche `estimativa`, `validacao` ('coerente', 'divergente', 'sem_precos' ou None sem estimativa), `compativeis` e `texto_validacao`."""
+    resultado.update({"estimativa": None, "validacao": None, "compativeis": [], "texto_validacao": ""})
+    if not estimativa or estimativa <= 0:
+        return resultado
+    resultado["estimativa"] = float(estimativa)
+    compativeis = [a for a in resultado.get("alternativas_preco", []) if abs(a["mediana"] / estimativa - 1) <= TOLERANCIA_ESTIMATIVA]
+    compativeis.sort(key=lambda a: (abs(a["mediana"] / estimativa - 1), -a["correspondencia"]))
+    partes = []
+    if resultado["stats"]:
+        media = resultado["stats"]["media"]
+        desvio = media / estimativa - 1
+        resultado["validacao"] = "coerente" if abs(desvio) <= TOLERANCIA_ESTIMATIVA else "divergente"
+        if resultado["validacao"] == "coerente":  # preço e CATMAT já batem: só sugere outro se for bem parecido e ainda mais próximo da estimativa
+            compativeis = [a for a in compativeis if a["correspondencia"] >= LIMIAR_ALTERNATIVA_FORTE and abs(a["mediana"] / estimativa - 1) < abs(desvio)]
+    resultado["compativeis"] = compativeis[:MAX_ALTERNATIVAS]
+    if resultado["stats"]:
+        if resultado["validacao"] == "coerente":
+            partes.append(f"✅ Preço médio {_brl(media)} coerente com a estimativa de {_brl(estimativa)} ({desvio:+.0%}).")
+        else:
+            partes.append(f"⚠️ Preço médio {_brl(media)} está {abs(desvio):.0%} {'acima' if desvio > 0 else 'abaixo'} da estimativa de {_brl(estimativa)}: confira o CATMAT, a unidade ou a estimativa.")
+    else:
+        resultado["validacao"] = "sem_precos"
+        partes.append("Sem preços para comparar com a estimativa.")
+    if resultado["compativeis"]:
+        partes.append("💡 Outro(s) CATMAT parecido(s) pratica(m) preço compatível com a estimativa: " + "; ".join(
+            f"{a['codigo']} ({a['correspondencia']:.0f}%, mediana {_brl(a['mediana'])})" for a in resultado["compativeis"]) + ". Veja se o item pedido não é um deles.")
+    resultado["texto_validacao"] = " ".join(partes)
+    return resultado
+
+
+def cotar_item(descricao: str, catmat: IndiceCatmat, catalogo_servico: list[dict] | None = None, tipo: str = "Material", hoje: dt.date | None = None,
+               estimativa: float | None = None) -> dict:
+    """Cotação de uma descrição (ver _cotar_item_base). Com `estimativa` (R$ por unidade, opcional), valida preço e CATMAT contra ela (aplicar_estimativa)."""
+    return aplicar_estimativa(_cotar_item_base(descricao, catmat, catalogo_servico, tipo, hoje, estimativa), estimativa)
+
+
+def _cotar_item_base(descricao: str, catmat: IndiceCatmat, catalogo_servico: list[dict] | None = None, tipo: str = "Material", hoje: dt.date | None = None,
+                     estimativa: float | None = None) -> dict:
     """Cotação de uma descrição. `tipo`: "Material" (mín. 75%), "Serviço" (mín. 65%) ou "Automático" (escolhe pelo que combina melhor).
     Chaves principais do resultado: tipo, status, catmats (códigos CATMAT/CATSERV), precos, stats."""
     hoje = hoje or dt.date.today()
     inicio, fim = (hoje - dt.timedelta(days=JANELA_DIAS)).isoformat(), hoje.isoformat()
     catalogo_servico = catalogo_servico or []
     if tipo == "Material":
-        return _cotar_material(descricao, catmat, inicio, fim)
+        return _cotar_material(descricao, catmat, inicio, fim, estimativa)
     if tipo == "Serviço":
         return _cotar_servico(descricao, catalogo_servico, inicio, fim)
 
@@ -366,5 +427,5 @@ def cotar_item(descricao: str, catmat: IndiceCatmat, catalogo_servico: list[dict
     else:
         tipos = [t for t, ok in (("Material", material_ok), ("Serviço", servico_ok)) if ok]
         tipos = tipos or [("Material", "Serviço")[nota_servico - LIMIAR_SERVICO > nota_material - LIMIAR_CORRESPONDENCIA]]
-    resultados = [(_cotar_material if t == "Material" else _cotar_servico)(descricao, catmat if t == "Material" else catalogo_servico, inicio, fim) for t in tipos]
+    resultados = [_cotar_material(descricao, catmat, inicio, fim, estimativa) if t == "Material" else _cotar_servico(descricao, catalogo_servico, inicio, fim) for t in tipos]
     return max(resultados, key=lambda r: (_ORDEM_STATUS[r["status"]], len(r["precos"]), max((k["correspondencia"] for k in r["catmats"]), default=0), (r["melhor_proximo"] or {}).get("correspondencia", 0)))

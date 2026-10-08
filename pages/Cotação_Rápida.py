@@ -23,7 +23,7 @@ sys.path.insert(0, BASE_DIR)  # permite importar catmat_busca.py (raiz do projet
 from atualizar_modulos import recarregar_se_mudou  # noqa: E402
 recarregar_se_mudou('catmat_busca', 'cotacao_rapida', 'lista_itens', 'relatorio_cotacao_rapida', 'lista_itens_ui')  # evita módulo antigo em memória após deploy
 from catmat_busca import CATMAT_PATH, CATSERV_PATH, carregar_catalogo, carregar_indice_catmat  # noqa: E402
-from cotacao_rapida import JANELA_DIAS, LIMIAR_CORRESPONDENCIA, LIMIAR_SERVICO, MAX_CATMAT, MAX_PRECOS, MIN_PRECOS, TOLERANCIA, cotar_item, resultado_vazio  # noqa: E402
+from cotacao_rapida import aplicar_estimativa, JANELA_DIAS, LIMIAR_CORRESPONDENCIA, LIMIAR_SERVICO, MAX_CATMAT, MAX_PRECOS, MIN_PRECOS, TOLERANCIA, cotar_item, resultado_vazio  # noqa: E402
 from relatorio_cotacao_rapida import STATUS_TEXTO, gerar_excel, gerar_pdf, tabela_mapa  # noqa: E402
 from lista_itens import anexar_pedido, tem_quantidades, valor_total_orcamento  # noqa: E402
 from lista_itens_ui import entrada_itens  # noqa: E402
@@ -173,7 +173,7 @@ catalogo_servico = carregar_catalogo(CATSERV_PATH)
 
 st.markdown('<div class="input-panel"><h3>Lista de itens</h3><p>Digite ou cole um item por linha, com a quantidade ao lado se quiser (ex.: “caneta azul - 100”, “50 resmas de papel A4”), ou importe uma planilha (CSV ou Excel). Com quantidades, o mapa já traz o valor total de cada item e do orçamento.</p></div>', unsafe_allow_html=True)
 itens_pedidos = entrada_itens(
-    "cr", rotulo="Descrições dos itens", altura=170,
+    "cr", rotulo="Descrições dos itens", altura=170, com_estimativa=True,
     placeholder="Ex:\nResma de papel A4 75 g/m² - 50\n10 notebook 15 polegadas 16 GB\nDetergente líquido neutro 5 litros; 30 un",
 )
 tipo_busca = st.selectbox(
@@ -198,11 +198,11 @@ if st.button("⚡ Cotar itens", type="primary", use_container_width=True):
         for posicao, (item, pedido) in enumerate(zip(itens, itens_lista), start=1):
             barra.progress((posicao - 1) / len(itens), text=f"Cotando {posicao}/{len(itens)}: {item[:60]}")
             try:
-                resultados.append(anexar_pedido(cotar_item(item, catmat, catalogo_servico, tipo_busca), pedido))
+                resultados.append(anexar_pedido(cotar_item(item, catmat, catalogo_servico, tipo_busca, estimativa=pedido.get("estimativa")), pedido))
             except Exception as erro:  # um item com problema não derruba a cotação inteira
                 vazio = resultado_vazio(item, tipo_busca if tipo_busca != "Automático" else "Material")
                 vazio["falha_api"] = True
-                resultados.append(anexar_pedido(vazio, pedido))
+                resultados.append(anexar_pedido(aplicar_estimativa(vazio, pedido.get("estimativa")), pedido))
                 st.warning(f"Não foi possível cotar “{item[:60]}”: {erro}")
         barra.progress(1.0, text=f"Concluído em {(datetime.now() - inicio).seconds} s")
         st.session_state["cotacao_rapida"] = resultados
@@ -226,6 +226,18 @@ if resultados:
     configuracao = {coluna: formato_moeda for coluna in mapa.columns if coluna.startswith("Preço") or coluna in ("Média unitária", "Mediana", "Mínimo", "Máximo", "Desvio padrão", "Valor total (média × qtd.)")}
     configuracao["CV (%)"] = st.column_config.NumberColumn(format="%.1f%%")
     configuracao["% casamento"] = st.column_config.NumberColumn(format="%.0f%%")
+    configuracao["Estimativa (R$)"] = formato_moeda
+    com_estimativa = [r for r in resultados if r.get("estimativa")]
+    if com_estimativa:
+        divergentes = [r for r in com_estimativa if r["validacao"] == "divergente"]
+        outros = [r for r in com_estimativa if r["compativeis"]]
+        st.markdown(f"**Conferência com a sua estimativa de preço** — {len(com_estimativa)} item(ns) com estimativa: "
+                    f"{sum(1 for r in com_estimativa if r['validacao'] == 'coerente')} coerente(s), {len(divergentes)} divergente(s), {len(outros)} com sugestão de outro CATMAT mais próximo da estimativa.")
+        for r in com_estimativa:
+            if r["validacao"] != "coerente":
+                st.warning(f"**{r['descricao']}** — {r['texto_validacao']}".replace("$", "\\$"))  # "$" solto vira fórmula no markdown
+            elif r["compativeis"]:
+                st.info(f"**{r['descricao']}** — {r['texto_validacao']}".replace("$", "\\$"))
     if tem_quantidades(resultados):
         com_total = sum(1 for r in resultados if r.get("quantidade_pedida") and r["stats"])
         st.metric("Valor total estimado do orçamento", moeda(valor_total_orcamento(resultados)),
@@ -247,9 +259,15 @@ if resultados:
             if r["catmats"]:
                 st.markdown(f"**{'CATSERV' if r.get('tipo') == 'Serviço' else 'CATMAT'} correspondentes**")
                 st.dataframe(pd.DataFrame([{"Código": k["codigo"], "Correspondência (%)": round(k["correspondencia"], 1), "Registros": k["registros"], "Descrição no catálogo": k["descricao"]} for k in r["catmats"]]), hide_index=True, use_container_width=True)
+            if r.get("estimativa"):
+                st.markdown(f"**Conferência com a sua estimativa ({moeda(r['estimativa'])} por unidade):** {r['texto_validacao']}".replace("$", "\\$"))
+                if r["compativeis"]:
+                    st.dataframe(pd.DataFrame([{"Código": a["codigo"], "Correspondência (%)": round(a["correspondencia"], 1), "Mediana dos preços": a["mediana"], "Registros": a["registros"],
+                                                "Unidade": a["unidade"], "Descrição no catálogo": a["descricao"]} for a in r["compativeis"]]),
+                                 hide_index=True, use_container_width=True, column_config={"Mediana dos preços": formato_moeda})
             if r["precos"]:
                 s = r["stats"]
-                st.caption(f"Unidade: {r['unidade']} · universo analisado: {r.get('universo', r['brutos'])} registros · outliers removidos: {r['outliers']} · mínimo {moeda(s['min'])} · máximo {moeda(s['max'])} · CV {s['cv']:.1f}%")
+                st.caption(f"Unidade: {r['unidade']} · universo analisado: {r.get('universo', r['brutos'])} registros · outliers removidos: {r['outliers']} · mínimo {moeda(s['min'])} · máximo {moeda(s['max'])} · CV {s['cv']:.1f}%".replace("$", "\\$"))
                 st.dataframe(
                     pd.DataFrame([{"Data": str(p["data"])[:10], "Valor unitário": p["preco"], "Quantidade": p["quantidade"], "Fornecedor": p["fornecedor"], "CNPJ": p["cnpj"], "Órgão": p["nome_uasg"], "UF": p["uf"], "UASG": p["uasg"], "Código": p["catmat"], "ID Compra": p["id_compra"]} for p in r["precos"]]),
                     hide_index=True, use_container_width=True, column_config={"Valor unitário": formato_moeda},

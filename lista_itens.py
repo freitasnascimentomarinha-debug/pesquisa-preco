@@ -40,7 +40,7 @@ def _item(descricao: str, quantidade: float | None, unidade: str) -> dict[str, o
     """`quantidade` é sempre um número (1 se não foi informada); `quantidade_informada` diz se o usuário a digitou."""
     descricao = descricao.strip(" -–—,;:")
     return {"descricao": descricao[:1].upper() + descricao[1:], "quantidade": quantidade if quantidade is not None else 1.0,
-            "unidade": unidade or "UN", "quantidade_informada": quantidade is not None}
+            "unidade": unidade or "UN", "quantidade_informada": quantidade is not None, "estimativa": None}
 
 
 UNIDADES_MEDIDA = ("kg", "g", "l", "lt", "litro", "litros", "m", "mt", "metro", "metros")  # também aparecem como especificação do item ("papel 75 g", "fita 20 m")
@@ -108,8 +108,13 @@ def detectar_colunas(colunas: list[str]) -> tuple[str, str | None, str | None]:
     return descricao, quantidade, unidade
 
 
+def detectar_coluna_estimativa(colunas: list[str]) -> str | None:
+    """Coluna da planilha com o preço que o usuário estima para o item (cabeçalho com 'estimativa', 'preço' ou 'valor')."""
+    return next((c for c in colunas if any(p in str(c).strip().lower() for p in ("estimativa", "estimado", "preço", "preco", "valor"))), None)
+
+
 def itens_do_dataframe(dados, col_descricao: str | None = None, col_quantidade: str | None = None, col_unidade: str | None = None,
-                       detectar: bool = True) -> list[dict[str, object]]:
+                       detectar: bool = True, col_estimativa: str | None = None) -> list[dict[str, object]]:
     """Planilha (pandas.DataFrame) -> itens. Sem colunas informadas, procura pelo nome do cabeçalho."""
     if dados is None or dados.empty:
         return []
@@ -125,7 +130,10 @@ def itens_do_dataframe(dados, col_descricao: str | None = None, col_quantidade: 
             continue
         quantidade = numero_quantidade(str(linha[col_quantidade])) if col_quantidade else None
         unidade = str(linha[col_unidade]).strip() if col_unidade and str(linha[col_unidade]).strip().lower() not in ("", "nan", "none") else "UN"
-        itens.append(_item(descricao, quantidade, unidade_normalizada(unidade)))
+        item = _item(descricao, quantidade, unidade_normalizada(unidade))
+        if col_estimativa:
+            item["estimativa"] = numero_quantidade(str(linha[col_estimativa]))
+        itens.append(item)
     return itens
 
 
@@ -146,6 +154,7 @@ def unir_repetidos(itens: list[dict[str, object]]) -> list[dict[str, object]]:
             atual["quantidade"] = float(atual["quantidade"]) + float(item["quantidade"]) if item.get("quantidade_informada") and atual.get("quantidade_informada") \
                 else float(item["quantidade"]) if item.get("quantidade_informada") else float(atual["quantidade"])
             atual["quantidade_informada"] = bool(atual.get("quantidade_informada") or item.get("quantidade_informada"))
+            atual["estimativa"] = atual.get("estimativa") or item.get("estimativa")
     return list(saida.values())
 
 

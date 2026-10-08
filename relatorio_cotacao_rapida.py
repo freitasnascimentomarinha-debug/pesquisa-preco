@@ -442,6 +442,7 @@ def tabela_mapa(resultados: list[dict]) -> pd.DataFrame:
     """Mapa comparativo em DataFrame (usado na tela e no Excel), com as mesmas colunas da tabela de itens da Cotação Direta.
     Com quantidades na lista, traz Qtd., Un. e o valor total de cada item (média unitária x quantidade)."""
     com_quantidade = tem_quantidades(resultados)
+    com_estimativa = any(r.get("estimativa") for r in resultados)
     material_e_servico = len({r.get("tipo") == "Serviço" for r in resultados}) > 1 or any(r.get("tipo") == "Serviço" for r in resultados)
     rotulo_codigo = "CATMAT/CATSERV" if material_e_servico else COL_CATMAT
     linhas = []
@@ -460,6 +461,9 @@ def tabela_mapa(resultados: list[dict]) -> pd.DataFrame:
         linha["Média unitária"] = s["media"] if s else None
         if com_quantidade:
             linha[COL_TOTAL] = valor_total_item(r)
+        if com_estimativa:
+            linha["Estimativa (R$)"] = r.get("estimativa")
+            linha["Conferência com a estimativa"] = r.get("texto_validacao") or None
         linha.update({
             "Mediana": s["mediana"] if s else None,
             "Mínimo": s["min"] if s else None,
