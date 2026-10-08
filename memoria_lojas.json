@@ -1,6 +1,6 @@
 {
  "versao": 1,
- "atualizado": "2026-10-08T15:56:39",
+ "atualizado": "2026-10-08T22:04:18",
  "lojas": {
   "lojadomecanico.com.br": {
    "acertos": 25,
@@ -329,9 +329,10 @@
    "busca": "/busca?q={q}"
   },
   "atacadosaopaulo.com.br": {
-   "acertos": 47,
-   "ultimo": "2026-10-06",
+   "acertos": 48,
+   "ultimo": "2026-10-08",
    "itens": [
+    "fita isolante",
     "calculadora de mesa 12 dígitos",
     "máscara descartável tripla c/ 50",
     "sabonete líquido 5 litros",
@@ -344,7 +345,6 @@
     "papel contact",
     "detergente",
     "grampeador",
-    "fita isolante",
     "chave de fenda",
     "caneta esferográfica azul",
     "lápis preto",
@@ -362,7 +362,7 @@
    ],
    "metodos": {
     "navegador": 7,
-    "texto": 38
+    "texto": 39
    },
    "paginas": {
     "caneta esferográfica azul": "https://www.atacadosaopaulo.com.br/ki-5-caixas-caneta-esferografica-1-0mm---3un-azul--1un-preto-e-1un-vermelho---caixa-fechada-50un/p?srsltid=AU7gw4Vyg5t9J9U2FbmQcIfvLVIMmm-1Qb4l5EoZNMZ7S025fHvaLGbp",
@@ -396,7 +396,7 @@
     "tintas e pintura": 1,
     "papelaria e escritório": 23,
     "limpeza e higiene": 13,
-    "elétrico": 4,
+    "elétrico": 5,
     "ferramentas": 2,
     "EPI e segurança": 1,
     "construção": 1
@@ -1803,18 +1803,18 @@
    }
   },
   "ferreiracosta.com": {
-   "acertos": 3,
-   "ultimo": "2026-10-07",
+   "acertos": 4,
+   "ultimo": "2026-10-08",
    "itens": [
-    "bebedouro",
-    "fita isolante"
+    "fita isolante",
+    "bebedouro"
    ],
    "metodos": {
     "navegador": 0,
-    "texto": 3
+    "texto": 4
    },
    "naturezas": {
-    "elétrico": 2,
+    "elétrico": 3,
     "eletrodomésticos": 1
    },
    "paginas": {
@@ -1823,17 +1823,17 @@
    }
   },
   "unicaserv.com.br": {
-   "acertos": 1,
-   "ultimo": "2026-10-06",
+   "acertos": 2,
+   "ultimo": "2026-10-08",
    "itens": [
     "fita isolante"
    ],
    "metodos": {
     "navegador": 0,
-    "texto": 1
+    "texto": 2
    },
    "naturezas": {
-    "elétrico": 1
+    "elétrico": 2
    },
    "paginas": {
     "fita isolante": "https://www.unicaserv.com.br/ferramentas/ferramentas-de-uso-geral/2-rolos-de-fita-isolante-20-metros-eda-"
@@ -3119,17 +3119,17 @@
    }
   },
   "apotiguar.com.br": {
-   "acertos": 1,
-   "ultimo": "2026-10-06",
+   "acertos": 2,
+   "ultimo": "2026-10-08",
    "itens": [
     "fita isolante"
    ],
    "metodos": {
     "navegador": 0,
-    "texto": 1
+    "texto": 2
    },
    "naturezas": {
-    "elétrico": 1
+    "elétrico": 2
    },
    "paginas": {
     "fita isolante": "https://www.apotiguar.com.br/materiais-eletricos/acessorios-eletricos/fitas-isolantes"
@@ -5158,9 +5158,9 @@
    "ultimo": "2026-10-06"
   },
   "pitchbook.com": {
-   "navegador": 1,
-   "texto": 1,
-   "ultimo": "2026-10-06"
+   "navegador": 2,
+   "texto": 2,
+   "ultimo": "2026-10-08"
   },
   "globalatacadista.com.br": {
    "navegador": 1,
@@ -5395,14 +5395,14 @@
  },
  "frases": {
   "{item} comprar": {
-   "usos": 13.8528,
-   "acertos": 5.4621,
-   "ultimo": "2026-10-07"
+   "usos": 14.1602,
+   "acertos": 6.189,
+   "ultimo": "2026-10-08"
   },
   "{item} preço": {
-   "usos": 19.9253,
-   "acertos": 39.3633,
-   "ultimo": "2026-10-07"
+   "usos": 19.929,
+   "acertos": 39.3951,
+   "ultimo": "2026-10-08"
   },
   "venda de {item}": {
    "usos": 15.4812,
@@ -5435,7 +5435,7 @@
    "ultimo": "2026-10-07"
   }
  },
- "buscas": 129,
+ "buscas": 130,
  "sem_busca": {
   "arxiv.org": "2026-10-05",
   "papers.ssrn.com": "2026-10-05",
@@ -5511,11 +5511,11 @@
  },
  "serper": {
   "mes": "2026-10",
-  "n": 99
+  "n": 100
  },
  "tavily": {
   "mes": "2026-10",
-  "n": 254
+  "n": 256
  },
  "nomes": {
   "papel contact": {
@@ -5979,8 +5979,63 @@
   }
  },
  "desempenho": {
-  "execucoes": [],
-  "naturezas": {}
+  "execucoes": [
+   {
+    "data": "2026-10-08T22:04:18",
+    "item": "Fita isolante",
+    "natureza": "elétrico",
+    "segundos": 71.2,
+    "precos": 3,
+    "certos": 3,
+    "completo": true,
+    "api": 3,
+    "navegador": 1,
+    "frase": "{item} comprar",
+    "origens": {
+     "parecida": {
+      "tentativas": 3,
+      "precos": 1,
+      "segundos": 22.7
+     },
+     "natureza": {
+      "tentativas": 3,
+      "precos": 0,
+      "segundos": 16.5
+     },
+     "busca": {
+      "tentativas": 6,
+      "precos": 3,
+      "segundos": 32.0
+     }
+    }
+   }
+  ],
+  "naturezas": {
+   "elétrico": {
+    "itens": 1.0,
+    "segundos": 71.243,
+    "precos": 3.0,
+    "certos": 3.0,
+    "completos": 1.0,
+    "origens": {
+     "parecida": {
+      "tentativas": 3.0,
+      "precos": 1.0,
+      "segundos": 22.682
+     },
+     "natureza": {
+      "tentativas": 3.0,
+      "precos": 0.0,
+      "segundos": 16.53
+     },
+     "busca": {
+      "tentativas": 6.0,
+      "precos": 3.0,
+      "segundos": 32.018
+     }
+    }
+   }
+  }
  },
  "oms": {
   "CENTRO DE OPERACOES DO ABASTECIMENTO - COPAB": {
