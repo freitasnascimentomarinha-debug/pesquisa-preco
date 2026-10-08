@@ -14,7 +14,7 @@ import html
 import io
 import re
 import time
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import requests
 
@@ -284,17 +284,35 @@ def _ativa(contato: dict[str, str]) -> bool:
     return not any(marca in situacao for marca in SITUACOES_INATIVAS)
 
 
+def _candidatos_seguro(descricao: str, catmat) -> list[dict[str, object]]:
+    try:
+        return candidatos_do_item(descricao, catmat)
+    except Exception:  # falha de rede em um item não derruba o pedido inteiro
+        return []
+
+
 def escolher_fornecedores(itens: list[dict[str, object]], catmat, ao_progredir=None, excluir_emails: set[str] | None = None,
                           por_item: int = FORNECEDORES_POR_ITEM) -> dict[int, list[dict[str, object]]]:
     """Para cada item (na ordem), até `por_item` fornecedores COM e-mail, nunca repetindo um fornecedor (CNPJ ou e-mail) já escolhido para outro item.
-    Devolve {posição do item: [fornecedor, ...]}. `ao_progredir(i, total, texto)` atualiza a tela."""
+    Devolve {posição do item: [fornecedor, ...]}.
+    Etapa 1 (em paralelo): vendas recentes de cada item no Compras.gov. Etapa 2 (item a item, para não repetir fornecedor): e-mail dos candidatos.
+    `ao_progredir(fase, feitos, total, texto, achados)` atualiza a tela (fase 'busca' ou 'contatos')."""
+    total = len(itens)
+    candidatos_por_item: dict[int, list[dict[str, object]]] = {}
+    with ThreadPoolExecutor(max_workers=4) as executor:
+        futuros = {executor.submit(_candidatos_seguro, str(item["descricao"]), catmat): posicao for posicao, item in enumerate(itens)}
+        for feitos, futuro in enumerate(as_completed(futuros), start=1):
+            candidatos_por_item[futuros[futuro]] = futuro.result()
+            if ao_progredir:
+                ao_progredir("busca", feitos, total, f"Vendas recentes consultadas: {feitos}/{total} itens", 0)
     usados_cnpj: set[str] = set()
     usados_email: set[str] = {e.lower() for e in (excluir_emails or set())}
     resultado: dict[int, list[dict[str, object]]] = {}
+    achados = 0
     for posicao, item in enumerate(itens):
         if ao_progredir:
-            ao_progredir(posicao, len(itens), f"Item {posicao + 1}/{len(itens)}: {item['descricao']}")
-        candidatos = [c for c in candidatos_do_item(str(item["descricao"]), catmat) if c["cnpj"] not in usados_cnpj]
+            ao_progredir("contatos", posicao, total, f"Item {posicao + 1}/{total}: {item['descricao']}", achados)
+        candidatos = [c for c in candidatos_por_item.get(posicao, []) if c["cnpj"] not in usados_cnpj]
         escolhidos: list[dict[str, object]] = []
         consultados = 0
         while candidatos and len(escolhidos) < por_item and consultados < MAX_CONSULTAS_CONTATO_POR_ITEM:
@@ -313,8 +331,9 @@ def escolher_fornecedores(itens: list[dict[str, object]], catmat, ao_progredir=N
                                    "motivo": motivo_da_escolha(candidato), "item": item["descricao"], "posicao_item": posicao + 1, "enviar": True})
             time.sleep(0.1)
         resultado[posicao] = escolhidos
+        achados += len(escolhidos)
     if ao_progredir:
-        ao_progredir(len(itens), len(itens), "Fornecedores escolhidos")
+        ao_progredir("contatos", total, total, "Fornecedores escolhidos", achados)
     return resultado
 
 

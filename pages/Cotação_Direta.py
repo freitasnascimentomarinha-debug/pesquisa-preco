@@ -6,6 +6,7 @@ import base64
 import datetime as dt
 import os
 import sys
+import time
 
 import pandas as pd
 import streamlit as st
@@ -26,7 +27,7 @@ import cotacao_direta as cd  # noqa: E402
 import memoria_lojas  # noqa: E402  (só para ler os Secrets)
 from catmat_busca import CATMAT_PATH, carregar_indice_catmat  # noqa: E402
 
-MAX_ITENS = 30
+ITENS_PEDIDO_GRANDE = 60  # acima disso só avisa que demora; não há limite
 
 st.markdown(
     """
@@ -157,20 +158,22 @@ om = {"nome": nome_om.strip(), "cep": cd.somente_digitos(st.session_state.get("o
       "email": email_om.strip(), "responsavel": responsavel.strip()}
 
 # ---------- 2. itens ----------
-passo(2, "Itens e quantidades", f"Digite como uma lista de compras ou envie uma planilha (até {MAX_ITENS} itens por pedido). Confira a tabela e corrija o que precisar.")
+passo(2, "Itens e quantidades", "Digite como uma lista de compras ou envie uma planilha (sem limite de itens). Confira a tabela e corrija o que precisar.")
 aba_texto, aba_arquivo = st.tabs(["✍️ Digitar a lista", "📎 Enviar Excel/CSV"])
 with aba_texto:
     texto_lista = st.text_area("Um item por linha, com a quantidade ao lado", height=170, key="cd_lista",
                                placeholder="Caneta esferográfica azul - 100\n50 resmas de papel A4\nParafuso sextavado 1/2 x 20 zincado; 200 un\nFita isolante 20m x 30")
     if st.button("Identificar itens", key="cd_identificar_texto"):
-        st.session_state["cd_itens_base"] = cd.interpretar_lista(texto_lista)
+        with st.spinner("Identificando os itens…"):
+            st.session_state["cd_itens_base"] = cd.interpretar_lista(texto_lista)
         st.session_state.pop("cd_resultado", None)
 with aba_arquivo:
     arquivo = st.file_uploader("Planilha com os itens (colunas: item/descrição e quantidade)", type=["xlsx", "xls", "csv"], key="cd_arquivo")
     if arquivo is not None and st.button("Ler a planilha", key="cd_identificar_arquivo"):
         try:
-            dados = pd.read_csv(arquivo) if arquivo.name.lower().endswith(".csv") else pd.read_excel(arquivo)
-            st.session_state["cd_itens_base"] = cd.itens_do_dataframe(dados)
+            with st.spinner("Lendo a planilha…"):
+                dados = pd.read_csv(arquivo) if arquivo.name.lower().endswith(".csv") else pd.read_excel(arquivo)
+                st.session_state["cd_itens_base"] = cd.itens_do_dataframe(dados)
             st.session_state.pop("cd_resultado", None)
         except Exception as erro:  # arquivo ilegível
             st.error(f"Não consegui ler a planilha ({type(erro).__name__}). Confira se é um .xlsx ou .csv válido.")
@@ -186,9 +189,9 @@ if st.session_state.get("cd_itens_base"):
             quantidade = pd.to_numeric(linha["Qtd."], errors="coerce")
             itens.append({"descricao": descricao, "quantidade": float(quantidade) if quantidade == quantidade and quantidade > 0 else 1.0,
                           "unidade": str(linha["Un."] or "UN").strip().upper() or "UN"})
-    if len(itens) > MAX_ITENS:
-        st.warning(f"Limite de {MAX_ITENS} itens por pedido: os demais foram ignorados. Faça outro pedido para o restante.")
-        itens = itens[:MAX_ITENS]
+    st.caption(f"{len(itens)} item(ns) identificado(s).")
+    if len(itens) > ITENS_PEDIDO_GRANDE:
+        st.warning(f"Pedido grande ({len(itens)} itens): a busca de fornecedores pode levar vários minutos e o envio sai em várias mensagens. Mantenha esta página aberta até terminar.")
 
 # ---------- 3. condições ----------
 # prazo e condições padrão (sem campos na tela): resposta em 5 dias úteis, proposta válida por 60 dias
@@ -209,23 +212,37 @@ passo(3, "Escolher fornecedores e gerar a proposta",
 if faltam:
     st.info("Falta preencher: " + ", ".join(faltam) + ".")
 if st.button("🔎 Preparar cotação", type="primary", disabled=bool(faltam), key="cd_preparar"):
+    inicio = time.time()
+    aviso, etapa, barra, status = st.empty(), st.empty(), st.progress(0), st.empty()
+    aviso.warning("⏳ Processando… não feche nem atualize esta página até terminar.")
+
+    def _tempo() -> str:
+        decorrido = int(time.time() - inicio)
+        return f"{decorrido // 60}min {decorrido % 60:02d}s"
+
     catmat = catalogo_catmat()
-    barra, status = st.progress(0), st.empty()
     catmats = {}
+    etapa.markdown("**Etapa 1 de 3 — sugerindo o CATMAT de cada item**")
     for i, item in enumerate(itens):
-        status.text(f"Sugerindo CATMAT… {i + 1}/{len(itens)}")
+        status.text(f"Item {i + 1}/{len(itens)}  •  decorrido: {_tempo()}")
         catmats[i] = cd.sugerir_catmats(str(item["descricao"]), catmat)
         barra.progress((i + 1) / len(itens) * 0.2)
 
-    def _progresso(i: int, total: int, texto: str) -> None:
-        barra.progress(0.2 + 0.8 * i / max(total, 1))
-        status.text("Buscando fornecedores… " + texto)
+    def _progresso(fase: str, feitos: int, total: int, texto: str, achados: int) -> None:
+        if fase == "busca":
+            etapa.markdown("**Etapa 2 de 3 — consultando as vendas recentes no Compras.gov**")
+            barra.progress(0.2 + 0.3 * feitos / max(total, 1))
+        else:
+            etapa.markdown("**Etapa 3 de 3 — escolhendo fornecedores e buscando os e-mails**")
+            barra.progress(0.5 + 0.5 * feitos / max(total, 1))
+        status.text(f"{texto}  •  fornecedores com e-mail até agora: {achados}  •  decorrido: {_tempo()}")
 
     por_item = cd.escolher_fornecedores(itens, catmat, ao_progredir=_progresso, excluir_emails={om["email"]})
-    barra.empty()
-    status.empty()
+    for marcador in (aviso, etapa, barra, status):
+        marcador.empty()
     st.session_state["cd_resultado"] = {"itens": itens, "catmats": catmats, "fornecedores": [f for lista in por_item.values() for f in lista], "om": dict(om)}
     st.session_state.pop("cd_envio", None)
+    st.success(f"Pronto em {_tempo()}: {len(st.session_state['cd_resultado']['fornecedores'])} fornecedor(es) com e-mail para {len(itens)} item(ns).")
 
 resultado = st.session_state.get("cd_resultado")
 if resultado:
