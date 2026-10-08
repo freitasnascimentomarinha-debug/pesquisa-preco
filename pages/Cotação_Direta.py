@@ -132,12 +132,45 @@ def _buscar_cep() -> None:
         st.session_state["om_uf"] = endereco["uf"]
 
 
-passo(1, "Dados da sua OM", "O cabeçalho da proposta e o e-mail usam estes dados. Digite o CEP e o endereço é preenchido sozinho.")
+def _segredos():
+    """Secrets do app, ou {} se não houver arquivo de Secrets (st.secrets dá erro ao ser lido nesse caso)."""
+    try:
+        len(st.secrets)
+        return st.secrets
+    except Exception:
+        return {}
+
+
+if "cd_oms" not in st.session_state:  # OMs já salvas (nome + endereço), guardadas na memória do app
+    try:
+        st.session_state["cd_oms"] = dict(memoria_lojas.carregar(_segredos())[0].get("oms", {}))
+    except Exception:
+        st.session_state["cd_oms"] = {}
+
+
+def _ao_escolher_om() -> None:
+    """Nome de uma OM já salva: preenche o endereço (menos telefone, e-mail e responsável, que são de quem está pedindo)."""
+    salva = cd.dados_da_om(st.session_state.get("cd_oms", {}), st.session_state.get("om_nome") or "")
+    if salva:
+        for campo in ("cep", "logradouro", "numero", "complemento", "bairro", "cidade", "uf"):
+            st.session_state[f"om_{campo}"] = cd.formatar_cep(salva.get(campo, "")) if campo == "cep" else salva.get(campo, "")
+        st.session_state["om_cep_ok"] = True
+        st.session_state["cd_om_preenchida"] = salva["nome"]
+
+
+passo(1, "Dados da sua OM", "O cabeçalho da proposta e o e-mail usam estes dados. Comece a digitar o nome: se a OM já foi usada antes, o sistema sugere e preenche o endereço. Para uma OM nova, digite o CEP.")
 c1, c2 = st.columns([3, 1])
-nome_om = c1.text_input("Nome da OM (Organização Militar)", key="om_nome", placeholder="Ex.: Centro de Operações do Abastecimento")
+nomes_salvos = sorted(d["nome"] for d in st.session_state["cd_oms"].values())
+try:
+    nome_om = c1.selectbox("Nome da OM (Organização Militar)", nomes_salvos, index=None, accept_new_options=True, key="om_nome",
+                           placeholder="Comece a digitar o nome da OM", on_change=_ao_escolher_om) or ""
+except TypeError:  # Streamlit antigo, sem 'accept_new_options': campo de texto simples
+    nome_om = c1.text_input("Nome da OM (Organização Militar)", key="om_nome", placeholder="Ex.: Centro de Operações do Abastecimento", on_change=_ao_escolher_om)
 c2.text_input("CEP de entrega", key="om_cep", placeholder="00000-000", on_change=_buscar_cep)
 if st.session_state.get("om_cep") and st.session_state.get("om_cep_ok") is False:
     st.caption("⚠️ CEP não encontrado: preencha o endereço manualmente.")
+if st.session_state.get("cd_om_preenchida") and cd.chave_om(st.session_state["cd_om_preenchida"]) == cd.chave_om(nome_om):
+    st.caption(f"✅ Endereço de **{st.session_state['cd_om_preenchida']}** preenchido com os dados salvos. Informe o telefone, o e-mail e o responsável deste pedido.")
 c3, c4, c5 = st.columns([3, 1, 2])
 c3.text_input("Endereço", key="om_logradouro")
 c4.text_input("Número", key="om_numero")
@@ -190,6 +223,7 @@ with aba_texto:
     texto_lista = st.text_area("Um item por linha, com a quantidade ao lado", height=170, key="cd_lista",
                                placeholder="Caneta esferográfica azul - 100\n50 resmas de papel A4\nParafuso sextavado 1/2 x 20 zincado; 200 un\nFita isolante 20m x 30")
     if st.button("Identificar itens", key="cd_identificar_texto"):
+        st.session_state["cd_origem"] = "texto"
         with st.spinner("Identificando os itens e procurando o CATMAT de cada um…"):
             st.session_state["cd_itens_base"] = _linhas_com_catmat(cd.interpretar_lista(texto_lista))
         st.session_state["cd_versao"] = st.session_state.get("cd_versao", 0) + 1
@@ -197,6 +231,7 @@ with aba_texto:
 with aba_arquivo:
     arquivo = st.file_uploader("Planilha com os itens (colunas: item/descrição e quantidade)", type=["xlsx", "xls", "csv"], key="cd_arquivo")
     if arquivo is not None and st.button("Ler a planilha", key="cd_identificar_arquivo"):
+        st.session_state["cd_origem"] = "arquivo"
         try:
             with st.spinner("Lendo a planilha e procurando o CATMAT de cada item…"):
                 dados = pd.read_csv(arquivo) if arquivo.name.lower().endswith(".csv") else pd.read_excel(arquivo)
@@ -209,8 +244,11 @@ with aba_arquivo:
 itens: list[dict[str, object]] = []
 if st.session_state.get("cd_itens_base"):
     base = pd.DataFrame(st.session_state["cd_itens_base"])
-    st.caption("**Usar**: desmarque para deixar um item de fora do pedido. Dá para **editar a descrição, a quantidade e a unidade**: depois de mexer nas descrições, "
-               "clique em **Atualizar CATMAT** para o sistema casar de novo o código mais próximo. As colunas de CATMAT só mostram o resultado (não se edita).")
+    por_arquivo = st.session_state.get("cd_origem") == "arquivo"
+    st.caption("**Usar**: desmarque para deixar um item de fora do pedido. Você pode **editar a descrição, a quantidade e a unidade**. "
+               + ("Depois de mexer nas descrições, clique em **Atualizar CATMAT** (na aba “Enviar Excel/CSV”, logo abaixo do arquivo) para casar de novo o código mais próximo. "
+                  if por_arquivo else "Ao alterar uma descrição, o sistema casa sozinho o CATMAT mais próximo. ")
+               + "As colunas de CATMAT só mostram o resultado.")
     editado = st.data_editor(
         base, hide_index=True, use_container_width=True, num_rows="fixed", key=f"cd_editor_{st.session_state.get('cd_versao', 0)}",
         disabled=["CATMAT", "% casamento", "Descrição do CATMAT", "Outras opções", "Situação"],
@@ -225,23 +263,21 @@ if st.session_state.get("cd_itens_base"):
                        "Situação": st.column_config.TextColumn("Situação", width="medium")})
     todos = _itens_da_tabela(editado)
     mudou = [i for i, (novo, antigo) in enumerate(zip(editado["Descrição"], base["Descrição"])) if str(novo).strip() != str(antigo).strip()]
-    a1, a2 = st.columns([1, 3])
-    if a1.button("🔄 Atualizar CATMAT", key="cd_atualizar", type="primary" if mudou else "secondary"):
+    def _recasar() -> None:
         with st.spinner("Casando o CATMAT mais próximo…"):
             st.session_state["cd_itens_base"] = _linhas_com_catmat(todos, [t["usar"] for t in todos])
         st.session_state["cd_versao"] = st.session_state.get("cd_versao", 0) + 1
         st.session_state.pop("cd_resultado", None)
         st.rerun()
-    if mudou:
-        a2.warning(f"Você alterou {len(mudou)} descrição(ões): clique em **Atualizar CATMAT** para casar de novo.")
-    with st.expander("➕ Acrescentar mais itens à lista"):
-        mais = st.text_area("Um item por linha, com a quantidade ao lado", key="cd_mais", height=100)
-        if st.button("Acrescentar", key="cd_acrescentar") and mais.strip():
-            with st.spinner("Procurando o CATMAT dos itens novos…"):
-                st.session_state["cd_itens_base"] = _linhas_com_catmat(todos + cd.interpretar_lista(mais), [t["usar"] for t in todos] + [True] * len(cd.interpretar_lista(mais)))
-            st.session_state["cd_versao"] = st.session_state.get("cd_versao", 0) + 1
-            st.session_state.pop("cd_resultado", None)
-            st.rerun()
+
+    if por_arquivo:  # planilha: o usuário confere/edita e manda casar de novo
+        with aba_arquivo:
+            if st.button("🔄 Atualizar CATMAT", key="cd_atualizar", type="primary" if mudou else "secondary"):
+                _recasar()
+            if mudou:
+                st.warning(f"Você alterou {len(mudou)} descrição(ões): clique em **Atualizar CATMAT** para casar de novo.")
+    elif mudou:  # lista digitada: casa sozinho assim que a descrição muda
+        _recasar()
     itens = [{k: v for k, v in t.items() if k != "usar"} for t in todos if t["usar"]]
     st.caption(f"{len(itens)} item(ns) no pedido" + (f" ({len(todos) - len(itens)} deixado(s) de fora)." if len(todos) > len(itens) else "."))
     if len(itens) > ITENS_PEDIDO_GRANDE:
@@ -267,6 +303,14 @@ if faltam:
     st.info("Falta preencher: " + ", ".join(faltam) + ".")
 if st.button("🔎 Preparar cotação", type="primary", disabled=bool(faltam), key="cd_preparar"):
     inicio = time.time()
+    try:  # guarda o nome e o endereço da OM para os próximos pedidos (telefone, e-mail e responsável não)
+        memoria_om = memoria_lojas.carregar(_segredos())[0]
+        if cd.registrar_om(memoria_om, om):
+            retorno_om = memoria_lojas.salvar(memoria_om, _segredos())
+            st.session_state["cd_oms"] = dict(memoria_om.get("oms", {}))
+            st.session_state["cd_aviso_om"] = f"OM guardada para os próximos pedidos ({retorno_om})."
+    except Exception:
+        pass
     aviso, etapa, barra, status = st.empty(), st.empty(), st.progress(0), st.empty()
     aviso.warning("⏳ Processando… não feche nem atualize esta página até terminar.")
 
@@ -296,6 +340,8 @@ if st.button("🔎 Preparar cotação", type="primary", disabled=bool(faltam), k
         marcador.empty()
     st.session_state["cd_resultado"] = {"itens": itens, "catmats": catmats, "fornecedores": [f for lista in por_item.values() for f in lista], "om": dict(om)}
     st.session_state.pop("cd_envio", None)
+    if st.session_state.get("cd_aviso_om"):
+        st.caption("🏛️ " + st.session_state.pop("cd_aviso_om"))
     st.success(f"Pronto em {_tempo()}: {len(st.session_state['cd_resultado']['fornecedores'])} fornecedor(es) com e-mail para {len(itens)} item(ns).")
 
 resultado = st.session_state.get("cd_resultado")

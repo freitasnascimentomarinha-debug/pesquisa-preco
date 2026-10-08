@@ -83,6 +83,36 @@ def endereco_completo(om: dict[str, str]) -> str:
     return " – ".join(p for p in (rua, om.get("bairro", "").strip(), cidade, f"CEP {formatar_cep(om.get('cep'))}" if om.get("cep") else "") if p)
 
 
+CAMPOS_OM_SALVOS = ("nome", "cep", "logradouro", "numero", "complemento", "bairro", "cidade", "uf")  # telefone, e-mail e responsável nunca são guardados
+
+
+def chave_om(nome: str) -> str:
+    """Nome da OM sem acento, maiúsculas e espaços repetidos: 'Centro  de Operações' = 'CENTRO DE OPERACOES'."""
+    import unicodedata
+
+    sem_acento = "".join(c for c in unicodedata.normalize("NFD", str(nome or "")) if unicodedata.category(c) != "Mn")
+    return " ".join(sem_acento.upper().split())
+
+
+def registrar_om(memoria: dict, om: dict[str, str]) -> bool:
+    """Guarda (ou atualiza) o nome e o endereço da OM na memória. Devolve True se algo mudou. Telefone, e-mail e responsável ficam de fora."""
+    chave = chave_om(om.get("nome", ""))
+    if not chave:
+        return False
+    novo = {campo: str(om.get(campo, "") or "").strip() for campo in CAMPOS_OM_SALVOS}
+    oms = memoria.setdefault("oms", {})
+    mudou = {k: v for k, v in oms.get(chave, {}).items() if k != "ultimo_uso"} != novo
+    oms[chave] = {**novo, "ultimo_uso": dt.date.today().isoformat()}
+    if mudou:
+        memoria["_mudou"] = True
+    return mudou
+
+
+def dados_da_om(oms: dict[str, dict[str, str]], nome: str) -> dict[str, str] | None:
+    """OM salva com esse nome (sem diferenciar maiúsculas/acentos), ou None."""
+    return oms.get(chave_om(nome))
+
+
 def adicionar_dias_uteis(inicio: dt.date, dias: int) -> dt.date:
     """Data limite contando só segundas a sextas (feriados não são considerados)."""
     data = inicio

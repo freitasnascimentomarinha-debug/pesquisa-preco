@@ -31,7 +31,7 @@ API = "https://api.github.com"
 
 
 def vazia() -> dict:
-    return {"versao": 1, "lojas": {}, "falhas": {}, "frases": {}, "buscas": 0, "sem_busca": {}, "serper": {"mes": "", "n": 0}, "tavily": {"mes": "", "n": 0}, "nomes": {}, "desempenho": {"execucoes": [], "naturezas": {}}}
+    return {"versao": 1, "lojas": {}, "falhas": {}, "frases": {}, "buscas": 0, "sem_busca": {}, "serper": {"mes": "", "n": 0}, "tavily": {"mes": "", "n": 0}, "nomes": {}, "desempenho": {"execucoes": [], "naturezas": {}}, "oms": {}}
 
 
 def dominio(url_ou_site: str) -> str:
@@ -356,6 +356,7 @@ def _normalizar(dados: dict) -> dict:
         memoria["buscas"] = int(dados.get("buscas") or 0)
         memoria["sem_busca"] = dict(dados.get("sem_busca") or {})
         memoria["nomes"] = dict(dados.get("nomes") or {})
+        memoria["oms"] = dict(dados.get("oms") or {})
         desempenho = dados.get("desempenho") or {}
         memoria["desempenho"] = {"execucoes": list(desempenho.get("execucoes") or []), "naturezas": dict(desempenho.get("naturezas") or {})}
         for api in ("serper", "tavily"):
@@ -393,7 +394,7 @@ def carregar(segredos=None, requisicoes=None) -> tuple[dict, str]:
 
 def _para_gravar(memoria: dict) -> dict:
     return {"versao": 1, "atualizado": dt.datetime.now().isoformat(timespec="seconds"),
-            "lojas": memoria["lojas"], "falhas": memoria["falhas"], "frases": memoria.get("frases", {}), "buscas": memoria.get("buscas", 0), "sem_busca": memoria.get("sem_busca", {}), "serper": memoria.get("serper", {"mes": "", "n": 0}), "tavily": memoria.get("tavily", {"mes": "", "n": 0}), "nomes": memoria.get("nomes", {}), "desempenho": memoria.get("desempenho", {"execucoes": [], "naturezas": {}})}
+            "lojas": memoria["lojas"], "falhas": memoria["falhas"], "frases": memoria.get("frases", {}), "buscas": memoria.get("buscas", 0), "sem_busca": memoria.get("sem_busca", {}), "serper": memoria.get("serper", {"mes": "", "n": 0}), "tavily": memoria.get("tavily", {"mes": "", "n": 0}), "nomes": memoria.get("nomes", {}), "desempenho": memoria.get("desempenho", {"execucoes": [], "naturezas": {}}), "oms": memoria.get("oms", {})}
 
 
 def _juntar(local: dict, remota: dict) -> dict:
@@ -427,6 +428,9 @@ def _juntar(local: dict, remota: dict) -> dict:
         atual["acertos"] = max(atual.get("acertos", 0), dados.get("acertos", 0))
         atual["ultimo"] = max(atual.get("ultimo", ""), dados.get("ultimo", ""))
     junta["buscas"] = max(junta.get("buscas", 0), local.get("buscas", 0))
+    for chave, om in local.get("oms", {}).items():  # OMs salvas: vale a de uso mais recente
+        if om.get("ultimo_uso", "") >= junta.setdefault("oms", {}).get(chave, {}).get("ultimo_uso", ""):
+            junta["oms"][chave] = om
     ld, jd = local.get("desempenho", {}), junta.setdefault("desempenho", {"execucoes": [], "naturezas": {}})
     vistas = {(e.get("data"), e.get("item")) for e in jd.get("execucoes", [])}
     jd["execucoes"] = (jd.get("execucoes", []) + [e for e in ld.get("execucoes", []) if (e.get("data"), e.get("item")) not in vistas])[-300:]
@@ -501,6 +505,7 @@ def salvar(memoria: dict, segredos=None, requisicoes=None) -> str:
             junta = _juntar(memoria, remota)
             memoria["lojas"], memoria["falhas"], memoria["_sha"] = junta["lojas"], junta["falhas"], remota.get("_sha")
             memoria["desempenho"] = junta["desempenho"]
+            memoria["oms"] = junta["oms"]
             continue
         return f"erro ao gravar no GitHub (HTTP {resp.status_code}: {str(resp.text)[:80]})"
     return "erro ao gravar no GitHub (conflito repetido)"
