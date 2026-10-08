@@ -505,14 +505,17 @@ def gerar_proposta_docx(om: dict[str, str], itens: list[dict[str, object]], catm
         for linha_ in tabela.rows:
             linha_.height = Cm(0.75)
         _fixar_larguras(tabela, [Cm(4.2), Cm(9.2)] * colunas)
+        sobra = len(campos) % colunas
+        if sobra:  # último campo sozinho na linha: o espaço de resposta ocupa a largura toda
+            ultima = tabela.rows[-1]
+            ultima.cells[sobra * 2 - 1].merge(ultima.cells[-1])
 
     subtitulo("1. DADOS DA EMPRESA PROPONENTE (a preencher)")
     tabela_campos([("Razão social", ""), ("CNPJ", ""), ("Endereço", ""), ("Cidade / UF / CEP", ""), ("Telefone", ""), ("E-mail", ""),
                    ("Responsável (nome e cargo)", ""), ("Inscrição estadual / municipal", "")])
     subtitulo("2. CONDIÇÕES DA PROPOSTA (a preencher)")
     tabela_campos([("Validade da proposta", f"____ dias (mínimo {validade_dias} dias)"), ("Prazo de entrega", "____ dias corridos após o pedido"),
-                   ("Condições de pagamento", ""), ("Frete", "☐ CIF (incluso)   ☐ FOB (a cargo da contratante)"),
-                   ("Garantia", ""), ("Observações", "")])
+                   ("Condições de pagamento", ""), ("Garantia", ""), ("Observações", "")])
 
     subtitulo("3. ITENS COTADOS")
     cabecalhos = ["ITEM", "CATMAT\n(sugerido)", "DESCRIÇÃO", "UN.", "QTD.", "MARCA / MODELO\n(a preencher)", "VALOR UNIT.\n(R$)", "VALOR TOTAL\n(R$)"]
@@ -558,7 +561,7 @@ def gerar_proposta_docx(om: dict[str, str], itens: list[dict[str, object]], catm
     run.italic, run.font.size = True, Pt(8)
 
     subtitulo("4. DECLARAÇÃO")
-    declaracao = doc.add_paragraph("Declaramos que os preços acima incluem todos os custos e despesas (tributos, embalagem, seguro e demais encargos) necessários ao "
+    declaracao = doc.add_paragraph("Declaramos que os preços acima incluem todos os custos e despesas (tributos, frete, embalagem, seguro e demais encargos) necessários ao "
                                    "fornecimento, e que esta proposta tem finalidade de pesquisa de preços, sem caracterizar compromisso de contratação.")
     declaracao.paragraph_format.space_after = Pt(14)
 

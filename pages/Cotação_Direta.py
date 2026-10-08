@@ -157,7 +157,7 @@ om = {"nome": nome_om.strip(), "cep": cd.somente_digitos(st.session_state.get("o
       "email": email_om.strip(), "responsavel": responsavel.strip()}
 
 # ---------- 2. itens ----------
-passo(2, "Itens e quantidades", "Digite como uma lista de compras ou envie uma planilha. Confira a tabela e corrija o que precisar.")
+passo(2, "Itens e quantidades", f"Digite como uma lista de compras ou envie uma planilha (até {MAX_ITENS} itens por pedido). Confira a tabela e corrija o que precisar.")
 aba_texto, aba_arquivo = st.tabs(["✍️ Digitar a lista", "📎 Enviar Excel/CSV"])
 with aba_texto:
     texto_lista = st.text_area("Um item por linha, com a quantidade ao lado", height=170, key="cd_lista",
@@ -191,24 +191,21 @@ if st.session_state.get("cd_itens_base"):
         itens = itens[:MAX_ITENS]
 
 # ---------- 3. condições ----------
-passo(3, "Prazo e condições", "Prazo para o fornecedor responder (dias úteis, sem contar feriados) e validade mínima da proposta.")
-d1, d2, d3 = st.columns(3)
-prazo_dias = int(d1.number_input("Prazo de resposta (dias úteis)", min_value=1, max_value=30, value=cd.PRAZO_PADRAO_DIAS_UTEIS, step=1))
-validade_dias = int(d2.number_input("Validade mínima da proposta (dias)", min_value=15, max_value=180, value=cd.VALIDADE_PADRAO_DIAS, step=5))
+# prazo e condições padrão (sem campos na tela): resposta em 5 dias úteis, proposta válida por 60 dias
+prazo_dias, validade_dias = cd.PRAZO_PADRAO_DIAS_UTEIS, cd.VALIDADE_PADRAO_DIAS
 if "cd_protocolo" not in st.session_state:
     st.session_state["cd_protocolo"] = cd.gerar_protocolo()
-protocolo = d3.text_input("Nº da solicitação (protocolo)", key="cd_protocolo", help="Vai no assunto do e-mail e no nome do arquivo: serve para reconhecer as respostas.").strip()
+protocolo = st.session_state["cd_protocolo"]
 hoje = dt.date.today()
 data_limite = cd.adicionar_dias_uteis(hoje, prazo_dias)
-st.caption(f"Data limite para resposta: **{data_limite:%d/%m/%Y}**.")
 
-# ---------- 4. preparar ----------
+# ---------- 3. preparar ----------
 faltam = [rotulo for rotulo, valor in (("nome da OM", om["nome"]), ("e-mail institucional", om["email"]), ("itens", itens)) if not valor]
 if om["email"] and not cd.EMAIL_VALIDO.match(om["email"]):
     faltam.append("e-mail institucional válido")
-passo(4, "Escolher fornecedores e gerar a proposta",
+passo(3, "Escolher fornecedores e gerar a proposta",
       f"Para cada item, o sistema sugere o CATMAT e busca até {cd.FORNECEDORES_POR_ITEM} fornecedores que venderam item igual ou semelhante no último ano, "
-      "sem repetir fornecedor entre os itens. Pode levar alguns minutos.")
+      f"sem repetir fornecedor entre os itens. Os fornecedores terão {prazo_dias} dias úteis para responder (até {data_limite:%d/%m/%Y}). Pode levar alguns minutos.")
 if faltam:
     st.info("Falta preencher: " + ", ".join(faltam) + ".")
 if st.button("🔎 Preparar cotação", type="primary", disabled=bool(faltam), key="cd_preparar"):
@@ -274,7 +271,7 @@ if resultado:
         st.error("E-mail inválido: " + ", ".join(invalidos) + ". Corrija ou desmarque antes de enviar.")
 
     # ---------- 5. e-mail e arquivos ----------
-    passo(5, "Revisar o e-mail e baixar os arquivos")
+    passo(4, "Revisar o e-mail e baixar os arquivos")
     assunto = cd.assunto_email(protocolo, om["nome"])
     padrao = cd.texto_email(om, protocolo, data_limite, prazo_dias, validade_dias, len(itens_r))
     st.text_input("Assunto", value=assunto, disabled=True)
@@ -290,7 +287,7 @@ if resultado:
                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
     # ---------- 6. envio ----------
-    passo(6, "Enviar", "Uma mensagem para você (destinatário visível, com a proposta anexada) e os fornecedores em cópia oculta: um não vê o outro.")
+    passo(5, "Enviar", "Uma mensagem para você (destinatário visível, com a proposta anexada) e os fornecedores em cópia oculta: um não vê o outro.")
     chave_api, remetente, senha_esperada = segredo("RESEND_API_KEY"), segredo("RESEND_FROM"), segredo("COTACAO_DIRETA_SENHA")
     if not (chave_api and remetente and senha_esperada):
         faltantes = [n for n, v in (("RESEND_API_KEY", chave_api), ("RESEND_FROM", remetente), ("COTACAO_DIRETA_SENHA", senha_esperada)) if not v]
@@ -318,7 +315,11 @@ if resultado:
         ja_enviado = bool(lotes) and all("; ".join(lote) in ja_enviados for lote in lotes)
         confirma = st.checkbox(f"Revisei o texto, a proposta e a lista: enviar para {total_destinos} fornecedor(es).", key="cd_confirma", disabled=ja_enviado)
         if ja_enviado:
-            st.success(f"O pedido nº {protocolo} já foi enviado nesta sessão. Para novo envio, mude o número da solicitação.")
+            st.success(f"O pedido nº {protocolo} já foi enviado nesta sessão.")
+            if st.button("🆕 Começar um novo pedido", key="cd_novo"):
+                for chave in ("cd_protocolo", "cd_resultado", "cd_itens_base", "cd_confirma", "cd_senha"):
+                    st.session_state.pop(chave, None)
+                st.rerun()
         if t2.button("📨 Enviar para os fornecedores", type="primary", disabled=not (senha_ok and confirma and total_destinos and not invalidos and not ja_enviado), key="cd_enviar"):
             registros = [r for r in registros_antes if r["Resultado"] == "Enviada"]
             with st.spinner("Enviando…"):
