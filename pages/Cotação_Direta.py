@@ -409,8 +409,8 @@ if resultado:
     # ---------- 6. envio ----------
     passo(5, "Enviar", "Uma mensagem para você (destinatário visível, com a proposta anexada) e os fornecedores em cópia oculta: um não vê o outro.")
     chave_api, remetente, senha_esperada = segredo("RESEND_API_KEY"), segredo("RESEND_FROM"), segredo("COTACAO_DIRETA_SENHA")
-    if not (chave_api and remetente and senha_esperada):
-        faltantes = [n for n, v in (("RESEND_API_KEY", chave_api), ("RESEND_FROM", remetente), ("COTACAO_DIRETA_SENHA", senha_esperada)) if not v]
+    if not (chave_api and remetente):  # a senha (COTACAO_DIRETA_SENHA) é opcional: sem ela, o envio não pede senha
+        faltantes = [n for n, v in (("RESEND_API_KEY", chave_api), ("RESEND_FROM", remetente)) if not v]
         st.info("O envio ainda não está ligado. Configure nos Secrets do app: " + ", ".join(faltantes) + ". "
                 "Enquanto isso, baixe o Word e a lista e envie por conta própria.")
     else:
@@ -418,10 +418,13 @@ if resultado:
         if len(lotes) > 1:
             com_mais = f" Como são muitos fornecedores, serão {len(lotes)} mensagens iguais (o limite é de {cd.LOTE_BCC} ocultos por mensagem): você receberá {len(lotes)} cópias."
         st.caption(f"Remetente: {cd.remetente_com_nome(remetente, om['nome'])}  •  Respostas para: {om['email']}.{com_mais}")
-        senha = st.text_input("Senha de envio", type="password", key="cd_senha", help="Definida em COTACAO_DIRETA_SENHA nos Secrets: evita que qualquer pessoa dispare e-mails em nome da OM.")
-        senha_ok = cd.senha_correta(senha, senha_esperada)
-        if senha and not senha_ok:
-            st.error("Senha incorreta.")
+        if senha_esperada:
+            senha = st.text_input("Senha de envio", type="password", key="cd_senha", help="Definida em COTACAO_DIRETA_SENHA nos Secrets: evita que qualquer pessoa dispare e-mails em nome da OM.")
+            senha_ok = cd.senha_correta(senha, senha_esperada)
+            if senha and not senha_ok:
+                st.error("Senha incorreta.")
+        else:
+            senha_ok = True
         anexos = [(nome_arquivo, proposta)]
         origem = cd.remetente_com_nome(remetente, om["nome"])
         html_corpo = cd.html_email(texto_final)
