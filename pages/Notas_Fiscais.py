@@ -8,7 +8,7 @@ import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # módulos da raiz do projeto
 from atualizar_modulos import recarregar_se_mudou  # noqa: E402
-recarregar_se_mudou('catmat_busca', 'cotacao_rapida', 'relatorio_cotacao_rapida', 'fornecedores_nf', 'nf_lote', 'relatorio_nf_lote', 'nf_lote_ui')
+recarregar_se_mudou('catmat_busca', 'cotacao_rapida', 'lista_itens', 'lista_itens_ui', 'relatorio_cotacao_rapida', 'fornecedores_nf', 'nf_lote', 'relatorio_nf_lote', 'nf_lote_ui')
 from nf_lote_ui import renderizar_lote  # noqa: E402
 
 # Configuração da página

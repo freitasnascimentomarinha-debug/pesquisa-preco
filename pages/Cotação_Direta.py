@@ -225,7 +225,7 @@ def _itens_da_tabela(tabela: pd.DataFrame) -> list[dict[str, object]]:
 aba_texto, aba_arquivo = st.tabs(["✍️ Digitar a lista", "📎 Enviar Excel/CSV"])
 with aba_texto:
     texto_lista = st.text_area("Um item por linha, com a quantidade ao lado", height=170, key="cd_lista",
-                               placeholder="Caneta esferográfica azul - 100\n50 resmas de papel A4\nParafuso sextavado 1/2 x 20 zincado; 200 un\nFita isolante 20m x 30")
+                               placeholder="Caneta esferográfica azul - 100\n50 resmas de papel A4\nParafuso sextavado 1/2 x 20 zincado; 200 un\nFita isolante 20m - 30")
     if st.button("Identificar itens", key="cd_identificar_texto"):
         st.session_state["cd_origem"] = "texto"
         with st.spinner("Identificando os itens e procurando o CATMAT de cada um…"):

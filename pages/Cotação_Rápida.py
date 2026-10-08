@@ -21,10 +21,12 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CATALOGO_DIR = os.path.join(BASE_DIR, "Projeto Adesões")
 sys.path.insert(0, BASE_DIR)  # permite importar catmat_busca.py (raiz do projeto)
 from atualizar_modulos import recarregar_se_mudou  # noqa: E402
-recarregar_se_mudou('catmat_busca', 'cotacao_rapida', 'relatorio_cotacao_rapida')  # evita módulo antigo em memória após deploy
+recarregar_se_mudou('catmat_busca', 'cotacao_rapida', 'lista_itens', 'relatorio_cotacao_rapida', 'lista_itens_ui')  # evita módulo antigo em memória após deploy
 from catmat_busca import CATMAT_PATH, CATSERV_PATH, carregar_catalogo, carregar_indice_catmat  # noqa: E402
 from cotacao_rapida import JANELA_DIAS, LIMIAR_CORRESPONDENCIA, LIMIAR_SERVICO, MAX_CATMAT, MAX_PRECOS, MIN_PRECOS, TOLERANCIA, cotar_item, resultado_vazio  # noqa: E402
 from relatorio_cotacao_rapida import STATUS_TEXTO, gerar_excel, gerar_pdf, tabela_mapa  # noqa: E402
+from lista_itens import anexar_pedido, tem_quantidades, valor_total_orcamento  # noqa: E402
+from lista_itens_ui import entrada_itens  # noqa: E402
 
 
 st.markdown(
@@ -169,11 +171,10 @@ with st.expander("Como funciona", expanded=False):
 catmat = carregar_indice_catmat(CATMAT_PATH)
 catalogo_servico = carregar_catalogo(CATSERV_PATH)
 
-st.markdown('<div class="input-panel"><h3>Lista de itens</h3><p>Digite ou cole uma descrição por linha, ou importe uma planilha (CSV ou Excel).</p></div>', unsafe_allow_html=True)
-entrada_manual = st.text_area(
-    "Descrições dos itens",
-    placeholder="Ex:\nResma de papel A4 75 g/m²\nNotebook 15 polegadas 16 GB\nDetergente líquido neutro 5 litros",
-    height=170,
+st.markdown('<div class="input-panel"><h3>Lista de itens</h3><p>Digite ou cole um item por linha, com a quantidade ao lado se quiser (ex.: “caneta azul - 100”, “50 resmas de papel A4”), ou importe uma planilha (CSV ou Excel). Com quantidades, o mapa já traz o valor total de cada item e do orçamento.</p></div>', unsafe_allow_html=True)
+itens_pedidos = entrada_itens(
+    "cr", rotulo="Descrições dos itens", altura=170,
+    placeholder="Ex:\nResma de papel A4 75 g/m² - 50\n10 notebook 15 polegadas 16 GB\nDetergente líquido neutro 5 litros; 30 un",
 )
 tipo_busca = st.selectbox(
     "Tipo de item",
@@ -181,37 +182,27 @@ tipo_busca = st.selectbox(
     help="Automático decide, para cada linha, se é material (CATMAT) ou serviço (CATSERV) pela descrição mais parecida. "
     "É um pouco mais lento; prefira escolher o tipo quando a lista for toda de um só tipo.",
 )
-arquivo_lista = st.file_uploader("Importar lista (CSV ou Excel)", type=["csv", "xlsx", "xls"])
-itens_arquivo: list[str] = []
-if arquivo_lista:
-    try:
-        colunas_arquivo, dados_arquivo = ler_lista_enviada(arquivo_lista)
-        coluna_descricao = st.selectbox("Coluna com as descrições", colunas_arquivo)
-        itens_arquivo = [valor.strip() for valor in dados_arquivo[coluna_descricao] if valor and valor.strip().lower() != "nan"]
-        st.caption(f"{len(itens_arquivo)} item(ns) identificado(s) no arquivo.")
-    except Exception as erro:  # leitura de planilha: qualquer problema vira aviso ao usuário
-        st.error(f"Não foi possível ler o arquivo: {erro}")
 
 if st.button("⚡ Cotar itens", type="primary", use_container_width=True):
-    itens_manuais = [linha.strip(" -•\t") for linha in entrada_manual.splitlines() if linha.strip()]
-    itens = list(dict.fromkeys(itens_manuais + itens_arquivo))
-    if not itens:
+    itens_lista = list(itens_pedidos)
+    if not itens_lista:
         st.warning("Informe ao menos uma descrição ou envie uma lista de itens.")
     else:
-        if len(itens) > MAX_ITENS:
-            st.warning(f"Limite de {MAX_ITENS} itens por cotação; os {len(itens) - MAX_ITENS} últimos foram ignorados.")
-            itens = itens[:MAX_ITENS]
+        if len(itens_lista) > MAX_ITENS:
+            st.warning(f"Limite de {MAX_ITENS} itens por cotação; os {len(itens_lista) - MAX_ITENS} últimos foram ignorados.")
+            itens_lista = itens_lista[:MAX_ITENS]
+        itens = [i["descricao"] for i in itens_lista]
         barra = st.progress(0, text="Iniciando…")
         resultados = []
         inicio = datetime.now()
-        for posicao, item in enumerate(itens, start=1):
+        for posicao, (item, pedido) in enumerate(zip(itens, itens_lista), start=1):
             barra.progress((posicao - 1) / len(itens), text=f"Cotando {posicao}/{len(itens)}: {item[:60]}")
             try:
-                resultados.append(cotar_item(item, catmat, catalogo_servico, tipo_busca))
+                resultados.append(anexar_pedido(cotar_item(item, catmat, catalogo_servico, tipo_busca), pedido))
             except Exception as erro:  # um item com problema não derruba a cotação inteira
                 vazio = resultado_vazio(item, tipo_busca if tipo_busca != "Automático" else "Material")
                 vazio["falha_api"] = True
-                resultados.append(vazio)
+                resultados.append(anexar_pedido(vazio, pedido))
                 st.warning(f"Não foi possível cotar “{item[:60]}”: {erro}")
         barra.progress(1.0, text=f"Concluído em {(datetime.now() - inicio).seconds} s")
         st.session_state["cotacao_rapida"] = resultados
@@ -232,8 +223,13 @@ if resultados:
 
     mapa = tabela_mapa(resultados)
     formato_moeda = st.column_config.NumberColumn(format="R$ %.2f")
-    configuracao = {coluna: formato_moeda for coluna in mapa.columns if coluna.startswith("Preço") or coluna in ("Média unitária", "Mediana", "Mínimo", "Máximo", "Desvio padrão")}
+    configuracao = {coluna: formato_moeda for coluna in mapa.columns if coluna.startswith("Preço") or coluna in ("Média unitária", "Mediana", "Mínimo", "Máximo", "Desvio padrão", "Valor total (média × qtd.)")}
     configuracao["CV (%)"] = st.column_config.NumberColumn(format="%.1f%%")
+    configuracao["% casamento"] = st.column_config.NumberColumn(format="%.0f%%")
+    if tem_quantidades(resultados):
+        com_total = sum(1 for r in resultados if r.get("quantidade_pedida") and r["stats"])
+        st.metric("Valor total estimado do orçamento", moeda(valor_total_orcamento(resultados)),
+                  help=f"Soma de média unitária × quantidade dos {com_total} item(ns) com quantidade e preços. Itens sem quantidade ou sem preço não entram.")
     st.dataframe(mapa, use_container_width=True, hide_index=True, column_config=configuracao)
 
     carimbo = datetime.now().strftime("%Y%m%d_%H%M%S")

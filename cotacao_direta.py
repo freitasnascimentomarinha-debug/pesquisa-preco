@@ -18,6 +18,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import requests
 
+from lista_itens import formatar_quantidade, interpretar_linha, interpretar_lista, itens_do_dataframe  # noqa: F401  (a lista de itens é compartilhada com as outras páginas)
+
 # ---------- parâmetros ----------
 FORNECEDORES_POR_ITEM = 2
 MIN_FORNECEDORES = 3  # IN SEGES/ME nº 65/2021: ao menos três fornecedores consultados (todos recebem todos os itens)
@@ -31,13 +33,6 @@ VALIDADE_PADRAO_DIAS = 60
 API_RESEND = "https://api.resend.com/emails"
 SITUACOES_INATIVAS = ("baix", "inapt", "suspens", "nul")
 EMAIL_VALIDO = re.compile(r"^[A-Za-z0-9._%+\-']+@[A-Za-z0-9\-]+(\.[A-Za-z0-9\-]+)+$")
-UNIDADES = ("un", "und", "unid", "unidade", "unidades", "pç", "pc", "peça", "peças", "cx", "caixa", "caixas", "pct", "pacote", "pacotes",
-            "kg", "g", "l", "lt", "litro", "litros", "m", "mt", "metro", "metros", "par", "pares", "rolo", "rolos", "resma", "resmas",
-            "galão", "galões", "kit", "kits", "jogo", "jogos", "saco", "sacos", "lata", "latas", "frasco", "frascos", "tubo", "tubos")
-ROTULO_UNIDADE = {"un": "UN", "und": "UN", "unid": "UN", "unidade": "UN", "unidades": "UN", "pç": "PÇ", "pc": "PÇ", "peça": "PÇ", "peças": "PÇ",
-                  "cx": "CX", "caixa": "CX", "caixas": "CX", "pct": "PCT", "pacote": "PCT", "pacotes": "PCT", "lt": "L", "litro": "L", "litros": "L",
-                  "mt": "M", "metro": "M", "metros": "M", "par": "PAR", "pares": "PAR", "rolos": "ROLO", "resmas": "RESMA", "galões": "GALÃO",
-                  "kits": "KIT", "jogos": "JOGO", "sacos": "SACO", "latas": "LATA", "frascos": "FRASCO", "tubos": "TUBO"}
 
 
 # ---------- OM e CEP ----------
@@ -147,89 +142,6 @@ def gerar_protocolo(agora: dt.datetime | None = None) -> str:
 
 
 # ---------- itens ----------
-
-def _unidade_normalizada(texto: str) -> str:
-    chave = texto.strip().lower().rstrip(".")
-    return ROTULO_UNIDADE.get(chave, chave.upper())
-
-
-def _numero_quantidade(texto: str) -> float | None:
-    texto = texto.strip().replace(".", "").replace(",", ".") if re.fullmatch(r"\d{1,3}(\.\d{3})+(,\d+)?|\d+,\d+", texto.strip()) else texto.strip()
-    try:
-        valor = float(texto)
-    except ValueError:
-        return None
-    return valor if valor > 0 else None
-
-
-def interpretar_linha(linha: str) -> dict[str, object] | None:
-    """Uma linha de 'lista de supermercado' -> {descricao, quantidade, unidade}. Aceita, por exemplo:
-    'caneta azul - 50', 'caneta azul; 50 cx', '50 canetas azuis', '50 un caneta azul', 'caneta azul x 50', 'caneta azul 50'."""
-    texto = re.sub(r"\s+", " ", linha.replace("\t", " ; ")).strip(" -•*;")
-    if not texto:
-        return None
-    unidades = "|".join(sorted((re.escape(u) for u in UNIDADES), key=len, reverse=True))
-    quantidade = None
-    unidade = "UN"
-    # separador explícito antes da quantidade: " - 50", ";50", "| 50", " x 50", ": 50", "qtd 50"
-    casamento = re.search(rf"(?:\s[-–—]\s|\s*[;|:]\s*|\s+[xX]\s+|\s+(?:qtd|qtde|quant|quantidade)\.?\s*:?\s*)(\d[\d.,]*)\s*({unidades})?\.?\s*$", texto, re.I)
-    if casamento and _numero_quantidade(casamento.group(1)):
-        quantidade = _numero_quantidade(casamento.group(1))
-        unidade = _unidade_normalizada(casamento.group(2)) if casamento.group(2) else "UN"
-        texto = texto[:casamento.start()]
-    else:
-        inicio = re.match(rf"^(\d[\d.,]*)\s*({unidades})?\.?\s+(?:de\s+)?(.+)$", texto, re.I)
-        if inicio and _numero_quantidade(inicio.group(1)) and not re.match(r"^\d+\s*[xX/]\s*\d", texto):
-            quantidade = _numero_quantidade(inicio.group(1))
-            unidade = _unidade_normalizada(inicio.group(2)) if inicio.group(2) else "UN"
-            texto = inicio.group(3)
-        else:
-            fim = re.search(rf"\s(\d[\d.,]*)\s*({unidades})\.?\s*$", texto, re.I) or re.search(r"\s(\d{1,6})\s*$", texto)
-            if fim and _numero_quantidade(fim.group(1)) and len(texto[:fim.start()].split()) >= 1:
-                quantidade = _numero_quantidade(fim.group(1))
-                unidade = _unidade_normalizada(fim.group(2)) if fim.lastindex and fim.lastindex >= 2 and fim.group(2) else "UN"
-                texto = texto[:fim.start()]
-    descricao = texto.strip(" -–—,;:")
-    if not descricao:
-        return None
-    return {"descricao": descricao[:1].upper() + descricao[1:], "quantidade": quantidade if quantidade is not None else 1.0, "unidade": unidade}
-
-
-def interpretar_lista(texto: str) -> list[dict[str, object]]:
-    return [item for item in (interpretar_linha(linha) for linha in str(texto or "").splitlines()) if item]
-
-
-def itens_do_dataframe(dados) -> list[dict[str, object]]:
-    """Planilha enviada (pandas.DataFrame) -> itens. Procura as colunas pelo nome (item/descrição, quantidade, unidade); senão usa as 2 primeiras."""
-    if dados is None or dados.empty:
-        return []
-    colunas = {str(c): str(c).strip().lower() for c in dados.columns}
-
-    def achar(*palavras: str) -> str | None:
-        return next((c for c, minusc in colunas.items() if any(p in minusc for p in palavras)), None)
-
-    col_desc = achar("descri", "material", "item", "produto", "objeto") or list(colunas)[0]
-    col_qtd = achar("quant", "qtd", "qtde") or (list(colunas)[1] if len(colunas) > 1 and col_desc == list(colunas)[0] else None)
-    col_un = achar("unid", "und", "medida")
-    itens = []
-    for _, linha in dados.iterrows():
-        descricao = str(linha[col_desc]).strip()
-        if not descricao or descricao.lower() in ("nan", "none"):
-            continue
-        quantidade = _numero_quantidade(str(linha[col_qtd])) if col_qtd else None
-        unidade = str(linha[col_un]).strip() if col_un and str(linha[col_un]).strip().lower() not in ("", "nan", "none") else "UN"
-        itens.append({"descricao": descricao[:1].upper() + descricao[1:], "quantidade": quantidade if quantidade is not None else 1.0,
-                      "unidade": _unidade_normalizada(unidade)})
-    return itens
-
-
-def formatar_quantidade(valor: object) -> str:
-    try:
-        numero = float(valor)  # type: ignore[arg-type]
-    except (TypeError, ValueError):
-        return str(valor or "")
-    return f"{int(numero)}" if numero == int(numero) else f"{numero:g}".replace(".", ",")
-
 
 # ---------- CATMAT automático ----------
 

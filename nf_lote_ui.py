@@ -10,6 +10,8 @@ import streamlit as st
 
 from cotacao_rapida import MAX_PRECOS, MIN_PRECOS, TOLERANCIA
 from fornecedores_nf import MAX_FORNECEDORES_POR_ITEM, montar_tabelas
+from lista_itens import anexar_pedido, tem_quantidades, valor_total_orcamento
+from lista_itens_ui import entrada_itens
 from nf_lote import analisar_item, limitar_cache, pesquisar_em_lote, registros_das_linhas
 from relatorio_nf_lote import (
     STATUS_TEXTO, URL_PORTAL_NFE, gerar_excel_fornecedores, gerar_excel_mapa, gerar_pdf_fornecedores, gerar_pdf_mapa, tabela_mapa_nf, tabela_notas,
@@ -52,21 +54,12 @@ def renderizar_lote(obter_arquivos: Callable[[], dict[str, str]], baixar_csv: Ca
     arquivos = obter_arquivos()
     nomes = dict(sorted(arquivos.items(), key=lambda par: par[1], reverse=True))  # mais recentes primeiro
 
-    entrada = st.text_area(
-        "Item(ns) a pesquisar (um por linha)", height=150, key="nf_lote_texto",
-        placeholder="Ex:\nResma de papel A4 75 g\nNotebook 15 polegadas\nLuva de procedimento látex",
-        help="Descreva o item com as palavras e especificações que importam: todas serão exigidas na descrição da nota (A4 = 210 x 297 mm).",
+    itens_pedidos = entrada_itens(
+        "nf", rotulo="Item(ns) a pesquisar (um por linha, com a quantidade ao lado, se quiser)",
+        placeholder="Ex:\nResma de papel A4 75 g - 50\n10 notebook 15 polegadas\nLuva de procedimento látex; 200 cx",
+        ajuda="Descreva o item com as palavras e especificações que importam: todas serão exigidas na descrição da nota (A4 = 210 x 297 mm). "
+              "A quantidade é opcional: com ela, o mapa traz o valor total de cada item e do orçamento.",
     )
-    arquivo_lista = st.file_uploader("Ou importe uma lista (CSV ou Excel)", type=["csv", "xlsx", "xls"], key="nf_lote_arquivo")
-    itens_arquivo: list[str] = []
-    if arquivo_lista:
-        try:
-            colunas, dados = _ler_lista(arquivo_lista)
-            coluna = st.selectbox("Coluna com as descrições", colunas, key="nf_lote_coluna")
-            itens_arquivo = [v.strip() for v in dados[coluna] if v and v.strip().lower() != "nan"]
-            st.caption(f"{len(itens_arquivo)} item(ns) identificado(s) no arquivo.")
-        except Exception as erro:  # leitura de planilha: qualquer problema vira aviso
-            st.error(f"Não foi possível ler o arquivo: {erro}")
 
     st.markdown("#### Filtros da pesquisa")
     selecionados = st.multiselect(
@@ -82,7 +75,8 @@ def renderizar_lote(obter_arquivos: Callable[[], dict[str, str]], baixar_csv: Ca
     max_por_item = c5.number_input("Máximo de notas por item", 100, 10000, 1500, 100, key="nf_lote_max", help="Limita os registros guardados por item (os mais recentes primeiro)")
 
     if st.button("🔎 Pesquisar notas fiscais", type="primary", use_container_width=True, key="nf_lote_buscar"):
-        itens = list(dict.fromkeys([l.strip(" -•\t") for l in entrada.splitlines() if l.strip()] + itens_arquivo))
+        pedidos = list(itens_pedidos)
+        itens = [i["descricao"] for i in pedidos]
         if not itens:
             st.warning("Informe ao menos um item.")
         elif not selecionados:
@@ -90,7 +84,7 @@ def renderizar_lote(obter_arquivos: Callable[[], dict[str, str]], baixar_csv: Ca
         else:
             if len(itens) > MAX_ITENS:
                 st.warning(f"Limite de {MAX_ITENS} itens por pesquisa; os {len(itens) - MAX_ITENS} últimos foram ignorados.")
-                itens = itens[:MAX_ITENS]
+                itens, pedidos = itens[:MAX_ITENS], pedidos[:MAX_ITENS]
             filtros = {"nome_dest": nome_dest.strip(), "uf_dest": uf_dest.strip(), "uf_emit": uf_emit.strip(), "emitente": emitente.strip()}
             limitar_cache(pasta_cache, manter={f"{i}.csv" for i in selecionados})
             barra = st.progress(0.0, text="Baixando e lendo os arquivos (a primeira vez demora)…")
@@ -102,7 +96,7 @@ def renderizar_lote(obter_arquivos: Callable[[], dict[str, str]], baixar_csv: Ca
             resposta = pesquisar_em_lote(itens, [(i, nomes[i]) for i in selecionados], baixar_csv, filtros, int(max_por_item), progresso, pasta_cache=pasta_cache)
             barra.progress(1.0, text=f"Concluído em {(datetime.now() - inicio).seconds} s")
             st.session_state["nf_lote"] = {
-                "id": st.session_state.get("nf_lote", {}).get("id", 0) + 1, "descricoes": itens, "linhas": resposta["linhas"],
+                "id": st.session_state.get("nf_lote", {}).get("id", 0) + 1, "descricoes": itens, "pedidos": pedidos, "linhas": resposta["linhas"],
                 "arquivos": resposta["arquivos_ok"], "erros": resposta["erros"],
                 "registros": [registros_das_linhas(df) if len(df) else [] for df in resposta["itens"]],
                 "frames": resposta["itens"], "filtros": _texto_filtros(filtros, len(resposta["arquivos_ok"]), len(nomes)),
@@ -129,7 +123,8 @@ def _mostrar_resultados(dados: dict) -> None:
     for i, (descricao, registros) in enumerate(zip(dados["descricoes"], dados["registros"])):
         base = analisar_item(descricao, registros, remover)
         faixa = st.session_state.get(f"nf_faixa_{dados['id']}_{i}_{int(remover)}")
-        resultados.append(analisar_item(descricao, registros, remover, tuple(faixa)) if faixa and base["limites"] and tuple(faixa) != base["limites"] else base)
+        resultado = analisar_item(descricao, registros, remover, tuple(faixa)) if faixa and base["limites"] and tuple(faixa) != base["limites"] else base
+        resultados.append(anexar_pedido(resultado, dados["pedidos"][i]) if dados.get("pedidos") else resultado)
 
     ok = sum(1 for r in resultados if r["status"] == "ok")
     insuficientes = sum(1 for r in resultados if r["status"] == "insuficiente")
@@ -141,7 +136,10 @@ def _mostrar_resultados(dados: dict) -> None:
 
     mapa = tabela_mapa_nf(resultados)
     moeda = st.column_config.NumberColumn(format="R$ %.2f")
-    configuracao = {c: moeda for c in mapa.columns if c.startswith("Preço") or c in ("Média unitária", "Mediana", "Mínimo", "Máximo", "Desvio padrão")}
+    configuracao = {c: moeda for c in mapa.columns if c.startswith("Preço") or c in ("Média unitária", "Mediana", "Mínimo", "Máximo", "Desvio padrão", "Valor total (média × qtd.)")}
+    if tem_quantidades(resultados):
+        st.metric("Valor total estimado do orçamento", f"R$ {valor_total_orcamento(resultados):,.2f}".replace(",", "X").replace(".", ",").replace("X", "."),
+                  help="Soma de média unitária × quantidade dos itens com quantidade e preços. Itens sem quantidade ou sem preço não entram.")
     configuracao["CV (%)"] = st.column_config.NumberColumn(format="%.1f%%")
     st.dataframe(mapa, use_container_width=True, hide_index=True, column_config=configuracao)
 

@@ -14,13 +14,15 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # módulos da raiz do projeto
 from atualizar_modulos import recarregar_se_mudou  # noqa: E402
-recarregar_se_mudou('embalagem', 'banco_sinonimos', 'sinonimos', 'naturezas', 'cotacao_rapida', 'relatorio_cotacao_rapida', 'relatorio_nf_lote', 'web_precos', 'relatorio_web', 'memoria_lojas', 'desempenho', 'captura_pagina', 'busca_interna', 'naturezas')
+recarregar_se_mudou('lista_itens', 'lista_itens_ui', 'embalagem', 'banco_sinonimos', 'sinonimos', 'naturezas', 'cotacao_rapida', 'relatorio_cotacao_rapida', 'relatorio_nf_lote', 'web_precos', 'relatorio_web', 'memoria_lojas', 'desempenho', 'captura_pagina', 'busca_interna', 'naturezas')
 import embalagem  # noqa: E402  (medida e unidade de fornecimento do item)
 import sinonimos  # noqa: E402  (nome de mercado do item e conferência do nome do produto)
 import naturezas  # noqa: E402  (natureza/ramo do item)
 import busca_interna  # noqa: E402  (busca dentro do site da loja)
 import desempenho  # noqa: E402  (tempo e acertividade: a pesquisa aprende o que funciona)
 import web_precos  # noqa: E402  (escolha do preço da página)
+from lista_itens import anexar_pedido, tem_quantidades, valor_total_orcamento  # noqa: E402  (quantidade e unidade pedidas: valor total no mapa)
+from lista_itens_ui import entrada_itens  # noqa: E402
 import relatorio_web  # noqa: E402  (relatório padrão da Cotação Rápida)
 import memoria_lojas  # noqa: E402  (lojas aprendidas com o uso)
 import captura_pagina  # noqa: E402  (print real das páginas dos preços)
@@ -2403,11 +2405,10 @@ st.markdown("### 📝 Itens para Pesquisa")
 col1, col2 = st.columns([3, 1])
 
 with col1:
-    itens_input = st.text_area(
-        "Informe os itens (um por linha):",
-        height=150,
-        placeholder="Exemplo:\nLâmpada led bulbo 9W E27 branca\nCaneta piloto azul\nEnvelope pardo 24x34 caixa c/ 250\nDetergente 500ml",
-        help="Digite os nomes dos materiais que deseja pesquisar, um por linha.",
+    itens_pedidos = entrada_itens(
+        "ws", rotulo="Informe os itens (um por linha, com a quantidade ao lado, se quiser):", altura=150,
+        placeholder="Exemplo:\nLâmpada led bulbo 9W E27 branca - 30\nCaneta piloto azul; 100 un\nEnvelope pardo 24x34 caixa c/ 250\nDetergente 500ml",
+        ajuda="Digite os nomes dos materiais que deseja pesquisar, um por linha. A quantidade é opcional: com ela, o mapa traz o valor total de cada item e do orçamento.",
     )
     st.caption("Dica: quanto mais específico, mais certo o preço. Inclua tipo, potência/medida e embalagem (ex.: \"lâmpada led bulbo 9W E27\", "
                "\"envelope pardo 24x34 caixa c/ 250\"), sem marca. Nomes do dia a dia como \"caneta piloto\", \"papel contact\", \"durex\" e "
@@ -2472,7 +2473,9 @@ with col_btn2:
     iniciar = st.button("🚀 Iniciar Scraping", type="primary", use_container_width=True)
 
 if iniciar:
-    itens = [i.strip() for i in itens_input.strip().split("\n") if i.strip()]
+    pedidos_lista = list(itens_pedidos)
+    itens = [p["descricao"] for p in pedidos_lista]
+    st.session_state["scraping_pedidos"] = {p["descricao"]: p for p in pedidos_lista}
 
     if not itens:
         st.error("⚠️ Informe pelo menos um item para pesquisa.")
@@ -2640,12 +2643,19 @@ if "scraping_resultados" in st.session_state and st.session_state["scraping_resu
             precos_por_item = st.selectbox("Preços por item no relatório", [3, 4, 5], index=0, key="precos_por_item_relatorio",
                                            help="Quantas colunas de preço o mapa comparativo (tabela, PDF e Excel) mostra. O padrão é 3.")
             analise = web_precos.analisar_todos(itens_pesquisados, resultados, max_precos=precos_por_item)
+            pedidos_por_item = st.session_state.get("scraping_pedidos", {})
+            for resultado_item in analise:
+                if resultado_item["descricao"] in pedidos_por_item:
+                    anexar_pedido(resultado_item, pedidos_por_item[resultado_item["descricao"]])
             prints = st.session_state.get("prints_web", {})
             info_relatorio = {"max_precos": precos_por_item, "prints": {u: v for u, v in prints.items() if v.get("imagem")}, "motores": " e ".join([n for n, c in (("Tavily", chave_tavily()), ("Serper (Google)", chave_serper())) if c] + ["DuckDuckGo"]),
                               "gerado_em": datetime.now().strftime("%d/%m/%Y %H:%M")}
             st.caption("Mesmas regras da Cotação Rápida: sem outliers, preços a ±30% da média, mapa comparativo na 1ª página, "
                        "endereço e data/hora do acesso de cada preço.")
             st.dataframe(relatorio_web.tabela_mapa_web(analise, precos_por_item), use_container_width=True, hide_index=True)
+            if tem_quantidades(analise):
+                st.metric("Valor total estimado do orçamento", formatar_moeda_br(valor_total_orcamento(analise)),
+                          help="Soma de média unitária × quantidade dos itens com quantidade e preços. Itens sem quantidade ou sem preço não entram.")
             baixas = [(r["descricao"], p) for r in analise for p in r["precos"] if p.get("confianca") == "baixa"]
             if baixas:
                 lista_baixas = "\n".join(f"- **{desc}** — [{p.get('dominio') or p.get('url')}]({p.get('url')}) — {formatar_moeda_br(p['preco'])}" for desc, p in baixas)

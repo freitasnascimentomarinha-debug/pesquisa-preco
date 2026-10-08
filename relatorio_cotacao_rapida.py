@@ -10,6 +10,7 @@ from fpdf import FPDF
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
+from lista_itens import formatar_quantidade, tem_quantidades, valor_total_item, valor_total_orcamento
 from cotacao_rapida import JANELA_DIAS, LIMIAR_CORRESPONDENCIA, LIMIAR_SERVICO, MAX_CATMAT, MAX_PRECOS, MIN_PRECOS, TOLERANCIA
 
 AZUL, DOURADO, AZUL_CARTAO = (0, 26, 77), (212, 175, 55), (10, 37, 64)
@@ -258,6 +259,53 @@ def _pagina_mapa(pdf: FPDF, resultados: list[dict], rotulo_col3: str = "Codigo (
         "Outliers e precos inexequiveis removidos. Detalhamento de cada item nas paginas seguintes.")))
 
 
+def _pagina_totais(pdf: FPDF, resultados: list[dict]) -> None:
+    """Valor estimado por item (média unitária x quantidade pedida) e total do orçamento. Só quando a lista trouxe quantidades."""
+    pdf.add_page()
+    pdf.set_y(35)
+    pdf.set_font("Helvetica", "B", 9)
+    pdf.set_text_color(*AZUL)
+    pdf.cell(0, 6, "VALOR ESTIMADO DO ORCAMENTO - media unitaria x quantidade pedida", ln=True)
+    pdf.set_font("Helvetica", "", 6.5)
+    pdf.set_text_color(90, 90, 90)
+    pdf.cell(0, 4, "Itens sem quantidade informada ou sem precos validos nao entram no total.", ln=True)
+    pdf.ln(1)
+    colunas = [("#", 10), ("Item", 135), ("Qtd.", 22), ("Un.", 22), ("Media unitaria (R$)", 46), ("Valor total (R$)", 46)]
+    _cabecalho_tabela(pdf, colunas)
+    for numero, r in enumerate(resultados, start=1):
+        media = r["stats"]["media"] if r["stats"] else None
+        total = valor_total_item(r)
+        desc = _quebrar(pdf, r["descricao"], colunas[1][1] - 2, 2)
+        altura = max(6.5, 3.6 * len(desc) + 2)
+        if pdf.get_y() + altura > pdf.h - 24:
+            pdf.add_page()
+            pdf.set_y(35)
+            _cabecalho_tabela(pdf, colunas)
+        x, y0 = pdf.l_margin, pdf.get_y()
+        valores = [str(numero), desc, formatar_quantidade(r["quantidade_pedida"]) if r.get("quantidade_pedida") else "-", r.get("unidade_pedida") or "-",
+                   moeda(media) if media is not None else "-", moeda(total) if total is not None else "-"]
+        for indice, ((_, largura), valor) in enumerate(zip(colunas, valores)):
+            pdf.set_fill_color(*((245, 248, 255) if numero % 2 == 0 else (255, 255, 255)))
+            pdf.set_draw_color(190, 190, 190)
+            pdf.rect(x, y0, largura, altura, "DF")
+            pdf.set_text_color(51, 51, 51)
+            pdf.set_font("Helvetica", "B" if indice == 5 else "", 7)
+            linhas_texto = valor if isinstance(valor, list) else [valor]
+            deslocamento = (altura - 3.6 * len(linhas_texto)) / 2
+            for n, linha in enumerate(linhas_texto):
+                pdf.set_xy(x + 1, y0 + deslocamento + 3.6 * n)
+                pdf.cell(largura - 2, 3.6, _seguro(linha), 0, 0, "L" if indice == 1 else "C")
+            x += largura
+        pdf.set_y(y0 + altura)
+    soma = sum(w for _, w in colunas[:5])
+    pdf.set_fill_color(255, 244, 204)
+    pdf.set_draw_color(190, 190, 190)
+    pdf.set_font("Helvetica", "B", 8.5)
+    pdf.set_text_color(*AZUL)
+    pdf.cell(soma, 8, "VALOR TOTAL ESTIMADO DO ORCAMENTO (R$)  ", 1, 0, "R", True)
+    pdf.cell(colunas[5][1], 8, moeda(valor_total_orcamento(resultados)), 1, 1, "C", True)
+
+
 COLUNAS_PRECOS = [("ID Compra", 26), ("Data", 16), ("UASG", 15), ("Unid.", 22), ("Qtd", 12), ("V. Unitario", 20), ("CNPJ", 28), ("Fornecedor", 62), ("UF", 8), ("Codigo", 16), ("Orgao", 56)]
 
 
@@ -351,6 +399,8 @@ def gerar_pdf(
     pdf.set_auto_page_break(auto=True, margin=15)
     pdf.add_page()
     _pagina_mapa(pdf, resultados, **(argumentos_mapa or {}))
+    if tem_quantidades(resultados):
+        _pagina_totais(pdf, resultados)
     for numero, resultado in enumerate(resultados, start=1):
         (pagina_item or _pagina_item)(pdf, numero, resultado)
     if anexos:
@@ -372,23 +422,45 @@ def gerar_pdf(
     return bytes(pdf.output())
 
 
+COL_CATMAT = "CATMAT"
+COL_DESC_CATMAT = "Descrição do item no CATMAT"
+COL_TOTAL = "Valor total (média × qtd.)"
+
+
+def _catmat_da_linha(r: dict) -> tuple[str, float | None, str, str]:
+    """(código, % de casamento, descrição no catálogo, outros códigos) do CATMAT/CATSERV mais próximo do item."""
+    if r["catmats"]:
+        primeiro = r["catmats"][0]
+        return str(primeiro["codigo"]), round(primeiro["correspondencia"], 1), str(primeiro["descricao"]), " | ".join(f"{k['codigo']} ({k['correspondencia']:.0f}%)" for k in r["catmats"][1:])
+    proximo = r.get("melhor_proximo")
+    if proximo:
+        return "-", None, f"Nenhum com preços no período; mais próximo: {proximo['codigo']} ({proximo['correspondencia']:.0f}%) {proximo['descricao']}", ""
+    return "-", None, "Nenhuma correspondência no catálogo", ""
+
+
 def tabela_mapa(resultados: list[dict]) -> pd.DataFrame:
-    """Mapa comparativo em DataFrame (usado na tela e no Excel)."""
+    """Mapa comparativo em DataFrame (usado na tela e no Excel), com as mesmas colunas da tabela de itens da Cotação Direta.
+    Com quantidades na lista, traz Qtd., Un. e o valor total de cada item (média unitária x quantidade)."""
+    com_quantidade = tem_quantidades(resultados)
+    material_e_servico = len({r.get("tipo") == "Serviço" for r in resultados}) > 1 or any(r.get("tipo") == "Serviço" for r in resultados)
+    rotulo_codigo = "CATMAT/CATSERV" if material_e_servico else COL_CATMAT
     linhas = []
     for numero, r in enumerate(resultados, start=1):
         precos = [p["preco"] for p in r["precos"]]
-        linha = {
-            "Item": numero,
-            "Descrição pesquisada": r["descricao"],
-            "Tipo": "Serviço" if r.get("tipo") == "Serviço" else "Material",
-            "CATMAT/CATSERV (correspondência)": " | ".join(f"{k['codigo']} ({k['correspondencia']:.0f}%)" for k in r["catmats"]) or "-",
-            "Unidade": r["unidade"] or "-",
-        }
+        codigo, casamento, descricao_catalogo, outros = _catmat_da_linha(r)
+        linha: dict = {"Item": numero, "Descrição do item": r["descricao"]}
+        if com_quantidade:
+            linha["Qtd."] = r.get("quantidade_pedida")
+            linha["Un."] = r.get("unidade_pedida") if r.get("quantidade_pedida") else None
+        linha.update({"Tipo": "Serviço" if r.get("tipo") == "Serviço" else "Material", rotulo_codigo: codigo, "% casamento": casamento,
+                      COL_DESC_CATMAT: descricao_catalogo, "Outros códigos": outros or None, "Un. de fornecimento": r["unidade"] or "-"})
         for n in range(MAX_PRECOS):
             linha[f"Preço {n + 1}"] = precos[n] if n < len(precos) else None
         s = r["stats"]
+        linha["Média unitária"] = s["media"] if s else None
+        if com_quantidade:
+            linha[COL_TOTAL] = valor_total_item(r)
         linha.update({
-            "Média unitária": s["media"] if s else None,
             "Mediana": s["mediana"] if s else None,
             "Mínimo": s["min"] if s else None,
             "Máximo": s["max"] if s else None,
@@ -399,6 +471,29 @@ def tabela_mapa(resultados: list[dict]) -> pd.DataFrame:
         })
         linhas.append(linha)
     return pd.DataFrame(linhas)
+
+
+def aplicar_formulas_mapa(planilha, com_quantidade: bool, coluna_descricao: str = "Descrição do item") -> None:
+    """Na aba do mapa: média unitária e valor total viram fórmulas (mudou um preço ou uma quantidade, recalcula) e entra a linha de total do orçamento."""
+    cabecalho = {str(c.value): c.column for c in planilha[1] if c.value}
+    ultima = planilha.max_row
+    letras = {nome: get_column_letter(coluna) for nome, coluna in cabecalho.items()}
+    precos = [letras[n] for n in cabecalho if n.startswith("Preço ")]
+    if "Média unitária" in letras and precos:
+        for linha in range(2, ultima + 1):
+            planilha[f"{letras['Média unitária']}{linha}"] = f'=IFERROR(AVERAGE({precos[0]}{linha}:{precos[-1]}{linha}),"")'
+    if com_quantidade and COL_TOTAL in letras and "Qtd." in letras and "Média unitária" in letras:
+        for linha in range(2, ultima + 1):
+            media, qtd = f"{letras['Média unitária']}{linha}", f"{letras['Qtd.']}{linha}"
+            planilha[f"{letras[COL_TOTAL]}{linha}"] = f'=IF(AND(ISNUMBER({media}),ISNUMBER({qtd})),ROUND({media}*{qtd},2),"")'
+        total = ultima + 1
+        planilha[f"{letras[coluna_descricao]}{total}"] = "VALOR TOTAL DO ORÇAMENTO"
+        planilha[f"{letras[COL_TOTAL]}{total}"] = f"=SUM({letras[COL_TOTAL]}2:{letras[COL_TOTAL]}{ultima})"
+        for nome in (coluna_descricao, COL_TOTAL):
+            celula = planilha[f"{letras[nome]}{total}"]
+            celula.font = Font(bold=True, color="001A4D")
+            celula.fill = PatternFill("solid", fgColor="FFF4CC")
+            celula.number_format = '"R$" #,##0.00'
 
 
 def gerar_excel(resultados: list[dict]) -> bytes:
@@ -427,4 +522,5 @@ def gerar_excel(resultados: list[dict]) -> bytes:
                     for celula in coluna[1:]:
                         celula.number_format = '"R$" #,##0.00'
             planilha.freeze_panes = "A2"
+        aplicar_formulas_mapa(escritor.book["Mapa Comparativo"], tem_quantidades(resultados))
     return saida.getvalue()

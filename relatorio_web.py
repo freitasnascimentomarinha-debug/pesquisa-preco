@@ -11,6 +11,7 @@ import pandas as pd
 from fpdf import FPDF
 
 import relatorio_cotacao_rapida as base
+from lista_itens import tem_quantidades, valor_total_item
 from cotacao_rapida import MIN_PRECOS, TOLERANCIA
 from relatorio_cotacao_rapida import (
     AZUL_CARTAO, DOURADO, JUSTIFICATIVA_COTACAO, LARGURA, STATUS_TEXTO, _cabecalho_tabela, _cartoes, _quebrar, _seguro, _truncar, moeda,
@@ -208,15 +209,24 @@ def gerar_pdf_mapa(resultados: list[dict], info: dict) -> bytes:
 
 
 def tabela_mapa_web(resultados: list[dict], max_precos: int = PRECOS_POR_ITEM_PADRAO) -> pd.DataFrame:
+    """Mapa comparativo da pesquisa na internet. Com quantidades na lista, traz Qtd., Un. e o valor total de cada item (média unitária x quantidade)."""
+    com_quantidade = tem_quantidades(resultados)
     linhas = []
     for numero, r in enumerate(resultados, start=1):
         precos = [p["preco"] for p in r["precos"]]
         s = r["stats"]
-        linha = {"Item": numero, "Descrição pesquisada": r["descricao"], "Páginas com preço": r["paginas"], "Lojas": r["lojas"]}
+        linha = {"Item": numero, "Descrição do item": r["descricao"]}
+        if com_quantidade:
+            linha["Qtd."] = r.get("quantidade_pedida")
+            linha["Un."] = r.get("unidade_pedida") if r.get("quantidade_pedida") else None
+        linha.update({"Páginas com preço": r["paginas"], "Lojas": r["lojas"]})
         for n in range(max_precos):
             linha[f"Preço {n + 1}"] = precos[n] if n < len(precos) else None
+        linha["Média unitária"] = s["media"] if s else None
+        if com_quantidade:
+            linha[base.COL_TOTAL] = valor_total_item(r)
         linha.update({
-            "Média unitária": s["media"] if s else None, "Mediana": s["mediana"] if s else None, "Mínimo": s["min"] if s else None,
+            "Mediana": s["mediana"] if s else None, "Mínimo": s["min"] if s else None,
             "Máximo": s["max"] if s else None, "Desvio padrão": s["desvio"] if s else None, "CV (%)": s["cv"] if s else None,
             "Nº de preços": len(precos), "Situação": STATUS_TEXTO.get(r["status"], ""),
         })
@@ -243,5 +253,6 @@ def gerar_excel_mapa(resultados: list[dict], info: dict) -> bytes:
         tabela_fontes(resultados).to_excel(escritor, sheet_name="Páginas consultadas", index=False)
         pd.DataFrame(todas).to_excel(escritor, sheet_name="Todas as ofertas", index=False)
         parametros.to_excel(escritor, sheet_name="Parâmetros", index=False)
-        _formatar_planilhas(escritor, ("Média unitária", "Mediana", "Mínimo", "Máximo", "Desvio padrão"))
+        _formatar_planilhas(escritor, ("Média unitária", "Mediana", "Mínimo", "Máximo", "Desvio padrão", base.COL_TOTAL))
+        base.aplicar_formulas_mapa(escritor.book["Mapa"], tem_quantidades(resultados))
     return saida.getvalue()

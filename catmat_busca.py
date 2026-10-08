@@ -84,6 +84,12 @@ EQUIVALENCIAS = {
     "reparo": [{"manutencao"}],
     "conserto": [{"manutencao"}],
     "reforma": [{"manutencao"}, {"recuperacao"}],
+    # nomes populares que o catálogo escreve de outro jeito (o NOME do item é o que conta para aceitar um código)
+    "pen": [{"memoria", "flash"}],
+    "pendrive": [{"memoria", "flash"}],
+    "break": [{"fonte", "alimentacao", "ininterrupta"}],
+    "nobreak": [{"fonte", "alimentacao", "ininterrupta"}],
+    "hd": [{"unidade", "disco"}],
 }
 # Quando a descrição traz estes termos, o catálogo é ranqueado preferindo o produto usual da compra
 # (termo -> bônus). Ex.: "resma de papel A4" sem outros detalhes = papel de escritório branco de 75 g/m².
@@ -366,6 +372,8 @@ def _pontuar(descricao: str, candidato: str, nome_pdm: str = "", servico: bool =
             pontuacao *= 0.4  # o item é de outro tipo (ex.: aeronave quando se pediu veículo)
     if forca_cabeca == 0:
         pontuacao *= 0.35
+    if not servico and nucleo and not any(_forca_termo(token, set(nome)) >= 0.7 for token in nucleo):
+        pontuacao *= 0.7  # nada do pedido aparece no NOME do item: só casou por atributos ("ferro" em MATERIAL: FERRO FUNDIDO de um olhal)
     return pontuacao
 
 
