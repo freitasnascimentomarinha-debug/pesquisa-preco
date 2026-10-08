@@ -19,7 +19,7 @@ from concurrent.futures import ThreadPoolExecutor
 import requests
 
 # ---------- parâmetros ----------
-FORNECEDORES_POR_ITEM = 10
+FORNECEDORES_POR_ITEM = 5
 MIN_FORNECEDORES_POR_ITEM = 3  # IN SEGES/ME nº 65/2021: ao menos três
 LIMIAR_CATMAT = 70.0  # % mínimo de combinação para sugerir um CATMAT
 MAX_CATMAT_SUGERIDOS = 3
