@@ -45,6 +45,10 @@ def _item(descricao: str, quantidade: float | None, unidade: str) -> dict[str, o
 
 UNIDADES_MEDIDA = ("kg", "g", "l", "lt", "litro", "litros", "m", "mt", "metro", "metros")  # também aparecem como especificação do item ("papel 75 g", "fita 20 m")
 UNIDADES_CONTAGEM = tuple(u for u in UNIDADES if u not in UNIDADES_MEDIDA)
+# palavra antes de um número solto no fim da linha que indica especificação, não quantidade ("caixa c/ 250", "tipo 3", "tamanho 42", "nº 5")
+PALAVRAS_DE_ESPECIFICACAO = {"c", "com", "de", "do", "da", "dos", "das", "e", "em", "para", "ate", "até", "x", "n", "no", "nº", "num", "numero", "número", "tipo", "cod", "codigo", "código",
+                             "ref", "referencia", "referência", "modelo", "mod", "cat", "classe", "grau", "serie", "série", "tamanho", "tam", "calibre", "bitola", "voltagem", "tensao", "tensão",
+                             "potencia", "potência", "capacidade", "cap", "versao", "versão", "ano", "volume", "vol", "gramatura", "ponta", "lote", "item", "pregao", "pregão", "a", "v", "w", "hz"}
 
 
 def _alternativas(unidades: tuple[str, ...]) -> str:
@@ -58,7 +62,9 @@ def interpretar_linha(linha: str) -> dict[str, object] | None:
     - depois de um separador: 'caneta azul - 50', 'caneta azul; 100 cx', 'caneta azul : 50', 'caneta azul qtd 50', 'caneta azul x 50' (o 'x' só
       conta se a palavra antes dele não tiver número). Com unidade de medida (g, kg, l, m) depois do número, não é quantidade;
     - no começo: '50 canetas azuis', '50 un caneta azul', '5 litros de tinta' (o número vem solto, sem letra colada: '500g café' é medida);
-    - no fim, com unidade de contagem: 'caneta azul 50 un', 'papel a4 10 resmas'.
+    - no fim, com unidade de contagem: 'caneta azul 50 un', 'papel a4 10 resmas';
+    - número solto no fim, depois de uma palavra comum: 'estandarte 1', 'caneta azul 50'. Não vale depois de palavra de especificação ('caixa c/ 250', 'tipo 3'),
+      nem depois de palavra com número ('papel a4 75'). Medidas do item devem levar a unidade colada ('20m', '9w').
     Nos demais casos a linha inteira é a descrição, e a quantidade pode ser digitada na tabela de conferência."""
     texto = re.sub(r"\s+", " ", linha.replace("\t", " ; ")).strip(" -•*;")
     if not texto:
@@ -86,6 +92,14 @@ def interpretar_linha(linha: str) -> dict[str, object] | None:
                 quantidade = numero_quantidade(fim.group(1))
                 unidade = unidade_normalizada(fim.group(2))
                 texto = texto[:fim.start()]
+    if quantidade is None:  # número solto no fim ("estandarte 1", "caneta azul 50"): quantidade, salvo se vier depois de palavra de especificação ("caixa c/ 250", "tipo 3")
+        solto = re.search(r"\s(\d{1,6})$", texto)
+        if solto and numero_quantidade(solto.group(1)):
+            antes = texto[:solto.start()].split()
+            anterior = antes[-1].lower().rstrip(".:") if antes else ""
+            if antes and re.fullmatch(r"[a-zà-ÿ]{2,}", anterior) and anterior not in PALAVRAS_DE_ESPECIFICACAO:
+                quantidade = numero_quantidade(solto.group(1))
+                texto = texto[:solto.start()]
     if not texto.strip(" -–—,;:"):
         return None
     return _item(texto, quantidade, unidade)

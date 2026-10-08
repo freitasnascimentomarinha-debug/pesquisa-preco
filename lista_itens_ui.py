@@ -56,7 +56,8 @@ def entrada_itens(prefixo: str, rotulo: str = "Itens a pesquisar (um por linha, 
     tabela = pd.DataFrame([{"Usar": True, "Descrição": i["descricao"], "Qtd.": float(i["quantidade"]) if i["quantidade_informada"] else None, "Un.": i["unidade"],
                             **({"Estimativa": i.get("estimativa")} if com_estimativa else {})} for i in itens])
     assinatura = abs(hash((texto, assinatura_arquivo)))  # a tabela recomeça quando o texto ou a planilha mudam
-    st.caption("Confira o que o sistema entendeu. **Usar**: desmarque para deixar um item de fora. Dá para corrigir descrição, quantidade e unidade.")
+    st.caption("Confira o que o sistema entendeu. **Usar**: desmarque para deixar um item de fora. Dá para corrigir descrição, quantidade e unidade. "
+               "Um número solto no fim da linha (“estandarte 1”) é lido como quantidade; se for medida do item, escreva com a unidade colada (“20m”, “9w”) ou corrija aqui.")
     editada = st.data_editor(
         tabela, hide_index=True, use_container_width=True, num_rows="fixed", key=f"{prefixo}_lista_tabela_{assinatura}",
         column_config={"Usar": st.column_config.CheckboxColumn("Usar", width="small", help="Desmarque para deixar este item de fora."),
