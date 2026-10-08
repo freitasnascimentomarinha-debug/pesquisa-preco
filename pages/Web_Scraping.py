@@ -14,8 +14,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # módulos da raiz do projeto
 from atualizar_modulos import recarregar_se_mudou  # noqa: E402
-recarregar_se_mudou('desempenho', 'embalagem', 'banco_sinonimos', 'sinonimos', 'naturezas', 'cotacao_rapida', 'relatorio_cotacao_rapida', 'relatorio_nf_lote', 'web_precos', 'relatorio_web', 'memoria_lojas', 'captura_pagina', 'busca_interna', 'naturezas')
-import desempenho  # noqa: E402  (teste de desempenho: tempo e acertividade)
+recarregar_se_mudou('embalagem', 'banco_sinonimos', 'sinonimos', 'naturezas', 'cotacao_rapida', 'relatorio_cotacao_rapida', 'relatorio_nf_lote', 'web_precos', 'relatorio_web', 'memoria_lojas', 'captura_pagina', 'busca_interna', 'naturezas')
 import embalagem  # noqa: E402  (medida e unidade de fornecimento do item)
 import sinonimos  # noqa: E402  (nome de mercado do item e conferência do nome do produto)
 import naturezas  # noqa: E402  (natureza/ramo do item)
@@ -2298,11 +2297,6 @@ with st.sidebar:
             🚨 Detetive Obtenção
         </a>
     </div>
-    <div style="margin-bottom: 1rem;">
-        <a href="https://depurador.streamlit.app/" target="_blank" style="color: #cbd5e1; text-decoration: none; font-size: 0.9rem; display: flex; align-items: center; gap: 0.5rem;">
-            🧾 Depurador de Orçamentos
-        </a>
-    </div>
     """, unsafe_allow_html=True)
     st.markdown('<div style="text-align:center;color:#d4af37;font-size:10px;font-weight:600;padding:0.3rem 0;white-space:nowrap;">Centro de Operações do Abastecimento</div>', unsafe_allow_html=True)
     st.markdown('<div class="sidebar-footer">Marinha do Brasil<br>AtaCotada v1.0</div>', unsafe_allow_html=True)
@@ -2437,26 +2431,8 @@ col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 1])
 with col_btn2:
     iniciar = st.button("🚀 Iniciar Scraping", type="primary", use_container_width=True)
 
-with st.expander("🧪 Teste de desempenho (meta: 3 preços por item em até 2 min na média e 90% a 100% de acertividade)", expanded=False):
-    st.caption("Roda 15 itens e mede o tempo de cada um e se os anúncios achados são mesmo do item. Use os itens que a memória já treinou ou itens "
-               "novos, para ver se o sistema funciona também com o que nunca viu. Demora cerca de 15 a 30 minutos.")
-    modo_teste = st.radio("Quais itens?", ["15 itens já treinados (os mais cotados na memória)", "15 itens novos (que a memória nunca viu)"], key="modo_teste")
-    iniciar_teste = st.button("▶️ Rodar o teste de desempenho", key="rodar_teste")
-
-if iniciar or iniciar_teste:
-    if iniciar_teste:
-        memoria_teste, _ = memoria_lojas.carregar(st.secrets if _tem_secrets() else {})
-        if modo_teste.startswith("15 itens já"):
-            itens = desempenho.itens_treinados(memoria_teste)
-            st.info("Teste de desempenho com: " + "; ".join(itens))
-        else:
-            itens, ineditos = desempenho.itens_novos_info(memoria_teste)
-            aviso_repetidos = "" if ineditos == len(itens) else (f" ({ineditos} inéditos; os outros {len(itens) - ineditos} já foram vistos pela memória em testes anteriores, "
-                                                                f"porque o banco de itens inéditos acabou)")
-            st.info("Teste de desempenho com: " + "; ".join(itens) + aviso_repetidos)
-    else:
-        itens = [i.strip() for i in itens_input.strip().split("\n") if i.strip()]
-    inicio_execucao = time.time()
+if iniciar:
+    itens = [i.strip() for i in itens_input.strip().split("\n") if i.strip()]
 
     if not itens:
         st.error("⚠️ Informe pelo menos um item para pesquisa.")
@@ -2488,40 +2464,7 @@ if iniciar or iniciar_teste:
         st.session_state["scraping_resultados"] = resultados
         st.session_state["scraping_itens"] = itens
         st.session_state["scraping_excluir_ids"] = []
-        if iniciar_teste:
-            st.session_state["teste_desempenho"] = {"modo": modo_teste, "itens": itens, "total_s": round(time.time() - inicio_execucao, 1),
-                                                    "tempos": dict(st.session_state.get("tempos_itens", {})), "resultados": resultados}
-        else:
-            st.session_state.pop("teste_desempenho", None)
 
-
-def mostrar_resultado_do_teste():
-    """Tabela do teste de desempenho: tempo por item, anúncios achados e acertividade (automática, e revisada por você na coluna 'Correto?')."""
-    teste = st.session_state.get("teste_desempenho")
-    if not teste:
-        return
-    st.markdown("### 🧪 Resultado do teste de desempenho")
-    st.caption(f"{teste['modo']} — duração total: {teste['total_s'] / 60:.1f} min")
-    analise_teste = web_precos.analisar_todos(teste["itens"], teste["resultados"], max_precos=desempenho.PRECOS_POR_ITEM)
-    linhas_preco, linhas_item, _ = desempenho.avaliar(teste["itens"], analise_teste, teste["tempos"])
-    st.markdown("**Anúncios achados** — desmarque \"Correto?\" nos que NÃO são o item pedido; a acertividade abaixo é recalculada:")
-    revisado = st.data_editor(pd.DataFrame(linhas_preco), key="revisao_teste", hide_index=True, use_container_width=True,
-                              disabled=[c for c in (linhas_preco[0].keys() if linhas_preco else []) if c != "Correto?"],
-                              column_config={"Endereço": st.column_config.LinkColumn("Endereço")})
-    metricas_teste = desempenho.metricas(linhas_item, revisado.to_dict("records") if len(revisado) else [])
-    c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Tempo médio por item", f"{metricas_teste['tempo_medio_s']} s" if metricas_teste["tempo_medio_s"] is not None else "-",
-              "meta ≤ 120 s" if metricas_teste["meta_tempo_ok"] else "acima da meta de 120 s", delta_color="normal" if metricas_teste["meta_tempo_ok"] else "inverse")
-    c2.metric("Itens com 3 preços", f"{metricas_teste['pct_itens_completos']}%")
-    c3.metric("Anúncios certos", f"{metricas_teste['pct_precos_certos']}%",
-              "meta ≥ 90%" if metricas_teste["meta_acerto_ok"] else "abaixo da meta de 90%", delta_color="normal" if metricas_teste["meta_acerto_ok"] else "inverse")
-    c4.metric("Itens 100% certos", f"{metricas_teste['pct_itens_todos_certos']}%")
-    st.dataframe(pd.DataFrame(linhas_item), hide_index=True, use_container_width=True)
-    st.download_button("⬇️ Baixar o resultado do teste (CSV)", pd.DataFrame(linhas_item).to_csv(index=False).encode("utf-8-sig"),
-                       file_name="teste_desempenho.csv", mime="text/csv")
-
-
-mostrar_resultado_do_teste()
 
 # ===================== EXIBIÇÃO DE RESULTADOS =====================
 

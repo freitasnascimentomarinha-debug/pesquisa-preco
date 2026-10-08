@@ -127,11 +127,6 @@ with st.sidebar:
 			🚨 Detetive Obtenção
 		</a>
 	</div>
-	<div style="margin-bottom: 1rem;">
-		<a href="https://depurador.streamlit.app/" target="_blank" style="color: #cbd5e1; text-decoration: none; font-size: 0.9rem; display: flex; align-items: center; gap: 0.5rem;">
-			🧾 Depurador de Orçamentos
-		</a>
-	</div>
 	""",
 		unsafe_allow_html=True,
 	)
