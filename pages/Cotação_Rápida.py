@@ -183,7 +183,14 @@ tipo_busca = st.selectbox(
     "É um pouco mais lento; prefira escolher o tipo quando a lista for toda de um só tipo.",
 )
 
+priorizar_estimativa = st.checkbox(
+    "Deixar a estimativa de preço orientar a escolha do CATMAT", value=True,
+    help="Só vale para os itens com “Estimativa do preço”. Entre os CATMAT bem parecidos (60% ou mais), passam na frente os que praticam preço compatível (±40%) com a sua estimativa. "
+         "Se nenhum pratica, o sistema mantém o mais parecido e avisa. Desmarque para usar só a semelhança do texto (a estimativa vira apenas um aviso).",
+)
+
 if st.button("⚡ Cotar itens", type="primary", use_container_width=True):
+    st.session_state["cotacao_rapida_geracao"] = st.session_state.get("cotacao_rapida_geracao", 0) + 1
     itens_lista = list(itens_pedidos)
     if not itens_lista:
         st.warning("Informe ao menos uma descrição ou envie uma lista de itens.")
@@ -198,7 +205,7 @@ if st.button("⚡ Cotar itens", type="primary", use_container_width=True):
         for posicao, (item, pedido) in enumerate(zip(itens, itens_lista), start=1):
             barra.progress((posicao - 1) / len(itens), text=f"Cotando {posicao}/{len(itens)}: {item[:60]}")
             try:
-                resultados.append(anexar_pedido(cotar_item(item, catmat, catalogo_servico, tipo_busca, estimativa=pedido.get("estimativa")), pedido))
+                resultados.append(anexar_pedido(cotar_item(item, catmat, catalogo_servico, tipo_busca, estimativa=pedido.get("estimativa"), priorizar=priorizar_estimativa), pedido))
             except Exception as erro:  # um item com problema não derruba a cotação inteira
                 vazio = resultado_vazio(item, tipo_busca if tipo_busca != "Automático" else "Material")
                 vazio["falha_api"] = True
@@ -233,11 +240,21 @@ if resultados:
         outros = [r for r in com_estimativa if r["compativeis"]]
         st.markdown(f"**Conferência com a sua estimativa de preço** — {len(com_estimativa)} item(ns) com estimativa: "
                     f"{sum(1 for r in com_estimativa if r['validacao'] == 'coerente')} coerente(s), {len(divergentes)} divergente(s), {len(outros)} com sugestão de outro CATMAT mais próximo da estimativa.")
-        for r in com_estimativa:
-            if r["validacao"] != "coerente":
-                st.warning(f"**{r['descricao']}** — {r['texto_validacao']}".replace("$", "\\$"))  # "$" solto vira fórmula no markdown
-            elif r["compativeis"]:
-                st.info(f"**{r['descricao']}** — {r['texto_validacao']}".replace("$", "\\$"))
+        for indice, r in enumerate(resultados):
+            if not r.get("estimativa") or not (r["validacao"] != "coerente" or r["compativeis"] or r.get("escolha") in ("estimativa", "manual")):
+                continue
+            texto_aviso = f"**{r['descricao']}** — {r['texto_validacao']}".replace("$", "\\$")  # "$" solto vira fórmula no markdown
+            (st.warning if r["validacao"] != "coerente" else st.info)(texto_aviso)
+            if r["compativeis"] and r.get("tipo") != "Serviço":  # opção de trocar o CATMAT por um dos compatíveis em preço
+                botoes = st.columns(len(r["compativeis"]))
+                for coluna_botao, alternativa in zip(botoes, r["compativeis"]):
+                    if coluna_botao.button(f"Usar o CATMAT {alternativa['codigo']} ({alternativa['correspondencia']:.0f}%)", key=f"cr_usar_{st.session_state.get('cotacao_rapida_geracao', 0)}_{indice}_{alternativa['codigo']}",
+                                           help=f"Cota de novo só este item, com este código. Mediana dos preços: {moeda(alternativa['mediana'])}. {alternativa['descricao'][:160]}".replace("$", "\\$")):
+                        with st.spinner("Cotando com o CATMAT escolhido…"):
+                            novo = cotar_item(r["descricao"], catmat, catalogo_servico, "Material", estimativa=r["estimativa"], forcar=[alternativa["codigo"]], priorizar=False)
+                            resultados[indice] = anexar_pedido(novo, {"quantidade": r.get("quantidade_pedida") or 1.0, "quantidade_informada": r.get("quantidade_pedida") is not None,
+                                                                      "unidade": r.get("unidade_pedida") or "UN"})
+                        st.rerun()
     if tem_quantidades(resultados):
         com_total = sum(1 for r in resultados if r.get("quantidade_pedida") and r["stats"])
         st.metric("Valor total estimado do orçamento", moeda(valor_total_orcamento(resultados)),

@@ -463,6 +463,7 @@ def tabela_mapa(resultados: list[dict]) -> pd.DataFrame:
             linha[COL_TOTAL] = valor_total_item(r)
         if com_estimativa:
             linha["Estimativa (R$)"] = r.get("estimativa")
+            linha["CATMAT escolhido por"] = {"estimativa": "Estimativa de preço", "manual": "Escolha do usuário"}.get(r.get("escolha"), "Mais parecido") if r.get("estimativa") else None
             linha["Conferência com a estimativa"] = r.get("texto_validacao") or None
         linha.update({
             "Mediana": s["mediana"] if s else None,
