@@ -11,7 +11,7 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
 from lista_itens import formatar_quantidade, tem_quantidades, valor_total_item, valor_total_orcamento
-from cotacao_rapida import JANELA_DIAS, LIMIAR_CORRESPONDENCIA, LIMIAR_SERVICO, MAX_CATMAT, MAX_PRECOS, MIN_PRECOS, TOLERANCIA
+from cotacao_rapida import TOLERANCIA_ESTIMATIVA, JANELA_DIAS, LIMIAR_CORRESPONDENCIA, LIMIAR_SERVICO, MAX_CATMAT, MAX_PRECOS, MIN_PRECOS, TOLERANCIA
 
 AZUL, DOURADO, AZUL_CARTAO = (0, 26, 77), (212, 175, 55), (10, 37, 64)
 LARGURA = 281  # área útil (A4 paisagem, margens de 8 mm)
@@ -380,7 +380,7 @@ def _pagina_item(pdf: FPDF, numero: int, r: dict) -> None:
     if r.get("faixa_estimativa"):
         baixo, alto = r["faixa_estimativa"]
         notas.append(f"Estimativa de preco informada pelo requisitante: R$ {moeda(r['estimativa'])} por unidade. Os precos listados foram escolhidos entre as compras de "
-                     f"R$ {moeda(baixo)} a R$ {moeda(alto)} (+-40% da estimativa); compras fora dessa faixa nao entraram na selecao.")
+                     f"R$ {moeda(baixo)} a R$ {moeda(alto)} (+-{TOLERANCIA_ESTIMATIVA * 100:.0f}% da estimativa); compras fora dessa faixa nao entraram na selecao.")
     if r["status"] == "insuficiente":
         notas.append(f"ATENCAO: menos de {MIN_PRECOS} precos - complementar com outras fontes (IN 65/2021).")
     for nota in notas:

@@ -28,13 +28,13 @@ MIN_PRECOS = 3  # abaixo disso o item é sinalizado (IN SEGES/ME nº 65/2021 rec
 TOLERANCIA = 0.30  # cada preço deve ficar a até 30% (para mais ou para menos) da média dos preços listados
 JANELA_DIAS = 365
 MAX_FAMILIAS = 12
-TOLERANCIA_ESTIMATIVA = 0.40  # preço médio dentro de ±40% da estimativa do usuário = coerente
+TOLERANCIA_ESTIMATIVA = 0.20  # preços listados e CATMAT "compatível" ficam a até ±20% da estimativa do usuário
 LIMIAR_FAMILIA_COM_ESTIMATIVA = 45.0  # com estimativa, famílias menos parecidas também são consultadas (para achar outro CATMAT possível)
 LIMIAR_ALTERNATIVA = 45.0  # % mínimo de correspondência para um CATMAT não escolhido ser sugerido como alternativa pelo preço
 MIN_REGISTROS_ALTERNATIVA = 2
 LIMIAR_PRIORIZAR_ESTIMATIVA = 60.0  # com estimativa, só CATMAT com ao menos esta correspondência podem passar na frente...
 MARGEM_PRIORIZAR_ESTIMATIVA = 15.0  # ...e só se estiverem a até esta margem (em pontos) do mais parecido: um item de outro tipo nunca ganha só pelo preço
-MIN_PERTO_ESTIMATIVA = 3  # compras do CATMAT perto da estimativa (±40%) para considerá-lo compatível em preço
+MIN_PERTO_ESTIMATIVA = 3  # compras do CATMAT perto da estimativa (±TOLERANCIA_ESTIMATIVA) para considerá-lo compatível em preço
 LIMIAR_ALTERNATIVA_FORTE = 70.0  # com o preço já coerente, só vale sugerir outro CATMAT que também case bem
 MAX_ALTERNATIVAS = 3
 MAX_CANDIDATOS_SERVICO = 40  # serviços do catálogo cujos preços são conferidos antes de escolher os 3 melhores
@@ -247,7 +247,7 @@ def _concluir(resultado: dict, escolhidos: list[tuple[float, int, object, str]],
     resultado["universo"] = len(mesma_unidade)
     amostra = limpos
     resultado["faixa_estimativa"] = None
-    if estimativa and priorizar:  # com estimativa, os preços listados saem das compras próximas dela (±40%), se houver ao menos MIN_PRECOS
+    if estimativa and priorizar:  # com estimativa, os preços listados saem das compras próximas dela (±TOLERANCIA_ESTIMATIVA), se houver ao menos MIN_PRECOS
         faixa = (estimativa * (1 - TOLERANCIA_ESTIMATIVA), estimativa * (1 + TOLERANCIA_ESTIMATIVA))
         na_faixa = [r for r in mesma_unidade if faixa[0] <= r["preco"] <= faixa[1]]
         if len(na_faixa) >= MIN_PRECOS:

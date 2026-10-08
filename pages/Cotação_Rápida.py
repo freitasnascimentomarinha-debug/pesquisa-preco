@@ -23,7 +23,7 @@ sys.path.insert(0, BASE_DIR)  # permite importar catmat_busca.py (raiz do projet
 from atualizar_modulos import recarregar_se_mudou  # noqa: E402
 recarregar_se_mudou('catmat_busca', 'cotacao_rapida', 'lista_itens', 'relatorio_cotacao_rapida', 'lista_itens_ui')  # evita módulo antigo em memória após deploy
 from catmat_busca import CATMAT_PATH, CATSERV_PATH, carregar_catalogo, carregar_indice_catmat  # noqa: E402
-from cotacao_rapida import aplicar_estimativa, JANELA_DIAS, LIMIAR_CORRESPONDENCIA, LIMIAR_SERVICO, MAX_CATMAT, MAX_PRECOS, MIN_PRECOS, TOLERANCIA, cotar_item, resultado_vazio  # noqa: E402
+from cotacao_rapida import TOLERANCIA_ESTIMATIVA, aplicar_estimativa, JANELA_DIAS, LIMIAR_CORRESPONDENCIA, LIMIAR_SERVICO, MAX_CATMAT, MAX_PRECOS, MIN_PRECOS, TOLERANCIA, cotar_item, resultado_vazio  # noqa: E402
 from relatorio_cotacao_rapida import STATUS_TEXTO, gerar_excel, gerar_pdf, tabela_mapa  # noqa: E402
 from lista_itens import anexar_pedido, tem_quantidades, valor_total_orcamento  # noqa: E402
 from lista_itens_ui import entrada_itens  # noqa: E402
@@ -185,7 +185,7 @@ tipo_busca = st.selectbox(
 
 priorizar_estimativa = st.checkbox(
     "Deixar a estimativa de preço orientar a escolha do CATMAT", value=True,
-    help="Só vale para os itens com “Estimativa do preço”. Entre os CATMAT bem parecidos (60% ou mais), passam na frente os que praticam preço compatível (±40%) com a sua estimativa. "
+    help=f"Só vale para os itens com “Estimativa do preço”. Entre os CATMAT bem parecidos (60% ou mais), passam na frente os que praticam preço compatível (até {TOLERANCIA_ESTIMATIVA:.0%} de diferença) com a sua estimativa. "
          "Se nenhum pratica, o sistema mantém o mais parecido e avisa. Desmarque para usar só a semelhança do texto (a estimativa vira apenas um aviso).",
 )
 
