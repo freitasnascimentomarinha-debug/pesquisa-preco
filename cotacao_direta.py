@@ -204,12 +204,14 @@ def candidatos_do_item(descricao: str, catmat, hoje: dt.date | None = None, max_
     inicio, fim = (hoje - dt.timedelta(days=JANELA_DIAS)).isoformat(), hoje.isoformat()
     familias = [f for f in buscar_familias(descricao, catmat, limite=max_familias) if f["nota"] >= 50]
     por_cnpj: dict[str, dict[str, object]] = {}
+    ufs_de_venda: dict[str, set[str]] = {}  # estados dos órgãos compradores a quem cada fornecedor vendeu (para preferir quem já vendeu no estado da OM)
     for familia in familias:
         registros, _ = registros_da_familia(str(familia["codigo"]), inicio, fim)
         for registro in registros:
             cnpj = somente_digitos(registro.get("cnpj"))
             if len(cnpj) != 14 or not _preco_valido(registro):
                 continue
+            ufs_de_venda.setdefault(cnpj, set()).add(str(registro.get("uf") or "").strip().upper())
             nota = calcular_similaridade(descricao, str(registro.get("descricao") or ""), str(familia["nome"]))
             categoria = 0 if nota >= LIMIAR_CATMAT else 1
             chave = (categoria, -dt.date.fromisoformat(_data_iso(registro["data"])).toordinal() if _data_iso(registro.get("data")) else 0)
@@ -219,7 +221,35 @@ def candidatos_do_item(descricao: str, catmat, hoje: dt.date | None = None, max_
                                   "data": _data_iso(registro.get("data")), "catmat": registro.get("catmat"), "descricao_vendida": str(registro.get("descricao") or ""),
                                   "uasg": str(registro.get("nome_uasg") or registro.get("uasg") or ""), "preco": registro.get("preco"), "familia": str(familia["nome"]),
                                   "combinacao": round(nota, 1)}
+    for cnpj, dados in por_cnpj.items():
+        dados["ufs_de_venda"] = ufs_de_venda.get(cnpj, set())
     return [dados for dados in sorted(por_cnpj.values(), key=lambda d: d["chave"])]
+
+
+def normalizar_lugar(texto: object) -> str:
+    """'São Paulo' = 'SAO PAULO' (sem acento, maiúsculas, espaços únicos)."""
+    return chave_om(str(texto or ""))
+
+
+def pontos_de_local(candidato: dict[str, object], contato: dict[str, str], local: dict[str, str] | None) -> int:
+    """Quão perto do local da OM o fornecedor está: 3 = mesma cidade; 2 = mesmo estado; 1 = já vendeu a órgãos do mesmo estado; 0 = nenhum."""
+    if not local:
+        return 0
+    uf_om, cidade_om = normalizar_lugar(local.get("uf")), normalizar_lugar(local.get("cidade"))
+    if cidade_om and normalizar_lugar(contato.get("municipio")) == cidade_om and (not uf_om or normalizar_lugar(contato.get("uf")) in ("", uf_om)):
+        return 3
+    if uf_om and normalizar_lugar(contato.get("uf")) == uf_om:
+        return 2
+    if uf_om and uf_om in {normalizar_lugar(u) for u in candidato.get("ufs_de_venda", set())}:
+        return 1
+    return 0
+
+
+def texto_do_local(pontos: int, local: dict[str, str] | None) -> str:
+    if not local or not pontos:
+        return ""
+    return {3: f" Fica na mesma cidade da OM ({local.get('cidade', '')}/{local.get('uf', '')}).", 2: f" Fica no mesmo estado da OM ({local.get('uf', '')}).",
+            1: f" Já vendeu a órgãos do mesmo estado da OM ({local.get('uf', '')})."}[pontos]
 
 
 def motivo_da_escolha(c: dict[str, object]) -> str:
@@ -269,10 +299,12 @@ def _candidatos_seguro(descricao: str, catmat) -> list[dict[str, object]]:
 
 
 def escolher_fornecedores(itens: list[dict[str, object]], catmat, ao_progredir=None, excluir_emails: set[str] | None = None,
-                          por_item: int = FORNECEDORES_POR_ITEM) -> dict[int, list[dict[str, object]]]:
+                          por_item: int = FORNECEDORES_POR_ITEM, local: dict[str, str] | None = None) -> dict[int, list[dict[str, object]]]:
     """Para cada item (na ordem), até `por_item` fornecedores COM e-mail, nunca repetindo um fornecedor (CNPJ ou e-mail) já escolhido para outro item.
     Devolve {posição do item: [fornecedor, ...]}.
     Etapa 1 (em paralelo): vendas recentes de cada item no Compras.gov. Etapa 2 (item a item, para não repetir fornecedor): e-mail dos candidatos.
+    `local` ({cidade, uf} da OM): entre fornecedores igualmente parecidos com o item, dá preferência aos da mesma cidade, depois do mesmo estado e depois a quem já
+    vendeu a órgãos do mesmo estado (a localização do fornecedor vem do cadastro do CNPJ, por isso são consultados alguns candidatos a mais).
     `ao_progredir(fase, feitos, total, texto, achados)` atualiza a tela (fase 'busca' ou 'contatos')."""
     total = len(itens)
     candidatos_por_item: dict[int, list[dict[str, object]]] = {}
@@ -290,23 +322,38 @@ def escolher_fornecedores(itens: list[dict[str, object]], catmat, ao_progredir=N
         if ao_progredir:
             ao_progredir("contatos", posicao, total, f"Item {posicao + 1}/{total}: {item['descricao']}", achados)
         candidatos = [c for c in candidatos_por_item.get(posicao, []) if c["cnpj"] not in usados_cnpj]
-        escolhidos: list[dict[str, object]] = []
+        if local and local.get("uf"):  # quem já vendeu no estado da OM vem antes, dentro da mesma categoria (parecido x mesma família)
+            uf_om = normalizar_lugar(local["uf"])
+            candidatos.sort(key=lambda c: (c["chave"][0], 0 if uf_om in {normalizar_lugar(u) for u in c.get("ufs_de_venda", set())} else 1, c["chave"][1]))
+        validos: list[tuple[tuple[int, int, int], dict[str, object], dict[str, str]]] = []  # (chave de ordem, candidato, contato)
         consultados = 0
-        while candidatos and len(escolhidos) < por_item and consultados < MAX_CONSULTAS_CONTATO_POR_ITEM:
-            falta = por_item - len(escolhidos)
+        meta = por_item * (3 if local else 1)  # com preferência de local, junta mais candidatos com e-mail para escolher entre eles
+        ordem = 0
+        while candidatos and len(validos) < meta and consultados < MAX_CONSULTAS_CONTATO_POR_ITEM:
+            falta = meta - len(validos)
             lote, candidatos = candidatos[:max(falta, 4)], candidatos[max(falta, 4):]
             consultados += len(lote)
             with ThreadPoolExecutor(max_workers=4) as executor:
                 contatos = list(executor.map(lambda c: contato_do_cnpj(str(c["cnpj"])), lote))
             for candidato, contato in zip(lote, contatos):
                 email = contato.get("email", "").lower()
-                if not email or not _ativa(contato) or email in usados_email or len(escolhidos) >= por_item:
+                ordem += 1
+                if not email or not _ativa(contato) or email in usados_email:
                     continue
-                usados_cnpj.add(str(candidato["cnpj"]))
-                usados_email.add(email)
-                escolhidos.append({**candidato, **contato, "email": email, "nome": contato.get("razao_social") or candidato["nome"],
-                                   "motivo": motivo_da_escolha(candidato), "item": item["descricao"], "posicao_item": posicao + 1, "enviar": True})
+                validos.append(((candidato["chave"][0], -pontos_de_local(candidato, contato, local), ordem), candidato, contato))
             time.sleep(0.1)
+        escolhidos: list[dict[str, object]] = []
+        for _, candidato, contato in sorted(validos, key=lambda v: v[0]):
+            email = contato.get("email", "").lower()
+            if len(escolhidos) >= por_item:
+                break
+            if email in usados_email:  # dois candidatos com o mesmo e-mail
+                continue
+            usados_cnpj.add(str(candidato["cnpj"]))
+            usados_email.add(email)
+            pontos = pontos_de_local(candidato, contato, local)
+            escolhidos.append({**candidato, **contato, "email": email, "nome": contato.get("razao_social") or candidato["nome"], "pontos_local": pontos,
+                               "motivo": motivo_da_escolha(candidato) + texto_do_local(pontos, local), "item": item["descricao"], "posicao_item": posicao + 1, "enviar": True})
         resultado[posicao] = escolhidos
         achados += len(escolhidos)
     if ao_progredir:
@@ -592,7 +639,7 @@ def gerar_comprovante_xlsx(om: dict[str, str], protocolo: str, itens: list[dict[
                      "CATMAT sugerido": " / ".join(f"{c['codigo']} ({c['combinacao']:.0f}%)" for c in catmats.get(i, [])) or "—",
                      "Fornecedores com e-mail": sum(1 for f in fornecedores if f["posicao_item"] == i + 1)} for i, it in enumerate(itens)]
     linhas_forn = [{"Item": f["posicao_item"], "Descrição do item": f["item"], "Empresa": f["nome"], "CNPJ": f["cnpj"], "E-mail": f["email"],
-                    "Telefone": f.get("telefone", ""), "UF": f.get("uf", ""), "Enviado": "Sim" if f.get("enviar", True) else "Não",
+                    "Telefone": f.get("telefone", ""), "Cidade/UF": f.get("cidade_uf") or "/".join(p for p in (str(f.get("municipio", "")).title(), str(f.get("uf", ""))) if p), "Enviado": "Sim" if f.get("enviar", True) else "Não",
                     "Motivo da escolha": f["motivo"]} for f in fornecedores]
     resumo = [{"Campo": "Protocolo", "Valor": protocolo}, {"Campo": "OM", "Valor": om["nome"]}, {"Campo": "CNPJ da OM", "Valor": formatar_cnpj(om.get("cnpj", ""))}, {"Campo": "Endereço", "Valor": endereco_completo(om)},
               {"Campo": "E-mail da OM", "Valor": om.get("email", "")}, {"Campo": "Emitido em", "Valor": dt.datetime.now().strftime("%d/%m/%Y %H:%M")},
@@ -630,9 +677,25 @@ def senha_correta(informada: str, esperada: str) -> bool:
     return bool(esperada) and hmac.compare_digest(str(informada).encode(), str(esperada).encode())
 
 
-def separar_destinatarios(email_om: str, fornecedores: list[str], lote: int = LOTE_BCC) -> list[list[str]]:
-    """E-mails ocultos em lotes, sem repetir (sem diferenciar maiúsculas) e sem incluir o e-mail da OM."""
-    vistos = {email_om.strip().lower()}
+def lista_emails(texto: str) -> tuple[list[str], list[str]]:
+    """'a@x.com; b@y.com' -> (válidos sem repetir, trechos inválidos). Separa por ponto e vírgula, vírgula ou espaço."""
+    validos: list[str] = []
+    invalidos: list[str] = []
+    for parte in re.split(r"[;,\s]+", str(texto or "")):
+        parte = parte.strip().lower()
+        if not parte:
+            continue
+        if EMAIL_VALIDO.match(parte):
+            if parte not in validos:
+                validos.append(parte)
+        else:
+            invalidos.append(parte)
+    return validos, invalidos
+
+
+def separar_destinatarios(emails_om: list[str] | str, fornecedores: list[str], lote: int = LOTE_BCC) -> list[list[str]]:
+    """E-mails ocultos em lotes, sem repetir (sem diferenciar maiúsculas) e sem incluir os e-mails da OM."""
+    vistos = {e.strip().lower() for e in ([emails_om] if isinstance(emails_om, str) else emails_om)}
     unicos = []
     for email in fornecedores:
         chave = email.strip().lower()
@@ -642,10 +705,11 @@ def separar_destinatarios(email_om: str, fornecedores: list[str], lote: int = LO
     return [unicos[i:i + lote] for i in range(0, len(unicos), lote)]
 
 
-def enviar_resend(chave_api: str, remetente: str, para: str, bcc: list[str], responder_para: str, assunto: str, texto: str, html_corpo: str,
+def enviar_resend(chave_api: str, remetente: str, para: list[str] | str, bcc: list[str], responder_para: list[str] | str, assunto: str, texto: str, html_corpo: str,
                   anexos: list[tuple[str, bytes]], sessao=None) -> dict[str, object]:
-    """Uma mensagem pela API do Resend. Devolve {'ok', 'id', 'erro'}. Nunca levanta exceção."""
-    corpo: dict[str, object] = {"from": remetente, "to": [para], "subject": assunto, "text": texto, "html": html_corpo, "reply_to": responder_para}
+    """Uma mensagem pela API do Resend (`para` e `responder_para` aceitam vários e-mails). Devolve {'ok', 'id', 'erro'}. Nunca levanta exceção."""
+    corpo: dict[str, object] = {"from": remetente, "to": [para] if isinstance(para, str) else list(para), "subject": assunto, "text": texto, "html": html_corpo,
+                                "reply_to": responder_para if isinstance(responder_para, str) else list(responder_para)}
     if bcc:
         corpo["bcc"] = bcc
     if anexos:

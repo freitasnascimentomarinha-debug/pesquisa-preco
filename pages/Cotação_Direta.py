@@ -183,16 +183,17 @@ c8.text_input("UF", key="om_uf", max_chars=2)
 c9, c10, c11 = st.columns([1.2, 1, 1.6])
 c9.text_input("CNPJ da OM", key="om_cnpj", placeholder="00.000.000/0000-00", help="Vai no cabeçalho da proposta e na assinatura do e-mail; fica salvo com a OM.")
 c10.text_input("Telefone para contato", key="om_telefone", placeholder="(21) 0000-0000")
-email_om = c11.text_input("Seu e-mail institucional", key="om_email", placeholder="nome@marinha.mil.br",
-                          help="Você recebe uma cópia da mensagem, com o Word anexado, e as respostas dos fornecedores chegam aqui.")
+email_om = c11.text_input("E-mail(s) institucional(is)", key="om_email", placeholder="nome@marinha.mil.br; chefe@marinha.mil.br",
+                          help="Quem recebe a cópia da mensagem, com o Word anexado, e as respostas dos fornecedores. Pode colocar mais de um, separados por ponto e vírgula (;).")
 if st.session_state.get("om_cnpj") and not cd.cnpj_valido(st.session_state["om_cnpj"]):
     st.caption("⚠️ O CNPJ informado não parece válido (confira os dígitos).")
 responsavel = st.text_input("Responsável pelo pedido (assinatura do e-mail)", key="om_responsavel", placeholder="Ex.: 1T (IM) Fulano de Tal – Encarregado da Divisão de Obtenção")
 
+emails_om, emails_invalidos = cd.lista_emails(email_om)
 om = {"nome": nome_om.strip(), "cnpj": cd.somente_digitos(st.session_state.get("om_cnpj", "")), "cep": cd.somente_digitos(st.session_state.get("om_cep", "")), "logradouro": st.session_state.get("om_logradouro", ""),
       "numero": st.session_state.get("om_numero", ""), "complemento": st.session_state.get("om_complemento", ""), "bairro": st.session_state.get("om_bairro", ""),
       "cidade": st.session_state.get("om_cidade", ""), "uf": st.session_state.get("om_uf", ""), "telefone": st.session_state.get("om_telefone", ""),
-      "email": email_om.strip(), "responsavel": responsavel.strip()}
+      "email": "; ".join(emails_om), "emails": emails_om, "responsavel": responsavel.strip()}
 
 # ---------- 2. itens ----------
 passo(2, "Itens e quantidades", "Digite como uma lista de compras ou envie uma planilha (sem limite de itens). O sistema já procura o CATMAT mais próximo de cada item: confira, melhore as descrições se quiser e deixe de fora o que não for pedir.")
@@ -297,14 +298,17 @@ hoje = dt.date.today()
 data_limite = cd.adicionar_dias_uteis(hoje, prazo_dias)
 
 # ---------- 3. preparar ----------
-faltam = [rotulo for rotulo, valor in (("nome da OM", om["nome"]), ("e-mail institucional", om["email"]), ("itens", itens)) if not valor]
-if om["email"] and not cd.EMAIL_VALIDO.match(om["email"]):
-    faltam.append("e-mail institucional válido")
+faltam = [rotulo for rotulo, valor in (("nome da OM", om["nome"]), ("e-mail institucional", om["emails"]), ("itens", itens)) if not valor]
+if emails_invalidos:
+    faltam.append("e-mail institucional válido (verifique: " + ", ".join(emails_invalidos) + ")")
 passo(3, "Escolher fornecedores e gerar a proposta",
       f"Para cada item, o sistema sugere o CATMAT e busca até {cd.FORNECEDORES_POR_ITEM} fornecedores que venderam item igual ou semelhante no último ano, "
       f"sem repetir fornecedor entre os itens. Os fornecedores terão {prazo_dias} dias úteis para responder (até {data_limite:%d/%m/%Y}). Pode levar alguns minutos.")
 if faltam:
     st.info("Falta preencher: " + ", ".join(faltam) + ".")
+preferir_local = st.checkbox("Dar preferência a fornecedores da mesma cidade e do mesmo estado da OM", value=True, key="cd_preferir_local",
+                             help="Entre fornecedores igualmente parecidos com o item, vêm primeiro os da mesma cidade, depois os do mesmo estado e depois os que já venderam a órgãos "
+                                  "do mesmo estado. Usa a cidade e a UF do endereço da OM. Consulta alguns candidatos a mais, então pode demorar um pouco mais.")
 if st.button("🔎 Preparar cotação", type="primary", disabled=bool(faltam), key="cd_preparar"):
     inicio = time.time()
     try:  # guarda o nome e o endereço da OM para os próximos pedidos (telefone, e-mail e responsável não)
@@ -339,7 +343,8 @@ if st.button("🔎 Preparar cotação", type="primary", disabled=bool(faltam), k
             barra.progress(0.5 + 0.5 * feitos / max(total, 1))
         status.text(f"{texto}  •  fornecedores com e-mail até agora: {achados}  •  decorrido: {_tempo()}")
 
-    por_item = cd.escolher_fornecedores(itens, catmat, ao_progredir=_progresso, excluir_emails={om["email"]})
+    por_item = cd.escolher_fornecedores(itens, catmat, ao_progredir=_progresso, excluir_emails=set(om["emails"]),
+                                        local={"cidade": om["cidade"], "uf": om["uf"]} if preferir_local and (om["cidade"] or om["uf"]) else None)
     for marcador in (aviso, etapa, barra, status):
         marcador.empty()
     st.session_state["cd_resultado"] = {"itens": itens, "catmats": catmats, "fornecedores": [f for lista in por_item.values() for f in lista], "om": dict(om)}
@@ -364,9 +369,10 @@ if resultado:
 
     st.markdown("#### Fornecedores que receberão o pedido")
     st.caption("Desmarque “Enviar” para tirar alguém, corrija um e-mail ou acrescente uma linha (empresa + e-mail) no fim da tabela. Todos recebem a proposta completa, em cópia oculta.")
-    tabela = pd.DataFrame([{"Enviar": True, "Item de origem": f["posicao_item"], "Empresa": f["nome"], "E-mail": f["email"], "CNPJ": f["cnpj"],
+    tabela = pd.DataFrame([{"Enviar": True, "Item de origem": f["posicao_item"], "Empresa": f["nome"], "E-mail": f["email"],
+                            "Cidade/UF": "/".join(p for p in (str(f.get("municipio", "")).title(), str(f.get("uf", ""))) if p), "CNPJ": f["cnpj"],
                             "Telefone": f.get("telefone", ""), "Por que foi escolhida": f["motivo"]} for f in resultado["fornecedores"]],
-                          columns=["Enviar", "Item de origem", "Empresa", "E-mail", "CNPJ", "Telefone", "Por que foi escolhida"])
+                          columns=["Enviar", "Item de origem", "Empresa", "E-mail", "Cidade/UF", "CNPJ", "Telefone", "Por que foi escolhida"])
     revisada = st.data_editor(tabela, num_rows="dynamic", hide_index=True, use_container_width=True, key=f"cd_forn_{len(tabela)}",
                               column_config={"Enviar": st.column_config.CheckboxColumn("Enviar", default=True), "Item de origem": st.column_config.NumberColumn(disabled=True),
                                              "Por que foi escolhida": st.column_config.TextColumn(width="large")})
@@ -378,10 +384,11 @@ if resultado:
         fornecedores.append({"enviar": True if pd.isna(linha["Enviar"]) else bool(linha["Enviar"]), "posicao_item": int(linha["Item de origem"]) if pd.notna(linha["Item de origem"]) else 0,
                              "item": itens_r[int(linha["Item de origem"]) - 1]["descricao"] if pd.notna(linha["Item de origem"]) and 0 < int(linha["Item de origem"]) <= len(itens_r) else "(incluído manualmente)",
                              "nome": str(linha["Empresa"] or ""), "email": email, "cnpj": str(linha["CNPJ"] or ""), "telefone": str(linha["Telefone"] or ""),
+                             "cidade_uf": str(linha["Cidade/UF"] or ""),
                              "motivo": str(linha["Por que foi escolhida"] or "") or "Incluído manualmente pelo usuário."})
     ativos = [f for f in fornecedores if f["enviar"]]
     invalidos = [f["email"] for f in ativos if not cd.EMAIL_VALIDO.match(f["email"])]
-    lotes = cd.separar_destinatarios(om["email"], [f["email"] for f in ativos if f["email"] not in invalidos])
+    lotes = cd.separar_destinatarios(om["emails"], [f["email"] for f in ativos if f["email"] not in invalidos], lote=max(1, min(cd.LOTE_BCC, 49 - len(om["emails"]))))
     total_destinos = sum(len(lote) for lote in lotes)
     m1, m2, m3 = st.columns(3)
     m1.metric("Fornecedores selecionados", total_destinos)
@@ -417,7 +424,7 @@ if resultado:
         com_mais = ""
         if len(lotes) > 1:
             com_mais = f" Como são muitos fornecedores, serão {len(lotes)} mensagens iguais (o limite é de {cd.LOTE_BCC} ocultos por mensagem): você receberá {len(lotes)} cópias."
-        st.caption(f"Remetente: {cd.remetente_com_nome(remetente, om['nome'])}  •  Respostas para: {om['email']}.{com_mais}")
+        st.caption(f"Remetente: {cd.remetente_com_nome(remetente, om['nome'])}  •  Para e respostas: {om['email']}.{com_mais}")
         if senha_esperada:
             senha = st.text_input("Senha de envio", type="password", key="cd_senha", help="Definida em COTACAO_DIRETA_SENHA nos Secrets: evita que qualquer pessoa dispare e-mails em nome da OM.")
             senha_ok = cd.senha_correta(senha, senha_esperada)
@@ -431,7 +438,7 @@ if resultado:
 
         t1, t2 = st.columns(2)
         if t1.button("🧪 Enviar teste só para mim", disabled=not senha_ok or bool(invalidos) or not ativos, key="cd_teste"):
-            retorno = cd.enviar_resend(chave_api, origem, om["email"], [], om["email"], "[TESTE] " + assunto, texto_final, html_corpo, anexos)
+            retorno = cd.enviar_resend(chave_api, origem, om["emails"], [], om["emails"], "[TESTE] " + assunto, texto_final, html_corpo, anexos)
             (st.success if retorno["ok"] else st.error)("Teste enviado: confira a sua caixa de entrada (e o spam)." if retorno["ok"] else f"Falhou: {retorno['erro']}")
         registros_antes = st.session_state.get("cd_envio", {}).get(protocolo, {}).get("registros", [])
         ja_enviados = {r["E-mails"] for r in registros_antes if r["Resultado"] == "Enviada"}  # lotes que já saíram (não repete em nova tentativa)
@@ -449,7 +456,7 @@ if resultado:
                 for numero, lote in enumerate(lotes, start=1):
                     if "; ".join(lote) in ja_enviados:
                         continue
-                    retorno = cd.enviar_resend(chave_api, origem, om["email"], lote, om["email"], assunto, texto_final, html_corpo, anexos)
+                    retorno = cd.enviar_resend(chave_api, origem, om["emails"], lote, om["emails"], assunto, texto_final, html_corpo, anexos)
                     registros.append({"Mensagem": numero, "Fornecedores ocultos": len(lote), "Resultado": "Enviada" if retorno["ok"] else "FALHOU",
                                       "Código Resend": retorno["id"], "Erro": retorno["erro"], "Data/hora": dt.datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
                                       "E-mails": "; ".join(lote)})
@@ -461,7 +468,7 @@ if resultado:
     if envio:
         enviadas = sum(1 for r in envio["registros"] if r["Resultado"] == "Enviada")
         if lotes and all("; ".join(lote) in {r["E-mails"] for r in envio["registros"] if r["Resultado"] == "Enviada"} for lote in lotes):
-            st.success(f"✅ {enviadas} mensagem(ns) enviada(s) para {total_destinos} fornecedor(es). Você recebeu a cópia no e-mail {om['email']}. Baixe o comprovante acima.")
+            st.success(f"✅ {enviadas} mensagem(ns) enviada(s) para {total_destinos} fornecedor(es). A cópia foi para {om['email']}. Baixe o comprovante acima.")
         else:
             st.error("O envio não terminou: " + "; ".join(f"mensagem {r['Mensagem']}: {r['Erro']}" for r in envio["registros"] if r["Resultado"] != "Enviada")
                      + ". Corrija e clique em enviar de novo: só as mensagens que faltam serão enviadas.")
