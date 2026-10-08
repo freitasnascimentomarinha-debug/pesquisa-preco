@@ -254,9 +254,8 @@ if resultado:
                  hide_index=True, use_container_width=True)
     st.caption(f"CATMAT sugerido por semelhança de texto (mínimo {cd.LIMIAR_CATMAT:.0f}%, até {cd.MAX_CATMAT_SUGERIDOS} códigos); sem sugestão = sem combinação suficiente. "
                "Entra na proposta como referência.")
-    pouco = [i + 1 for i in range(len(itens_r)) if sum(1 for f in resultado["fornecedores"] if f["posicao_item"] == i + 1) < cd.MIN_FORNECEDORES_POR_ITEM]
-    if pouco:
-        st.warning(f"Item(ns) {', '.join(map(str, pouco))} com menos de {cd.MIN_FORNECEDORES_POR_ITEM} fornecedores com e-mail: a IN SEGES/ME nº 65/2021 recomenda ao menos três. "
+    if len({f["email"] for f in resultado["fornecedores"]}) < cd.MIN_FORNECEDORES:
+        st.warning(f"Menos de {cd.MIN_FORNECEDORES} fornecedores com e-mail: a IN SEGES/ME nº 65/2021 recomenda ao menos três. "
                    "Inclua fornecedores manualmente na tabela abaixo (linha nova no fim).")
 
     st.markdown("#### Fornecedores que receberão o pedido")
