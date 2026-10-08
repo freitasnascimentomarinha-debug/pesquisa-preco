@@ -249,7 +249,7 @@ if resultados:
                 botoes = st.columns(len(r["compativeis"]))
                 for coluna_botao, alternativa in zip(botoes, r["compativeis"]):
                     if coluna_botao.button(f"Usar o CATMAT {alternativa['codigo']} ({alternativa['correspondencia']:.0f}%)", key=f"cr_usar_{st.session_state.get('cotacao_rapida_geracao', 0)}_{indice}_{alternativa['codigo']}",
-                                           help=f"Cota de novo só este item, com este código. Mediana dos preços: {moeda(alternativa['mediana'])}. {alternativa['descricao'][:160]}".replace("$", "\\$")):
+                                           help=f"Cota de novo só este item, com este código. {alternativa['perto']} de {alternativa['registros']} compras perto da estimativa (mediana {moeda(alternativa['mediana'])}). {alternativa['descricao'][:160]}".replace("$", "\\$")):
                         with st.spinner("Cotando com o CATMAT escolhido…"):
                             novo = cotar_item(r["descricao"], catmat, catalogo_servico, "Material", estimativa=r["estimativa"], forcar=[alternativa["codigo"]], priorizar=False)
                             resultados[indice] = anexar_pedido(novo, {"quantidade": r.get("quantidade_pedida") or 1.0, "quantidade_informada": r.get("quantidade_pedida") is not None,
@@ -279,7 +279,7 @@ if resultados:
             if r.get("estimativa"):
                 st.markdown(f"**Conferência com a sua estimativa ({moeda(r['estimativa'])} por unidade):** {r['texto_validacao']}".replace("$", "\\$"))
                 if r["compativeis"]:
-                    st.dataframe(pd.DataFrame([{"Código": a["codigo"], "Correspondência (%)": round(a["correspondencia"], 1), "Mediana dos preços": a["mediana"], "Registros": a["registros"],
+                    st.dataframe(pd.DataFrame([{"Código": a["codigo"], "Correspondência (%)": round(a["correspondencia"], 1), "Mediana dos preços": a["mediana"], "Compras perto da estimativa": a["perto"], "Registros": a["registros"],
                                                 "Unidade": a["unidade"], "Descrição no catálogo": a["descricao"]} for a in r["compativeis"]]),
                                  hide_index=True, use_container_width=True, column_config={"Mediana dos preços": formato_moeda})
             if r["precos"]:

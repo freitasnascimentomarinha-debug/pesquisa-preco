@@ -328,7 +328,8 @@ def _pagina_item(pdf: FPDF, numero: int, r: dict) -> None:
         pdf.set_font("Helvetica", "B", 7)
         pdf.set_text_color(*AZUL)
         rotulo_codigo = "CATSERV" if r.get("tipo") == "Serviço" else "CATMAT"
-        pdf.cell(0, 5, f"{rotulo_codigo} correspondentes (>= {r.get('limiar', LIMIAR_CORRESPONDENCIA):.0f}%) - confira a descricao antes de usar no processo", ln=True)
+        criterio = {"estimativa": "escolhidos pela estimativa de preco informada", "manual": "escolhido pelo usuario"}.get(r.get("escolha"), f">= {r.get('limiar', LIMIAR_CORRESPONDENCIA):.0f}%")
+        pdf.cell(0, 5, f"{rotulo_codigo} correspondentes ({criterio}) - confira a descricao antes de usar no processo", ln=True)
         _cabecalho_tabela(pdf, [(rotulo_codigo, 20), ("Corresp.", 18), ("Registros", 18), ("Descricao no catalogo", LARGURA - 56)], 6)
         pdf.set_font("Helvetica", "", 6.5)
         pdf.set_text_color(51, 51, 51)
@@ -376,6 +377,10 @@ def _pagina_item(pdf: FPDF, numero: int, r: dict) -> None:
         + (f" (faixa valida: R$ {moeda(validos[0])} a R$ {moeda(validos[1])})." if validos else "."),
         f"Os {len(r['precos'])} precos listados ficam a ate {TOLERANCIA * 100:.0f}% da media (faixa de R$ {faixa.replace('R$ ', '', 1)}).",
     ]
+    if r.get("faixa_estimativa"):
+        baixo, alto = r["faixa_estimativa"]
+        notas.append(f"Estimativa de preco informada pelo requisitante: R$ {moeda(r['estimativa'])} por unidade. Os precos listados foram escolhidos entre as compras de "
+                     f"R$ {moeda(baixo)} a R$ {moeda(alto)} (+-40% da estimativa); compras fora dessa faixa nao entraram na selecao.")
     if r["status"] == "insuficiente":
         notas.append(f"ATENCAO: menos de {MIN_PRECOS} precos - complementar com outras fontes (IN 65/2021).")
     for nota in notas:
