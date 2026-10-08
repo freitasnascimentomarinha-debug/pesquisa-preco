@@ -152,8 +152,9 @@ def _ao_escolher_om() -> None:
     """Nome de uma OM já salva: preenche o endereço (menos telefone, e-mail e responsável, que são de quem está pedindo)."""
     salva = cd.dados_da_om(st.session_state.get("cd_oms", {}), st.session_state.get("om_nome") or "")
     if salva:
-        for campo in ("cep", "logradouro", "numero", "complemento", "bairro", "cidade", "uf"):
-            st.session_state[f"om_{campo}"] = cd.formatar_cep(salva.get(campo, "")) if campo == "cep" else salva.get(campo, "")
+        for campo in ("cnpj", "cep", "logradouro", "numero", "complemento", "bairro", "cidade", "uf"):
+            st.session_state[f"om_{campo}"] = (cd.formatar_cep(salva.get(campo, "")) if campo == "cep"
+                                               else cd.formatar_cnpj(salva.get(campo, "")) if campo == "cnpj" else salva.get(campo, ""))
         st.session_state["om_cep_ok"] = True
         st.session_state["cd_om_preenchida"] = salva["nome"]
 
@@ -179,13 +180,16 @@ c6, c7, c8 = st.columns([2, 2, 1])
 c6.text_input("Bairro", key="om_bairro")
 c7.text_input("Cidade", key="om_cidade")
 c8.text_input("UF", key="om_uf", max_chars=2)
-c9, c10 = st.columns(2)
-c9.text_input("Telefone para contato", key="om_telefone", placeholder="(21) 0000-0000")
-email_om = c10.text_input("Seu e-mail institucional", key="om_email", placeholder="nome@marinha.mil.br",
+c9, c10, c11 = st.columns([1.2, 1, 1.6])
+c9.text_input("CNPJ da OM", key="om_cnpj", placeholder="00.000.000/0000-00", help="Vai no cabeçalho da proposta e na assinatura do e-mail; fica salvo com a OM.")
+c10.text_input("Telefone para contato", key="om_telefone", placeholder="(21) 0000-0000")
+email_om = c11.text_input("Seu e-mail institucional", key="om_email", placeholder="nome@marinha.mil.br",
                           help="Você recebe uma cópia da mensagem, com o Word anexado, e as respostas dos fornecedores chegam aqui.")
+if st.session_state.get("om_cnpj") and not cd.cnpj_valido(st.session_state["om_cnpj"]):
+    st.caption("⚠️ O CNPJ informado não parece válido (confira os dígitos).")
 responsavel = st.text_input("Responsável pelo pedido (assinatura do e-mail)", key="om_responsavel", placeholder="Ex.: 1T (IM) Fulano de Tal – Encarregado da Divisão de Obtenção")
 
-om = {"nome": nome_om.strip(), "cep": cd.somente_digitos(st.session_state.get("om_cep", "")), "logradouro": st.session_state.get("om_logradouro", ""),
+om = {"nome": nome_om.strip(), "cnpj": cd.somente_digitos(st.session_state.get("om_cnpj", "")), "cep": cd.somente_digitos(st.session_state.get("om_cep", "")), "logradouro": st.session_state.get("om_logradouro", ""),
       "numero": st.session_state.get("om_numero", ""), "complemento": st.session_state.get("om_complemento", ""), "bairro": st.session_state.get("om_bairro", ""),
       "cidade": st.session_state.get("om_cidade", ""), "uf": st.session_state.get("om_uf", ""), "telefone": st.session_state.get("om_telefone", ""),
       "email": email_om.strip(), "responsavel": responsavel.strip()}

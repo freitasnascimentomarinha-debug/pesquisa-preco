@@ -76,6 +76,24 @@ def consultar_cep(cep: str) -> dict[str, str] | None:
     return None
 
 
+def formatar_cnpj(cnpj: object) -> str:
+    d = somente_digitos(cnpj)
+    return f"{d[:2]}.{d[2:5]}.{d[5:8]}/{d[8:12]}-{d[12:14]}" if len(d) == 14 else str(cnpj or "")
+
+
+def cnpj_valido(cnpj: object) -> bool:
+    """14 dígitos, não todos iguais e com os dois dígitos verificadores corretos."""
+    d = somente_digitos(cnpj)
+    if len(d) != 14 or len(set(d)) == 1:
+        return False
+    for tamanho in (12, 13):
+        pesos = ([5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2] if tamanho == 12 else [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2])
+        resto = sum(int(n) * p for n, p in zip(d[:tamanho], pesos)) % 11
+        if int(d[tamanho]) != (0 if resto < 2 else 11 - resto):
+            return False
+    return True
+
+
 def endereco_completo(om: dict[str, str]) -> str:
     partes = [om.get("logradouro", "").strip(), om.get("numero", "").strip(), om.get("complemento", "").strip()]
     rua = ", ".join(p for p in partes if p)
@@ -83,7 +101,7 @@ def endereco_completo(om: dict[str, str]) -> str:
     return " – ".join(p for p in (rua, om.get("bairro", "").strip(), cidade, f"CEP {formatar_cep(om.get('cep'))}" if om.get("cep") else "") if p)
 
 
-CAMPOS_OM_SALVOS = ("nome", "cep", "logradouro", "numero", "complemento", "bairro", "cidade", "uf")  # telefone, e-mail e responsável nunca são guardados
+CAMPOS_OM_SALVOS = ("nome", "cnpj", "cep", "logradouro", "numero", "complemento", "bairro", "cidade", "uf")  # telefone, e-mail e responsável nunca são guardados
 
 
 def chave_om(nome: str) -> str:
@@ -409,7 +427,8 @@ def texto_email(om: dict[str, str], protocolo: str, data_limite: dt.date, prazo_
         "Em caso de dúvidas, estamos à disposição"
         + (f": {contato}.\n\n" if contato else ".\n\n")
         + "Agradecemos desde já a atenção e a colaboração.\n\n"
-        f"Atenciosamente,\n{om.get('responsavel') or 'Setor responsável pela pesquisa de preços'}\n{om['nome']}\n{endereco_completo(om)}"
+        f"Atenciosamente,\n{om.get('responsavel') or 'Setor responsável pela pesquisa de preços'}\n{om['nome']}"
+        + (f"\nCNPJ {formatar_cnpj(om['cnpj'])}" if om.get("cnpj") else "") + f"\n{endereco_completo(om)}"
     )
 
 
@@ -525,7 +544,8 @@ def gerar_proposta_docx(om: dict[str, str], itens: list[dict[str, object]], catm
     run.bold, run.font.size, run.font.color.rgb = True, Pt(13), azul
     detalhe = cabecalho.add_paragraph()
     detalhe.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    run = detalhe.add_run(" | ".join(p for p in (endereco_completo(om), om.get("telefone", ""), om.get("email", "")) if p))
+    run = detalhe.add_run(" | ".join(p for p in (f"CNPJ {formatar_cnpj(om['cnpj'])}" if om.get("cnpj") else "", endereco_completo(om), om.get("telefone", ""),
+                                                  om.get("email", "")) if p))
     run.font.size, run.font.color.rgb = Pt(8), RGBColor(0x55, 0x5F, 0x6B)
     linha = cabecalho.add_paragraph()
     run = linha.add_run("━" * 90)
@@ -662,7 +682,7 @@ def gerar_comprovante_xlsx(om: dict[str, str], protocolo: str, itens: list[dict[
     linhas_forn = [{"Item": f["posicao_item"], "Descrição do item": f["item"], "Empresa": f["nome"], "CNPJ": f["cnpj"], "E-mail": f["email"],
                     "Telefone": f.get("telefone", ""), "UF": f.get("uf", ""), "Enviado": "Sim" if f.get("enviar", True) else "Não",
                     "Motivo da escolha": f["motivo"]} for f in fornecedores]
-    resumo = [{"Campo": "Protocolo", "Valor": protocolo}, {"Campo": "OM", "Valor": om["nome"]}, {"Campo": "Endereço", "Valor": endereco_completo(om)},
+    resumo = [{"Campo": "Protocolo", "Valor": protocolo}, {"Campo": "OM", "Valor": om["nome"]}, {"Campo": "CNPJ da OM", "Valor": formatar_cnpj(om.get("cnpj", ""))}, {"Campo": "Endereço", "Valor": endereco_completo(om)},
               {"Campo": "E-mail da OM", "Valor": om.get("email", "")}, {"Campo": "Emitido em", "Valor": dt.datetime.now().strftime("%d/%m/%Y %H:%M")},
               {"Campo": "Fornecedores (e-mails distintos)", "Valor": len({f['email'] for f in fornecedores if f.get('enviar', True)})}]
     saida = io.BytesIO()
