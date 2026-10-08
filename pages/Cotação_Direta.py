@@ -158,38 +158,92 @@ om = {"nome": nome_om.strip(), "cep": cd.somente_digitos(st.session_state.get("o
       "email": email_om.strip(), "responsavel": responsavel.strip()}
 
 # ---------- 2. itens ----------
-passo(2, "Itens e quantidades", "Digite como uma lista de compras ou envie uma planilha (sem limite de itens). Confira a tabela e corrija o que precisar.")
+passo(2, "Itens e quantidades", "Digite como uma lista de compras ou envie uma planilha (sem limite de itens). O sistema já procura o CATMAT mais próximo de cada item: confira, melhore as descrições se quiser e deixe de fora o que não for pedir.")
+def _catmats_do_item(descricao: str) -> list[dict[str, object]]:
+    """Os 3 CATMAT mais próximos da descrição (guardados na sessão: só recalcula quando a descrição muda)."""
+    cache = st.session_state.setdefault("cd_cache_catmat", {})
+    chave = " ".join(descricao.lower().split())
+    if chave not in cache:
+        cache[chave] = cd.melhores_catmats(descricao, catalogo_catmat())
+    return cache[chave]
+
+
+def _linhas_com_catmat(itens_brutos: list[dict[str, object]], usar: list[bool] | None = None) -> list[dict[str, object]]:
+    return [cd.linha_da_tabela(item, _catmats_do_item(str(item["descricao"])), True if usar is None else usar[i]) for i, item in enumerate(itens_brutos)]
+
+
+def _itens_da_tabela(tabela: pd.DataFrame) -> list[dict[str, object]]:
+    """Linhas da tabela da tela -> itens {descricao, quantidade, unidade} (só as marcadas em 'Usar', sem linhas vazias)."""
+    saida = []
+    for _, linha in tabela.iterrows():
+        descricao = str(linha["Descrição"] or "").strip()
+        if not descricao or descricao.lower() == "nan":
+            continue
+        quantidade = pd.to_numeric(linha["Qtd."], errors="coerce")
+        saida.append({"descricao": descricao, "quantidade": float(quantidade) if quantidade == quantidade and quantidade > 0 else 1.0,
+                      "unidade": str(linha["Un."] or "UN").strip().upper() or "UN", "usar": True if pd.isna(linha["Usar"]) else bool(linha["Usar"])})
+    return saida
+
+
 aba_texto, aba_arquivo = st.tabs(["✍️ Digitar a lista", "📎 Enviar Excel/CSV"])
 with aba_texto:
     texto_lista = st.text_area("Um item por linha, com a quantidade ao lado", height=170, key="cd_lista",
                                placeholder="Caneta esferográfica azul - 100\n50 resmas de papel A4\nParafuso sextavado 1/2 x 20 zincado; 200 un\nFita isolante 20m x 30")
     if st.button("Identificar itens", key="cd_identificar_texto"):
-        with st.spinner("Identificando os itens…"):
-            st.session_state["cd_itens_base"] = cd.interpretar_lista(texto_lista)
+        with st.spinner("Identificando os itens e procurando o CATMAT de cada um…"):
+            st.session_state["cd_itens_base"] = _linhas_com_catmat(cd.interpretar_lista(texto_lista))
+        st.session_state["cd_versao"] = st.session_state.get("cd_versao", 0) + 1
         st.session_state.pop("cd_resultado", None)
 with aba_arquivo:
     arquivo = st.file_uploader("Planilha com os itens (colunas: item/descrição e quantidade)", type=["xlsx", "xls", "csv"], key="cd_arquivo")
     if arquivo is not None and st.button("Ler a planilha", key="cd_identificar_arquivo"):
         try:
-            with st.spinner("Lendo a planilha…"):
+            with st.spinner("Lendo a planilha e procurando o CATMAT de cada item…"):
                 dados = pd.read_csv(arquivo) if arquivo.name.lower().endswith(".csv") else pd.read_excel(arquivo)
-                st.session_state["cd_itens_base"] = cd.itens_do_dataframe(dados)
+                st.session_state["cd_itens_base"] = _linhas_com_catmat(cd.itens_do_dataframe(dados))
+            st.session_state["cd_versao"] = st.session_state.get("cd_versao", 0) + 1
             st.session_state.pop("cd_resultado", None)
         except Exception as erro:  # arquivo ilegível
             st.error(f"Não consegui ler a planilha ({type(erro).__name__}). Confira se é um .xlsx ou .csv válido.")
 
 itens: list[dict[str, object]] = []
 if st.session_state.get("cd_itens_base"):
-    base = pd.DataFrame(st.session_state["cd_itens_base"]).rename(columns={"descricao": "Descrição", "quantidade": "Qtd.", "unidade": "Un."})
-    st.caption("Edite à vontade: dá para corrigir texto e quantidade, trocar a unidade, e incluir ou apagar linhas.")
-    editado = st.data_editor(base[["Descrição", "Qtd.", "Un."]], num_rows="dynamic", use_container_width=True, hide_index=True, key=f"cd_editor_{len(base)}")
-    for _, linha in editado.iterrows():
-        descricao = str(linha["Descrição"] or "").strip()
-        if descricao and descricao.lower() != "nan":
-            quantidade = pd.to_numeric(linha["Qtd."], errors="coerce")
-            itens.append({"descricao": descricao, "quantidade": float(quantidade) if quantidade == quantidade and quantidade > 0 else 1.0,
-                          "unidade": str(linha["Un."] or "UN").strip().upper() or "UN"})
-    st.caption(f"{len(itens)} item(ns) identificado(s).")
+    base = pd.DataFrame(st.session_state["cd_itens_base"])
+    st.caption("**Usar**: desmarque para deixar um item de fora do pedido. Dá para **editar a descrição, a quantidade e a unidade**: depois de mexer nas descrições, "
+               "clique em **Atualizar CATMAT** para o sistema casar de novo o código mais próximo. As colunas de CATMAT só mostram o resultado (não se edita).")
+    editado = st.data_editor(
+        base, hide_index=True, use_container_width=True, num_rows="fixed", key=f"cd_editor_{st.session_state.get('cd_versao', 0)}",
+        disabled=["CATMAT", "% casamento", "Descrição do CATMAT", "Outras opções", "Situação"],
+        column_config={"Usar": st.column_config.CheckboxColumn("Usar", width="small", help="Desmarque para deixar este item de fora do pedido."),
+                       "Descrição": st.column_config.TextColumn("Descrição do item (edite para melhorar)", width="large"),
+                       "Qtd.": st.column_config.NumberColumn("Qtd.", min_value=0, width="small"), "Un.": st.column_config.TextColumn("Un.", width="small"),
+                       "CATMAT": st.column_config.TextColumn("CATMAT", width="small"),
+                       "% casamento": st.column_config.NumberColumn("% casamento", format="%.0f%%", width="small",
+                                                                    help=f"Semelhança entre a sua descrição e a do catálogo. Só entra na proposta a partir de {cd.LIMIAR_CATMAT:.0f}%."),
+                       "Descrição do CATMAT": st.column_config.TextColumn("Descrição do item no CATMAT", width="large"),
+                       "Outras opções": st.column_config.TextColumn("Outras opções (≥ 70%)", width="medium"),
+                       "Situação": st.column_config.TextColumn("Situação", width="medium")})
+    todos = _itens_da_tabela(editado)
+    mudou = [i for i, (novo, antigo) in enumerate(zip(editado["Descrição"], base["Descrição"])) if str(novo).strip() != str(antigo).strip()]
+    a1, a2 = st.columns([1, 3])
+    if a1.button("🔄 Atualizar CATMAT", key="cd_atualizar", type="primary" if mudou else "secondary"):
+        with st.spinner("Casando o CATMAT mais próximo…"):
+            st.session_state["cd_itens_base"] = _linhas_com_catmat(todos, [t["usar"] for t in todos])
+        st.session_state["cd_versao"] = st.session_state.get("cd_versao", 0) + 1
+        st.session_state.pop("cd_resultado", None)
+        st.rerun()
+    if mudou:
+        a2.warning(f"Você alterou {len(mudou)} descrição(ões): clique em **Atualizar CATMAT** para casar de novo.")
+    with st.expander("➕ Acrescentar mais itens à lista"):
+        mais = st.text_area("Um item por linha, com a quantidade ao lado", key="cd_mais", height=100)
+        if st.button("Acrescentar", key="cd_acrescentar") and mais.strip():
+            with st.spinner("Procurando o CATMAT dos itens novos…"):
+                st.session_state["cd_itens_base"] = _linhas_com_catmat(todos + cd.interpretar_lista(mais), [t["usar"] for t in todos] + [True] * len(cd.interpretar_lista(mais)))
+            st.session_state["cd_versao"] = st.session_state.get("cd_versao", 0) + 1
+            st.session_state.pop("cd_resultado", None)
+            st.rerun()
+    itens = [{k: v for k, v in t.items() if k != "usar"} for t in todos if t["usar"]]
+    st.caption(f"{len(itens)} item(ns) no pedido" + (f" ({len(todos) - len(itens)} deixado(s) de fora)." if len(todos) > len(itens) else "."))
     if len(itens) > ITENS_PEDIDO_GRANDE:
         st.warning(f"Pedido grande ({len(itens)} itens): a busca de fornecedores pode levar vários minutos e o envio sai em várias mensagens. Mantenha esta página aberta até terminar.")
 
@@ -225,7 +279,7 @@ if st.button("🔎 Preparar cotação", type="primary", disabled=bool(faltam), k
     etapa.markdown("**Etapa 1 de 3 — sugerindo o CATMAT de cada item**")
     for i, item in enumerate(itens):
         status.text(f"Item {i + 1}/{len(itens)}  •  decorrido: {_tempo()}")
-        catmats[i] = cd.sugerir_catmats(str(item["descricao"]), catmat)
+        catmats[i] = [c for c in _catmats_do_item(str(item["descricao"])) if c["combinacao"] >= cd.LIMIAR_CATMAT]
         barra.progress((i + 1) / len(itens) * 0.2)
 
     def _progresso(fase: str, feitos: int, total: int, texto: str, achados: int) -> None:

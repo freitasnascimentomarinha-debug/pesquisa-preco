@@ -185,15 +185,14 @@ def formatar_quantidade(valor: object) -> str:
 
 # ---------- CATMAT automático ----------
 
-def sugerir_catmats(descricao: str, catmat, limite: int = MAX_CATMAT_SUGERIDOS, limiar: float = LIMIAR_CATMAT) -> list[dict[str, object]]:
-    """Até `limite` códigos CATMAT com combinação >= `limiar`%. Vazio se nenhum chegar lá. Códigos diferentes, do mais para o menos parecido."""
+def melhores_catmats(descricao: str, catmat, limite: int = MAX_CATMAT_SUGERIDOS) -> list[dict[str, object]]:
+    """Os `limite` códigos CATMAT mais próximos da descrição (códigos diferentes, do mais para o menos parecido), com a % de combinação,
+    qualquer que seja ela. Quem decide se entra na proposta é LIMIAR_CATMAT."""
     from catmat_busca import _opcoes_material  # import tardio: depende do Streamlit
 
     opcoes = sorted(_opcoes_material(descricao, catmat), key=lambda o: (round(o["bruta"], 1), o.get("popularidade", 0)), reverse=True)
     escolhidas, vistos = [], set()
     for opcao in opcoes:
-        if opcao["similaridade"] < limiar:
-            break
         if opcao["codigo"] in vistos:
             continue
         vistos.add(opcao["codigo"])
@@ -202,6 +201,24 @@ def sugerir_catmats(descricao: str, catmat, limite: int = MAX_CATMAT_SUGERIDOS, 
         if len(escolhidas) >= limite:
             break
     return escolhidas
+
+
+def sugerir_catmats(descricao: str, catmat, limite: int = MAX_CATMAT_SUGERIDOS, limiar: float = LIMIAR_CATMAT) -> list[dict[str, object]]:
+    """Até `limite` códigos CATMAT com combinação >= `limiar`%. Vazio se nenhum chegar lá."""
+    return [c for c in melhores_catmats(descricao, catmat, limite) if c["combinacao"] >= limiar]
+
+
+def linha_da_tabela(item: dict[str, object], sugestoes: list[dict[str, object]], usar: bool = True) -> dict[str, object]:
+    """Uma linha da tabela de itens da tela: o item e o CATMAT mais próximo (código, % de combinação e descrição do catálogo)."""
+    melhor = sugestoes[0] if sugestoes else None
+    entra = bool(melhor and melhor["combinacao"] >= LIMIAR_CATMAT)
+    return {
+        "Usar": usar, "Descrição": item["descricao"], "Qtd.": float(item["quantidade"]), "Un.": item["unidade"],
+        "CATMAT": melhor["codigo"] if melhor else "—", "% casamento": round(melhor["combinacao"], 1) if melhor else 0.0,
+        "Descrição do CATMAT": melhor["descricao"] if melhor else "Nenhuma correspondência no catálogo",
+        "Outras opções": "\n".join(f"{c['codigo']} ({c['combinacao']:.0f}%)" for c in sugestoes[1:] if c["combinacao"] >= LIMIAR_CATMAT),
+        "Situação": ("✅ entra na proposta" if entra else f"⚠️ abaixo de {LIMIAR_CATMAT:.0f}%: fica sem CATMAT (melhore a descrição)"),
+    }
 
 
 # ---------- fornecedores ----------
