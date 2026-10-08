@@ -1,6 +1,6 @@
 {
  "versao": 1,
- "atualizado": "2026-10-07T18:34:33",
+ "atualizado": "2026-10-08T15:56:39",
  "lojas": {
   "lojadomecanico.com.br": {
    "acertos": 25,
@@ -5976,6 +5976,24 @@
     "Sem título"
    ],
    "origem": ""
+  }
+ },
+ "desempenho": {
+  "execucoes": [],
+  "naturezas": {}
+ },
+ "oms": {
+  "CENTRO DE OPERACOES DO ABASTECIMENTO - COPAB": {
+   "nome": "Centro de Operações do Abastecimento - COpAb",
+   "cnpj": "00394502034120",
+   "cep": "21012350",
+   "logradouro": "Avenida Brasil",
+   "numero": "10.500",
+   "complemento": "",
+   "bairro": "Penha",
+   "cidade": "Rio de Janeiro",
+   "uf": "RJ",
+   "ultimo_uso": "2026-10-08"
   }
  }
 }
