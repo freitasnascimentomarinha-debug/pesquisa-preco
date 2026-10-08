@@ -747,4 +747,19 @@ def enviar_resend(chave_api: str, remetente: str, para: str, bcc: list[str], res
             return {"ok": True, "id": resposta.json().get("id", ""), "erro": ""}
         except ValueError:
             return {"ok": True, "id": "", "erro": ""}
-    return {"ok": False, "id": "", "erro": f"HTTP {resposta.status_code}: {resposta.text[:160]}"}
+    return {"ok": False, "id": "", "erro": explicar_erro_resend(resposta.status_code, resposta.text)}
+
+
+def explicar_erro_resend(status: int, texto: str) -> str:
+    """Erros comuns do Resend em português, com o que fazer; senão, o código e o começo da resposta."""
+    minusculo = texto.lower()
+    if status == 403 and "only send testing emails" in minusculo:
+        return ("O remetente de teste do Resend (onboarding@resend.dev) só envia para o e-mail da conta do Resend. Para enviar a outros destinatários, "
+                "verifique um domínio no Resend (Domains) e use um endereço dele em RESEND_FROM nos Secrets. Para só testar, ponha o e-mail da conta do Resend no campo 'Seu e-mail institucional'.")
+    if status == 403 and "domain is not verified" in minusculo:
+        return "O domínio do remetente (RESEND_FROM) ainda não está verificado no Resend. Conclua a verificação em Domains e tente de novo."
+    if status in (401, 403) and ("api key" in minusculo or "unauthorized" in minusculo):
+        return "A chave do Resend (RESEND_API_KEY) não foi aceita. Confira se foi copiada inteira nos Secrets, sem espaços."
+    if status == 429:
+        return "O Resend limitou os envios (limite por segundo ou por dia do plano). Aguarde um pouco e tente de novo."
+    return f"HTTP {status}: {texto[:160]}"
