@@ -14,11 +14,12 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # módulos da raiz do projeto
 from atualizar_modulos import recarregar_se_mudou  # noqa: E402
-recarregar_se_mudou('embalagem', 'banco_sinonimos', 'sinonimos', 'naturezas', 'cotacao_rapida', 'relatorio_cotacao_rapida', 'relatorio_nf_lote', 'web_precos', 'relatorio_web', 'memoria_lojas', 'captura_pagina', 'busca_interna', 'naturezas')
+recarregar_se_mudou('embalagem', 'banco_sinonimos', 'sinonimos', 'naturezas', 'cotacao_rapida', 'relatorio_cotacao_rapida', 'relatorio_nf_lote', 'web_precos', 'relatorio_web', 'memoria_lojas', 'desempenho', 'captura_pagina', 'busca_interna', 'naturezas')
 import embalagem  # noqa: E402  (medida e unidade de fornecimento do item)
 import sinonimos  # noqa: E402  (nome de mercado do item e conferência do nome do produto)
 import naturezas  # noqa: E402  (natureza/ramo do item)
 import busca_interna  # noqa: E402  (busca dentro do site da loja)
+import desempenho  # noqa: E402  (tempo e acertividade: a pesquisa aprende o que funciona)
 import web_precos  # noqa: E402  (escolha do preço da página)
 import relatorio_web  # noqa: E402  (relatório padrão da Cotação Rápida)
 import memoria_lojas  # noqa: E402  (lojas aprendidas com o uso)
@@ -1747,10 +1748,18 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
             natureza_item = naturezas.classificar(embalagem.base(item))
             log_msg(log_container, logs, f"🧭 Natureza do item: {natureza_item}" if natureza_item
                     else "🧭 Natureza do item: não reconhecida (usa só as lojas de itens parecidos e a busca)", "info")
-            lojas_parecidas = memoria_lojas.lojas_para_item(memoria, item)
+            origens_item = {o: {"tentativas": 0, "precos": 0, "segundos": 0.0} for o in desempenho.ORIGENS}  # o que cada origem rendeu neste item
+            frase_ok = ""  # 1ª frase de busca que rendeu preço
+            # quantas lojas de cada origem tentar: o histórico de desempenho da natureza do item aumenta as que rendem e reduz as que só gastam tempo
+            limite_parecidas, aviso_parecidas = desempenho.limite_lojas(memoria, natureza_item, "parecida", memoria_lojas.MAX_LOJAS_POR_ITEM)
+            limite_natureza, aviso_natureza = desempenho.limite_lojas(memoria, natureza_item, "natureza", memoria_lojas.MAX_LOJAS_POR_NATUREZA)
+            for aviso in (aviso_parecidas, aviso_natureza):
+                if aviso:
+                    log_msg(log_container, logs, f"📈 Desempenho em '{natureza_item or desempenho.SEM_NATUREZA}': {aviso}", "info")
+            lojas_parecidas = memoria_lojas.lojas_para_item(memoria, item, limite_parecidas)
             fila_memoria = [(site, parecido, "") for site, parecido in lojas_parecidas]
             fila_memoria += [(site, "", natureza_item) for site, _ in
-                             memoria_lojas.lojas_por_natureza(memoria, natureza_item, excluir=[site for site, _ in lojas_parecidas])]
+                             memoria_lojas.lojas_por_natureza(memoria, natureza_item, excluir=[site for site, _ in lojas_parecidas], limite=limite_natureza)]
             inicio_memoria = time.time()
             for site_memoria, item_parecido, natureza_loja in fila_memoria:
                 if len(atualizar_estado_orcamentos(candidatos_item, max_fontes)["validos"]) >= max_fontes:
@@ -1763,6 +1772,7 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
                 else:
                     log_msg(log_container, logs, f"🧭 Loja boa em {natureza_loja}: {site_memoria} (tentando a busca do próprio site, sem gastar consulta de API)", "info")
                 navegador_ligado = (leitor is not None and leitor.disponivel and navegador_primeiro) or serper_ativo
+                inicio_loja = time.time()
                 time.sleep(gerar_delay(0.2, 0.5) if navegador_ligado else gerar_delay(1.5, 3.0))
                 achado = None  # (resultado, url, método)
                 # 1) busca do próprio site da loja (sem buscador); 2) a página que já deu preço antes; 3) busca "site:" pela API de busca
@@ -1800,9 +1810,14 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
                     log_msg(log_container, logs, f"💰 Orçamento da memória — {formatar_moeda_br(resultado['preco'])} em {extrair_dominio(url)}", "orcamento")
                 else:
                     log_msg(log_container, logs, f"✗ {site_memoria} não teve preço para '{item}' desta vez", "warn")
+                origem_loja = origens_item["parecida" if item_parecido else "natureza"]
+                origem_loja["tentativas"] += 1
+                origem_loja["precos"] += 1 if achado else 0
+                origem_loja["segundos"] += time.time() - inicio_loja
                 if achado or loja_sem_o_item:  # só fecha a loja se ela foi consultada e confirmou que não tem o item; senão a busca ainda pode achar a página dela
                     dominios_falhos.update({site_memoria, "www." + site_memoria})
 
+            inicio_busca = time.time()
             for numero_frase, variante in enumerate(variantes):
                 estado_item = atualizar_estado_orcamentos(candidatos_item, max_fontes)
                 if len(estado_item["validos"]) >= max_fontes:
@@ -1858,6 +1873,7 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
                         continue
 
                     log_msg(log_container, logs, f"🌐 Acessando: {dominio}", "info")
+                    origens_item["busca"]["tentativas"] += 1
 
                     # Delay entre acessos a sites
                     # (com o navegador ativo a própria abertura da página já espaça os acessos: pausa curta)
@@ -1910,6 +1926,8 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
                         dominios_usados.add(dominio)
                         memoria_lojas.registrar_acerto(memoria, url, item, metodo_ok)
                         acertos_variante += 1
+                        origens_item["busca"]["precos"] += 1
+                        frase_ok = frase_ok or variante
                         estado_item = atualizar_estado_orcamentos(candidatos_item, max_fontes)
 
                         for descartado in estado_item["descartados"]:
@@ -1955,6 +1973,7 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
 
                 memoria_lojas.registrar_busca(memoria, variante, acertos_variante)
 
+            origens_item["busca"]["segundos"] = time.time() - inicio_busca
             estado_item = atualizar_estado_orcamentos(candidatos_item, max_fontes)
             if len(estado_item["validos"]) < max_fontes:
                 log_msg(log_container, logs, f"⚠ Apenas {len(estado_item['validos'])} orçamento(s) válido(s) encontrado(s) para '{item}'", "warn")
@@ -1966,10 +1985,12 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
             orcamentos_item = atualizar_estado_orcamentos(candidatos_item, max_fontes)["validos"]
             resultados.extend(orcamentos_item)
 
-            # tempo do item (usado no teste de desempenho)
+            # tempo do item: fica na tela e alimenta o aprendizado de desempenho
             st.session_state.setdefault("tempos_itens", {})[item] = {
                 "segundos": round(time.time() - ITEM["inicio"], 1), "precos": len(orcamentos_item), "navegador": ITEM["navegador"],
                 "consultas_api": (SERPER_USO["n"] + TAVILY_USO["n"]) - consultas_item_antes}
+            desempenho.registrar_item(memoria, item, natureza_item, time.time() - ITEM["inicio"], orcamentos_item, max_fontes, origens_item,
+                                      consultas_api=(SERPER_USO["n"] + TAVILY_USO["n"]) - consultas_item_antes, navegador=ITEM["navegador"], frase=frase_ok)
             PREFETCH.clear()
 
             # Delay entre itens diferentes (com API de busca não há o que "esfriar": o próximo item usa outros sites)
@@ -2356,6 +2377,24 @@ with st.expander("🧠 Memória de lojas (aprende com o uso)", expanded=False):
         if puladas:
             st.markdown(f"**Sites pulados** (cada método é pulado só depois de {memoria_lojas.FALHAS_PARA_PULAR} falhas dele mesmo; o navegador não é barrado por falhas da leitura por texto)")
             st.dataframe(pd.DataFrame(puladas), hide_index=True, use_container_width=True)
+        resumo_des = desempenho.resumo_geral(memoria_vista)
+        if resumo_des["total_registrado"]:
+            st.markdown(f"**📈 O que está funcionando** (últimas {resumo_des['geral']['itens']} pesquisas de item; o sistema usa isso para decidir quantas lojas tentar de cada origem)")
+            g = resumo_des["geral"]
+            c1, c2, c3 = st.columns(3)
+            ant, dep = resumo_des["antes"], resumo_des["depois"]
+
+            def _delta(chave):
+                if not ant or not dep or ant.get(chave) is None or dep.get(chave) is None:
+                    return None
+                return f"{dep[chave] - ant[chave]:+.1f} vs. metade anterior"
+            c1.metric("Tempo médio por item", f"{g['tempo_medio_s']} s", _delta("tempo_medio_s"), delta_color="inverse")
+            c2.metric("Itens com todos os preços", f"{g['pct_completos']}%", _delta("pct_completos"))
+            c3.metric("Anúncios certos", f"{g['pct_certos']}%" if g["pct_certos"] is not None else "-", _delta("pct_certos"))
+            st.caption("Anúncios certos = nome confere com o item e a medida não é diferente; os que você aponta como errados em \"Ensinar nomes\" corrigem esse número.")
+            st.dataframe(pd.DataFrame(desempenho.tabela_naturezas(memoria_vista)), hide_index=True, use_container_width=True)
+        else:
+            st.info("O quadro de desempenho se forma com as próximas pesquisas (tempo, preços e acertividade de cada item).")
 
 # Formulário de entrada
 st.markdown("### 📝 Itens para Pesquisa")
@@ -2468,11 +2507,14 @@ if iniciar:
 
 # ===================== EXIBIÇÃO DE RESULTADOS =====================
 
-def _aplicar_nos_nomes(acao):
-    """Carrega a memória, aplica a ação nos nomes aprendidos, grava (GitHub) e já passa a valer nesta sessão."""
+def _aplicar_nos_nomes(acao, depois=None):
+    """Carrega a memória, aplica a ação nos nomes aprendidos, grava (GitHub) e já passa a valer nesta sessão.
+    `depois`, se dado, recebe a memória inteira (para registrar outras coisas na mesma gravação)."""
     segredos = st.secrets if _tem_secrets() else {}
     memoria_nomes, _ = memoria_lojas.carregar(segredos)
     retorno = acao(memoria_nomes.setdefault("nomes", {}))
+    if depois:
+        depois(memoria_nomes)
     memoria_nomes["_mudou"] = True
     mensagem = memoria_lojas.salvar(memoria_nomes, segredos)
     sinonimos.carregar_aprendidos(memoria_nomes["nomes"])
@@ -2513,7 +2555,9 @@ def secao_ensinar_nomes(resultados_brutos=None, opcoes_exclusao=None, labels_exc
                     por_item.setdefault(por_id[resultado_id].get("item", ""), []).append(por_id[resultado_id].get("titulo", ""))
                 mantidos = {it: [r.get("titulo", "") for r in resultados_brutos if r.get("item") == it and r["resultado_id"] not in errados] for it in por_item}
                 aprendidas, mensagem = _aplicar_nos_nomes(lambda nomes: {it: sinonimos.aprender_exclusoes(nomes, it, nomes_exc, mantidos[it])
-                                                                         for it, nomes_exc in por_item.items()})
+                                                                         for it, nomes_exc in por_item.items()},
+                                                    depois=lambda memoria_inteira: [desempenho.registrar_revisao(memoria_inteira, it, len(nomes_exc))
+                                                                                    for it, nomes_exc in por_item.items()])
                 st.session_state["scraping_excluir_ids"] = list(dict.fromkeys(st.session_state.get("scraping_excluir_ids", []) + errados))
                 texto = "; ".join(f"{it}: recusar anúncios com {', '.join(p) or '(nada novo)'}" for it, p in aprendidas.items())
                 st.success(f"Aprendido — {texto}. Esses anúncios também saíram da composição. {mensagem}")

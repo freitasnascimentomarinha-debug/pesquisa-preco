@@ -1,4 +1,6 @@
-"""Teste de desempenho da pesquisa na internet: 15 itens já treinados (da memória) x 15 itens novos.
+"""Desempenho da pesquisa na internet: medição (tempo, preços, acertividade) e aprendizado com ela (final do arquivo).
+
+Medição de um lote de 15 itens (já treinados da memória x novos), hoje sem tela própria:
 
 Mede, por item, o tempo até ter os preços (meta: média de até 2 minutos para 3 preços) e a acertividade (meta: 90% a 100%):
 - automática: o nome do anúncio confere com o item (sinonimos.confere_nome) e a embalagem/medida não é diferente da pedida;
@@ -129,3 +131,126 @@ def metricas(por_item: list[dict], por_preco: list[dict]) -> dict:
         "meta_tempo_ok": bool(tempos) and sum(tempos) / len(tempos) <= META_SEGUNDOS,
         "meta_acerto_ok": bool(total_precos) and certos / total_precos >= META_ACERTO,
     }
+
+
+# ---------- aprendizado com o próprio desempenho ----------
+# A cada item pesquisado o sistema anota quanto tempo levou, quantos preços valeram, quantos pareciam certos e QUAL ORIGEM deu os preços:
+#   "parecida" = lojas que já cotaram item parecido; "natureza" = melhores lojas do ramo do item; "busca" = buscadores (frases).
+# Por natureza ele guarda, com decaimento (o recente pesa mais), quantas tentativas cada origem fez e quantas renderam preço.
+# Nas próximas pesquisas, `limite_lojas` usa essa estatística para tentar mais as origens que rendem e menos as que só gastam tempo.
+
+DECAIMENTO = 0.95
+MIN_ITENS_NATUREZA = 5  # abaixo disso a estatística da natureza não é confiável: vale o limite padrão
+MIN_TENTATIVAS = 6  # tentativas da origem (com peso recente) para confiar na taxa dela
+TAXA_BOA = 0.5  # origem que dá preço em metade das tentativas ou mais: ganha mais uma tentativa por item
+TAXA_RUIM = 0.15  # origem que quase nunca dá preço: perde uma tentativa por item
+EXPLORAR_A_CADA = 5  # a cada N pesquisas o limite padrão é usado, para a origem ruim ter nova chance
+MAX_EXECUCOES = 300
+SEM_NATUREZA = "(sem natureza)"
+ORIGENS = {"parecida": "lojas de itens parecidos", "natureza": "melhores lojas do ramo", "busca": "buscadores"}
+
+
+def _dados_natureza(memoria: dict, natureza: str) -> dict:
+    return memoria.setdefault("desempenho", {"execucoes": [], "naturezas": {}}).setdefault("naturezas", {}).setdefault(
+        natureza or SEM_NATUREZA, {"itens": 0.0, "segundos": 0.0, "precos": 0.0, "certos": 0.0, "completos": 0.0, "origens": {}})
+
+
+def acertos_automaticos(item: str, orcamentos: list[dict]) -> int:
+    """Quantos dos orçamentos parecem certos: nome do anúncio confere com o item e a medida não é diferente."""
+    return sum(1 for p in orcamentos if sinonimos.confere_nome(item, p.get("titulo", "")) and p.get("medida_confere") != "diferente")
+
+
+def registrar_item(memoria: dict, item: str, natureza: str, segundos: float, orcamentos: list[dict], max_fontes: int,
+                   origens: dict, consultas_api: int = 0, navegador: int = 0, frase: str = "") -> None:
+    """Um item pesquisado. `origens` = {origem: {"tentativas", "precos", "segundos"}}; `orcamentos` = preços válidos do item."""
+    certos = acertos_automaticos(item, orcamentos)
+    desempenho = memoria.setdefault("desempenho", {"execucoes": [], "naturezas": {}})
+    desempenho.setdefault("execucoes", []).append({
+        "data": memoria_lojas.dt.datetime.now().isoformat(timespec="seconds"), "item": item, "natureza": natureza or SEM_NATUREZA,
+        "segundos": round(segundos, 1), "precos": len(orcamentos), "certos": certos, "completo": len(orcamentos) >= max_fontes,
+        "api": consultas_api, "navegador": navegador, "frase": frase,
+        "origens": {o: {k: round(v, 1) for k, v in d.items()} for o, d in origens.items() if d.get("tentativas") or d.get("precos")}})
+    del desempenho["execucoes"][:-MAX_EXECUCOES]
+    nat = _dados_natureza(memoria, natureza)
+    for campo, valor in (("itens", 1), ("segundos", segundos), ("precos", len(orcamentos)), ("certos", certos),
+                         ("completos", 1 if len(orcamentos) >= max_fontes else 0)):
+        nat[campo] = round(nat.get(campo, 0.0) * DECAIMENTO + valor, 3)
+    for origem, dados in origens.items():
+        if not dados.get("tentativas") and not dados.get("precos"):
+            continue
+        antigo = nat["origens"].setdefault(origem, {"tentativas": 0.0, "precos": 0.0, "segundos": 0.0})
+        for campo in ("tentativas", "precos", "segundos"):
+            antigo[campo] = round(antigo.get(campo, 0.0) * DECAIMENTO + dados.get(campo, 0), 3)
+    memoria["_mudou"] = True
+
+
+def registrar_revisao(memoria: dict, item: str, errados: int) -> None:
+    """O usuário apontou anúncios errados do item na última pesquisa: corrige a acertividade (a revisão humana vale mais que a automática)."""
+    execucoes = memoria.get("desempenho", {}).get("execucoes", [])
+    for execucao in reversed(execucoes):
+        if execucao.get("item") == item and execucao.get("errados") is None:
+            execucao["errados"] = errados
+            nat = _dados_natureza(memoria, execucao.get("natureza", ""))
+            nat["certos"] = round(max(0.0, nat["certos"] - max(0, errados - (execucao["precos"] - execucao["certos"]))), 3)
+            execucao["certos"] = max(0, execucao["precos"] - errados)
+            memoria["_mudou"] = True
+            return
+
+
+def taxa_da_origem(memoria: dict, natureza: str, origem: str) -> tuple[float, float, float]:
+    """(tentativas com peso recente, preços por tentativa, segundos por tentativa) da origem nessa natureza."""
+    nat = memoria.get("desempenho", {}).get("naturezas", {}).get(natureza or SEM_NATUREZA)
+    dados = (nat or {}).get("origens", {}).get(origem)
+    if not nat or not dados or nat.get("itens", 0) < MIN_ITENS_NATUREZA or dados.get("tentativas", 0) <= 0:
+        return 0.0, 0.0, 0.0
+    tentativas = dados["tentativas"]
+    return tentativas, dados.get("precos", 0.0) / tentativas, dados.get("segundos", 0.0) / tentativas
+
+
+def limite_lojas(memoria: dict, natureza: str, origem: str, padrao: int) -> tuple[int, str]:
+    """Quantas lojas dessa origem tentar neste item, pelo que ela rendeu em itens da mesma natureza. Devolve (limite, explicação para o log).
+    Origem que rende: +1 loja; origem que quase não rende (ou rende pouco e demora): -1; nunca menos de 1, e a cada EXPLORAR_A_CADA
+    pesquisas vale o padrão (para a origem ruim ter nova chance)."""
+    tentativas, taxa, segundos = taxa_da_origem(memoria, natureza, origem)
+    if tentativas < MIN_TENTATIVAS:
+        return padrao, ""
+    if memoria.get("buscas", 0) % EXPLORAR_A_CADA == 0:
+        return padrao, f"{ORIGENS[origem]}: teste de rotina com o limite padrão ({padrao})"
+    resumo = f"{ORIGENS[origem]}: {taxa:.2f} preço por tentativa, {segundos:.0f} s cada"
+    if taxa >= TAXA_BOA:
+        return padrao + 1, f"{resumo} → vai tentar {padrao + 1} loja(s)"
+    if taxa < TAXA_RUIM or (taxa < 0.3 and segundos > 30):
+        return max(1, padrao - 1), f"{resumo} → vai tentar só {max(1, padrao - 1)} loja(s)"
+    return padrao, ""
+
+
+def resumo_geral(memoria: dict, ultimas: int = 40) -> dict:
+    """Indicadores das últimas pesquisas e a tendência (metade mais antiga x metade mais recente) para o painel."""
+    execucoes = memoria.get("desempenho", {}).get("execucoes", [])[-ultimas:]
+
+    def indicadores(grupo: list[dict]) -> dict:
+        if not grupo:
+            return {"itens": 0, "tempo_medio_s": None, "pct_completos": None, "pct_certos": None}
+        precos = sum(e["precos"] for e in grupo)
+        return {"itens": len(grupo), "tempo_medio_s": round(sum(e["segundos"] for e in grupo) / len(grupo), 1),
+                "pct_completos": round(100 * sum(1 for e in grupo if e["completo"]) / len(grupo), 1),
+                "pct_certos": round(100 * sum(e["certos"] for e in grupo) / precos, 1) if precos else None}
+
+    meio = len(execucoes) // 2
+    return {"geral": indicadores(execucoes), "antes": indicadores(execucoes[:meio]) if meio else None,
+            "depois": indicadores(execucoes[meio:]) if meio else None, "total_registrado": len(memoria.get("desempenho", {}).get("execucoes", []))}
+
+
+def tabela_naturezas(memoria: dict) -> list[dict]:
+    """Uma linha por natureza: itens, tempo médio, preços certos e a origem que mais rende."""
+    linhas = []
+    for natureza, d in sorted(memoria.get("desempenho", {}).get("naturezas", {}).items(), key=lambda x: -x[1].get("itens", 0)):
+        itens = d.get("itens", 0) or 1
+        origens = {o: (v["precos"] / v["tentativas"] if v.get("tentativas") else 0.0, v["tentativas"]) for o, v in d.get("origens", {}).items()}
+        melhor = max(origens.items(), key=lambda x: x[1][0], default=(None, (0, 0)))
+        linhas.append({"Natureza": natureza, "Itens (peso recente)": round(d.get("itens", 0), 1), "Tempo médio (s)": round(d.get("segundos", 0) / itens, 1),
+                       "Com 3 preços (%)": round(100 * d.get("completos", 0) / itens, 1),
+                       "Anúncios certos (%)": round(100 * d.get("certos", 0) / d["precos"], 1) if d.get("precos") else None,
+                       "Origem que mais rende": f"{ORIGENS.get(melhor[0], '-')} ({melhor[1][0]:.2f} preço/tentativa)" if melhor[0] else "-",
+                       "Por origem": "; ".join(f"{ORIGENS[o]} {t[0]:.2f}" for o, t in origens.items() if o in ORIGENS)})
+    return linhas
