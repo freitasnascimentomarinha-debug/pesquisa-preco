@@ -288,6 +288,14 @@ def _cotar_material(descricao: str, catmat: IndiceCatmat, inicio: str, fim: str,
     limiar = resultado["limiar"]
     corte_familia = min(LIMIAR_FAMILIA, limiar - 10) if not estimativa else LIMIAR_FAMILIA_COM_ESTIMATIVA
     familias = [f for f in buscar_familias(descricao, catmat, limite=MAX_FAMILIAS) if f["nota"] >= corte_familia]
+    if forcar:  # CATMAT escolhido/digitado pelo usuário: busca a família do próprio código, mesmo que o texto da descrição não leve a ela
+        pdms = []
+        for codigo in forcar:
+            posicao = catmat.por_codigo.get(str(codigo))
+            if posicao is not None:
+                pdms.append(catmat.itens[posicao][1])
+        familias_do_codigo = [{"codigo": pdm, "nome": str(catmat.pdms[pdm]["nome"]), "nota": 100.0} for pdm in dict.fromkeys(pdms)]
+        familias = familias_do_codigo or familias
     if not familias:
         return resultado
     with ThreadPoolExecutor(max_workers=4) as executor:

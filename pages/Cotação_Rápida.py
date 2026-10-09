@@ -209,7 +209,8 @@ if cotar_clicado:
         for posicao, (item, pedido) in enumerate(zip(itens, itens_lista), start=1):
             barra.progress((posicao - 1) / len(itens), text=f"Cotando {posicao}/{len(itens)}: {item[:60]}")
             try:
-                resultados.append(anexar_pedido(cotar_item(item, catmat, catalogo_servico, tipo_busca, estimativa=pedido.get("estimativa"), priorizar=priorizar_estimativa), pedido))
+                resultados.append(anexar_pedido(cotar_item(item, catmat, catalogo_servico, "Material" if pedido.get("catmat_fixo") else tipo_busca, estimativa=pedido.get("estimativa"),
+                                                        forcar=[pedido["catmat_fixo"]] if pedido.get("catmat_fixo") else None, priorizar=priorizar_estimativa), pedido))
             except Exception as erro:  # um item com problema não derruba a cotação inteira
                 vazio = resultado_vazio(item, tipo_busca if tipo_busca != "Automático" else "Material")
                 vazio["falha_api"] = True

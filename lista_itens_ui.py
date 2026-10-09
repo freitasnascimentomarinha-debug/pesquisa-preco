@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import re
 
 import pandas as pd
 import streamlit as st
@@ -106,22 +107,44 @@ def _sugestoes(prefixo: str, catmat, descricao: str) -> list[dict[str, object]]:
     return cache[chave]
 
 
-def _linha_com_catmat(prefixo: str, catmat, item: dict[str, object], usar: bool, com_estimativa: bool) -> dict[str, object]:
+def _catmat_digitado(catmat, descricao: str, codigo: str) -> dict[str, object] | None:
+    """O CATMAT que o usuário digitou, procurado no catálogo local: código, descrição do catálogo e % de correspondência com a descrição do item. None se não existir."""
+    from catmat_busca import calcular_similaridade
+
+    posicao = catmat.por_codigo.get(codigo)
+    if posicao is None:
+        return None
+    _, _, nome_pdm, descricao_catalogo = catmat.itens[posicao]
+    return {"codigo": codigo, "descricao": descricao_catalogo, "combinacao": float(calcular_similaridade(descricao, descricao_catalogo, nome_pdm))}
+
+
+def _linha_com_catmat(prefixo: str, catmat, item: dict[str, object], usar: bool, com_estimativa: bool, fixo: str | None = None) -> tuple[dict[str, object], str | None]:
+    """Linha da tabela e o CATMAT fixado pelo usuário (None = automático). Com `fixo`, mostra o código digitado com a descrição do catálogo e a % de correspondência;
+    se o código não existir no catálogo local, volta ao automático e avisa."""
     import cotacao_direta
 
-    sugestoes = _sugestoes(prefixo, catmat, str(item["descricao"]))
-    melhor = sugestoes[0] if sugestoes else None
-    entra = bool(melhor and melhor["combinacao"] >= cotacao_direta.LIMIAR_CATMAT)
+    limiar = cotacao_direta.LIMIAR_CATMAT
     linha: dict[str, object] = {"Usar": usar, "Descrição": item["descricao"], "Qtd.": float(item["quantidade"]) if item.get("quantidade_informada") else None, "Un.": item["unidade"]}
     if com_estimativa:
         linha["Estimativa"] = item.get("estimativa") or float("nan")  # vazio aparece em branco (e não "None")
+    aviso = ""
+    if fixo:
+        escolhido = _catmat_digitado(catmat, str(item["descricao"]), fixo)
+        if escolhido:
+            linha.update({"CATMAT": fixo, "% casamento": round(escolhido["combinacao"], 1), "Descrição do CATMAT": escolhido["descricao"], "Outras opções": "",
+                          "Situação": "👆 informado por você" + ("" if escolhido["combinacao"] >= limiar else f" (casamento abaixo de {limiar:.0f}%: confira se é o item certo)")})
+            return linha, fixo
+        aviso = f"❌ CATMAT {fixo} não existe no catálogo local; voltou ao sugerido. "
+    sugestoes = _sugestoes(prefixo, catmat, str(item["descricao"]))
+    melhor = sugestoes[0] if sugestoes else None
+    entra = bool(melhor and melhor["combinacao"] >= limiar)
     linha.update({
         "CATMAT": melhor["codigo"] if melhor else "—", "% casamento": round(melhor["combinacao"], 1) if melhor else 0.0,
         "Descrição do CATMAT": melhor["descricao"] if melhor else "Nenhuma correspondência no catálogo",
-        "Outras opções": "\n".join(f"{c['codigo']} ({c['combinacao']:.0f}%)" for c in sugestoes[1:] if c["combinacao"] >= cotacao_direta.LIMIAR_CATMAT),
-        "Situação": "✅ bom casamento" if entra else f"⚠️ abaixo de {cotacao_direta.LIMIAR_CATMAT:.0f}%: melhore a descrição",
+        "Outras opções": "\n".join(f"{c['codigo']} ({c['combinacao']:.0f}%)" for c in sugestoes[1:] if c["combinacao"] >= limiar),
+        "Situação": aviso + ("✅ bom casamento" if entra else f"⚠️ abaixo de {limiar:.0f}%: melhore a descrição ou digite o CATMAT"),
     })
-    return linha
+    return linha, None
 
 
 def _item_da_linha(linha) -> dict[str, object] | None:
@@ -147,7 +170,8 @@ def entrada_itens_com_catmat(prefixo: str, catmat, rotulo: str = "Itens a pesqui
             st.warning("Digite ou importe ao menos um item.")
         else:
             with st.spinner("Procurando o CATMAT mais próximo de cada item…"):
-                st.session_state[chave_tabela] = [_linha_com_catmat(prefixo, catmat, item, True, com_estimativa) for item in itens]
+                st.session_state[chave_tabela] = [_linha_com_catmat(prefixo, catmat, item, True, com_estimativa)[0] for item in itens]
+            st.session_state[f"{prefixo}_catmat_fixos"] = [None] * len(itens)
             st.session_state[chave_versao] = st.session_state.get(chave_versao, 0) + 1
             st.session_state[chave_assinatura] = assinatura
     linhas = st.session_state.get(chave_tabela)
@@ -161,34 +185,43 @@ def entrada_itens_com_catmat(prefixo: str, catmat, rotulo: str = "Itens a pesqui
     base = pd.DataFrame(linhas)
     editada = st.data_editor(
         base, hide_index=True, use_container_width=True, num_rows="fixed", key=f"{prefixo}_catmat_editor_{st.session_state.get(chave_versao, 0)}",
-        disabled=["CATMAT", "% casamento", "Descrição do CATMAT", "Outras opções", "Situação"],
+        disabled=["% casamento", "Descrição do CATMAT", "Outras opções", "Situação"],
         column_config={"Usar": st.column_config.CheckboxColumn("Usar", width="small", help="Desmarque para deixar este item de fora."),
                        "Descrição": st.column_config.TextColumn("Descrição do item (edite para melhorar)", width="large"),
                        "Qtd.": st.column_config.NumberColumn("Qtd.", min_value=0, width="small", help="Opcional: com a quantidade, o mapa calcula o valor total do orçamento."),
                        "Un.": st.column_config.TextColumn("Un.", width="small"),
                        "Estimativa": st.column_config.NumberColumn("Estimativa do preço (R$)", min_value=0.0, format="R$ %.2f", width="medium",
                                                                    help="Opcional: quanto você acha que vale 1 unidade do item. Ao cotar, o sistema confere se o CATMAT e os preços são compatíveis com ela."),
-                       "CATMAT": st.column_config.TextColumn("CATMAT", width="small"),
+                       "CATMAT": st.column_config.TextColumn("CATMAT (pode digitar)", width="small", help="É o mais próximo da descrição. Para usar outro, digite o código do CATMAT aqui: a descrição e a % de casamento se atualizam. "
+                                                                                                  "Apague para voltar ao sugerido."),
                        "% casamento": st.column_config.NumberColumn("% casamento", format="%.0f%%", width="small", help="Semelhança entre a sua descrição e a do catálogo."),
                        "Descrição do CATMAT": st.column_config.TextColumn("Descrição do item no CATMAT", width="large"),
                        "Outras opções": st.column_config.TextColumn("Outras opções (≥ 70%)", width="medium"), "Situação": st.column_config.TextColumn("Situação", width="medium")})
-    mudou = any(str(novo).strip() != str(antigo).strip() for novo, antigo in zip(editada["Descrição"], base["Descrição"]))
-    if mudou:  # descrição editada: casa o CATMAT de novo (catálogo local, sem pesquisar preço) e recarrega a tabela
-        novas = []
-        for _, linha in editada.iterrows():
+    fixos = st.session_state.get(f"{prefixo}_catmat_fixos") or [None] * len(base)
+    descricao_mudou = [str(n).strip() != str(a).strip() for n, a in zip(editada["Descrição"], base["Descrição"])]
+    catmat_mudou = [str(n).strip() != str(a).strip() for n, a in zip(editada["CATMAT"], base["CATMAT"])]
+    if any(descricao_mudou) or any(catmat_mudou):  # descrição ou CATMAT editados: atualiza o CATMAT, a descrição do catálogo e a % (catálogo local, sem pesquisar preço)
+        novas, novos_fixos = [], []
+        for posicao, (_, linha) in enumerate(editada.iterrows()):
             item = _item_da_linha(linha)
             if item is None:
                 continue
+            fixo = fixos[posicao] if posicao < len(fixos) else None
+            if catmat_mudou[posicao]:  # digitou um código (só números) ou apagou o campo (volta ao sugerido)
+                fixo = re.sub(r"\D", "", str(linha["CATMAT"])) or None
             usar = True if pd.isna(linha["Usar"]) else bool(linha["Usar"])
-            novas.append(_linha_com_catmat(prefixo, catmat, item, usar, com_estimativa))
-        st.session_state[chave_tabela] = novas
+            nova, fixo_efetivo = _linha_com_catmat(prefixo, catmat, item, usar, com_estimativa, fixo)
+            novas.append(nova)
+            novos_fixos.append(fixo_efetivo)
+        st.session_state[chave_tabela], st.session_state[f"{prefixo}_catmat_fixos"] = novas, novos_fixos
         st.session_state[chave_versao] = st.session_state.get(chave_versao, 0) + 1
         st.rerun()
     saida = []
-    for _, linha in editada.iterrows():
+    for posicao, (_, linha) in enumerate(editada.iterrows()):
         usar = True if pd.isna(linha["Usar"]) else bool(linha["Usar"])
         item = _item_da_linha(linha)
         if item is not None and usar:
+            item["catmat_fixo"] = fixos[posicao] if posicao < len(fixos) else None  # código que o usuário digitou (a cotação usa exatamente esse)
             saida.append(item)
     st.caption(f"{len(saida)} item(ns) no pedido" + (f" ({len(editada) - len(saida)} deixado(s) de fora)." if len(editada) > len(saida) else "."))
     return saida, True
