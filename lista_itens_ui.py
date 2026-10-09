@@ -107,44 +107,70 @@ def _sugestoes(prefixo: str, catmat, descricao: str) -> list[dict[str, object]]:
     return cache[chave]
 
 
-def _catmat_digitado(catmat, descricao: str, codigo: str) -> dict[str, object] | None:
-    """O CATMAT que o usuário digitou, procurado no catálogo local: código, descrição do catálogo e % de correspondência com a descrição do item. None se não existir."""
+URL_ITEM_MATERIAL = "https://dadosabertos.compras.gov.br/modulo-material/4_consultarItemMaterial"
+
+
+def _catmat_digitado(prefixo: str, catmat, descricao: str, codigo: str) -> dict[str, object] | None:
+    """O CATMAT que o usuário digitou: procurado no catálogo local e, se não estiver lá (código novo ou inativo), no Compras.gov. Devolve código, descrição do catálogo,
+    % de correspondência com a descrição do item e se o item está ativo. None se não existir em lugar nenhum."""
+    import requests
+
     from catmat_busca import calcular_similaridade
 
     posicao = catmat.por_codigo.get(codigo)
-    if posicao is None:
-        return None
-    _, _, nome_pdm, descricao_catalogo = catmat.itens[posicao]
-    return {"codigo": codigo, "descricao": descricao_catalogo, "combinacao": float(calcular_similaridade(descricao, descricao_catalogo, nome_pdm))}
+    if posicao is not None:
+        _, _, nome_pdm, descricao_catalogo = catmat.itens[posicao]
+        ativo = True
+    else:
+        cache = st.session_state.setdefault(f"{prefixo}_catmat_api", {})
+        if codigo not in cache:
+            try:
+                resposta = requests.get(URL_ITEM_MATERIAL, params={"codigoItem": codigo, "pagina": 1, "tamanhoPagina": 10}, timeout=12)
+                registros = resposta.json().get("resultado", []) if resposta.status_code == 200 else []
+            except (requests.RequestException, ValueError):
+                registros = []
+            cache[codigo] = registros[0] if registros else None
+        registro = cache[codigo]
+        if not registro:
+            return None
+        nome_pdm, descricao_catalogo, ativo = str(registro.get("nomePdm") or ""), str(registro.get("descricaoItem") or ""), bool(registro.get("statusItem", True))
+    return {"codigo": codigo, "descricao": descricao_catalogo, "combinacao": float(calcular_similaridade(descricao, descricao_catalogo, nome_pdm)), "ativo": ativo}
 
 
-def _linha_com_catmat(prefixo: str, catmat, item: dict[str, object], usar: bool, com_estimativa: bool, fixo: str | None = None) -> tuple[dict[str, object], str | None]:
-    """Linha da tabela e o CATMAT fixado pelo usuário (None = automático). Com `fixo`, mostra o código digitado com a descrição do catálogo e a % de correspondência;
-    se o código não existir no catálogo local, volta ao automático e avisa."""
+def _linha_com_catmat(prefixo: str, catmat, item: dict[str, object], usar: bool, com_estimativa: bool, fixo: str | None = None) -> tuple[dict[str, object], str | None, str]:
+    """(linha da tabela, CATMAT fixado pelo usuário ou None = automático, mensagem para mostrar sob a tabela). Com `fixo`, mostra o código digitado com a descrição do
+    catálogo e a % de correspondência; se o código não existir, volta ao automático e avisa. O CATMAT e a % ficam logo depois da descrição, à vista."""
     import cotacao_direta
 
     limiar = cotacao_direta.LIMIAR_CATMAT
-    linha: dict[str, object] = {"Usar": usar, "Descrição": item["descricao"], "Qtd.": float(item["quantidade"]) if item.get("quantidade_informada") else None, "Un.": item["unidade"]}
-    if com_estimativa:
-        linha["Estimativa"] = item.get("estimativa") or float("nan")  # vazio aparece em branco (e não "None")
+    nome = str(item["descricao"])
+    qtd = float(item["quantidade"]) if item.get("quantidade_informada") else None
+    estimativa = item.get("estimativa") or float("nan")  # vazio aparece em branco (e não "None")
     aviso = ""
     if fixo:
-        escolhido = _catmat_digitado(catmat, str(item["descricao"]), fixo)
+        escolhido = _catmat_digitado(prefixo, catmat, nome, fixo)
         if escolhido:
-            linha.update({"CATMAT": fixo, "% casamento": round(escolhido["combinacao"], 1), "Descrição do CATMAT": escolhido["descricao"], "Outras opções": "",
-                          "Situação": "👆 informado por você" + ("" if escolhido["combinacao"] >= limiar else f" (casamento abaixo de {limiar:.0f}%: confira se é o item certo)")})
-            return linha, fixo
-        aviso = f"❌ CATMAT {fixo} não existe no catálogo local; voltou ao sugerido. "
-    sugestoes = _sugestoes(prefixo, catmat, str(item["descricao"]))
+            situacao = "👆 informado por você" + ("" if escolhido["ativo"] else " (item INATIVO no catálogo)") + ("" if escolhido["combinacao"] >= limiar else f" (casamento abaixo de {limiar:.0f}%: confira se é o item certo)")
+            linha = {"Usar": usar, "Descrição": nome, "CATMAT": fixo, "% casamento": round(escolhido["combinacao"], 1), "Descrição do CATMAT": escolhido["descricao"],
+                     "Qtd.": qtd, "Un.": item["unidade"], **({"Estimativa": estimativa} if com_estimativa else {}), "Outras opções": "", "Situação": situacao}
+            mensagem = f"{'✅' if escolhido['combinacao'] >= limiar else '⚠️'} **{nome}** — CATMAT {fixo}: {escolhido['descricao'][:140]} ({escolhido['combinacao']:.0f}% de correspondência com a sua descrição).{'' if escolhido['ativo'] else ' Atenção: item INATIVO no catálogo.'}"
+            return linha, fixo, mensagem
+        aviso = f"❌ CATMAT {fixo} não existe (nem no catálogo local nem no Compras.gov); voltou ao sugerido. "
+    sugestoes = _sugestoes(prefixo, catmat, nome)
     melhor = sugestoes[0] if sugestoes else None
     entra = bool(melhor and melhor["combinacao"] >= limiar)
-    linha.update({
-        "CATMAT": melhor["codigo"] if melhor else "—", "% casamento": round(melhor["combinacao"], 1) if melhor else 0.0,
-        "Descrição do CATMAT": melhor["descricao"] if melhor else "Nenhuma correspondência no catálogo",
-        "Outras opções": "\n".join(f"{c['codigo']} ({c['combinacao']:.0f}%)" for c in sugestoes[1:] if c["combinacao"] >= limiar),
-        "Situação": aviso + ("✅ bom casamento" if entra else f"⚠️ abaixo de {limiar:.0f}%: melhore a descrição ou digite o CATMAT"),
-    })
-    return linha, None
+    linha = {"Usar": usar, "Descrição": nome, "CATMAT": melhor["codigo"] if melhor else "—", "% casamento": round(melhor["combinacao"], 1) if melhor else 0.0,
+             "Descrição do CATMAT": melhor["descricao"] if melhor else "Nenhuma correspondência no catálogo", "Qtd.": qtd, "Un.": item["unidade"],
+             **({"Estimativa": estimativa} if com_estimativa else {}),
+             "Outras opções": "\n".join(f"{c['codigo']} ({c['combinacao']:.0f}%)" for c in sugestoes[1:] if c["combinacao"] >= limiar),
+             "Situação": aviso + ("✅ bom casamento" if entra else f"⚠️ abaixo de {limiar:.0f}%: melhore a descrição ou digite o CATMAT")}
+    if aviso:
+        mensagem = f"{aviso}**{nome}** ficou com o sugerido: {linha['CATMAT']} ({linha['% casamento']:.0f}%)."
+    elif melhor:
+        mensagem = f"{'✅' if entra else '⚠️'} **{nome}** — CATMAT sugerido {melhor['codigo']}: {melhor['descricao'][:140]} ({melhor['combinacao']:.0f}% de correspondência)."
+    else:
+        mensagem = f"⚠️ **{nome}** — nenhuma correspondência no catálogo."
+    return linha, None, mensagem
 
 
 def _item_da_linha(linha) -> dict[str, object] | None:
@@ -174,6 +200,7 @@ def entrada_itens_com_catmat(prefixo: str, catmat, rotulo: str = "Itens a pesqui
             st.session_state[f"{prefixo}_catmat_fixos"] = [None] * len(itens)
             st.session_state[chave_versao] = st.session_state.get(chave_versao, 0) + 1
             st.session_state[chave_assinatura] = assinatura
+            st.session_state[f"{prefixo}_catmat_mensagens"] = []
     linhas = st.session_state.get(chave_tabela)
     if not linhas:
         st.caption("Escreva a lista e clique em **Carregar** para ver o CATMAT de cada item e testar as descrições antes de pesquisar os preços.")
@@ -201,7 +228,7 @@ def entrada_itens_com_catmat(prefixo: str, catmat, rotulo: str = "Itens a pesqui
     descricao_mudou = [str(n).strip() != str(a).strip() for n, a in zip(editada["Descrição"], base["Descrição"])]
     catmat_mudou = [str(n).strip() != str(a).strip() for n, a in zip(editada["CATMAT"], base["CATMAT"])]
     if any(descricao_mudou) or any(catmat_mudou):  # descrição ou CATMAT editados: atualiza o CATMAT, a descrição do catálogo e a % (catálogo local, sem pesquisar preço)
-        novas, novos_fixos = [], []
+        novas, novos_fixos, mensagens = [], [], []
         for posicao, (_, linha) in enumerate(editada.iterrows()):
             item = _item_da_linha(linha)
             if item is None:
@@ -210,12 +237,17 @@ def entrada_itens_com_catmat(prefixo: str, catmat, rotulo: str = "Itens a pesqui
             if catmat_mudou[posicao]:  # digitou um código (só números) ou apagou o campo (volta ao sugerido)
                 fixo = re.sub(r"\D", "", str(linha["CATMAT"])) or None
             usar = True if pd.isna(linha["Usar"]) else bool(linha["Usar"])
-            nova, fixo_efetivo = _linha_com_catmat(prefixo, catmat, item, usar, com_estimativa, fixo)
+            nova, fixo_efetivo, mensagem = _linha_com_catmat(prefixo, catmat, item, usar, com_estimativa, fixo)
             novas.append(nova)
             novos_fixos.append(fixo_efetivo)
+            if descricao_mudou[posicao] or catmat_mudou[posicao]:
+                mensagens.append(mensagem)
+        st.session_state[f"{prefixo}_catmat_mensagens"] = mensagens
         st.session_state[chave_tabela], st.session_state[f"{prefixo}_catmat_fixos"] = novas, novos_fixos
         st.session_state[chave_versao] = st.session_state.get(chave_versao, 0) + 1
         st.rerun()
+    for mensagem in st.session_state.get(f"{prefixo}_catmat_mensagens", []):  # resultado da última edição, sempre à vista (as colunas da tabela podem exigir rolagem)
+        (st.warning if mensagem.startswith(("⚠️", "❌")) else st.success)(mensagem.replace("$", "\\$"))
     saida = []
     for posicao, (_, linha) in enumerate(editada.iterrows()):
         usar = True if pd.isna(linha["Usar"]) else bool(linha["Usar"])
