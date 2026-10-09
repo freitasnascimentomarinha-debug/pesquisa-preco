@@ -28,7 +28,7 @@ CATALOGO_DIR = os.path.join(BASE_DIR, "Projeto Adesões")
 sys.path.insert(0, BASE_DIR)  # permite importar catmat_busca.py (raiz do projeto)
 from atualizar_modulos import recarregar_se_mudou  # noqa: E402
 recarregar_se_mudou('catmat_busca')  # evita módulo antigo em memória após deploy
-from catmat_busca import CATMAT_PATH, CATSERV_PATH, carregar_catalogo, carregar_indice_catmat, sugerir_codigo  # noqa: E402
+from catmat_busca import CATMAT_PATH, CATSERV_PATH, carregar_catalogo, buscar_unidade_fornecimento, carregar_indice_catmat, listar_opcoes, sugerir_codigo  # noqa: E402
 
 
 st.markdown(
@@ -149,7 +149,7 @@ def _texto_pdf_quebravel(texto: object, tamanho_maximo: int = 45) -> str:
 
 
 
-def gerar_excel(resultados: pd.DataFrame) -> bytes:
+def gerar_excel(resultados: pd.DataFrame, todas_opcoes: pd.DataFrame | None = None) -> bytes:
     saida = io.BytesIO()
     with pd.ExcelWriter(saida, engine="openpyxl") as escritor:
         resultados.to_excel(escritor, index=False, sheet_name="Correlação")
@@ -165,6 +165,18 @@ def gerar_excel(resultados: pd.DataFrame) -> bytes:
             planilha.column_dimensions[get_column_letter(indice)].width = min(max(maior + 2, 14), 62)
         planilha.freeze_panes = "A2"
         planilha.auto_filter.ref = planilha.dimensions
+        if todas_opcoes is not None and not todas_opcoes.empty:
+            todas_opcoes.to_excel(escritor, index=False, sheet_name="Todas as opções")
+            outra = escritor.book["Todas as opções"]
+            for celula in outra[1]:
+                celula.font = Font(color="FFFFFF", bold=True)
+                celula.fill = cabecalho
+                celula.alignment = Alignment(horizontal="center", vertical="center")
+            for coluna in outra.columns:
+                maior = max(len(str(celula.value or "")) for celula in coluna)
+                outra.column_dimensions[get_column_letter(coluna[0].column)].width = min(max(maior + 2, 12), 70)
+            outra.freeze_panes = "A2"
+            outra.auto_filter.ref = outra.dimensions
     return saida.getvalue()
 
 
@@ -205,7 +217,7 @@ def gerar_pdf(resultados: pd.DataFrame) -> bytes:
             pdf.multi_cell(0, 5, _texto_pdf_quebravel(f"Unidade de fornecimento: {linha['Unidade de fornecimento']}"))
         if linha.get("Outras opções", ""):
             pdf.set_x(pdf.l_margin)
-            pdf.multi_cell(0, 5, _texto_pdf_quebravel(f"Outras opcoes:\n{linha['Outras opções']}"))
+            pdf.multi_cell(0, 5, _texto_pdf_quebravel(f"Outras opcoes (da maior para a menor correspondencia):\n{linha['Outras opções']}"))
         pdf.ln(3)
     pdf.set_font("Helvetica", "I", 7)
     pdf.set_text_color(100, 100, 100)
@@ -262,6 +274,8 @@ if arquivo_lista:
     except Exception as erro:
         st.error(f"Não foi possível ler o arquivo: {erro}")
 
+quantas_opcoes = st.slider("Quantas sugestões listar por item (da maior para a menor correspondência)", 3, 30, 10)
+
 if st.button("🔎 Encontrar códigos sugeridos", type="primary", use_container_width=True):
     itens_manuais = [linha.strip(" -•\t") for linha in entrada_manual.splitlines() if linha.strip()]
     itens = list(dict.fromkeys(itens_manuais + itens_arquivo))
@@ -269,27 +283,64 @@ if st.button("🔎 Encontrar códigos sugeridos", type="primary", use_container_
         st.warning("Informe ao menos uma descrição ou envie uma lista de itens.")
     else:
         with st.spinner(f"Analisando {len(itens)} item(ns) nos catálogos oficiais..."):
-            resultados_brutos = []
-            for item in itens:
-                sugestao = sugerir_codigo(item, catmat, catalogo_servico, tipo_busca)
-                resultados_brutos.append(
-                    {
-                        "Descrição informada": item,
-                        "Tipo": "CATMAT" if sugestao["tipo"] == "Material" else "CATSERV" if sugestao["tipo"] == "Serviço" else "-",
-                        "Código": sugestao["codigo"],
-                        "Descrição sugerida": sugestao["descricao_catalogo"],
-                        "Similaridade (%)": sugestao["similaridade"],
-                        "Unidade de fornecimento": sugestao["unidade_fornecimento"],
-                        "Código PDM": sugestao["codigo_pdm"],
-                        "Descrição PDM": sugestao["descricao_pdm"],
-                        "Outras opções": sugestao["alternativas"],
-                    }
-                )
-        st.session_state["catmat_catserv_resultados"] = resultados_brutos
+            st.session_state["catmat_catserv_resultados"] = [
+                {"descricao": item, "opcoes": listar_opcoes(item, catmat, catalogo_servico, tipo_busca, limite=quantas_opcoes)}
+                for item in itens
+            ]
+        for chave in [c for c in st.session_state if str(c).startswith("ccs_escolha_")]:
+            del st.session_state[chave]
+
+
+def _rotulo(opcao: dict[str, object]) -> str:
+    return f"{opcao['tipo']} {opcao['codigo']} — {opcao['similaridade']:.0f}% — {str(opcao['descricao'])[:90]}"
+
+
+def _linha_resultado(item: str, opcao: dict[str, object] | None, outras: list[dict[str, object]]) -> dict[str, object]:
+    sem = opcao is None or opcao["similaridade"] < 45.0
+    unidade = ""
+    if opcao and opcao["tipo"] == "CATMAT" and opcao["codigo_pdm"]:
+        unidade = buscar_unidade_fornecimento(str(opcao["codigo_pdm"]))
+    if opcao is None:
+        descricao_sugerida = "Nenhuma correspondência encontrada"
+    elif opcao["similaridade"] < 45.0:
+        descricao_sugerida = "Descrição insuficiente para sugerir um código com segurança (veja as opções)"
+    else:
+        descricao_sugerida = str(opcao["descricao"])
+    return {
+        "Descrição informada": item,
+        "Tipo": opcao["tipo"] if opcao and not sem else "-",
+        "Código": opcao["codigo"] if opcao and not sem else "-",
+        "Descrição sugerida": descricao_sugerida,
+        "Similaridade (%)": opcao["similaridade"] if opcao else 0.0,
+        "Unidade de fornecimento": unidade,
+        "Código PDM": opcao["codigo_pdm"] if opcao else "",
+        "Descrição PDM": opcao["descricao_pdm"] if opcao else "",
+        "Outras opções": "\n".join(f"{o['tipo']} {o['codigo']} ({o['similaridade']:.0f}%) - {o['descricao']}" for o in outras),
+    }
+
 
 resultados_salvos = st.session_state.get("catmat_catserv_resultados")
 if resultados_salvos:
-    resultados = pd.DataFrame(resultados_salvos)
+    st.markdown('<div class="result-panel"><h3>Sugestões por item</h3><p>Cada item lista os códigos mais parecidos, da maior para a menor correspondência. A primeira opção já vem escolhida; abra o item e troque se outra servir melhor — a tabela e os arquivos abaixo acompanham a sua escolha.</p></div>', unsafe_allow_html=True)
+    linhas, todas = [], []
+    for numero, registro in enumerate(resultados_salvos):
+        opcoes = registro["opcoes"]
+        escolhida = opcoes[0] if opcoes else None
+        with st.expander(f"{numero + 1}. {registro['descricao']}  —  {len(opcoes)} sugestão(ões)" + (f"  |  melhor: {opcoes[0]['tipo']} {opcoes[0]['codigo']} ({opcoes[0]['similaridade']:.0f}%)" if opcoes else ""), expanded=False):
+            if opcoes:
+                st.dataframe(
+                    pd.DataFrame([{"Posição": p + 1, "Tipo": o["tipo"], "Código": o["codigo"], "Correspondência (%)": o["similaridade"], "Descrição": o["descricao"], "Descrição PDM": o["descricao_pdm"]} for p, o in enumerate(opcoes)]),
+                    use_container_width=True, hide_index=True,
+                    column_config={"Correspondência (%)": st.column_config.ProgressColumn(format="%.0f%%", min_value=0, max_value=100)},
+                )
+                indice = st.selectbox("Usar esta opção", range(len(opcoes)), format_func=lambda i, o=opcoes: _rotulo(o[i]), key=f"ccs_escolha_{numero}")
+                escolhida = opcoes[indice]
+            else:
+                st.info("Nenhum código parecido encontrado. Tente detalhar mais a descrição.")
+        linhas.append(_linha_resultado(registro["descricao"], escolhida, [o for o in opcoes if o is not escolhida]))
+        todas += [{"Item": numero + 1, "Descrição informada": registro["descricao"], "Posição": p + 1, "Tipo": o["tipo"], "Código": o["codigo"], "Correspondência (%)": o["similaridade"], "Descrição do código": o["descricao"], "Código PDM": o["codigo_pdm"], "Descrição PDM": o["descricao_pdm"], "Escolhida": "Sim" if o is escolhida else ""} for p, o in enumerate(opcoes)]
+    resultados = pd.DataFrame(linhas)
+    todas_opcoes = pd.DataFrame(todas)
     alta = int((resultados["Similaridade (%)"] >= 70).sum())
     media = int(((resultados["Similaridade (%)"] >= 45) & (resultados["Similaridade (%)"] < 70)).sum())
     baixa = len(resultados) - alta - media
@@ -302,6 +353,6 @@ if resultados_salvos:
     st.dataframe(resultados, use_container_width=True, hide_index=True, column_config={"Similaridade (%)": st.column_config.NumberColumn(format="%.1f%%")})
     excel, pdf = st.columns(2)
     with excel:
-        st.download_button("⬇️ Baixar correlação em Excel", gerar_excel(resultados), "correlacao_catmat_catserv.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
+        st.download_button("⬇️ Baixar correlação em Excel", gerar_excel(resultados, todas_opcoes), "correlacao_catmat_catserv.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", use_container_width=True)
     with pdf:
         st.download_button("⬇️ Baixar correlação em PDF", gerar_pdf(resultados), "correlacao_catmat_catserv.pdf", "application/pdf", use_container_width=True)

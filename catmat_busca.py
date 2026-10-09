@@ -434,6 +434,28 @@ def sugerir_codigo(descricao: str, catmat: IndiceCatmat, catalogo_servico: list[
     }
 
 
+def listar_opcoes(descricao: str, catmat: IndiceCatmat, catalogo_servico: list[dict[str, object]], tipo: str = "Automático", limite: int = 15, minimo: float = 30.0) -> list[dict[str, object]]:
+    """Lista ordenada (da maior para a menor correspondência) dos códigos CATMAT e/ou CATSERV que mais se parecem com a descrição, para o usuário escolher.
+    `tipo`: 'Automático' (materiais e serviços juntos), 'Material' ou 'Serviço'. Só entram os de correspondência >= `minimo`%; se nenhum chegar lá, as 5 melhores
+    aparecem mesmo assim (para o usuário ver o que há de mais próximo). Cada opção: tipo (CATMAT/CATSERV), codigo, descricao, similaridade, codigo_pdm, descricao_pdm."""
+    opcoes: list[dict[str, object]] = []
+    if tipo in ("Automático", "Material"):
+        opcoes += _opcoes_material(descricao, catmat, max(CANDIDATOS_POR_CONSULTA, limite * 4))
+    if tipo in ("Automático", "Serviço"):
+        opcoes += _opcoes_servico(descricao, catalogo_servico)
+    opcoes.sort(key=lambda opcao: (round(opcao["bruta"], 1), opcao.get("popularidade", 0)), reverse=True)
+    lista, vistos = [], set()
+    for opcao in opcoes:
+        chave = (opcao["tipo"], opcao["codigo"])
+        if chave in vistos:
+            continue
+        vistos.add(chave)
+        lista.append({"tipo": "CATMAT" if opcao["tipo"] == "Material" else "CATSERV", "codigo": str(opcao["codigo"]), "descricao": str(opcao["descricao_catalogo"]),
+                      "similaridade": float(opcao["similaridade"]), "codigo_pdm": str(opcao.get("codigo_pdm") or ""), "descricao_pdm": str(opcao.get("descricao_pdm") or "")})
+    boas = [o for o in lista if o["similaridade"] >= minimo]
+    return (boas or lista[:5])[:limite]
+
+
 def atualizado_em() -> str:
     """Data (dd/mm/aaaa) da última atualização dos catálogos locais, ou '' se desconhecida."""
     try:
