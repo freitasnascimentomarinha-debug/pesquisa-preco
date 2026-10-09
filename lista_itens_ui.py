@@ -246,8 +246,9 @@ def entrada_itens_com_catmat(prefixo: str, catmat, rotulo: str = "Itens a pesqui
         st.session_state[chave_tabela], st.session_state[f"{prefixo}_catmat_fixos"] = novas, novos_fixos
         st.session_state[chave_versao] = st.session_state.get(chave_versao, 0) + 1
         st.rerun()
-    for mensagem in st.session_state.get(f"{prefixo}_catmat_mensagens", []):  # resultado da última edição, sempre à vista (as colunas da tabela podem exigir rolagem)
-        (st.warning if mensagem.startswith(("⚠️", "❌")) else st.success)(mensagem.replace("$", "\\$"))
+    for mensagem in st.session_state.get(f"{prefixo}_catmat_mensagens", []):  # só os avisos da última edição (casamento baixo, código inexistente); o que deu certo só atualiza a tabela
+        if mensagem.startswith(("⚠️", "❌")):
+            st.warning(mensagem.replace("$", "\\$"))
     saida = []
     for posicao, (_, linha) in enumerate(editada.iterrows()):
         usar = True if pd.isna(linha["Usar"]) else bool(linha["Usar"])
