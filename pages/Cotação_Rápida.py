@@ -26,7 +26,7 @@ from catmat_busca import CATMAT_PATH, CATSERV_PATH, carregar_catalogo, carregar_
 from cotacao_rapida import TOLERANCIA_ESTIMATIVA, aplicar_estimativa, JANELA_DIAS, LIMIAR_CORRESPONDENCIA, LIMIAR_SERVICO, MAX_CATMAT, MAX_PRECOS, MIN_PRECOS, TOLERANCIA, cotar_item, resultado_vazio  # noqa: E402
 from relatorio_cotacao_rapida import STATUS_TEXTO, gerar_excel, gerar_pdf, tabela_mapa  # noqa: E402
 from lista_itens import anexar_pedido, tem_quantidades, valor_total_orcamento  # noqa: E402
-from lista_itens_ui import entrada_itens  # noqa: E402
+from lista_itens_ui import entrada_itens_com_catmat  # noqa: E402
 
 
 st.markdown(
@@ -172,24 +172,28 @@ catmat = carregar_indice_catmat(CATMAT_PATH)
 catalogo_servico = carregar_catalogo(CATSERV_PATH)
 
 st.markdown('<div class="input-panel"><h3>Lista de itens</h3><p>Digite ou cole um item por linha, com a quantidade ao lado se quiser (ex.: “caneta azul - 100”, “50 resmas de papel A4”), ou importe uma planilha (CSV ou Excel). Com quantidades, o mapa já traz o valor total de cada item e do orçamento.</p></div>', unsafe_allow_html=True)
-itens_pedidos = entrada_itens(
-    "cr", rotulo="Descrições dos itens", altura=170, com_estimativa=True,
+itens_pedidos, lista_carregada = entrada_itens_com_catmat(
+    "cr", catmat, rotulo="Descrições dos itens", altura=170, com_estimativa=True,
     placeholder="Ex:\nResma de papel A4 75 g/m² - 50\n10 notebook 15 polegadas 16 GB\nDetergente líquido neutro 5 litros; 30 un",
 )
-tipo_busca = st.selectbox(
-    "Tipo de item",
-    ["Automático", "Material", "Serviço"],
-    help="Automático decide, para cada linha, se é material (CATMAT) ou serviço (CATSERV) pela descrição mais parecida. "
-    "É um pouco mais lento; prefira escolher o tipo quando a lista for toda de um só tipo.",
-)
+tipo_busca, priorizar_estimativa, cotar_clicado = "Automático", True, False
+if lista_carregada:  # só depois de "Carregar" (que apenas monta a tabela com o CATMAT) aparecem as opções e o botão de cotar
+    tipo_busca = st.selectbox(
+        "Tipo de item",
+        ["Automático", "Material", "Serviço"],
+        help="Automático decide, para cada linha, se é material (CATMAT) ou serviço (CATSERV) pela descrição mais parecida. "
+        "É um pouco mais lento; prefira escolher o tipo quando a lista for toda de um só tipo.",
+    )
 
-priorizar_estimativa = st.checkbox(
-    "Deixar a estimativa de preço orientar a escolha do CATMAT", value=True,
-    help=f"Só vale para os itens com “Estimativa do preço”. Entre os CATMAT bem parecidos (60% ou mais), passam na frente os que praticam preço compatível (até {TOLERANCIA_ESTIMATIVA:.0%} de diferença) com a sua estimativa. "
-         "Se nenhum pratica, o sistema mantém o mais parecido e avisa. Desmarque para usar só a semelhança do texto (a estimativa vira apenas um aviso).",
-)
+    priorizar_estimativa = st.checkbox(
+        "Deixar a estimativa de preço orientar a escolha do CATMAT", value=True,
+        help=f"Só vale para os itens com “Estimativa do preço”. Entre os CATMAT bem parecidos (60% ou mais), passam na frente os que praticam preço compatível (até {TOLERANCIA_ESTIMATIVA:.0%} de diferença) com a sua estimativa. "
+             "Se nenhum pratica, o sistema mantém o mais parecido e avisa. Desmarque para usar só a semelhança do texto (a estimativa vira apenas um aviso).",
+    )
 
-if st.button("⚡ Cotar itens", type="primary", use_container_width=True):
+    cotar_clicado = st.button("⚡ Cotar itens", type="primary", use_container_width=True)
+
+if cotar_clicado:
     st.session_state["cotacao_rapida_geracao"] = st.session_state.get("cotacao_rapida_geracao", 0) + 1
     itens_lista = list(itens_pedidos)
     if not itens_lista:
