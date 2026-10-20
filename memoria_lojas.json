@@ -1,6 +1,6 @@
 {
  "versao": 1,
- "atualizado": "2026-10-08T22:04:18",
+ "atualizado": "2026-10-20T19:34:07",
  "lojas": {
   "lojadomecanico.com.br": {
    "acertos": 25,
@@ -4704,6 +4704,23 @@
    "paginas": {
     "geladeira": "https://www.samsung.com/br/refrigerators/all-refrigerators"
    }
+  },
+  "lubcenterloja.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-10-20",
+   "itens": [
+    "graxa lubrax x68"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "automotivo e lubrificantes": 1
+   },
+   "paginas": {
+    "graxa lubrax x68": "https://www.lubcenterloja.com.br/graxas-lubrax"
+   }
   }
  },
  "falhas": {
@@ -5391,6 +5408,21 @@
    "navegador": 1,
    "texto": 1,
    "ultimo": "2026-10-07"
+  },
+  "lubcenter.com": {
+   "navegador": 0,
+   "texto": 1,
+   "ultimo": "2026-10-20"
+  },
+  "duchaolubrificantes.com.br": {
+   "navegador": 0,
+   "texto": 1,
+   "ultimo": "2026-10-20"
+  },
+  "brproracing.com": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-10-20"
   }
  },
  "frases": {
@@ -5400,14 +5432,14 @@
    "ultimo": "2026-10-08"
   },
   "{item} preço": {
-   "usos": 19.929,
-   "acertos": 39.3951,
-   "ultimo": "2026-10-08"
+   "usos": 19.9325,
+   "acertos": 38.4253,
+   "ultimo": "2026-10-20"
   },
   "venda de {item}": {
-   "usos": 15.4812,
-   "acertos": 12.5865,
-   "ultimo": "2026-10-07"
+   "usos": 15.7071,
+   "acertos": 11.9572,
+   "ultimo": "2026-10-20"
   },
   "{item} valor": {
    "usos": 17.6802,
@@ -5415,9 +5447,9 @@
    "ultimo": "2026-10-06"
   },
   "{item} atacado": {
-   "usos": 19.9391,
-   "acertos": 37.5524,
-   "ultimo": "2026-10-07"
+   "usos": 19.9421,
+   "acertos": 35.6748,
+   "ultimo": "2026-10-20"
   },
   "{item} preço brasil": {
    "usos": 11.6375,
@@ -5425,17 +5457,17 @@
    "ultimo": "2026-10-06"
   },
   "{item} comprar brasil": {
-   "usos": 16.1256,
-   "acertos": 9.4148,
-   "ultimo": "2026-10-07"
+   "usos": 16.3193,
+   "acertos": 8.9441,
+   "ultimo": "2026-10-20"
   },
   "comprar {item} online brasil": {
-   "usos": 15.7071,
-   "acertos": 10.3248,
-   "ultimo": "2026-10-07"
+   "usos": 15.9217,
+   "acertos": 9.8086,
+   "ultimo": "2026-10-20"
   }
  },
- "buscas": 130,
+ "buscas": 131,
  "sem_busca": {
   "arxiv.org": "2026-10-05",
   "papers.ssrn.com": "2026-10-05",
@@ -5511,11 +5543,11 @@
  },
  "serper": {
   "mes": "2026-10",
-  "n": 100
+  "n": 104
  },
  "tavily": {
   "mes": "2026-10",
-  "n": 256
+  "n": 261
  },
  "nomes": {
   "papel contact": {
@@ -5976,6 +6008,20 @@
     "Sem título"
    ],
    "origem": ""
+  },
+  "graxa lubrax": {
+   "busca": "",
+   "aceitar": [],
+   "excluir": {},
+   "recusados": [
+    "Óleo Industrial Lubrax Turbina X 68 Iso 68 Mineral 20L | Bullo Leo",
+    "Categoria de produtos | Industriais | Lubrax",
+    "Rede Manaus | Pneus com Frete Gr�tis - Verificando acesso...",
+    "Lubrax Hydra 68 - Pefil",
+    "LUBRAX TURBINA X 68 - TB 200 L | PG Distribuidora",
+    "Óleo Hidráulico 68 Lubrax Hydra XP 68 | Hermes Lubrificantes"
+   ],
+   "origem": ""
   }
  },
  "desempenho": {
@@ -6008,6 +6054,25 @@
       "segundos": 32.0
      }
     }
+   },
+   {
+    "data": "2026-10-20T19:34:07",
+    "item": "Graxa lubrax x68",
+    "natureza": "automotivo e lubrificantes",
+    "segundos": 66.3,
+    "precos": 1,
+    "certos": 1,
+    "completo": false,
+    "api": 9,
+    "navegador": 1,
+    "frase": "{item} preço",
+    "origens": {
+     "busca": {
+      "tentativas": 13,
+      "precos": 1,
+      "segundos": 66.2
+     }
+    }
    }
   ],
   "naturezas": {
@@ -6032,6 +6097,20 @@
       "tentativas": 6.0,
       "precos": 3.0,
       "segundos": 32.018
+     }
+    }
+   },
+   "automotivo e lubrificantes": {
+    "itens": 1.0,
+    "segundos": 66.279,
+    "precos": 1.0,
+    "certos": 1.0,
+    "completos": 0.0,
+    "origens": {
+     "busca": {
+      "tentativas": 13.0,
+      "precos": 1.0,
+      "segundos": 66.233
      }
     }
    }
