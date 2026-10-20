@@ -279,7 +279,7 @@ st.markdown("""
 # ============================================================
 # CONSTANTES
 # ============================================================
-OPENCODE_URL = "https://opencode.ai/zen/v1/chat/completions"
+OPENCODE_URL = "https://opencode.ai/inference/openai/v1/chat/completions"
 MODELO_PADRAO = "deepseek-v4.1-flash-free"
 MEMORIA_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "babilaca_memoria.json")
 REQ_COUNTER_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "babilaca_req_count.json")
@@ -751,7 +751,7 @@ def chamar_ia(
                     continue  # retry com menos tokens
                 return (
                     "⚠️ **Créditos insuficientes** na conta OpenCode Zen.\n\n"
-                    "Adicione créditos em https://opencode.ai/auth "
+                    "Adicione créditos em https://opencode.ai/console "
                     "e tente novamente."
                 )
 
@@ -761,14 +761,14 @@ def chamar_ia(
                     "Possíveis causas:\n"
                     "- Restrições de privacidade/política de dados na sua conta OpenCode\n"
                     "- Modelo temporariamente fora do ar\n\n"
-                    "Se persistir, verifique o nome do modelo e sua conta em https://opencode.ai/auth"
+                    "Se persistir, verifique o nome do modelo e sua conta em https://opencode.ai/console"
                 )
 
             if resp.status_code == 403:
                 return (
                     "⚠️ **Limite diário atingido**.\n\n"
                     "Sua chave de API alcançou o limite de uso do dia. "
-                    "Gerencie seus limites em https://opencode.ai/auth"
+                    "Gerencie seus limites em https://opencode.ai/console"
                 )
 
             if resp.status_code == 429:
