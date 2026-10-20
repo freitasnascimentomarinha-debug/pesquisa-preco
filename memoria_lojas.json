@@ -1,6 +1,6 @@
 {
  "versao": 1,
- "atualizado": "2026-10-20T19:34:07",
+ "atualizado": "2026-10-20T19:36:23",
  "lojas": {
   "lojadomecanico.com.br": {
    "acertos": 25,
@@ -4706,17 +4706,17 @@
    }
   },
   "lubcenterloja.com.br": {
-   "acertos": 1,
+   "acertos": 2,
    "ultimo": "2026-10-20",
    "itens": [
     "graxa lubrax x68"
    ],
    "metodos": {
     "navegador": 0,
-    "texto": 1
+    "texto": 2
    },
    "naturezas": {
-    "automotivo e lubrificantes": 1
+    "automotivo e lubrificantes": 2
    },
    "paginas": {
     "graxa lubrax x68": "https://www.lubcenterloja.com.br/graxas-lubrax"
@@ -5420,6 +5420,11 @@
    "ultimo": "2026-10-20"
   },
   "brproracing.com": {
+   "navegador": 2,
+   "texto": 2,
+   "ultimo": "2026-10-20"
+  },
+  "cosmos.bluesoft.com.br": {
    "navegador": 1,
    "texto": 1,
    "ultimo": "2026-10-20"
@@ -5432,13 +5437,13 @@
    "ultimo": "2026-10-08"
   },
   "{item} preço": {
-   "usos": 19.9325,
-   "acertos": 38.4253,
+   "usos": 19.9359,
+   "acertos": 36.504,
    "ultimo": "2026-10-20"
   },
   "venda de {item}": {
-   "usos": 15.7071,
-   "acertos": 11.9572,
+   "usos": 15.9217,
+   "acertos": 11.3593,
    "ultimo": "2026-10-20"
   },
   "{item} valor": {
@@ -5447,8 +5452,8 @@
    "ultimo": "2026-10-06"
   },
   "{item} atacado": {
-   "usos": 19.9421,
-   "acertos": 35.6748,
+   "usos": 19.945,
+   "acertos": 33.8911,
    "ultimo": "2026-10-20"
   },
   "{item} preço brasil": {
@@ -5457,17 +5462,17 @@
    "ultimo": "2026-10-06"
   },
   "{item} comprar brasil": {
-   "usos": 16.3193,
-   "acertos": 8.9441,
+   "usos": 16.5033,
+   "acertos": 8.4969,
    "ultimo": "2026-10-20"
   },
   "comprar {item} online brasil": {
-   "usos": 15.9217,
-   "acertos": 9.8086,
+   "usos": 16.1256,
+   "acertos": 9.3182,
    "ultimo": "2026-10-20"
   }
  },
- "buscas": 131,
+ "buscas": 132,
  "sem_busca": {
   "arxiv.org": "2026-10-05",
   "papers.ssrn.com": "2026-10-05",
@@ -5539,15 +5544,16 @@
   "epizeus.com.br": "2026-10-06",
   "dnac.com.br": "2026-10-06",
   "fg.com.br": "2026-10-06",
-  "lojamor.com.br": "2026-10-07"
+  "lojamor.com.br": "2026-10-07",
+  "lubcenterloja.com.br": "2026-10-20"
  },
  "serper": {
   "mes": "2026-10",
-  "n": 104
+  "n": 108
  },
  "tavily": {
   "mes": "2026-10",
-  "n": 261
+  "n": 266
  },
  "nomes": {
   "papel contact": {
@@ -6019,7 +6025,8 @@
     "Rede Manaus | Pneus com Frete Gr�tis - Verificando acesso...",
     "Lubrax Hydra 68 - Pefil",
     "LUBRAX TURBINA X 68 - TB 200 L | PG Distribuidora",
-    "Óleo Hidráulico 68 Lubrax Hydra XP 68 | Hermes Lubrificantes"
+    "Óleo Hidráulico 68 Lubrax Hydra XP 68 | Hermes Lubrificantes",
+    "Sem título"
    ],
    "origem": ""
   }
@@ -6073,6 +6080,30 @@
       "segundos": 66.2
      }
     }
+   },
+   {
+    "data": "2026-10-20T19:36:23",
+    "item": "Graxa lubrax x68",
+    "natureza": "automotivo e lubrificantes",
+    "segundos": 64.0,
+    "precos": 1,
+    "certos": 1,
+    "completo": false,
+    "api": 9,
+    "navegador": 2,
+    "frase": "",
+    "origens": {
+     "parecida": {
+      "tentativas": 1,
+      "precos": 1,
+      "segundos": 35.5
+     },
+     "busca": {
+      "tentativas": 10,
+      "precos": 0,
+      "segundos": 28.5
+     }
+    }
    }
   ],
   "naturezas": {
@@ -6101,16 +6132,21 @@
     }
    },
    "automotivo e lubrificantes": {
-    "itens": 1.0,
-    "segundos": 66.279,
-    "precos": 1.0,
-    "certos": 1.0,
+    "itens": 1.95,
+    "segundos": 126.954,
+    "precos": 1.95,
+    "certos": 1.95,
     "completos": 0.0,
     "origens": {
      "busca": {
-      "tentativas": 13.0,
+      "tentativas": 22.35,
+      "precos": 0.95,
+      "segundos": 91.386
+     },
+     "parecida": {
+      "tentativas": 1.0,
       "precos": 1.0,
-      "segundos": 66.233
+      "segundos": 35.511
      }
     }
    }
