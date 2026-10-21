@@ -384,7 +384,6 @@ with st.sidebar:
         st.markdown(f'<div style="text-align:center;padding:1rem 0 0.5rem 0;"><img src="data:image/png;base64,{_acanto_b64}" style="max-width:70%;height:auto;"></div>', unsafe_allow_html=True)
     st.markdown("## MENU")
     st.markdown("---")
-    st.page_link("pages/Aprendendo_a_usar.py", label="Aprendendo a usar", icon="🎓")
     st.page_link("streamlit_app.py", label="Cotação", icon="⚓")
     st.page_link("pages/CATMAT_CATSERV_Automatico.py", label="CATMAT/CATSERV", icon="🔎")
     st.page_link("pages/Cotação_Rápida.py", label="Cotação Rápida", icon="⚡")
@@ -397,6 +396,7 @@ with st.sidebar:
     st.page_link("pages/Web_Scraping.py", label="Web Scraping", icon="🕷️")
     st.page_link("pages/O_Babilaca_(IA).py", label="O Babilaca (IA)", icon="🧠")
     st.page_link("pages/Calculo_IPCA.py", label="Cálculo IPCA", icon="📊")
+    st.page_link("pages/Aprendendo_a_usar.py", label="Aprendendo a usar", icon="🎓")
     st.markdown("---")
     st.markdown("## LINKS ÚTEIS")
     st.markdown("""<div style="margin-bottom: 0.6rem;">

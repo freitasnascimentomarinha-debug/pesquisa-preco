@@ -136,7 +136,7 @@ function makeApi(tk){
     async top(){page.style.transform='translateY(0)';await A.sleep(850);},
     async move(sel,dx=0,dy=0){const el=$(sel);const r=rel(el);cursor.style.left=(r.x+Math.min(r.w/2,60)+dx)+'px';cursor.style.top=(r.y+r.h/2+dy)+'px';await A.sleep(700);},
     async click(sel,fx){await A.move(sel);cursor.classList.add('down');await A.sleep(220);if(fx)fx();cursor.classList.remove('down');await A.sleep(300);},
-    async type(sel,txt,per=70){const el=$(sel);el.textContent='';for(const ch of txt){el.textContent+=ch;await A.sleep(per);}await A.sleep(250);},
+    async type(sel,txt,per=70,append=false){const el=$(sel);if(!append)el.textContent='';for(const ch of txt){el.textContent+=ch;await A.sleep(per);}await A.sleep(250);},
     ring(sel,label,pad=5){const el=$(sel);const r=rel(el);Object.assign(ring.style,{left:(r.x-pad)+'px',top:(r.y-pad)+'px',width:(r.w+pad*2)+'px',height:(r.h+pad*2)+'px'});ring.classList.add('on');
       if(label){ringl.textContent=label;ringl.classList.add('on');const lw=ringl.offsetWidth;ringl.style.left=Math.max(4,Math.min(STAGE_W-lw-4,r.x+r.w+pad-lw))+'px';ringl.style.top=Math.max(4,r.y-pad-24)+'px';}else ringl.classList.remove('on');},
     unring(){ring.classList.remove('on');ringl.classList.remove('on');},
@@ -168,9 +168,9 @@ async function goto(i,autoplay=true){
   }catch(e){if(!(e instanceof Cancel))throw e;}
 }
 function resetState(){resetS();render();page.style.transform='translateY(0)';cursor.style.left='380px';cursor.style.top='270px';ring.classList.remove('on');ringl.classList.remove('on');toastEl.classList.remove('on');$$('.dd').forEach(d=>d.classList.remove('on'));}
-function finish(){paused=true;syncBtn();$('#pb').style.width='100%';$$('#chips button').forEach(b=>{b.classList.remove('on');b.classList.add('done');});
-  const p=$('#poster');p.querySelector('h2').textContent='Fim da aula';p.querySelector('p').textContent='Clique para assistir novamente ou escolha um passo na lista abaixo.';p.classList.remove('hide');cur=-1;started=false;}
-function syncBtn(){$('#bplay').textContent=paused?'▶ Continuar':'⏸ Pausar';$('#bplay').classList.toggle('main',paused);}
+function finish(){paused=true;started=false;syncBtn();$('#pb').style.width='100%';$$('#chips button').forEach(b=>{b.classList.remove('on');b.classList.add('done');});
+  const p=$('#poster');p.querySelector('h2').textContent='Fim da aula';p.querySelector('p').textContent='Clique para assistir novamente ou escolha um passo na lista abaixo.';p.classList.remove('hide');cur=-1;}
+function syncBtn(){$('#bplay').textContent=!started?'▶ Assistir':paused?'▶ Continuar':'⏸ Pausar';$('#bplay').classList.toggle('main',paused);}
 $('#poster').onclick=()=>goto(0,true);
 $('#bplay').onclick=()=>{if(!started){goto(0,true);return;}paused=!paused;syncBtn();if(window.speechSynthesis){paused?speechSynthesis.pause():speechSynthesis.resume();}};
 $('#bprev').onclick=()=>goto(Math.max(0,(cur<0?0:cur)-1),true);
