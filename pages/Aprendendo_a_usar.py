@@ -148,7 +148,6 @@ if hasattr(st, "iframe"):  # st.components.v1.html está sendo descontinuado nas
 else:
     components.html(html_video, height=ALTURA_IFRAME, scrolling=False)
 
-st.caption("🔊 Narração com voz sintética em português (Piper, voz “Faber”, código aberto). Use a caixa “Narração” do player para ligar ou desligar o som.")
 st.markdown("### Vídeo-aulas")
 for v in VIDEOS:
     pronto = v["modulo"] is not None
