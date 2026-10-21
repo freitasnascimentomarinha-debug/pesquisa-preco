@@ -658,7 +658,7 @@ FORMATO DE CITAÇÃO (somente com fontes do contexto):
 - IN: "De acordo com o Art. XX da IN SEGES/ME nº XX/XXXX..."
 - TCU: "Nesse sentido, o TCU no Acórdão X.XXX/XXXX-Plenário firmou entendimento de que..."
 
-AVISO: Você é uma ferramenta de apoio. Recomende sempre que o usuário confirme nas fontes oficiais.
+AVISO: Você é uma ferramenta de apoio.
 
 {contexto_juridico}
 
@@ -992,7 +992,6 @@ TEMPLATE_DFD = """## DOCUMENTO DE FORMALIZAÇÃO DE DEMANDA (DFD)
 
 ---
 Documento gerado pelo sistema O Babilaca (IA) — Ferramenta de apoio.
-Confirmar sempre nas fontes oficiais.
 """
 
 TEMPLATE_TR = """## TERMO DE REFERÊNCIA
@@ -1033,7 +1032,6 @@ Conforme previsto na Lei 14.133/2021, Arts. 155 a 163.
 
 ---
 Documento gerado pelo sistema O Babilaca (IA) — Ferramenta de apoio.
-Confirmar sempre nas fontes oficiais.
 """
 
 TEMPLATE_JUSTIFICATIVA = """## JUSTIFICATIVA DE CONTRATAÇÃO
@@ -1061,7 +1059,6 @@ TEMPLATE_JUSTIFICATIVA = """## JUSTIFICATIVA DE CONTRATAÇÃO
 
 ---
 Documento gerado pelo sistema O Babilaca (IA) — Ferramenta de apoio.
-Confirmar sempre nas fontes oficiais.
 """
 
 TEMPLATE_ATA_RP = """## ATA DE REGISTRO DE PREÇOS
@@ -1150,7 +1147,6 @@ Fica eleito o foro da Justiça Federal — Seção Judiciária de __________ par
 
 ---
 Documento gerado pelo sistema O Babilaca (IA) — Ferramenta de apoio.
-Confirmar sempre nas fontes oficiais.
 """
 
 TEMPLATE_MINUTA_CONTRATO = """## MINUTA DE CONTRATO DE {tipo_contrato}
@@ -1283,7 +1279,6 @@ Nome: {representante_empresa}
 
 ---
 Documento gerado pelo sistema O Babilaca (IA) — Ferramenta de apoio.
-Confirmar sempre nas fontes oficiais.
 """
 
 
@@ -1362,7 +1357,7 @@ def gerar_mapa_comparativo_pdf(itens: list[dict], observacoes: str = "") -> byte
     pdf.ln(6)
     pdf.set_font("Helvetica", "I", 8)
     pdf.set_text_color(120, 120, 120)
-    pdf.cell(0, 5, _sanitize_for_pdf("Documento gerado pelo sistema O Babilaca (IA) - Ferramenta de apoio. Confirmar sempre nas fontes oficiais."), ln=True)
+    pdf.cell(0, 5, _sanitize_for_pdf("Documento gerado pelo sistema O Babilaca (IA) - Ferramenta de apoio."), ln=True)
     return bytes(pdf.output())
 
 
@@ -2263,7 +2258,7 @@ st.markdown("""
     <p>Assistente Inteligente para Licitações e Contratações Públicas — Lei 14.133/2021</p>
 </div>
 <div class="disclaimer-box">
-    ⚠️ Ferramenta de apoio. Confirmar sempre nas fontes oficiais.
+    ⚠️ Ferramenta de apoio.
 </div>
 """, unsafe_allow_html=True)
 
@@ -2971,7 +2966,6 @@ with tab_docs:
 
 ---
 Documento gerado pelo sistema O Babilaca (IA) — Ferramenta de apoio.
-Confirmar sempre nas fontes oficiais.
 """
                 st.markdown(corpo_crono)
                 pdf_bytes = gerar_pdf_documento("CRONOGRAMA FÍSICO-FINANCEIRO", corpo_crono)
@@ -3223,7 +3217,6 @@ utilizou as seguintes fontes, priorizando a ordem estabelecida no Art. 5° da IN
 
 ---
 Documento gerado pelo sistema O Babilaca (IA) — Ferramenta de apoio.
-Confirmar sempre nas fontes oficiais.
 """
                 st.markdown(corpo_mc)
                 pdf_bytes = gerar_pdf_documento("MEMÓRIA DE CÁLCULO", corpo_mc)

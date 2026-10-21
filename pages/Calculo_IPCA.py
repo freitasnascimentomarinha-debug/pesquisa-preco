@@ -379,7 +379,6 @@ def _gerar_pdf_ipca(itens_resultado, meses_detalhes, data_calc):
 	pdf.set_font("Helvetica", "I", 7)
 	pdf.set_text_color(120, 120, 120)
 	pdf.cell(0, 4, "Documento gerado automaticamente pelo sistema O Babilaca (IA)", ln=True, align="C")
-	pdf.cell(0, 4, "Os valores sao meramente indicativos. Confirme sempre nas fontes oficiais.", ln=True, align="C")
 
 	return bytes(pdf.output())
 

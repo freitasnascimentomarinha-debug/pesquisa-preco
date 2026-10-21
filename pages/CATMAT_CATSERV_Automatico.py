@@ -196,7 +196,7 @@ def gerar_pdf(resultados: pd.DataFrame) -> bytes:
     pdf.set_text_color(40, 40, 40)
     pdf.set_font("Helvetica", "", 9)
     pdf.set_x(pdf.l_margin)
-    pdf.multi_cell(0, 5, "Sugestoes calculadas a partir do catalogo publico do Compras.gov. Revise a descricao e o codigo antes de utilizar no processo.")
+    pdf.multi_cell(0, 5, "Sugestoes calculadas a partir do catalogo publico do Compras.gov.")
     pdf.ln(3)
     for indice, linha in resultados.iterrows():
         pdf.set_fill_color(235, 242, 252)
@@ -342,7 +342,7 @@ if resultados_salvos:
     alta = int((resultados["Similaridade (%)"] >= 70).sum())
     media = int(((resultados["Similaridade (%)"] >= 45) & (resultados["Similaridade (%)"] < 70)).sum())
     baixa = len(resultados) - alta - media
-    st.markdown('<div class="result-panel"><h3>Resultado da correlação</h3><p>Use a similaridade como apoio à decisão e confira as especificações do item no catálogo antes de utilizar o código.</p></div>', unsafe_allow_html=True)
+    st.markdown('<div class="result-panel"><h3>Resultado da correlação</h3><p>A similaridade indica o quanto cada código se parece com a descrição informada.</p></div>', unsafe_allow_html=True)
     metricas = st.columns(4)
     metricas[0].metric("Itens analisados", len(resultados))
     metricas[1].markdown(f'<span class="status-chip status-good">{alta} alta similaridade</span>', unsafe_allow_html=True)
