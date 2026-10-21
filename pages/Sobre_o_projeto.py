@@ -188,7 +188,7 @@ st.markdown(
         <b>⚠️ Avisos importantes</b>
         <ul style="margin:.3rem 0 0 1.1rem;padding:0">
             <li>O AtaCotada é uma <b>ferramenta de apoio</b>. Ele <b>não substitui</b> a análise e a decisão do agente responsável pela contratação.</li>
-            <li>Os resultados dependem de <b>fontes externas</b>, que podem estar indisponíveis, incompletas ou desatualizadas. <b>Confira sempre</b> os dados nas fontes oficiais antes de usá-los em processos.</li>
+            <li>O sistema depende de <b>fontes externas</b> (portais públicos e serviços da internet). Com <b>muitos usuários ao mesmo tempo</b>, ele pode ficar <b>mais lento</b> e, quando alguma dessas fontes estiver fora do ar ou em manutenção, pode ficar <b>temporariamente indisponível</b>. Se isso acontecer, tente novamente em alguns instantes.</li>
             <li>Preços, códigos e sugestões automáticas (inclusive as da IA) devem ser <b>validados</b> pelo usuário.</li>
             <li>Para aprender a usar cada ferramenta, veja as vídeo-aulas em <b>Aprendendo a usar</b>.</li>
         </ul>
