@@ -7,7 +7,7 @@ from tutorial_player import montar_player
 TITULO = "Como usar a página Notas Fiscais"
 DESCRICAO = (
     "Pesquisar preços em notas fiscais eletrônicas: itens, filtros, mapa comparativo, notas para autenticar, "
-    "fornecedores e relatórios. Duração aproximada: 3 min."
+    "fornecedores e relatórios. Duração aproximada: 4 min, com narração."
 )
 
 _MOCK_CSS = r"""
@@ -172,4 +172,4 @@ window.__STEPS__=[
 
 
 def html() -> str:
-    return montar_player(TITULO, DESCRICAO, _STAGE_HTML, _MOCK_CSS, _STATE_JS, _STEPS_JS)
+    return montar_player(TITULO, DESCRICAO, _STAGE_HTML, _MOCK_CSS, _STATE_JS, _STEPS_JS, audio_id="notas_fiscais")

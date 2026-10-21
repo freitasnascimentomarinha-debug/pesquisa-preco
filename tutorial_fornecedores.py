@@ -7,7 +7,7 @@ from tutorial_player import montar_player
 TITULO = "Como usar o Banco de Fornecedores"
 DESCRICAO = (
     "Encontrar fornecedores do Compras.gov.br por atividade econômica (CNAE), filtrar, buscar e-mail e telefone "
-    "e exportar. Duração aproximada: 2 min."
+    "e exportar. Duração aproximada: 3 min, com narração."
 )
 
 _MOCK_CSS = r"""
@@ -118,4 +118,4 @@ window.__STEPS__=[
 
 
 def html() -> str:
-    return montar_player(TITULO, DESCRICAO, _STAGE_HTML, _MOCK_CSS, _STATE_JS, _STEPS_JS)
+    return montar_player(TITULO, DESCRICAO, _STAGE_HTML, _MOCK_CSS, _STATE_JS, _STEPS_JS, audio_id="fornecedores")

@@ -7,7 +7,7 @@ from tutorial_player import montar_player
 TITULO = "Como usar a Cotação Rápida"
 DESCRICAO = (
     "Da lista de itens ao mapa comparativo em PDF/Excel: carregar, conferir o CATMAT, estimativa de preço, "
-    "cotar, ler os resultados e baixar. Duração aproximada: 3 min."
+    "cotar, ler os resultados e baixar. Duração aproximada: 5 min, com narração."
 )
 
 _MOCK_CSS = r"""
@@ -177,4 +177,4 @@ window.__STEPS__=[
 
 
 def html() -> str:
-    return montar_player(TITULO, DESCRICAO, _STAGE_HTML, _MOCK_CSS, _STATE_JS, _STEPS_JS)
+    return montar_player(TITULO, DESCRICAO, _STAGE_HTML, _MOCK_CSS, _STATE_JS, _STEPS_JS, audio_id="cotacao_rapida")

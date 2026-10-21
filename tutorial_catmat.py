@@ -7,7 +7,7 @@ from tutorial_player import montar_player
 TITULO = "Como usar o CATMAT/CATSERV Automático"
 DESCRICAO = (
     "Achar o código CATMAT/CATSERV de uma lista de descrições: digitar ou importar, classificar, escolher quantas "
-    "sugestões, conferir a similaridade e baixar. Duração aproximada: 2 min."
+    "sugestões, conferir a similaridade e baixar. Duração aproximada: 3 min, com narração."
 )
 
 _MOCK_CSS = r"""
@@ -130,4 +130,4 @@ window.__STEPS__=[
 
 
 def html() -> str:
-    return montar_player(TITULO, DESCRICAO, _STAGE_HTML, _MOCK_CSS, _STATE_JS, _STEPS_JS)
+    return montar_player(TITULO, DESCRICAO, _STAGE_HTML, _MOCK_CSS, _STATE_JS, _STEPS_JS, audio_id="catmat")
