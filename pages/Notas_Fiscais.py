@@ -281,6 +281,7 @@ with st.sidebar:
         st.markdown(f'<div style="text-align:center;padding:1rem 0 0.5rem 0;"><img src="data:image/png;base64,{_acanto_b64}" style="max-width:70%;height:auto;"></div>', unsafe_allow_html=True)
     st.markdown("## MENU")
     st.markdown("---")
+    st.page_link("pages/Aprendendo_a_usar.py", label="Aprendendo a usar", icon="🎓")
     st.page_link("streamlit_app.py", label="Cotação", icon="⚓")
     st.page_link("pages/CATMAT_CATSERV_Automatico.py", label="CATMAT/CATSERV", icon="🔎")
     st.page_link("pages/Cotação_Rápida.py", label="Cotação Rápida", icon="⚡")
@@ -303,6 +304,7 @@ with st.sidebar:
     """, unsafe_allow_html=True)
     st.markdown('<div style="text-align:center;color:#d4af37;font-size:10px;font-weight:600;padding:0.3rem 0;white-space:nowrap;">Centro de Operações do Abastecimento</div>', unsafe_allow_html=True)
     st.markdown('<div class="sidebar-footer">Marinha do Brasil<br>AtaCotada v1.0</div>', unsafe_allow_html=True)
+    st.markdown('<style>[data-testid="stSidebar"] a[href*="Aprendendo_a_usar"][href][data-testid],[data-testid="stSidebar"] a[href*="Aprendendo_a_usar"][href][data-testid][aria-current="page"]{background:linear-gradient(135deg,#facc15,#eab308)!important;border:1px solid #fde047!important;box-shadow:0 0 14px rgba(250,204,21,.55)!important}[data-testid="stSidebar"] a[href*="Aprendendo_a_usar"][href][data-testid] *{background:transparent!important;color:#111!important;font-weight:800!important}</style>', unsafe_allow_html=True)
 
 # Header
 st.markdown("""
