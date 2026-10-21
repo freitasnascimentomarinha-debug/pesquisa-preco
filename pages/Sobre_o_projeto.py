@@ -176,8 +176,40 @@ st.markdown(
     </div>
     <div class="sp-panel">
         <h3>Como o sistema é feito</h3>
-        <p>Aplicação em <b>Python</b>, com <b>Streamlit</b>, <b>pandas</b> e geração de relatórios em PDF, Excel e Word, publicada na nuvem do Streamlit.
-        O código evolui continuamente: novas ferramentas e ajustes entram com base no uso do dia a dia.</p>
+        <p>Aplicação em <b>Python</b>, com <b>Streamlit</b> (telas), <b>pandas</b> (tabelas e estatísticas) e geração de relatórios em <b>PDF</b>, <b>Excel</b> e <b>Word</b>,
+        publicada na nuvem do Streamlit. O código evolui continuamente: novas ferramentas e ajustes entram com base no uso do dia a dia.</p>
+    </div>
+    <div class="sp-panel">
+        <h3>Quanto de IA é usada</h3>
+        <p>Pouca, e de forma <b>bem delimitada</b>. A <b>IA generativa</b> (um modelo de linguagem acessado pelo OpenRouter) é usada <b>apenas no Babilaca</b>,
+        o assistente de licitações. Ele funciona com <b>RAG</b>: antes de responder, o sistema busca numa <b>base própria</b> (Lei nº 14.133/2021, instruções normativas,
+        decretos e acórdãos do TCU) os trechos relevantes e obriga o modelo a <b>citar somente essas fontes</b>, com os links, para reduzir respostas inventadas.</p>
+        <p>As <b>demais ferramentas não usam IA generativa</b>. Elas funcionam com <b>regras e algoritmos</b> transparentes: pontuação de semelhança entre textos para achar o
+        CATMAT/CATSERV, banco de sinônimos, leitura inteligente de listas de itens e estatística. Isso torna os resultados mais previsíveis e fáceis de conferir.</p>
+    </div>
+    <div class="sp-panel">
+        <h3>APIs e serviços que fazem o sistema funcionar</h3>
+        <ul>
+            <li><b>Compras.gov.br (Dados Abertos)</b> e <b>PNCP</b>: preços praticados, atas, catálogo e fornecedores.</li>
+            <li><b>Portal da Transparência</b>: arquivos de notas fiscais eletrônicas. <b>Banco Central</b>: série do IPCA.</li>
+            <li><b>OpenCNPJ, BrasilAPI, ReceitaWS e ViaCEP</b>: dados cadastrais, contatos e endereços.</li>
+            <li><b>Serper, Tavily e DuckDuckGo</b>: motores de busca usados pelo Web Scraping para achar anúncios.</li>
+            <li><b>OpenRouter</b>: acesso ao modelo de linguagem do Babilaca.</li>
+            <li><b>Resend</b>: envio dos e-mails da Cotação Direta. <b>GitHub</b>: guarda a memória que o sistema aprende com o uso.</li>
+        </ul>
+    </div>
+    <div class="sp-panel">
+        <h3>Técnicas de programação que merecem destaque</h3>
+        <ul>
+            <li><b>Processamento paralelo</b>: várias consultas ao mesmo tempo (fornecedores, arquivos de notas), para reduzir o tempo de espera.</li>
+            <li><b>Cache</b>: catálogos e consultas repetidas ficam em memória, deixando as telas mais rápidas.</li>
+            <li><b>Automação de navegador (Playwright)</b>: abre páginas com JavaScript, lê o preço e tira o <b>print de evidência</b> com data, hora e endereço.</li>
+            <li><b>Web scraping com validação</b>: confere se o anúncio é o item pedido (nome e medidas) antes de aceitar o preço.</li>
+            <li><b>Estatística aplicada</b>: média, mediana, desvio padrão, coeficiente de variação e retirada de <b>valores discrepantes pelo método IQR</b>.</li>
+            <li><b>Semelhança de texto com pesos</b>: o termo principal do item pesa mais que detalhes e embalagem na busca de códigos do catálogo.</li>
+            <li><b>Aprendizado com o uso</b>: o sistema guarda quais lojas deram preço e quais anúncios foram recusados, e usa isso nas próximas pesquisas.</li>
+            <li><b>Geração automática de documentos</b>: relatórios em PDF e Excel, proposta em Word e vídeo-aulas simuladas com narração sintética.</li>
+        </ul>
     </div>
     <div class="sp-aviso">
         <b>⚠️ Avisos importantes</b>
