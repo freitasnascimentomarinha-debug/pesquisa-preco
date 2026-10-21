@@ -136,7 +136,10 @@ st.markdown(
         <h3>O que é</h3>
         <p>O <b>AtaCotada</b> é um sistema web que reúne, num só lugar, ferramentas para <b>pesquisar preços</b>, <b>encontrar códigos de catálogo</b>,
         <b>identificar fornecedores</b>, <b>localizar atas para adesão</b> e <b>gerar relatórios</b> que ajudam a instruir processos de contratação.
-        Foi idealizado e desenvolvido pelo <b>2°SG-PL Freitas</b>, com o apoio do <b>COpAb</b>, no Centro de Operações do Abastecimento da Marinha do Brasil.</p>
+        Nasceu no Centro de Operações do Abastecimento da Marinha do Brasil.</p>
+        <p>O projeto foi <b>idealizado e desenvolvido pelo 2°SG-PL Freitas</b>, sob a <b>liderança e coordenação do CMG (IM) ROMA</b> e com <b>apoios fundamentais</b>
+        dos <b>CAlt (IM) Yamaguchi</b>, atual DGOM, e <b>Ricardo Nogueira</b>, atual COpAb. Em <b>2026</b>, foi <b>apresentado, aprovado e elogiado</b>
+        pelo <b>DAbM Vice-Alt Viveiros</b>.</p>
     </div>
     <div class="sp-prop">
         <h3>🎯 O propósito do projeto</h3>
