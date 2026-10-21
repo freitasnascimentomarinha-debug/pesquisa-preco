@@ -279,8 +279,7 @@ st.markdown("""
 # ============================================================
 # CONSTANTES
 # ============================================================
-OPENCODE_URL = "https://opencode.ai/inference/openai/v1/chat/completions"
-MODELO_PADRAO = "deepseek-v4.1-flash-free"
+OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 MEMORIA_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "babilaca_memoria.json")
 REQ_COUNTER_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "babilaca_req_count.json")
 
@@ -326,17 +325,17 @@ def _incrementar_req_count(api_key: str = "") -> int:
 # INICIALIZAÇÃO DO SESSION STATE
 # ============================================================
 def _get_api_key():
-    """Tenta obter a chave do OpenCode Zen de múltiplas fontes."""
+    """Tenta obter a chave do OpenRouter de múltiplas fontes."""
     # 1. Variável de ambiente / .env
-    key = os.environ.get("OPENCODE_API_KEY", "")
+    key = os.environ.get("OPENROUTER_API_KEY", "")
     if key:
         return key
-    # 2. st.secrets (Streamlit Cloud) — top level ou dentro de [opencode]
+    # 2. st.secrets (Streamlit Cloud) — top level ou dentro de [openrouter]
     try:
-        key = st.secrets.get("OPENCODE_API_KEY", "")
+        key = st.secrets.get("OPENROUTER_API_KEY", "")
         if key:
             return key
-        key = st.secrets.get("opencode", {}).get("OPENCODE_API_KEY", "")
+        key = st.secrets.get("openrouter", {}).get("OPENROUTER_API_KEY", "")
         if key:
             return key
     except Exception:
@@ -346,7 +345,7 @@ def _get_api_key():
 _defaults = {
     "babilaca_messages": [],
     "babilaca_api_key": _get_api_key(),
-    "babilaca_modelo": MODELO_PADRAO,
+    "babilaca_modelo": "deepseek/deepseek-v4-flash-0731",
     "babilaca_alertas": [],
     "babilaca_docs_gerados": [],
     "babilaca_preferencias": {},
@@ -622,7 +621,7 @@ def extrair_dados_excel(arquivo) -> tuple[str, pd.DataFrame | None]:
 
 
 # ============================================================
-# COMUNICAÇÃO COM IA (OPENCODE ZEN)
+# COMUNICAÇÃO COM IA (OPENROUTER)
 # ============================================================
 
 SYSTEM_PROMPT = """Você é **O Babilaca**, um assistente jurídico inteligente especializado em licitações e contratações públicas brasileiras, com foco na Lei 14.133/2021, Decreto 10.024/2019 (Pregão Eletrônico), Instruções Normativas (SEGES/ME nº 5/2017, 58/2022, 65/2021, 67/2021) e jurisprudência do TCU.
@@ -700,14 +699,16 @@ def chamar_ia(
     modelo: str | None = None,
     temperatura: float = 0.3,
 ) -> str:
-    """Envia mensagens ao OpenCode Zen e retorna a resposta."""
+    """Envia mensagens ao OpenRouter e retorna a resposta."""
     api_key = st.session_state.get("babilaca_api_key", "")
     if not api_key:
         return "⚠️ Chave de API não configurada. Acesse a aba **Configurações**."
-    model = modelo or st.session_state.get("babilaca_modelo", MODELO_PADRAO)
+    model = modelo or st.session_state.get("babilaca_modelo", "deepseek/deepseek-v4-flash-0731")
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
+        "HTTP-Referer": "https://atacotada.streamlit.app",
+        "X-Title": "AtaCotada - O Babilaca",
     }
     msgs = [{"role": "system", "content": system_prompt}] + mensagens
 
@@ -721,7 +722,7 @@ def chamar_ia(
         }
         try:
             resp = requests.post(
-                OPENCODE_URL, headers=headers, json=payload, timeout=60,
+                OPENROUTER_URL, headers=headers, json=payload, timeout=60,
             )
             if resp.status_code == 200:
                 data = resp.json()
@@ -750,8 +751,8 @@ def chamar_ia(
                 if max_tk > 1024:
                     continue  # retry com menos tokens
                 return (
-                    "⚠️ **Créditos insuficientes** na conta OpenCode Zen.\n\n"
-                    "Adicione créditos em https://opencode.ai/console "
+                    "⚠️ **Créditos insuficientes** na conta OpenRouter.\n\n"
+                    "Adicione créditos em https://openrouter.ai/settings/credits "
                     "e tente novamente."
                 )
 
@@ -759,16 +760,16 @@ def chamar_ia(
                 return (
                     f"⚠️ **Modelo indisponível**: `{model}`\n\n"
                     "Possíveis causas:\n"
-                    "- Restrições de privacidade/política de dados na sua conta OpenCode\n"
+                    "- Restrições de privacidade/política de dados na sua conta OpenRouter\n"
                     "- Modelo temporariamente fora do ar\n\n"
-                    "Se persistir, verifique o nome do modelo e sua conta em https://opencode.ai/console"
+                    "Se persistir, verifique suas configurações em https://openrouter.ai/settings/privacy"
                 )
 
             if resp.status_code == 403:
                 return (
                     "⚠️ **Limite diário atingido**.\n\n"
                     "Sua chave de API alcançou o limite de uso do dia. "
-                    "Gerencie seus limites em https://opencode.ai/console"
+                    "Gerencie seus limites em https://openrouter.ai/settings/keys"
                 )
 
             if resp.status_code == 429:
@@ -790,6 +791,25 @@ def chamar_ia(
 # ============================================================
 # ROTEAMENTO DE INTENÇÃO
 # ============================================================
+
+# ---- Consultar saldo da conta OpenRouter ----
+def consultar_saldo_openrouter() -> dict | None:
+    """Consulta saldo e uso da conta via API /auth/key."""
+    api_key = st.session_state.get("babilaca_api_key", "")
+    if not api_key:
+        return None
+    try:
+        resp = requests.get(
+            "https://openrouter.ai/api/v1/auth/key",
+            headers={"Authorization": f"Bearer {api_key}"},
+            timeout=8,
+        )
+        if resp.status_code == 200:
+            return resp.json().get("data", {})
+    except Exception:
+        pass
+    return None
+
 
 def extrair_cnpj(texto: str) -> str | None:
     m = re.search(r"\d{2}\.?\d{3}\.?\d{3}/?\d{4}-?\d{2}", texto)
