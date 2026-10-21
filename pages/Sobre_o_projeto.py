@@ -138,7 +138,7 @@ st.markdown(
         <b>identificar fornecedores</b>, <b>localizar atas para adesão</b> e <b>gerar relatórios</b> que ajudam a instruir processos de contratação.
         Nasceu no Centro de Operações do Abastecimento da Marinha do Brasil.</p>
         <p>O projeto foi <b>idealizado e desenvolvido pelo 2°SG-PL Freitas</b>, sob a <b>liderança e coordenação do CMG (IM) ROMA</b> e com <b>apoios fundamentais</b>
-        dos <b>CAlt (IM) Yamaguchi</b>, atual DGOM, e <b>Ricardo Nogueira</b>, atual COpAb. Em <b>2026</b>, foi <b>apresentado, aprovado e elogiado</b>
+        do <b>CAlt (IM) Yamaguchi</b>, atual DGOM, e do <b>CAlt (IM) Ricardo Nogueira</b>, atual COpAb. Em <b>2026</b>, foi <b>apresentado, aprovado e elogiado</b>
         pelo <b>DAbM Vice-Alt Viveiros</b>.</p>
     </div>
     <div class="sp-prop">
