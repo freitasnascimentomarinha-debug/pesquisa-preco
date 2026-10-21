@@ -45,6 +45,8 @@ st.markdown(
         }
         .sp-header h1 { color: #fff; margin: 0; font-size: 1.6rem; font-weight: 900; }
         .sp-header p { color: #fee2e2; margin: .3rem 0 0; font-size: .92rem; font-weight: 600; }
+        .sp-header p.sp-lead { color: #fff; font-size: 1rem; font-weight: 500; line-height: 1.6; margin-top: .8rem; padding-top: .8rem; border-top: 1px solid rgba(255, 255, 255, .35); }
+        .sp-header p.sp-lead b { font-weight: 800; }
         .sp-panel {
             background: rgba(8, 26, 57, .78); border: 1px solid #1e5b9f; border-left: 5px solid #ef4444;
             border-radius: 9px; padding: .9rem 1.1rem; margin: .6rem 0 .9rem;
@@ -119,7 +121,10 @@ st.markdown(
     """
     <div class="sp-header">
         <h1>ℹ️ Sobre o projeto</h1>
-        <p>AtaCotada — apoio à pesquisa de preços e à instrução de processos de contratação.</p>
+        <p>AtaCotada — um sistema autônomo de apoio à pesquisa de preços e à instrução de processos de contratação.</p>
+        <p class="sp-lead">Ele faz a <b>pesquisa de preços por você</b>, monta o <b>mapa comparativo</b>, a <b>memória de cálculo</b> e a <b>justificativa da metodologia</b>,
+        encontra e entrega o <b>arquivo de atas para adesão</b> com o material de que você precisa, identifica o <b>CATMAT ideal</b> para cada item e oferece outras funcionalidades.
+        Um sistema que <b>aumenta a produtividade</b>, reduzindo <b>semanas de trabalho a minutos</b>.</p>
     </div>
     """,
     unsafe_allow_html=True,
