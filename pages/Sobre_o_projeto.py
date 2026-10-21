@@ -126,7 +126,7 @@ st.markdown(
         <h3>O que é</h3>
         <p>O <b>AtaCotada</b> é um sistema web que reúne, num só lugar, ferramentas para <b>pesquisar preços</b>, <b>encontrar códigos de catálogo</b>,
         <b>identificar fornecedores</b>, <b>localizar atas para adesão</b> e <b>gerar relatórios</b> que ajudam a instruir processos de contratação.
-        Foi idealizado e desenvolvido pelo <b>COpAb – Sobressalentes</b>, no Centro de Operações do Abastecimento da Marinha do Brasil.</p>
+        Foi idealizado e desenvolvido pelo <b>2°SG-PL Freitas</b>, com o apoio do <b>COpAb</b>, no Centro de Operações do Abastecimento da Marinha do Brasil.</p>
     </div>
     <div class="sp-panel">
         <h3>Para que serve</h3>
@@ -180,7 +180,7 @@ st.markdown(
 st.markdown(
     """
     <div style="margin-top:2rem;padding-top:1.4rem;border-top:1px solid #0033cc;text-align:center;">
-        <p style="color:#d4af37;font-size:12px;margin:0;letter-spacing:.5px;">Idealizado e Desenvolvido por COpAb - Sobressalentes - V1.2026</p>
+        <p style="color:#d4af37;font-size:12px;margin:0;letter-spacing:.5px;">Idealizado e Desenvolvido pelo 2°SG-PL Freitas com o apoio do COpAb</p>
         <p style="color:#94a3b8;font-size:11px;margin:.3rem 0 0;">Marinha do Brasil · Centro de Operações do Abastecimento · AtaCotada v1.0</p>
     </div>
     """,
