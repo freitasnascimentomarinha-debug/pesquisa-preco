@@ -345,7 +345,7 @@ def _get_api_key():
 _defaults = {
     "babilaca_messages": [],
     "babilaca_api_key": _get_api_key(),
-    "babilaca_modelo": "deepseek/deepseek-v4-flash-0731",
+    "babilaca_modelo": "minimax/minimax-m3.1-flash:free",
     "babilaca_alertas": [],
     "babilaca_docs_gerados": [],
     "babilaca_preferencias": {},
@@ -703,7 +703,7 @@ def chamar_ia(
     api_key = st.session_state.get("babilaca_api_key", "")
     if not api_key:
         return "⚠️ Chave de API não configurada. Acesse a aba **Configurações**."
-    model = modelo or st.session_state.get("babilaca_modelo", "deepseek/deepseek-v4-flash-0731")
+    model = modelo or st.session_state.get("babilaca_modelo", "minimax/minimax-m3.1-flash:free")
     headers = {
         "Authorization": f"Bearer {api_key}",
         "Content-Type": "application/json",
