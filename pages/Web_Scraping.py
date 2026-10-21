@@ -2655,7 +2655,7 @@ if "scraping_resultados" in st.session_state and st.session_state["scraping_resu
             baixas = [(r["descricao"], p) for r in analise for p in r["precos"] if p.get("confianca") == "baixa"]
             if baixas:
                 lista_baixas = "\n".join(f"- **{desc}** — [{p.get('dominio') or p.get('url')}]({p.get('url')}) — {formatar_moeda_br(p['preco'])}" for desc, p in baixas)
-                st.warning(f"{len(baixas)} preço(s) do mapa vieram da leitura do texto da página (confiança baixa): confira o anúncio antes de usar.\n\n{lista_baixas}")
+                st.warning(f"{len(baixas)} preço(s) do mapa vieram da leitura do texto da página (confiança baixa):\n\n{lista_baixas}")
             with st.expander("📸 Prints reais das páginas dos preços do mapa", expanded=bool(prints)):
                 paginas_mapa = [{"url": p["url"], "preco": p["preco"]} for r in analise for p in r["precos"]]
                 paginas_sem_print = [p for p in paginas_mapa if not prints.get(p["url"], {}).get("imagem")]

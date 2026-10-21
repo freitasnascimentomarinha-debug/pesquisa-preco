@@ -329,7 +329,7 @@ def _pagina_item(pdf: FPDF, numero: int, r: dict) -> None:
         pdf.set_text_color(*AZUL)
         rotulo_codigo = "CATSERV" if r.get("tipo") == "Serviço" else "CATMAT"
         criterio = {"estimativa": "escolhidos pela estimativa de preco informada", "manual": "escolhido pelo usuario"}.get(r.get("escolha"), f">= {r.get('limiar', LIMIAR_CORRESPONDENCIA):.0f}%")
-        pdf.cell(0, 5, f"{rotulo_codigo} correspondentes ({criterio}) - confira a descricao antes de usar no processo", ln=True)
+        pdf.cell(0, 5, f"{rotulo_codigo} correspondentes ({criterio})", ln=True)
         _cabecalho_tabela(pdf, [(rotulo_codigo, 20), ("Corresp.", 18), ("Registros", 18), ("Descricao no catalogo", LARGURA - 56)], 6)
         pdf.set_font("Helvetica", "", 6.5)
         pdf.set_text_color(51, 51, 51)

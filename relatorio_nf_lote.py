@@ -42,7 +42,7 @@ def metodologia(info: dict) -> str:
         f"cada preço listado não se afaste mais que {TOLERANCIA * 100:.0f}% (para mais ou para menos) da média dos preços listados. "
         f"Itens com menos de {MIN_PRECOS} preços são sinalizados e devem ser complementados por outras fontes (IN SEGES/ME nº 65/2021).\n\n"
         "5. A descrição do item na nota fiscal é texto livre do emitente: marca, quantidade por embalagem e demais características "
-        "podem variar. O requisitante deve conferir se o produto da nota corresponde ao objeto pretendido antes de utilizar o valor. "
+        "podem variar. "
         "A chave de acesso (44 dígitos) de cada nota consta da planilha Excel para consulta do documento original no Portal da NF-e."
     )
 

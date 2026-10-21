@@ -43,7 +43,7 @@ Cadeira ergonômica para escritório</span></div>
 <div id="c-res">
   <div class="panel" style="margin-top:16px"><h3>Sugestões por item</h3><p>Cada item lista os códigos mais parecidos, da maior para a menor correspondência. A primeira opção já vem escolhida; abra o item e troque se outra servir melhor.</p></div>
   <div id="c-sug"></div>
-  <div class="panel" style="margin-top:16px"><h3>Resultado da correlação</h3><p>Use a similaridade como apoio à decisão e confira as especificações do item no catálogo antes de utilizar o código.</p></div>
+  <div class="panel" style="margin-top:16px"><h3>Resultado da correlação</h3><p>A similaridade indica o quanto cada código se parece com a descrição informada.</p></div>
   <div class="mets" id="c-mets"></div>
   <table id="c-final" style="margin-top:10px"><thead><tr><th>Descrição informada</th><th>Tipo</th><th>Código</th><th>Descrição sugerida</th><th>Simil.</th><th>Unid.</th></tr></thead><tbody></tbody></table>
   <div class="two" style="margin-top:10px"><div class="btn" id="c-xls">⬇️ Baixar correlação em Excel</div><div class="btn" id="c-pdf">⬇️ Baixar correlação em PDF</div></div>
@@ -123,7 +123,7 @@ window.__STEPS__=[
 
 {short:'Baixar',t:'Passo 8 — Baixe a correlação',
  b:'Use <b>⬇️ Baixar correlação em Excel</b> (aba com a correlação e aba com <b>todas as opções</b>) ou <b>em PDF</b>. <b>Resumo:</b> 1) digite ou importe a lista; 2) classifique; 3) defina as sugestões; 4) Encontrar; 5) confira; 6) troque a opção se preciso; 7) leia o resultado; 8) baixe.',
- tip:'🎉 Fim da aula! Os códigos e descrições desta aula são fictícios. Confira sempre no catálogo oficial antes de usar no processo.',
+ tip:'🎉 Fim da aula! Os códigos e descrições desta aula são fictícios.',
  run:async a=>{a.unring();await a.scroll('#c-xls',250);a.ring('#c-xls','Excel',4);await a.click('#c-xls',()=>a.toast('✔ correlacao_catmat_catserv.xlsx'));a.unring();a.ring('#c-pdf','PDF',4);await a.click('#c-pdf',()=>a.toast('✔ correlacao_catmat_catserv.pdf'));await a.sleep(900);a.unring();}}
 ];
 """

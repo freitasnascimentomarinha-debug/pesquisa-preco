@@ -115,7 +115,7 @@ window.__STEPS__=[
 
 {short:'PDF',t:'Passo 5 — Baixe o relatório em PDF',
  b:'Clique em <b>📥 Baixar Relatório Detalhado (PDF)</b>. O documento traz os itens, o <b>fator</b> e a <b>memória de cálculo mês a mês</b>, para anexar ao processo. <b>Resumo:</b> 1) data de referência; 2) itens e valores (ou planilha); 3) calcular; 4) conferir o resultado; 5) baixar o PDF.',
- tip:'🎉 Fim da aula! O relatório é indicativo: confirme os índices nas fontes oficiais antes de usar em decisões.',
+ tip:'🎉 Fim da aula! Use o PDF como memória de cálculo no processo.',
  run:async a=>{a.unring();await a.scroll('#i-pdf',250);a.ring('#i-pdf','Relatório em PDF');await a.click('#i-pdf',()=>a.toast('✔ relatorio_ipca_20261021_101500.pdf'));await a.sleep(1500);a.unring();}}
 ];
 """
