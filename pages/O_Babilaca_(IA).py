@@ -766,11 +766,9 @@ def chamar_ia(
 
             if resp.status_code == 403:
                 return (
-                    "⚠️ **Requisição recusada pelo OpenCode (HTTP 403)**.\n\n"
-                    "Causas mais prováveis: workspace sem créditos/forma de pagamento, "
-                    "chave de API inválida ou limite de gastos (budget) atingido. "
-                    "Verifique em https://opencode.ai/console\n\n"
-                    f"Detalhe: {resp.text[:200]}"
+                    "⚠️ **Limite diário atingido**.\n\n"
+                    "Sua chave de API alcançou o limite de uso do dia. "
+                    "Gerencie seus limites em https://opencode.ai/console"
                 )
 
             if resp.status_code == 429:
