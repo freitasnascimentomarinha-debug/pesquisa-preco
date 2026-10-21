@@ -176,8 +176,13 @@ st.markdown(
     </div>
     <div class="sp-panel">
         <h3>Como o sistema é feito</h3>
-        <p>Aplicação em <b>Python</b>, com <b>Streamlit</b>, <b>pandas</b> e geração de relatórios em PDF, Excel e Word, publicada na nuvem do Streamlit.
-        O código evolui continuamente: novas ferramentas e ajustes entram com base no uso do dia a dia.</p>
+        <p>Aplicação em <b>Python</b>, com <b>Streamlit</b> para as telas, <b>pandas</b> para tabelas e estatísticas e geração de relatórios em PDF, Excel e Word,
+        publicada na nuvem do Streamlit. O código evolui continuamente: novas ferramentas e ajustes entram com base no uso do dia a dia.</p>
+        <p>O <b>Streamlit</b> foi escolhido por ser uma biblioteca <b>muito leve</b>, de <b>fácil implantação</b> e de <b>fácil manutenção</b>: permite evoluir o sistema
+        com poucos recursos e, a cada ajuste publicado, todos os usuários passam a usar a nova versão, sem instalar nada.</p>
+        <p>Além disso, os dados usados pelo sistema são <b>públicos</b> e são <b>captados e estruturados de forma autônoma</b>: o sistema consulta as fontes, organiza as informações
+        em tabelas, calcula e gera os relatórios. Esse fluxo de trabalho, <b>dados, tabela, análise e documento</b>, é justamente o que o Streamlit faz melhor, o que o torna
+        a opção <b>mais compatível</b> com o projeto.</p>
     </div>
     <div class="sp-aviso">
         <b>⚠️ Avisos importantes</b>
