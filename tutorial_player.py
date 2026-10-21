@@ -8,9 +8,13 @@ use :func:`montar_player`.
 
 from __future__ import annotations
 
+import base64
+import functools
 import json
+from pathlib import Path
 
 LARGURA_TELA, ALTURA_TELA = 760, 540
+PASTA_AUDIO = Path(__file__).resolve().parent / "audio_tutoriais"
 ALTURA_IFRAME = 1010
 
 _CSS = r"""
@@ -161,7 +165,7 @@ _JS = r"""
 const STAGE_W=760,STAGE_H=540;
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const stage=$('#stage'),wrap=$('#wrap'),page=$('#page'),cursor=$('#cursor'),ring=$('#ring'),ringl=$('#ringl'),toastEl=$('#toast');
-let scale=1,token=0,paused=true,speed=1,FAST=false,cur=-1,narr=false,started=false,running=false,speechP=null;
+let scale=1,token=0,paused=true,speed=1,FAST=false,cur=-1,narr=true,started=false,running=false,speechP=null;
 const STEPS=window.__STEPS__;
 class Cancel{}
 function fit(){scale=wrap.clientWidth/STAGE_W;stage.style.transform='scale('+scale+')';}
@@ -187,19 +191,26 @@ function makeApi(tk){
   };return A;}
 function setFast(v){FAST=v;stage.classList.toggle('nofx',v);if(v)stage.style.setProperty('--mv','0s');else stage.style.setProperty('--mv',(.65/speed)+'s');}
 function plainText(h){const d=document.createElement('div');d.innerHTML=h;return d.textContent;}
-function speak(h){if(!narr||!window.speechSynthesis)return Promise.resolve();speechSynthesis.cancel();
-  return new Promise(res=>{const u=new SpeechSynthesisUtterance(plainText(h));u.lang='pt-BR';u.rate=Math.min(1.6,speed);u.onend=res;u.onerror=res;speechSynthesis.speak(u);setTimeout(res,45000);});}
+const AUD=window.__AUDIO__||{};
+const aud=new Audio();aud.preload='auto';
+let narDone=()=>{},narWait=false;
+function stopAudio(){try{aud.pause();}catch(e){}aud.onended=null;aud.onerror=null;narWait=false;if(window.speechSynthesis)speechSynthesis.cancel();}
+function falarNavegador(h){return new Promise(res=>{if(!window.speechSynthesis){res();return;}speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(plainText(h));u.lang='pt-BR';u.rate=Math.min(1.6,speed);u.onend=res;u.onerror=res;speechSynthesis.speak(u);setTimeout(res,45000);});}
+function iniciarFala(i){narWait=false;try{aud.pause();}catch(e){}const src=AUD[String(i+1).padStart(2,'0')];
+  if(src){aud.onended=()=>narDone();aud.onerror=()=>narDone();aud.src=src;aud.playbackRate=speed;const pr=aud.play();if(pr&&pr.catch)pr.catch(()=>narDone());}
+  else falarNavegador(STEPS[i].b).then(()=>narDone());}
+function narrate(i){if(!narr)return Promise.resolve();stopAudio();return new Promise(res=>{narDone=res;if(paused)narWait=true;else iniciarFala(i);});}
 function showCaption(i){const s=STEPS[i];$('#cn').textContent=(i+1)+' de '+STEPS.length;$('#ct').textContent=s.t;$('#cb').innerHTML=s.b;$('#ctip').innerHTML=s.tip||'';
   $('#pb').style.width=((i)/(STEPS.length)*100)+'%';
   $$('#chips button').forEach((b,j)=>{b.classList.toggle('on',j===i);b.classList.toggle('done',j<i);});
   const on=$('#chips button.on');if(on)on.scrollIntoView({block:'nearest',inline:'center'});}
 async function runStep(i,tk){
-  showCaption(i);const sp=speak(STEPS[i].b);
+  showCaption(i);const sp=narrate(i);
   await STEPS[i].run(makeApi(tk));
   chk(tk);await Promise.all([sp,sleep(900,tk)]);
 }
 async function goto(i,autoplay=true){
-  token++;const tk=token;window.speechSynthesis&&window.speechSynthesis.cancel();
+  token++;const tk=token;stopAudio();
   $('#poster').classList.add('hide');started=true;
   try{
     setFast(true);resetState();
@@ -215,12 +226,13 @@ function finish(){paused=true;started=false;syncBtn();$('#pb').style.width='100%
   const p=$('#poster');p.querySelector('h2').textContent='Fim da aula';p.querySelector('p').textContent='Clique para assistir novamente ou escolha um passo na lista abaixo.';p.classList.remove('hide');cur=-1;}
 function syncBtn(){$('#bplay').textContent=!started?'▶ Assistir':paused?'▶ Continuar':'⏸ Pausar';$('#bplay').classList.toggle('main',paused);}
 $('#poster').onclick=()=>goto(0,true);
-$('#bplay').onclick=()=>{if(!started){goto(0,true);return;}paused=!paused;syncBtn();if(window.speechSynthesis){paused?speechSynthesis.pause():speechSynthesis.resume();}};
+$('#bplay').onclick=()=>{if(!started){goto(0,true);return;}paused=!paused;syncBtn();if(paused){try{aud.pause();}catch(e){}if(window.speechSynthesis)speechSynthesis.pause();}
+  else if(narWait)iniciarFala(cur);else{if(aud.src&&!aud.ended)aud.play().catch(()=>{});if(window.speechSynthesis)speechSynthesis.resume();}};
 $('#bprev').onclick=()=>goto(Math.max(0,(cur<0?0:cur)-1),true);
 $('#bnext').onclick=()=>goto(Math.min(STEPS.length-1,(cur<0?0:cur)+1),true);
 $('#brest').onclick=()=>goto(0,true);
-$('#spd').onchange=e=>{speed=parseFloat(e.target.value);stage.style.setProperty('--mv',(.65/speed)+'s');};
-$('#nar').onchange=e=>{narr=e.target.checked;if(!narr&&window.speechSynthesis)speechSynthesis.cancel();else if(narr&&started&&cur>=0)speak(STEPS[cur].b);};
+$('#spd').onchange=e=>{speed=parseFloat(e.target.value);aud.playbackRate=speed;stage.style.setProperty('--mv',(.65/speed)+'s');};
+$('#nar').onchange=e=>{narr=e.target.checked;if(!narr)stopAudio();else if(started&&cur>=0&&!paused){narDone=()=>{};iniciarFala(cur);}};
 $('#bar').onclick=e=>{const r=e.currentTarget.getBoundingClientRect();goto(Math.min(STEPS.length-1,Math.floor((e.clientX-r.left)/r.width*STEPS.length)),true);};
 const bfs=$('#bfs');
 if(!document.fullscreenEnabled){bfs.style.display='none';}
@@ -249,20 +261,29 @@ _HTML = r"""<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta 
     <button id="bprev" title="Passo anterior">⏮</button><button id="bplay" class="main">▶ Assistir</button><button id="bnext" title="Próximo passo">⏭</button><button id="brest" title="Reiniciar">↺</button>
     <span class="sp"></span>
     <label>Velocidade <select id="spd"><option value="0.75">0,75×</option><option value="1" selected>1×</option><option value="1.5">1,5×</option><option value="2">2×</option></select></label>
-    <label><input type="checkbox" id="nar"> 🔊 Narração</label>
+    <label><input type="checkbox" id="nar" checked> 🔊 Narração</label>
     <button id="bfs" title="Tela cheia">⛶</button>
   </div>
   <div class="cap"><div class="n">Passo <span id="cn"></span></div><h3 id="ct"></h3><div class="b" id="cb"></div><div class="tip" id="ctip"></div></div>
   <div class="chips" id="chips"></div>
 </div>
-<script>window.__STEPS__=[];</script>
+<script>window.__STEPS__=[];window.__AUDIO__=__AUDIO_JSON__;</script>
 <script>__COMMON_JS__</script>
 <script>__STEPS_JS__</script>
 <script>__JS__</script>
 </body></html>"""
 
 
-def montar_player(titulo: str, descricao: str, stage_html: str, mock_css: str, state_js: str, steps_js: str) -> str:
+@functools.lru_cache(maxsize=None)
+def _audio_json(audio_id: str) -> str:
+    """MP3 de cada passo (audio_tutoriais/<audio_id>/NN.mp3) como data URI, num objeto JS {"01": "data:audio/mpeg;base64,..."}."""
+    clipes = {}
+    for arquivo in sorted((PASTA_AUDIO / audio_id).glob("*.mp3")):
+        clipes[arquivo.stem] = "data:audio/mpeg;base64," + base64.b64encode(arquivo.read_bytes()).decode()
+    return json.dumps(clipes)
+
+
+def montar_player(titulo: str, descricao: str, stage_html: str, mock_css: str, state_js: str, steps_js: str, audio_id: str | None = None) -> str:
     """Monta o HTML completo do player.
 
     ``state_js`` define ``S``, ``resetS()`` e ``render()`` (estado e redesenho da tela simulada);
@@ -274,6 +295,7 @@ def montar_player(titulo: str, descricao: str, stage_html: str, mock_css: str, s
         .replace("__DESCRICAO__", descricao)
         .replace("__STAGE__", stage_html)
         .replace("__COMMON_JS__", _COMMON_JS)
+        .replace("__AUDIO_JSON__", _audio_json(audio_id) if audio_id else "{}")
         .replace("__STEPS_JS__", state_js + "\n" + steps_js)
         .replace("__JS__", _JS)
     )

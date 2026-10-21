@@ -7,7 +7,7 @@ from tutorial_player import montar_player
 TITULO = "Como usar o Web Scraping"
 DESCRICAO = (
     "Pesquisa de preços automatizada na internet: itens, configurações, execução, ajuste manual, mapa comparativo, "
-    "prints de evidência e relatórios. Duração aproximada: 3 min."
+    "prints de evidência e relatórios. Duração aproximada: 4 min, com narração."
 )
 
 _MOCK_CSS = r"""
@@ -189,4 +189,4 @@ window.__STEPS__=[
 
 
 def html() -> str:
-    return montar_player(TITULO, DESCRICAO, _STAGE_HTML, _MOCK_CSS, _STATE_JS, _STEPS_JS)
+    return montar_player(TITULO, DESCRICAO, _STAGE_HTML, _MOCK_CSS, _STATE_JS, _STEPS_JS, audio_id="web_scraping")

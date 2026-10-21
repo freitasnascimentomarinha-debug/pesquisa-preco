@@ -7,7 +7,7 @@ from tutorial_player import montar_player
 TITULO = "Como usar o Cálculo IPCA"
 DESCRICAO = (
     "Corrigir valores pelo IPCA acumulado: data de referência, itens, importação de planilha, "
-    "resultado e relatório em PDF. Duração aproximada: 2 min."
+    "resultado e relatório em PDF. Duração aproximada: 3 min, com narração."
 )
 
 _MOCK_CSS = r"""
@@ -122,4 +122,4 @@ window.__STEPS__=[
 
 
 def html() -> str:
-    return montar_player(TITULO, DESCRICAO, _STAGE_HTML, _MOCK_CSS, _STATE_JS, _STEPS_JS)
+    return montar_player(TITULO, DESCRICAO, _STAGE_HTML, _MOCK_CSS, _STATE_JS, _STEPS_JS, audio_id="ipca")

@@ -7,7 +7,7 @@ from tutorial_player import montar_player
 TITULO = "Como usar a página Adesões"
 DESCRICAO = (
     "Achar atas de registro de preços para adesão: tipo de item, família do catálogo, esfera federal, mapa por estado, "
-    "dados de cada ata e documentos. Duração aproximada: 3 min."
+    "dados de cada ata e documentos. Duração aproximada: 3 min, com narração."
 )
 
 _MOCK_CSS = r"""
@@ -142,4 +142,4 @@ window.__STEPS__=[
 
 
 def html() -> str:
-    return montar_player(TITULO, DESCRICAO, _STAGE_HTML, _MOCK_CSS, _STATE_JS, _STEPS_JS)
+    return montar_player(TITULO, DESCRICAO, _STAGE_HTML, _MOCK_CSS, _STATE_JS, _STEPS_JS, audio_id="adesoes")

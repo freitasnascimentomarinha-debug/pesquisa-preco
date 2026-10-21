@@ -7,7 +7,7 @@ from tutorial_player import montar_player
 TITULO = "Como usar a Cotação Direta"
 DESCRICAO = (
     "Pedir orçamento por e-mail a quem vendeu recentemente à Administração: dados da OM, itens e CATMAT, "
-    "fornecedores, proposta em Word e envio. Duração aproximada: 4 min."
+    "fornecedores, proposta em Word e envio. Duração aproximada: 4 min, com narração."
 )
 
 _MOCK_CSS = r"""
@@ -195,4 +195,4 @@ window.__STEPS__=[
 
 
 def html() -> str:
-    return montar_player(TITULO, DESCRICAO, _STAGE_HTML, _MOCK_CSS, _STATE_JS, _STEPS_JS)
+    return montar_player(TITULO, DESCRICAO, _STAGE_HTML, _MOCK_CSS, _STATE_JS, _STEPS_JS, audio_id="cotacao_direta")
