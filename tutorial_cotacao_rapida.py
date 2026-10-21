@@ -11,40 +11,12 @@ DESCRICAO = (
 )
 
 _MOCK_CSS = r"""
-.qh{display:flex;align-items:center;gap:10px;background:linear-gradient(135deg,#001a4d,#0033cc);border:1px solid rgba(96,165,250,.45);border-radius:10px;padding:12px 14px}
-.qs{width:34px;height:34px;background:var(--gold);border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:18px;flex:0 0 auto}
-.qh b{font-size:17px}.qh small{color:#bfdbfe;font-size:10.5px;line-height:1.3;display:block}
-.qb{margin-left:auto;color:var(--gold);font-size:9px;font-weight:800;letter-spacing:.08em;text-align:right;flex:0 0 auto}
-.panel{background:rgba(8,26,57,.78);border:1px solid #1e5b9f;border-radius:9px;padding:10px 12px;margin:10px 0 8px}
-.panel h3{color:var(--gold);font-size:14px;margin:0 0 3px}.panel p{color:#b6cae2;font-size:11px;margin:0}
-.ta{background:rgba(7,20,42,.8);border:1px solid #2b6cb0;border-radius:7px;padding:8px 10px;min-height:76px;white-space:pre-wrap;font-size:12.5px;line-height:1.45}
-.ta .ph{color:#7e93b3}
-.upl{border:1px dashed #2b6cb0;border-radius:7px;padding:9px 12px;color:#9fb6d8;font-size:12px;background:rgba(7,20,42,.5);display:flex;justify-content:space-between}
-.upl span{border:1px solid #3b4d70;border-radius:6px;padding:2px 9px;color:#fff;font-weight:700}
-.cap2{color:#9fb6d8;font-size:11px;margin:8px 0;line-height:1.4}
-.pri{background:#ef4444;border-color:#ef4444;color:#fff}
 #q-loaded,#q-hint-off{display:none}#q-loaded.on{display:block}
 #q-tab td,#q-tab th{font-size:10.5px;padding:5px 5px;vertical-align:middle}
 #q-tab td.c{color:#fde68a;font-weight:700}
-.ed{border-bottom:1px dashed #5b7fb3}
-.low{color:#fcd34d}.good{color:#86efac}
-.prog{display:none;margin-top:10px}.prog.on{display:block}
-.prog .t{font-size:11.5px;color:#dbe7f7;margin-bottom:4px}.prog .b{height:8px;background:#0b2a63;border-radius:6px;overflow:hidden}.prog .b i{display:block;height:100%;background:#ef4444;width:0;transition:width .5s}
 #q-res{display:none}#q-res.on{display:block}
-.mets{display:grid;grid-template-columns:.8fr 1fr 1fr 1fr;gap:8px;align-items:center;margin-top:6px}
-.met .k{font-size:10.5px;color:#b6cae2}.met .v{font-size:24px;font-weight:700}
-.chip{display:inline-block;border-radius:999px;padding:3px 9px;font-size:10.5px;font-weight:700}
-.cg{background:rgba(34,197,94,.18);color:#86efac;border:1px solid rgba(34,197,94,.4)}.cr{background:rgba(245,158,11,.15);color:#fcd34d;border:1px solid rgba(245,158,11,.4)}.cl{background:rgba(239,68,68,.14);color:#fca5a5;border:1px solid rgba(239,68,68,.4)}
-.alert{border-radius:8px;padding:9px 11px;margin:7px 0;font-size:11.5px;line-height:1.4}
-.alert.w{background:rgba(245,158,11,.14);border:1px solid rgba(245,158,11,.4);color:#fde68a}.alert.i{background:rgba(59,130,246,.15);border:1px solid rgba(59,130,246,.4);color:#bfdbfe}
-.alert .btn{display:inline-block;margin-top:7px;padding:5px 11px;font-size:11px}
 #q-map td,#q-map th{font-size:10px;padding:5px 4px;text-align:left}
 #q-map td.n{text-align:right;white-space:nowrap}#q-map th{white-space:nowrap}
-.tot{margin:8px 0}.tot .k{font-size:11px;color:#b6cae2}.tot .v{font-size:24px;font-weight:700}
-.exph{background:#0b2447;border:1px solid var(--line);border-radius:7px;padding:8px 11px;margin-top:6px;font-size:11.5px;display:flex;gap:8px}.exph span{margin-left:auto;color:#9fb6d8}
-.expb{display:none;background:#08203f;border:1px solid var(--line);border-top:0;border-radius:0 0 7px 7px;padding:9px 11px}.expb.on{display:block}
-.expb td,.expb th{font-size:10px;padding:4px}
-.expb .cp{color:#b6cae2;font-size:10.5px;margin:6px 0}
 """
 
 _STAGE_HTML = r"""
@@ -94,8 +66,6 @@ const TXT='Resma de papel A4 75 g/m² - 50\n10 notebook 15 polegadas 16 GB\nDete
 const FORN=[['12/09/2026','FORNECEDOR EXEMPLO 1 LTDA','00.000.000/0001-01','ÓRGÃO EXEMPLO A','RJ'],['03/08/2026','FORNECEDOR EXEMPLO 2 LTDA','00.000.000/0001-02','ÓRGÃO EXEMPLO B','SP'],['21/07/2026','FORNECEDOR EXEMPLO 3 LTDA','00.000.000/0001-03','ÓRGÃO EXEMPLO C','DF'],['15/06/2026','FORNECEDOR EXEMPLO 4 LTDA','00.000.000/0001-04','ÓRGÃO EXEMPLO D','MG'],['09/05/2026','FORNECEDOR EXEMPLO 5 LTDA','00.000.000/0001-05','ÓRGÃO EXEMPLO E','RJ']];
 let S;
 function resetS(){S={txt:'',spinL:false,loaded:false,fix:false,est3:null,tipo:'Automático',dd:false,prog:0,done:false,swapped:false,exp1:false};}
-const brl=v=>'R$ '+v.toFixed(2).replace('.',',').replace(/\B(?=(\d{3})+(?!\d))/g,'.');
-const mean=a=>a.reduce((x,y)=>x+y,0)/a.length;
 function rows(){return [
  {d:'Resma de papel A4 75 g/m²',q:50,u:'UN',cat:'123456',pct:94,dc:'Papel A4, 75 g/m², branco, resma com 500 folhas',est:null,sit:'✅ bom casamento'},
  S.fix?{d:'notebook 15 polegadas 16 GB RAM SSD 512 GB',q:10,u:'UN',cat:'234890',pct:88,dc:'Computador portátil (notebook), tela 15,6 pol., 16 GB RAM, SSD 512 GB',est:null,sit:'✅ bom casamento'}

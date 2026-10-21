@@ -114,6 +114,49 @@ td{padding:6px 7px;border-bottom:1px solid #123768}tr.sel td{background:rgba(250
 .foot{margin-top:22px;border-top:1px solid #0033cc;padding-top:12px;text-align:center;color:var(--gold);font-size:11px}
 """
 
+_COMMON_JS = r"""const brl=v=>'R$ '+Number(v).toFixed(2).replace('.',',').replace(/\B(?=(\d{3})+(?!\d))/g,'.');
+const mean=a=>a.reduce((x,y)=>x+y,0)/a.length;
+const pct=(v,d=2)=>Number(v).toFixed(d).replace('.',',')+'%';
+"""
+
+_SHARED_CSS = r"""
+.qh{display:flex;align-items:center;gap:10px;background:linear-gradient(135deg,#001a4d,#0033cc);border:1px solid rgba(96,165,250,.45);border-radius:10px;padding:12px 14px}
+.qs{width:34px;height:34px;background:var(--gold);border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:18px;flex:0 0 auto}
+.qh b{font-size:17px}.qh small{color:#bfdbfe;font-size:10.5px;line-height:1.3;display:block}
+.qb{margin-left:auto;color:var(--gold);font-size:9px;font-weight:800;letter-spacing:.08em;text-align:right;flex:0 0 auto}
+.panel{background:rgba(8,26,57,.78);border:1px solid #1e5b9f;border-radius:9px;padding:10px 12px;margin:10px 0 8px}
+.panel h3{color:var(--gold);font-size:14px;margin:0 0 3px}.panel p{color:#b6cae2;font-size:11px;margin:0}
+.ta{background:rgba(7,20,42,.8);border:1px solid #2b6cb0;border-radius:7px;padding:8px 10px;min-height:76px;white-space:pre-wrap;font-size:12.5px;line-height:1.45}
+.ta .ph{color:#7e93b3}
+.upl{border:1px dashed #2b6cb0;border-radius:7px;padding:9px 12px;color:#9fb6d8;font-size:12px;background:rgba(7,20,42,.5);display:flex;justify-content:space-between}
+.upl span{border:1px solid #3b4d70;border-radius:6px;padding:2px 9px;color:#fff;font-weight:700}
+.cap2{color:#9fb6d8;font-size:11px;margin:8px 0;line-height:1.4}
+.pri{background:#ef4444;border-color:#ef4444;color:#fff}
+.ed{border-bottom:1px dashed #5b7fb3}
+.low{color:#fcd34d}.good{color:#86efac}
+.prog{display:none;margin-top:10px}.prog.on{display:block}
+.prog .t{font-size:11.5px;color:#dbe7f7;margin-bottom:4px}.prog .b{height:8px;background:#0b2a63;border-radius:6px;overflow:hidden}.prog .b i{display:block;height:100%;background:#ef4444;width:0;transition:width .5s}
+.mets{display:grid;grid-template-columns:.8fr 1fr 1fr 1fr;gap:8px;align-items:center;margin-top:6px}
+.met .k{font-size:10.5px;color:#b6cae2}.met .v{font-size:24px;font-weight:700}
+.chip{display:inline-block;border-radius:999px;padding:3px 9px;font-size:10.5px;font-weight:700}
+.cg{background:rgba(34,197,94,.18);color:#86efac;border:1px solid rgba(34,197,94,.4)}.cr{background:rgba(245,158,11,.15);color:#fcd34d;border:1px solid rgba(245,158,11,.4)}.cl{background:rgba(239,68,68,.14);color:#fca5a5;border:1px solid rgba(239,68,68,.4)}
+.alert{border-radius:8px;padding:9px 11px;margin:7px 0;font-size:11.5px;line-height:1.4}
+.alert.w{background:rgba(245,158,11,.14);border:1px solid rgba(245,158,11,.4);color:#fde68a}.alert.i{background:rgba(59,130,246,.15);border:1px solid rgba(59,130,246,.4);color:#bfdbfe}
+.alert .btn{display:inline-block;margin-top:7px;padding:5px 11px;font-size:11px}
+.tot{margin:8px 0}.tot .k{font-size:11px;color:#b6cae2}.tot .v{font-size:24px;font-weight:700}
+.exph{background:#0b2447;border:1px solid var(--line);border-radius:7px;padding:8px 11px;margin-top:6px;font-size:11.5px;display:flex;gap:8px}.exph span{margin-left:auto;color:#9fb6d8}
+.expb{display:none;background:#08203f;border:1px solid var(--line);border-top:0;border-radius:0 0 7px 7px;padding:9px 11px}.expb.on{display:block}
+.expb td,.expb th{font-size:10px;padding:4px}
+.expb .cp{color:#b6cae2;font-size:10.5px;margin:6px 0}
+.hid{display:none}.hid.on{display:block}
+.sec2{color:var(--gold);font-size:15px;font-weight:800;margin:14px 0 6px}
+.tag{display:inline-block;background:#0b2a63;border:1px solid #2b6cb0;border-radius:6px;padding:2px 7px;font-size:10.5px;margin:2px 3px 2px 0}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin-top:8px}.tabs div{padding:6px 10px;font-size:11px;color:#9fb6d8;border-bottom:3px solid transparent}.tabs div.on{color:#fff;border-bottom-color:#ef4444;font-weight:700}
+.mono{font-family:Consolas,monospace;font-size:10.5px;background:#00112e;border:1px solid var(--line);border-radius:7px;padding:8px 10px;line-height:1.5;color:#9fe0b0;min-height:60px}
+.pill{display:inline-block;border:1px solid #2b6cb0;background:#0b2a63;border-radius:999px;padding:3px 10px;font-size:10.5px;margin:3px 4px 0 0}
+.slid{height:6px;background:#ef4444;border-radius:4px;margin:14px 6px 8px;position:relative}.slid i{position:absolute;top:-6px;width:16px;height:16px;border-radius:50%;background:#ef4444;border:2px solid #fff}
+"""
+
 _JS = r"""
 const STAGE_W=760,STAGE_H=540;
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -213,6 +256,7 @@ _HTML = r"""<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta 
   <div class="chips" id="chips"></div>
 </div>
 <script>window.__STEPS__=[];</script>
+<script>__COMMON_JS__</script>
 <script>__STEPS_JS__</script>
 <script>__JS__</script>
 </body></html>"""
@@ -225,10 +269,11 @@ def montar_player(titulo: str, descricao: str, stage_html: str, mock_css: str, s
     ``steps_js`` preenche ``window.__STEPS__`` com objetos ``{short, t, b, tip, run: async (api) => {...}}``.
     """
     return (
-        _HTML.replace("__CSS__", _CSS + _MOCK_CSS + mock_css)
+        _HTML.replace("__CSS__", _CSS + _MOCK_CSS + _SHARED_CSS + mock_css)
         .replace("__TITULO__", titulo)
         .replace("__DESCRICAO__", descricao)
         .replace("__STAGE__", stage_html)
+        .replace("__COMMON_JS__", _COMMON_JS)
         .replace("__STEPS_JS__", state_js + "\n" + steps_js)
         .replace("__JS__", _JS)
     )
