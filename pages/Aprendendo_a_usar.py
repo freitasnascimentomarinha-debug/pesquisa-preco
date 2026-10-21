@@ -20,8 +20,11 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CATALOGO_DIR = os.path.join(BASE_DIR, "Projeto Adesões")
 sys.path.insert(0, BASE_DIR)
 from atualizar_modulos import recarregar_se_mudou  # noqa: E402
-recarregar_se_mudou('tutorial_player', 'tutorial_cotacao_rapida', 'tutorial_adesoes', 'tutorial_notas_fiscais', 'tutorial_fornecedores', 'tutorial_web_scraping', 'tutorial_ipca')  # evita módulo antigo em memória após deploy
+recarregar_se_mudou('tutorial_player', 'tutorial_cotacao', 'tutorial_catmat', 'tutorial_cotacao_direta', 'tutorial_cotacao_rapida', 'tutorial_adesoes', 'tutorial_notas_fiscais', 'tutorial_fornecedores', 'tutorial_web_scraping', 'tutorial_ipca')  # evita módulo antigo em memória após deploy
 import tutorial_adesoes  # noqa: E402
+import tutorial_catmat  # noqa: E402
+import tutorial_cotacao  # noqa: E402
+import tutorial_cotacao_direta  # noqa: E402
 import tutorial_cotacao_rapida  # noqa: E402
 import tutorial_fornecedores  # noqa: E402
 import tutorial_ipca  # noqa: E402
@@ -32,10 +35,10 @@ from tutorial_player import ALTURA_IFRAME  # noqa: E402
 # Vídeo-aulas disponíveis (módulo com html()) e as previstas. Para publicar uma nova, crie tutorial_<ferramenta>.py
 # e troque "modulo" de None para o módulo importado.
 VIDEOS = [
-    {"id": "cotacao", "titulo": "Cotação", "icone": "⚓", "resumo": "Pesquisa de preços de um item: catálogo, consulta, filtros, outliers, estatísticas e relatório.", "modulo": None},
-    {"id": "catmat", "titulo": "CATMAT/CATSERV", "icone": "🔎", "resumo": "Como achar o código de material ou serviço.", "modulo": None},
+    {"id": "cotacao", "titulo": "Cotação", "icone": "⚓", "resumo": "Pesquisa de preços de um item: catálogo, consulta, filtros, outliers, estatísticas e relatório.", "modulo": tutorial_cotacao},
+    {"id": "catmat", "titulo": "CATMAT/CATSERV", "icone": "🔎", "resumo": "Como achar o código de material ou serviço.", "modulo": tutorial_catmat},
     {"id": "rapida", "titulo": "Cotação Rápida", "icone": "⚡", "resumo": "Cotar vários itens de uma vez e gerar o mapa comparativo.", "modulo": tutorial_cotacao_rapida},
-    {"id": "direta", "titulo": "Cotação Direta", "icone": "📨", "resumo": "Pedidos de cotação direta a fornecedores.", "modulo": None},
+    {"id": "direta", "titulo": "Cotação Direta", "icone": "📨", "resumo": "Pedidos de cotação direta a fornecedores.", "modulo": tutorial_cotacao_direta},
     {"id": "detalhes", "titulo": "Detalhes Compra", "icone": "🔍", "resumo": "Consultar os detalhes de uma compra.", "modulo": None},
     {"id": "adesoes", "titulo": "Adesões", "icone": "🤝", "resumo": "Atas de registro de preços e adesões.", "modulo": tutorial_adesoes},
     {"id": "nf", "titulo": "Notas Fiscais", "icone": "📄", "resumo": "Consulta de notas fiscais em lote.", "modulo": tutorial_notas_fiscais},
