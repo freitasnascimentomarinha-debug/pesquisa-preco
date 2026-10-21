@@ -20,8 +20,13 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CATALOGO_DIR = os.path.join(BASE_DIR, "Projeto Adesões")
 sys.path.insert(0, BASE_DIR)
 from atualizar_modulos import recarregar_se_mudou  # noqa: E402
-recarregar_se_mudou('tutorial_player', 'tutorial_cotacao_rapida')  # evita módulo antigo em memória após deploy
+recarregar_se_mudou('tutorial_player', 'tutorial_cotacao_rapida', 'tutorial_adesoes', 'tutorial_notas_fiscais', 'tutorial_fornecedores', 'tutorial_web_scraping', 'tutorial_ipca')  # evita módulo antigo em memória após deploy
+import tutorial_adesoes  # noqa: E402
 import tutorial_cotacao_rapida  # noqa: E402
+import tutorial_fornecedores  # noqa: E402
+import tutorial_ipca  # noqa: E402
+import tutorial_notas_fiscais  # noqa: E402
+import tutorial_web_scraping  # noqa: E402
 from tutorial_player import ALTURA_IFRAME  # noqa: E402
 
 # Vídeo-aulas disponíveis (módulo com html()) e as previstas. Para publicar uma nova, crie tutorial_<ferramenta>.py
@@ -32,13 +37,13 @@ VIDEOS = [
     {"id": "rapida", "titulo": "Cotação Rápida", "icone": "⚡", "resumo": "Cotar vários itens de uma vez e gerar o mapa comparativo.", "modulo": tutorial_cotacao_rapida},
     {"id": "direta", "titulo": "Cotação Direta", "icone": "📨", "resumo": "Pedidos de cotação direta a fornecedores.", "modulo": None},
     {"id": "detalhes", "titulo": "Detalhes Compra", "icone": "🔍", "resumo": "Consultar os detalhes de uma compra.", "modulo": None},
-    {"id": "adesoes", "titulo": "Adesões", "icone": "🤝", "resumo": "Atas de registro de preços e adesões.", "modulo": None},
-    {"id": "nf", "titulo": "Notas Fiscais", "icone": "📄", "resumo": "Consulta de notas fiscais em lote.", "modulo": None},
-    {"id": "forn", "titulo": "Fornecedores", "icone": "🏢", "resumo": "Banco de fornecedores.", "modulo": None},
+    {"id": "adesoes", "titulo": "Adesões", "icone": "🤝", "resumo": "Atas de registro de preços e adesões.", "modulo": tutorial_adesoes},
+    {"id": "nf", "titulo": "Notas Fiscais", "icone": "📄", "resumo": "Consulta de notas fiscais em lote.", "modulo": tutorial_notas_fiscais},
+    {"id": "forn", "titulo": "Fornecedores", "icone": "🏢", "resumo": "Banco de fornecedores.", "modulo": tutorial_fornecedores},
     {"id": "cnpj", "titulo": "Consulta CNPJ", "icone": "💻", "resumo": "Consulta de empresas pelo CNPJ.", "modulo": None},
-    {"id": "web", "titulo": "Web Scraping", "icone": "🕷️", "resumo": "Pesquisa de preços na web.", "modulo": None},
+    {"id": "web", "titulo": "Web Scraping", "icone": "🕷️", "resumo": "Pesquisa de preços na web.", "modulo": tutorial_web_scraping},
     {"id": "babilaca", "titulo": "O Babilaca (IA)", "icone": "🧠", "resumo": "Assistente de IA para licitações e legislação.", "modulo": None},
-    {"id": "ipca", "titulo": "Cálculo IPCA", "icone": "📊", "resumo": "Atualização monetária de valores pelo IPCA.", "modulo": None},
+    {"id": "ipca", "titulo": "Cálculo IPCA", "icone": "📊", "resumo": "Atualização monetária de valores pelo IPCA.", "modulo": tutorial_ipca},
 ]
 
 st.markdown(
