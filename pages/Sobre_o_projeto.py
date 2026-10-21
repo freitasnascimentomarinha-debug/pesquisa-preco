@@ -52,6 +52,11 @@ st.markdown(
         .sp-panel h3 { color: #d4af37; font-size: 1.05rem; margin: 0 0 .4rem; }
         .sp-panel p, .sp-panel li { color: #dbe7f7; font-size: .9rem; line-height: 1.55; }
         .sp-panel ul { margin: .3rem 0 0 1.1rem; padding: 0; }
+        .sp-prop { background: linear-gradient(135deg, rgba(212, 175, 55, .16), rgba(8, 26, 57, .85)); border: 1px solid #d4af37; border-left: 6px solid #d4af37;
+            border-radius: 10px; padding: 1.1rem 1.3rem; margin: .8rem 0 1rem; }
+        .sp-prop h3 { color: #d4af37; font-size: 1.15rem; margin: 0 0 .6rem; }
+        .sp-prop p { color: #f1f5f9; font-size: .95rem; line-height: 1.65; margin: 0 0 .7rem; }
+        .sp-prop .destaque { color: #fff; font-size: 1.05rem; font-weight: 700; border-left: 3px solid #ef4444; padding-left: .8rem; margin: .9rem 0 .2rem; }
         .sp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: .6rem; margin-top: .4rem; }
         .sp-card { background: rgba(0, 26, 77, .7); border: 1px solid #1e5b9f; border-radius: 8px; padding: .65rem .8rem; }
         .sp-card .t { color: #fff; font-weight: 800; font-size: .92rem; }
@@ -127,6 +132,16 @@ st.markdown(
         <p>O <b>AtaCotada</b> é um sistema web que reúne, num só lugar, ferramentas para <b>pesquisar preços</b>, <b>encontrar códigos de catálogo</b>,
         <b>identificar fornecedores</b>, <b>localizar atas para adesão</b> e <b>gerar relatórios</b> que ajudam a instruir processos de contratação.
         Foi idealizado e desenvolvido pelo <b>2°SG-PL Freitas</b>, com o apoio do <b>COpAb</b>, no Centro de Operações do Abastecimento da Marinha do Brasil.</p>
+    </div>
+    <div class="sp-prop">
+        <h3>🎯 O propósito do projeto</h3>
+        <p>O principal objetivo do <b>2°SG-PL Freitas</b> com o AtaCotada é <b>demonstrar a capacidade das novas tecnologias de aprimorar os processos de trabalho</b>,
+        para que outras pessoas se inspirem, aprendam e desenvolvam sistemas e soluções criativas que facilitem a vida de quem trabalha.</p>
+        <p>O AtaCotada <b>não tem a pretensão de se tornar um sistema oficial</b>. Enquanto facilita o trabalho dos colegas, ele também mostra aplicações relevantes
+        que podem servir de ponto de partida para um sistema oficial, caso a Instituição venha a desenvolver um.</p>
+        <p>Contribuir com a missão da Marinha é mais importante do que qualquer reconhecimento ou prêmio. Por isso o projeto é de <b>código aberto</b>,
+        <b>público</b> e <b>gratuito</b>: quanto mais gente puder ver, usar e aproveitar a ideia, melhor.</p>
+        <p class="destaque">O AtaCotada existe para mostrar que a falta de pessoal pode ser suprida com inteligência, automação e IA.</p>
     </div>
     <div class="sp-panel">
         <h3>Para que serve</h3>
