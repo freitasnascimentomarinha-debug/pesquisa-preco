@@ -20,16 +20,16 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CATALOGO_DIR = os.path.join(BASE_DIR, "Projeto Adesões")
 sys.path.insert(0, BASE_DIR)
 from atualizar_modulos import recarregar_se_mudou  # noqa: E402
-recarregar_se_mudou('tutorial_player', 'tutorial_cotacao')  # evita módulo antigo em memória após deploy
-import tutorial_cotacao  # noqa: E402
+recarregar_se_mudou('tutorial_player', 'tutorial_cotacao_rapida')  # evita módulo antigo em memória após deploy
+import tutorial_cotacao_rapida  # noqa: E402
 from tutorial_player import ALTURA_IFRAME  # noqa: E402
 
 # Vídeo-aulas disponíveis (módulo com html()) e as previstas. Para publicar uma nova, crie tutorial_<ferramenta>.py
 # e troque "modulo" de None para o módulo importado.
 VIDEOS = [
-    {"id": "cotacao", "titulo": "Cotação", "icone": "⚓", "resumo": "Pesquisa de preços de um item: catálogo, consulta, filtros, outliers, estatísticas e relatório.", "modulo": tutorial_cotacao},
+    {"id": "cotacao", "titulo": "Cotação", "icone": "⚓", "resumo": "Pesquisa de preços de um item: catálogo, consulta, filtros, outliers, estatísticas e relatório.", "modulo": None},
     {"id": "catmat", "titulo": "CATMAT/CATSERV", "icone": "🔎", "resumo": "Como achar o código de material ou serviço.", "modulo": None},
-    {"id": "rapida", "titulo": "Cotação Rápida", "icone": "⚡", "resumo": "Cotar vários itens de uma vez e gerar o mapa comparativo.", "modulo": None},
+    {"id": "rapida", "titulo": "Cotação Rápida", "icone": "⚡", "resumo": "Cotar vários itens de uma vez e gerar o mapa comparativo.", "modulo": tutorial_cotacao_rapida},
     {"id": "direta", "titulo": "Cotação Direta", "icone": "📨", "resumo": "Pedidos de cotação direta a fornecedores.", "modulo": None},
     {"id": "detalhes", "titulo": "Detalhes Compra", "icone": "🔍", "resumo": "Consultar os detalhes de uma compra.", "modulo": None},
     {"id": "adesoes", "titulo": "Adesões", "icone": "🤝", "resumo": "Atas de registro de preços e adesões.", "modulo": None},
@@ -98,7 +98,6 @@ with st.sidebar:
         st.markdown(f'<div style="text-align:center;padding:1rem 0 0.5rem 0;"><img src="data:image/png;base64,{acanto_b64}" style="max-width:70%;height:auto;"></div>', unsafe_allow_html=True)
     st.markdown("## MENU")
     st.markdown("---")
-    st.page_link("pages/Aprendendo_a_usar.py", label="Aprendendo a usar", icon="🎓")
     st.page_link("streamlit_app.py", label="Cotação", icon="⚓")
     st.page_link("pages/CATMAT_CATSERV_Automatico.py", label="CATMAT/CATSERV", icon="🔎")
     st.page_link("pages/Cotação_Rápida.py", label="Cotação Rápida", icon="⚡")
@@ -111,6 +110,7 @@ with st.sidebar:
     st.page_link("pages/Web_Scraping.py", label="Web Scraping", icon="🕷️")
     st.page_link("pages/O_Babilaca_(IA).py", label="O Babilaca (IA)", icon="🧠")
     st.page_link("pages/Calculo_IPCA.py", label="Cálculo IPCA", icon="📊")
+    st.page_link("pages/Aprendendo_a_usar.py", label="Aprendendo a usar", icon="🎓")
     st.markdown("---")
     st.markdown("## LINKS ÚTEIS")
     st.markdown("""<div style="margin-bottom:0.6rem;">
