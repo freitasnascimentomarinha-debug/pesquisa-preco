@@ -155,19 +155,6 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-with st.expander("Como funciona", expanded=False):
-    st.markdown(
-        f"""
-        1. Para cada item, o sistema localiza **até {MAX_CATMAT} códigos CATMAT (materiais) ou CATSERV (serviços)** com **mais de {LIMIAR_CORRESPONDENCIA:.0f}%** (materiais) ou **{LIMIAR_SERVICO:.0f}%** (serviços) de correspondência que tenham preços praticados.
-        2. Busca os preços das compras públicas dos **últimos {JANELA_DIAS} dias**, comparando apenas a **mesma unidade de fornecimento/medida**.
-        3. **Remove outliers** (preços inexequíveis ou muito diferentes dos demais).
-        4. Traz **até {MAX_PRECOS} preços** por item, todos a **até {TOLERANCIA * 100:.0f}%** (para mais ou para menos) da **média** dos preços listados, priorizando fornecedores diferentes.
-        5. Itens com menos de {MIN_PRECOS} preços são sinalizados. O PDF traz, na primeira página, o **mapa comparativo** com a **média unitária** de cada item.
-
-        Descreva o item com as características que importam (ex.: *resma de papel A4 75 g/m²*, *notebook 15 polegadas*). Em serviços, o preço depende do escopo (quantidade, área, jornada): confira se é compatível. Confira sempre o código e a unidade sugeridos.
-        """
-    )
-
 catmat = carregar_indice_catmat(CATMAT_PATH)
 catalogo_servico = carregar_catalogo(CATSERV_PATH)
 
