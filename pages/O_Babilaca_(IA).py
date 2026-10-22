@@ -17,6 +17,11 @@ from fpdf import FPDF
 from docx import Document as DocxDocument
 from docx.shared import Pt, Inches, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
+import sys as _sys
+_sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from atualizar_modulos import recarregar_se_mudou  # noqa: E402
+recarregar_se_mudou("documento_oficial")  # evita módulo antigo em memória após deploy
+import documento_oficial  # noqa: E402
 
 try:
     from dotenv import load_dotenv
@@ -892,73 +897,67 @@ def _sanitize_for_pdf(text: str) -> str:
     return "".join(cleaned)
 
 
+def _dados_documento() -> dict:
+    """Dados da OM, do processo e do signatário informados na aba Documentos (valem para todos os documentos)."""
+    chaves = ("om", "grupo", "cidade", "uf", "nup", "assinante_nome", "assinante_posto", "assinante_cargo", "data")
+    return {k: st.session_state.get(f"docom_{k}") for k in chaves}
+
+
 def gerar_pdf_documento(titulo: str, corpo: str) -> bytes:
-    """Gera um PDF simples com título e corpo."""
-    titulo = _sanitize_for_pdf(titulo)
-    corpo = _sanitize_for_pdf(corpo)
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_auto_page_break(auto=True, margin=20)
-    # Título
-    pdf.set_font("Helvetica", "B", 16)
-    pdf.set_text_color(0, 26, 77)
-    pdf.cell(0, 12, titulo, ln=True, align="C")
-    pdf.ln(4)
-    pdf.set_draw_color(212, 175, 55)
-    pdf.line(20, pdf.get_y(), 190, pdf.get_y())
-    pdf.ln(8)
-    # Data
-    pdf.set_font("Helvetica", "", 9)
-    pdf.set_text_color(100, 100, 100)
-    pdf.cell(0, 6, f"Gerado em {datetime.now().strftime('%d/%m/%Y %H:%M')}", ln=True, align="R")
-    pdf.ln(4)
-    # Corpo
-    pdf.set_font("Helvetica", "", 11)
-    pdf.set_text_color(30, 30, 30)
-    for linha in corpo.split("\n"):
-        # Garante que X está na margem esquerda antes de cada renderização
-        pdf.x = pdf.l_margin
-        # Remove markdown bold/italic markers para o PDF
-        linha_limpa = re.sub(r"\*{1,3}(.+?)\*{1,3}", r"\1", linha)
-        linha_limpa = _sanitize_for_pdf(linha_limpa)
-        if linha.startswith("## "):
-            pdf.ln(4)
-            pdf.set_font("Helvetica", "B", 13)
-            pdf.x = pdf.l_margin
-            pdf.multi_cell(0, 7, _sanitize_for_pdf(linha.replace("## ", "")))
-            pdf.set_font("Helvetica", "", 11)
-        elif linha.startswith("### "):
-            pdf.ln(2)
-            pdf.set_font("Helvetica", "B", 11)
-            pdf.x = pdf.l_margin
-            pdf.multi_cell(0, 6, _sanitize_for_pdf(linha.replace("### ", "")))
-            pdf.set_font("Helvetica", "", 11)
-        elif linha.strip().startswith("- "):
-            texto_bullet = re.sub(r"\*{1,3}(.+?)\*{1,3}", r"\1", linha.strip()[2:])
-            pdf.x = pdf.l_margin
-            pdf.multi_cell(0, 6, _sanitize_for_pdf(f"  - {texto_bullet}"))
-        elif linha.strip() == "---":
-            pdf.ln(3)
-            pdf.set_draw_color(180, 180, 180)
-            pdf.line(20, pdf.get_y(), 190, pdf.get_y())
-            pdf.ln(3)
-        elif linha.strip() == "":
-            pdf.ln(3)
-        else:
-            pdf.x = pdf.l_margin
-            pdf.multi_cell(0, 6, linha_limpa)
+    """PDF no padrão gráfico da Marinha (SGM-105/MaTDoc): timbre, tabelas, paginação e assinatura."""
+    return documento_oficial.gerar_pdf(titulo, corpo, _dados_documento())
 
-    # Rodape
-    pdf.ln(8)
-    pdf.set_draw_color(212, 175, 55)
-    pdf.set_line_width(0.5)
-    pdf.line(20, pdf.get_y(), 190, pdf.get_y())
-    pdf.ln(3)
-    pdf.set_font("Helvetica", "I", 7)
-    pdf.set_text_color(150, 150, 150)
-    pdf.cell(0, 5, _sanitize_for_pdf("Gerado por AtaCotada - O Babilaca (IA) - Marinha do Brasil"), ln=True, align="C")
 
-    return bytes(pdf.output())
+def gerar_docx_documento(titulo: str, corpo: str) -> bytes:
+    """Word editável no mesmo padrão do PDF."""
+    return documento_oficial.gerar_docx(titulo, corpo, _dados_documento())
+
+
+INSTRUCOES_DOCUMENTO = """
+
+INSTRUÇÕES PARA DOCUMENTO (prevalecem sobre as instruções de conversa):
+- Responda SOMENTE com o texto do documento: sem saudação, sem introdução ("Claro", "Segue") e sem comentários finais.
+- Não repita o título do documento na primeira linha; o sistema já monta cabeçalho, título, local e data e assinatura.
+- Use "### 1. TÍTULO DO ITEM" para cada item numerado; subitens como "1.1.", alíneas como "a)" e subalíneas como "I)".
+- Tabelas sempre em Markdown com barras verticais (| Coluna | Coluna |) e linha separadora (|---|---|).
+- Linguagem impessoal, culta, clara e concisa (padrão da redação oficial); valores em R$ com o extenso entre parênteses.
+- Campos que dependem de dado não informado ficam como lacuna "__________", sem inventar números, nomes ou datas.
+"""
+
+
+def _registrar_doc(chave: str, titulo: str, corpo: str, nome_base: str):
+    """Guarda o documento gerado: ele continua na tela depois de baixar um dos formatos e pode ser editado."""
+    st.session_state[f"doc_gerado_{chave}"] = {"titulo": titulo, "corpo": corpo, "nome": nome_base}
+    st.session_state[f"doc_editado_{chave}"] = corpo
+
+
+def _exibir_doc(chave: str):
+    """Pré-visualização editável e downloads em PDF e Word do último documento gerado para este tipo."""
+    doc = st.session_state.get(f"doc_gerado_{chave}")
+    if not doc:
+        return
+    st.markdown("---")
+    st.markdown(f"##### 📄 {doc['titulo'].title()} — pré-visualização")
+    st.caption("Revise e edite o texto abaixo antes de baixar. As alterações valem para o PDF e para o Word. "
+               "Use ### para itens, a) para alíneas e tabelas com | Coluna | Coluna |.")
+    corpo = st.text_area("Texto do documento", key=f"doc_editado_{chave}", height=420, label_visibility="collapsed")
+    with st.expander("👁️ Ver como fica formatado", expanded=False):
+        st.markdown(corpo)
+    if not st.session_state.get("docom_om"):
+        st.warning("Preencha os **dados da OM e do signatário** no topo desta aba para o cabeçalho e a assinatura saírem completos.")
+    c_pdf, c_docx, c_limpar = st.columns([2, 2, 1])
+    with c_pdf:
+        st.download_button("⬇️ Baixar em PDF", gerar_pdf_documento(doc["titulo"], corpo), f"{doc['nome']}.pdf",
+                           "application/pdf", key=f"dl_pdf_{chave}", use_container_width=True)
+    with c_docx:
+        st.download_button("📝 Baixar em Word", gerar_docx_documento(doc["titulo"], corpo), f"{doc['nome']}.docx",
+                           "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                           key=f"dl_docx_{chave}", use_container_width=True)
+    with c_limpar:
+        if st.button("🗑️ Descartar", key=f"descartar_{chave}", use_container_width=True):
+            st.session_state.pop(f"doc_gerado_{chave}", None)
+            st.session_state.pop(f"doc_editado_{chave}", None)
+            st.rerun()
 
 
 TEMPLATE_DFD = """## DOCUMENTO DE FORMALIZAÇÃO DE DEMANDA (DFD)
@@ -990,8 +989,6 @@ TEMPLATE_DFD = """## DOCUMENTO DE FORMALIZAÇÃO DE DEMANDA (DFD)
 - Lei 14.133/2021, Art. 72, §1°
 - IN SEGES/ME nº 58/2022
 
----
-Documento gerado pelo sistema O Babilaca (IA) — Ferramenta de apoio.
 """
 
 TEMPLATE_TR = """## TERMO DE REFERÊNCIA
@@ -1030,8 +1027,6 @@ Conforme previsto na Lei 14.133/2021, Arts. 155 a 163.
 - Lei 14.133/2021
 - IN SEGES/ME nº 65/2021
 
----
-Documento gerado pelo sistema O Babilaca (IA) — Ferramenta de apoio.
 """
 
 TEMPLATE_JUSTIFICATIVA = """## JUSTIFICATIVA DE CONTRATAÇÃO
@@ -1057,8 +1052,6 @@ TEMPLATE_JUSTIFICATIVA = """## JUSTIFICATIVA DE CONTRATAÇÃO
 ### 7. Conclusão
 {conclusao}
 
----
-Documento gerado pelo sistema O Babilaca (IA) — Ferramenta de apoio.
 """
 
 TEMPLATE_ATA_RP = """## ATA DE REGISTRO DE PREÇOS
@@ -1145,8 +1138,6 @@ Fica eleito o foro da Justiça Federal — Seção Judiciária de __________ par
 ### 14. DAS DISPOSIÇÕES GERAIS
 {observacoes}
 
----
-Documento gerado pelo sistema O Babilaca (IA) — Ferramenta de apoio.
 """
 
 TEMPLATE_MINUTA_CONTRATO = """## MINUTA DE CONTRATO DE {tipo_contrato}
@@ -1277,8 +1268,6 @@ Nome: {representante_empresa}
 1. Nome: _________________ CPF: _________________
 2. Nome: _________________ CPF: _________________
 
----
-Documento gerado pelo sistema O Babilaca (IA) — Ferramenta de apoio.
 """
 
 
@@ -2441,6 +2430,32 @@ with tab_docs:
         </div>
     </div>
     """, unsafe_allow_html=True)
+    with st.expander("🏛️ Dados da OM, do processo e do signatário (cabeçalho e assinatura dos documentos)",
+                     expanded=not st.session_state.get("docom_om")):
+        st.caption("Preencha uma vez: os dados valem para todos os documentos desta sessão. Padrão gráfico da SGM-105 (MaTDoc): "
+                   "Armas Nacionais, MARINHA DO BRASIL, nome da OM, local e data, Carlito/Calibri 12 e paginação.")
+        _o1, _o2 = st.columns([3, 2])
+        with _o1:
+            st.text_input("Nome da OM (por extenso)", key="docom_om", placeholder="Ex: Centro de Operações do Abastecimento")
+        with _o2:
+            st.text_input("Grupo indicador (opcional)", key="docom_grupo", placeholder="Ex: COpAb-20  30/080.1")
+        _o3, _o4, _o5, _o6 = st.columns([2, 1, 2, 2])
+        with _o3:
+            st.text_input("Cidade", key="docom_cidade", placeholder="Ex: Rio de Janeiro")
+        with _o4:
+            st.text_input("UF", key="docom_uf", placeholder="RJ", max_chars=2)
+        with _o5:
+            st.text_input("NUP / nº do processo (opcional)", key="docom_nup", placeholder="Ex: 63379.001234/2026-11")
+        with _o6:
+            st.date_input("Data do documento", key="docom_data", format="DD/MM/YYYY")
+        _o7, _o8, _o9 = st.columns(3)
+        with _o7:
+            st.text_input("Nome do signatário", key="docom_assinante_nome", placeholder="Ex: FULANO DE TAL")
+        with _o8:
+            st.text_input("Posto / graduação", key="docom_assinante_posto", placeholder="Ex: Capitão de Fragata (IM)")
+        with _o9:
+            st.text_input("Cargo / função", key="docom_assinante_cargo", placeholder="Ex: Encarregado da Divisão de Obtenção")
+
     tipo_doc = st.selectbox(
         "Documento que deseja preparar",
         ["DFD — Documento de Formalização de Demanda",
@@ -2484,14 +2499,7 @@ with tab_docs:
                     quantidade=quantidade, data_prevista=data_prevista.strftime("%d/%m/%Y"),
                     prioridade=prioridade, vinculacao_pca=vinculacao or "Não informado",
                 )
-                st.markdown(corpo)
-                pdf_bytes = gerar_pdf_documento("DOCUMENTO DE FORMALIZAÇÃO DE DEMANDA (DFD)", corpo)
-                docx_bytes = gerar_docx_documento("DOCUMENTO DE FORMALIZAÇÃO DE DEMANDA (DFD)", corpo)
-                _c_pdf, _c_docx = st.columns(2)
-                with _c_pdf:
-                    st.download_button("⬇️ Baixar DFD em PDF", pdf_bytes, "dfd.pdf", "application/pdf")
-                with _c_docx:
-                    st.download_button("📝 Baixar DFD em Word", docx_bytes, "dfd.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+                _registrar_doc(tipo_doc, "DOCUMENTO DE FORMALIZAÇÃO DE DEMANDA (DFD)", corpo, "dfd")
         else:
             desc_ia = st.text_area(
                 "Descreva brevemente a necessidade de contratação e o Babilaca preencherá o DFD:",
@@ -2510,15 +2518,8 @@ with tab_docs:
                         )
                         ctx = buscar_base_juridica("DFD formalização demanda planejamento")
                         system = _build_system_prompt(ctx)
-                        resultado = chamar_ia([{"role": "user", "content": prompt_dfd}], system)
-                    st.markdown(resultado)
-                    pdf_bytes = gerar_pdf_documento("DOCUMENTO DE FORMALIZAÇÃO DE DEMANDA (DFD)", resultado)
-                    docx_bytes = gerar_docx_documento("DOCUMENTO DE FORMALIZAÇÃO DE DEMANDA (DFD)", resultado)
-                    _c_pdf, _c_docx = st.columns(2)
-                    with _c_pdf:
-                        st.download_button("⬇️ Baixar DFD em PDF", pdf_bytes, "dfd_ia.pdf", "application/pdf")
-                    with _c_docx:
-                        st.download_button("📝 Baixar DFD em Word", docx_bytes, "dfd_ia.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+                        resultado = chamar_ia([{"role": "user", "content": prompt_dfd}], system + INSTRUCOES_DOCUMENTO)
+                    _registrar_doc(tipo_doc, "DOCUMENTO DE FORMALIZAÇÃO DE DEMANDA (DFD)", resultado, "dfd_ia")
                 else:
                     st.warning("Descreva a necessidade antes de gerar.")
 
@@ -2548,14 +2549,7 @@ with tab_docs:
                     condicoes_entrega=condicoes, prazo=prazo, pagamento=pagamento,
                     criterio_julgamento=criterio,
                 )
-                st.markdown(corpo)
-                pdf_bytes = gerar_pdf_documento("TERMO DE REFERÊNCIA", corpo)
-                docx_bytes = gerar_docx_documento("TERMO DE REFERÊNCIA", corpo)
-                _c_pdf, _c_docx = st.columns(2)
-                with _c_pdf:
-                    st.download_button("⬇️ Baixar TR em PDF", pdf_bytes, "termo_referencia.pdf", "application/pdf")
-                with _c_docx:
-                    st.download_button("📝 Baixar TR em Word", docx_bytes, "termo_referencia.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+                _registrar_doc(tipo_doc, "TERMO DE REFERÊNCIA", corpo, "termo_referencia")
         else:
             desc_tr = st.text_area(
                 "Descreva o que precisa contratar e o Babilaca elaborará o Termo de Referência:",
@@ -2585,15 +2579,8 @@ with tab_docs:
                         )
                         ctx = buscar_base_juridica("termo de referência contratação especificação")
                         system = _build_system_prompt(ctx)
-                        resultado = chamar_ia([{"role": "user", "content": prompt_tr}], system)
-                    st.markdown(resultado)
-                    pdf_bytes = gerar_pdf_documento("TERMO DE REFERÊNCIA", resultado)
-                    docx_bytes = gerar_docx_documento("TERMO DE REFERÊNCIA", resultado)
-                    _c_pdf, _c_docx = st.columns(2)
-                    with _c_pdf:
-                        st.download_button("⬇️ Baixar TR em PDF", pdf_bytes, "tr_ia.pdf", "application/pdf")
-                    with _c_docx:
-                        st.download_button("📝 Baixar TR em Word", docx_bytes, "tr_ia.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+                        resultado = chamar_ia([{"role": "user", "content": prompt_tr}], system + INSTRUCOES_DOCUMENTO)
+                    _registrar_doc(tipo_doc, "TERMO DE REFERÊNCIA", resultado, "tr_ia")
                 else:
                     st.warning("Forneça uma descrição ou envie um arquivo.")
 
@@ -2621,14 +2608,7 @@ with tab_docs:
                     justificativa_preco=just_preco, modalidade=modalidade,
                     fundamentacao=fundamentacao, conclusao=conclusao,
                 )
-                st.markdown(corpo)
-                pdf_bytes = gerar_pdf_documento("JUSTIFICATIVA DE CONTRATAÇÃO", corpo)
-                docx_bytes = gerar_docx_documento("JUSTIFICATIVA DE CONTRATAÇÃO", corpo)
-                _c_pdf, _c_docx = st.columns(2)
-                with _c_pdf:
-                    st.download_button("⬇️ Baixar Justificativa em PDF", pdf_bytes, "justificativa.pdf", "application/pdf")
-                with _c_docx:
-                    st.download_button("📝 Baixar Justificativa em Word", docx_bytes, "justificativa.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+                _registrar_doc(tipo_doc, "JUSTIFICATIVA DE CONTRATAÇÃO", corpo, "justificativa")
         else:
             desc_just = st.text_area(
                 "Descreva a contratação que precisa justificar:",
@@ -2646,15 +2626,8 @@ with tab_docs:
                         )
                         ctx = buscar_base_juridica("justificativa contratação dispensa modalidade")
                         system = _build_system_prompt(ctx)
-                        resultado = chamar_ia([{"role": "user", "content": prompt_just}], system)
-                    st.markdown(resultado)
-                    pdf_bytes = gerar_pdf_documento("JUSTIFICATIVA DE CONTRATAÇÃO", resultado)
-                    docx_bytes = gerar_docx_documento("JUSTIFICATIVA DE CONTRATAÇÃO", resultado)
-                    _c_pdf, _c_docx = st.columns(2)
-                    with _c_pdf:
-                        st.download_button("⬇️ Baixar em PDF", pdf_bytes, "justificativa_ia.pdf", "application/pdf")
-                    with _c_docx:
-                        st.download_button("📝 Baixar em Word", docx_bytes, "justificativa_ia.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+                        resultado = chamar_ia([{"role": "user", "content": prompt_just}], system + INSTRUCOES_DOCUMENTO)
+                    _registrar_doc(tipo_doc, "JUSTIFICATIVA DE CONTRATAÇÃO", resultado, "justificativa_ia")
                 else:
                     st.warning("Descreva o cenário.")
 
@@ -2726,16 +2699,9 @@ with tab_docs:
                         prompt_livre += "MATERIAIS DE APOIO:\n" + "\n\n".join(contexto_arquivos)
                     consulta = "justificativa contratação processo administrativo" if is_justificativa else "documento processo administrativo contratação pública"
                     system = _build_system_prompt(buscar_base_juridica(consulta))
-                    resultado = chamar_ia([{"role": "user", "content": prompt_livre}], system)
-                st.markdown(resultado)
+                    resultado = chamar_ia([{"role": "user", "content": prompt_livre}], system + INSTRUCOES_DOCUMENTO)
                 nome_base = "outra_justificativa" if is_justificativa else "outro_documento"
-                pdf_bytes = gerar_pdf_documento(titulo_livre.upper(), resultado)
-                docx_bytes = gerar_docx_documento(titulo_livre.upper(), resultado)
-                col_pdf, col_docx = st.columns(2)
-                with col_pdf:
-                    st.download_button("⬇️ Baixar em PDF", pdf_bytes, f"{nome_base}.pdf", "application/pdf")
-                with col_docx:
-                    st.download_button("📝 Baixar em Word", docx_bytes, f"{nome_base}.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+                _registrar_doc(tipo_doc, titulo_livre.upper(), resultado, nome_base)
             else:
                 st.warning("Descreva a necessidade ou anexe ao menos um documento de apoio.")
 
@@ -2966,17 +2932,8 @@ with tab_docs:
 ### 5. Observações
 {crono_obs or 'Sem observações.'}
 
----
-Documento gerado pelo sistema O Babilaca (IA) — Ferramenta de apoio.
 """
-                st.markdown(corpo_crono)
-                pdf_bytes = gerar_pdf_documento("CRONOGRAMA FÍSICO-FINANCEIRO", corpo_crono)
-                docx_bytes = gerar_docx_documento("CRONOGRAMA FÍSICO-FINANCEIRO", corpo_crono)
-                _c_pdf, _c_docx = st.columns(2)
-                with _c_pdf:
-                    st.download_button("⬇️ Baixar Cronograma em PDF", pdf_bytes, "cronograma_fisico_financeiro.pdf", "application/pdf")
-                with _c_docx:
-                    st.download_button("📝 Baixar Cronograma em Word", docx_bytes, "cronograma_fisico_financeiro.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+                _registrar_doc(tipo_doc, "CRONOGRAMA FÍSICO-FINANCEIRO", corpo_crono, "cronograma_fisico_financeiro")
 
         else:  # Assistido por IA
             st.markdown(
@@ -3028,15 +2985,8 @@ Documento gerado pelo sistema O Babilaca (IA) — Ferramenta de apoio.
                         )
                         ctx = buscar_base_juridica("cronograma execução pagamento medição prazo contrato obra")
                         system = _build_system_prompt(ctx)
-                        resultado = chamar_ia([{"role": "user", "content": prompt_crono}], system)
-                    st.markdown(resultado)
-                    pdf_bytes = gerar_pdf_documento("CRONOGRAMA FÍSICO-FINANCEIRO", resultado)
-                    docx_bytes = gerar_docx_documento("CRONOGRAMA FÍSICO-FINANCEIRO", resultado)
-                    _c_pdf, _c_docx = st.columns(2)
-                    with _c_pdf:
-                        st.download_button("⬇️ Baixar Cronograma em PDF", pdf_bytes, "cronograma_ia.pdf", "application/pdf")
-                    with _c_docx:
-                        st.download_button("📝 Baixar Cronograma em Word", docx_bytes, "cronograma_ia.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+                        resultado = chamar_ia([{"role": "user", "content": prompt_crono}], system + INSTRUCOES_DOCUMENTO)
+                    _registrar_doc(tipo_doc, "CRONOGRAMA FÍSICO-FINANCEIRO", resultado, "cronograma_ia")
                 else:
                     st.warning("Descreva o projeto ou envie um arquivo.")
 
@@ -3217,17 +3167,8 @@ utilizou as seguintes fontes, priorizando a ordem estabelecida no Art. 5° da IN
 ### 6. Observações
 {mc_obs or 'Sem observações adicionais.'}
 
----
-Documento gerado pelo sistema O Babilaca (IA) — Ferramenta de apoio.
 """
-                st.markdown(corpo_mc)
-                pdf_bytes = gerar_pdf_documento("MEMÓRIA DE CÁLCULO", corpo_mc)
-                docx_bytes = gerar_docx_documento("MEMÓRIA DE CÁLCULO", corpo_mc)
-                _c_pdf, _c_docx = st.columns(2)
-                with _c_pdf:
-                    st.download_button("⬇️ Baixar Memória de Cálculo em PDF", pdf_bytes, "memoria_calculo.pdf", "application/pdf")
-                with _c_docx:
-                    st.download_button("📝 Baixar Memória de Cálculo em Word", docx_bytes, "memoria_calculo.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+                _registrar_doc(tipo_doc, "MEMÓRIA DE CÁLCULO", corpo_mc, "memoria_calculo")
 
         else:  # Assistido por IA
             st.markdown(
@@ -3287,15 +3228,8 @@ Documento gerado pelo sistema O Babilaca (IA) — Ferramenta de apoio.
                         )
                         ctx = buscar_base_juridica("pesquisa preços estimativa orçamento cotação memória cálculo IN 65")
                         system = _build_system_prompt(ctx)
-                        resultado = chamar_ia([{"role": "user", "content": prompt_mc}], system)
-                    st.markdown(resultado)
-                    pdf_bytes = gerar_pdf_documento("MEMÓRIA DE CÁLCULO", resultado)
-                    docx_bytes = gerar_docx_documento("MEMÓRIA DE CÁLCULO", resultado)
-                    _c_pdf, _c_docx = st.columns(2)
-                    with _c_pdf:
-                        st.download_button("⬇️ Baixar Memória de Cálculo em PDF", pdf_bytes, "memoria_calculo_ia.pdf", "application/pdf")
-                    with _c_docx:
-                        st.download_button("📝 Baixar Memória de Cálculo em Word", docx_bytes, "memoria_calculo_ia.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+                        resultado = chamar_ia([{"role": "user", "content": prompt_mc}], system + INSTRUCOES_DOCUMENTO)
+                    _registrar_doc(tipo_doc, "MEMÓRIA DE CÁLCULO", resultado, "memoria_calculo_ia")
                 else:
                     st.warning("Descreva os itens/valores ou envie um arquivo.")
 
@@ -3392,14 +3326,7 @@ Documento gerado pelo sistema O Babilaca (IA) — Ferramenta de apoio.
                     local_entrega=ata_local_entrega, prazo_pagamento=ata_prazo_pgto,
                     observacoes=ata_obs or "Sem observações adicionais.",
                 )
-                st.markdown(corpo_ata)
-                pdf_bytes = gerar_pdf_documento("ATA DE REGISTRO DE PREÇOS", corpo_ata)
-                docx_bytes = gerar_docx_documento("ATA DE REGISTRO DE PREÇOS", corpo_ata)
-                _c_pdf, _c_docx = st.columns(2)
-                with _c_pdf:
-                    st.download_button("⬇️ Baixar Ata em PDF", pdf_bytes, "ata_registro_precos.pdf", "application/pdf")
-                with _c_docx:
-                    st.download_button("📝 Baixar Ata em Word", docx_bytes, "ata_registro_precos.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+                _registrar_doc(tipo_doc, "ATA DE REGISTRO DE PREÇOS", corpo_ata, "ata_registro_precos")
         else:
             desc_ata = st.text_area(
                 "Descreva os dados da licitação, órgão, fornecedor, itens e condições. O Babilaca gerará a Ata completa:",
@@ -3447,15 +3374,8 @@ Documento gerado pelo sistema O Babilaca (IA) — Ferramenta de apoio.
                         )
                         ctx = buscar_base_juridica("ata registro preços pregão licitação fornecedor")
                         system = _build_system_prompt(ctx)
-                        resultado = chamar_ia([{"role": "user", "content": prompt_ata}], system)
-                    st.markdown(resultado)
-                    pdf_bytes = gerar_pdf_documento("ATA DE REGISTRO DE PREÇOS", resultado)
-                    docx_bytes = gerar_docx_documento("ATA DE REGISTRO DE PREÇOS", resultado)
-                    _c_pdf, _c_docx = st.columns(2)
-                    with _c_pdf:
-                        st.download_button("⬇️ Baixar Ata em PDF", pdf_bytes, "ata_rp_ia.pdf", "application/pdf")
-                    with _c_docx:
-                        st.download_button("📝 Baixar Ata em Word", docx_bytes, "ata_rp_ia.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+                        resultado = chamar_ia([{"role": "user", "content": prompt_ata}], system + INSTRUCOES_DOCUMENTO)
+                    _registrar_doc(tipo_doc, "ATA DE REGISTRO DE PREÇOS", resultado, "ata_rp_ia")
                 else:
                     st.warning("Descreva os dados da licitação ou envie um arquivo.")
 
@@ -3588,14 +3508,7 @@ Documento gerado pelo sistema O Babilaca (IA) — Ferramenta de apoio.
                     prazo_recebimento_definitivo=ct_receb_def,
                     observacoes=ct_obs or "Sem observações adicionais.",
                 )
-                st.markdown(corpo_ct)
-                pdf_bytes = gerar_pdf_documento(f"MINUTA DE CONTRATO DE {ct_tipo}", corpo_ct)
-                docx_bytes = gerar_docx_documento(f"MINUTA DE CONTRATO DE {ct_tipo}", corpo_ct)
-                _c_pdf, _c_docx = st.columns(2)
-                with _c_pdf:
-                    st.download_button("⬇️ Baixar Minuta em PDF", pdf_bytes, "minuta_contrato.pdf", "application/pdf")
-                with _c_docx:
-                    st.download_button("📝 Baixar Minuta em Word", docx_bytes, "minuta_contrato.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+                _registrar_doc(tipo_doc, f"MINUTA DE CONTRATO DE {ct_tipo}", corpo_ct, "minuta_contrato")
         else:
             desc_ct = st.text_area(
                 "Descreva o objeto, tipo (serviço/material), condições e o Babilaca gerará a Minuta completa:",
@@ -3657,15 +3570,8 @@ Documento gerado pelo sistema O Babilaca (IA) — Ferramenta de apoio.
                         )
                         ctx = buscar_base_juridica("contrato garantia fiscalização recebimento penalidade pagamento")
                         system = _build_system_prompt(ctx)
-                        resultado = chamar_ia([{"role": "user", "content": prompt_ct}], system)
-                    st.markdown(resultado)
-                    pdf_bytes = gerar_pdf_documento("MINUTA DE CONTRATO", resultado)
-                    docx_bytes = gerar_docx_documento("MINUTA DE CONTRATO", resultado)
-                    _c_pdf, _c_docx = st.columns(2)
-                    with _c_pdf:
-                        st.download_button("⬇️ Baixar Minuta em PDF", pdf_bytes, "minuta_contrato_ia.pdf", "application/pdf")
-                    with _c_docx:
-                        st.download_button("📝 Baixar Minuta em Word", docx_bytes, "minuta_contrato_ia.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+                        resultado = chamar_ia([{"role": "user", "content": prompt_ct}], system + INSTRUCOES_DOCUMENTO)
+                    _registrar_doc(tipo_doc, "MINUTA DE CONTRATO", resultado, "minuta_contrato_ia")
                 else:
                     st.warning("Descreva a contratação ou envie um arquivo.")
 
@@ -3729,6 +3635,8 @@ Documento gerado pelo sistema O Babilaca (IA) — Ferramenta de apoio.
                 st.caption("A tabela acima e uma referencia visual. O mapa detalhado por categoria esta na analise da IA.")
             else:
                 st.warning("Descreva o cenário de contratação.")
+
+    _exibir_doc(tipo_doc)
 
 # ============================================================
 # TAB 3 — CHECKLIST DE PROCESSO
