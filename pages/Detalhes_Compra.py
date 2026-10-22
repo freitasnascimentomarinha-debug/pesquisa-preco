@@ -6,6 +6,9 @@ Busca contratos, documentos e dados de compras via APIs públicas
 
 import base64
 import json
+import threading
+import unicodedata
+from concurrent.futures import ThreadPoolExecutor
 from html import escape as _e
 import os
 import re
@@ -16,6 +19,7 @@ from urllib.parse import urlencode
 import pandas as pd
 import requests
 import streamlit as st
+from streamlit.runtime.scriptrunner import add_script_run_ctx, get_script_run_ctx
 
 from servicos_publicos import gerar_excel, http_get_json, limpar_cnpj
 
@@ -681,6 +685,60 @@ def load_uasg_index() -> Dict[str, Dict]:
     return {str(e.get("codigoUasg", "")).strip(): e for e in data if e.get("codigoUasg")}
 
 
+def executar_em_paralelo(funcoes: List[Any], max_workers: int = 8) -> List[Any]:
+    """Executa funções sem argumentos ao mesmo tempo e devolve os resultados na mesma ordem
+    (o contexto do Streamlit é repassado às threads para o cache continuar funcionando)."""
+    if not funcoes:
+        return []
+    ctx = get_script_run_ctx()
+
+    def _rodar(funcao):
+        add_script_run_ctx(threading.current_thread(), ctx)
+        return funcao()
+
+    with ThreadPoolExecutor(max_workers=min(max_workers, len(funcoes))) as pool:
+        return list(pool.map(_rodar, funcoes))
+
+
+def _sem_acento(texto: str) -> str:
+    return "".join(c for c in unicodedata.normalize("NFD", str(texto or "").lower()) if unicodedata.category(c) != "Mn")
+
+
+def buscar_uasg_por_nome(consulta: str, limite: int = 40) -> List[Dict]:
+    """UASGs do cadastro local cujo nome (ou código) contém todas as palavras digitadas, sem considerar acentos."""
+    termos = _sem_acento(consulta).split()
+    if not termos:
+        return []
+    achados = []
+    for codigo, info in load_uasg_index().items():
+        alvo = _sem_acento(f"{codigo} {info.get('nomeUasg', '')} {info.get('siglaUf', '')}")
+        if all(t in alvo for t in termos):
+            achados.append({"codigo": codigo, "nome": str(info.get("nomeUasg", "")), "uf": str(info.get("siglaUf", ""))})
+            if len(achados) >= limite:
+                break
+    return achados
+
+
+def _usar_uasg(codigo: str):
+    st.session_state["dc_uasg"] = codigo
+
+
+def resumo_desagio(itens: List[Dict], resultados_por_item: Dict[Any, List[Dict]]) -> Dict[str, Any]:
+    """Estimado x homologado dos itens que têm resultado (ignora itens sem valor estimado, como os sigilosos)."""
+    estimado = homologado = 0.0
+    contados = 0
+    for it in itens:
+        resultados = resultados_por_item.get(it.get("numeroItem"), [])
+        valor_est = it.get("valorTotal") or 0
+        valor_hom = sum((r.get("valorTotalHomologado") or 0) for r in resultados)
+        if valor_est and valor_hom:
+            estimado += valor_est
+            homologado += valor_hom
+            contados += 1
+    return {"itens": contados, "estimado": estimado, "homologado": homologado,
+            "desagio": ((estimado - homologado) / estimado * 100) if estimado else None}
+
+
 # ═══════════════════════════════════════════════════════════════════════════
 # FUNÇÕES DE RENDERIZAÇÃO
 # ═══════════════════════════════════════════════════════════════════════════
@@ -991,6 +1049,22 @@ with tab_busca:
     st.session_state.setdefault("dc_ano", min(max(default_year, 2020), 2030))
     st.session_state.setdefault("dc_id", st.session_state.get("detalhe_id_compra", ""))
 
+    with st.expander("🔎 Não sei o código — buscar UASG pelo nome do órgão", expanded=False):
+        _nome_busca = st.text_input("Nome (ou parte do nome) do órgão/unidade", key="dc_busca_nome", placeholder="Ex: hospital naval, comando 1 distrito")
+        if _nome_busca.strip():
+            _achadas = buscar_uasg_por_nome(_nome_busca)
+            if not _achadas:
+                st.caption("Nenhuma UASG encontrada no cadastro local para esse nome.")
+            else:
+                _c_sel, _c_btn = st.columns([5, 1])
+                with _c_sel:
+                    _k = st.selectbox("UASG encontrada", range(len(_achadas)), key="dc_busca_sel", label_visibility="collapsed",
+                                      format_func=lambda i: f"{_achadas[i]['codigo']} — {_achadas[i]['nome']}" + (f" ({_achadas[i]['uf']})" if _achadas[i]['uf'] else ""))
+                with _c_btn:
+                    st.button("Usar", key="dc_busca_usar", use_container_width=True, on_click=_usar_uasg, args=(_achadas[_k]["codigo"],))
+                if len(_achadas) == 40:
+                    st.caption("Mostrando as 40 primeiras — refine o nome para reduzir.")
+
     # ── Formulário de busca ───────────────────────────────────────────────────
     col_uasg, col_ano, col_id = st.columns([2, 1, 4])
 
@@ -1146,18 +1220,17 @@ with tab_busca:
                 render_resultado_id_pncp(resultado_id, id_filtro, nome_uasg, uf)
                 st.stop()  # com ID da compra o resultado é o detalhamento direto; a listagem por UASG/ano abaixo não se aplica
             # ── 1. Buscar Contratos ───────────────────────────────────────────
-            with st.spinner("Buscando contratos no ComprasGov..."):
-                contratos = []
-                for ano_busca in anos_busca:
-                    contratos.extend(buscar_contratos_uasg(uasg, ano_busca))
-                contratos = dedupe_by_keys(contratos, ["numeroContrato", "idCompra", "numeroControlePncpCompra"])
+            with st.spinner("Buscando contratos e Atas de Registro de Preço (SRP) no ComprasGov..."):
+                _res_busca = executar_em_paralelo(
+                    [lambda a=a: buscar_contratos_uasg(uasg, a) for a in anos_busca]
+                    + [lambda a=a: buscar_arp_uasg(uasg, a) for a in anos_busca]
+                )
+            contratos = dedupe_by_keys([c for lote in _res_busca[:len(anos_busca)] for c in lote],
+                                       ["numeroContrato", "idCompra", "numeroControlePncpCompra"])
 
             # ── 2. Buscar ARPs (SRP) ──────────────────────────────────────────
-            with st.spinner("Buscando Atas de Registro de Preço (SRP)..."):
-                arps = []
-                for ano_busca in anos_busca:
-                    arps.extend(buscar_arp_uasg(uasg, ano_busca))
-                arps = dedupe_by_keys(arps, ["numeroAtaRegistroPreco", "idCompra", "numeroControlePncpAta"])
+            arps = dedupe_by_keys([a for lote in _res_busca[len(anos_busca):] for a in lote],
+                                  ["numeroAtaRegistroPreco", "idCompra", "numeroControlePncpAta"])
 
             # ── Filtros avançados aplicados nos resultados ────────────────────
             _modalidade_map = {
@@ -1372,15 +1445,27 @@ with tab_busca:
 
                                     if itens:
                                         with st.expander(f"📦 Itens da compra ({len(itens)} itens)", expanded=False):
+                                            _com_resultado = [it for it in itens if it.get("temResultado")]
+                                            _lotes = executar_em_paralelo(
+                                                [lambda n=it.get("numeroItem", 0): buscar_resultado_item_pncp(cnpj_c, ano_c, seq_c, n) for it in _com_resultado])
+                                            resultados_item = {it.get("numeroItem"): lote for it, lote in zip(_com_resultado, _lotes)}
+                                            _desagio = resumo_desagio(itens, resultados_item)
+                                            if _desagio["itens"]:
+                                                _m1, _m2, _m3 = st.columns(3)
+                                                _m1.metric("Valor estimado", _fmt_valor(_desagio["estimado"]), help=f"Soma dos {_desagio['itens']} itens com resultado.")
+                                                _m2.metric("Valor homologado", _fmt_valor(_desagio["homologado"]))
+                                                _m3.metric("Deságio", f"{_desagio['desagio']:.1f}%".replace(".", ","),
+                                                           help="(estimado − homologado) ÷ estimado, nos itens com resultado e valor estimado informado.")
                                             for it in itens:
                                                 num = it.get("numeroItem", 0)
                                                 render_item_pncp(it, num)
-                                                if it.get("temResultado"):
-                                                    resultados = buscar_resultado_item_pncp(cnpj_c, ano_c, seq_c, num)
-                                                    for res in resultados:
-                                                        forn_ni = res.get("niFornecedor", "")
-                                                        val_hom = res.get("valorTotalHomologado", "")
-                                                        st.markdown(f"  ↳ **Vencedor:** {forn_ni} — Valor homologado: {_fmt_valor(val_hom)}")
+                                                for res in resultados_item.get(num, []):
+                                                    forn_ni = res.get("niFornecedor", "")
+                                                    forn_nome = res.get("nomeRazaoSocialFornecedor", "")
+                                                    val_hom = res.get("valorTotalHomologado", "")
+                                                    est = it.get("valorTotal") or 0
+                                                    desagio_item = f" — deságio {(est - val_hom) / est * 100:.1f}%".replace(".", ",") if est and val_hom else ""
+                                                    st.markdown(f"  ↳ **Vencedor:** {forn_nome or forn_ni} ({forn_ni}) — Valor homologado: {_fmt_valor(val_hom)}{desagio_item}")
                                                 st.markdown("---")
 
                         if _compras_shown < len(contratos):

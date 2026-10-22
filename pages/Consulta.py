@@ -3,12 +3,13 @@ import pandas as pd
 import os
 import base64
 import datetime
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from html import escape
 
 from fornecedores_nf import formatar_cnae
 from relatorio_fornecedor import gerar_ficha_pdf
 from servicos_publicos import (
-    baixar_csv_drive, cnpj_valido, consultar_cadastro_cnpj, formatar_cnpj, gerar_excel, itens_arp_por_fornecedor, limpar_cnpj,
+    baixar_csv_drive, cnpj_valido, consultar_cadastro_cnpj, consultar_sancoes, formatar_cnpj, gerar_excel, itens_arp_por_fornecedor, limpar_cnpj,
     listar_arquivos_drive, pesquisar_notas_por_cnpj, pncp_search, resumo_notas, separar_vigentes,
 )
 
@@ -356,37 +357,50 @@ if (btn_consultar or _prefill_cnpj) and cnpj_input:
     else:
         hoje = datetime.date.today()
         data_min = hoje - datetime.timedelta(days=365 * anos_janela)
-        # cada fonte é consultada de forma independente; a falha de uma não esconde as demais
-        status_fontes = []
 
+        # as 6 fontes são independentes: consultadas ao mesmo tempo (o tempo total é o da mais lenta)
+        tarefas = {
+            "cadastro": lambda: consultar_cadastro_cnpj(cnpj_limpo),
+            "contratos": lambda: pncp_search(cnpj_limpo, "contrato", data_min),
+            "compras": lambda: pncp_search(cnpj_limpo, "compra", data_min),
+            "atas": lambda: pncp_search(cnpj_limpo, "ata", data_min),
+            "arp": lambda: itens_arp_por_fornecedor(cnpj_limpo, anos_janela),
+            "sancoes": lambda: consultar_sancoes(cnpj_limpo),
+        }
+        resultados = {}
         with st.spinner(f"Consultando bases de dados para o CNPJ {formatar_cnpj(cnpj_limpo)}..."):
-            progresso = st.progress(0, text="Consultando dados cadastrais...")
-            cadastro = consultar_cadastro_cnpj(cnpj_limpo)
-            status_fontes.append(("OpenCNPJ", cadastro["erros"].get("opencnpj")))
-            status_fontes.append(("BrasilAPI", cadastro["erros"].get("brasilapi")))
-
-            progresso.progress(0.15, text="Consultando contratos no PNCP...")
-            contratos_pncp, erro = pncp_search(cnpj_limpo, "contrato", data_min)
-            status_fontes.append(("PNCP — contratos", erro))
-
-            progresso.progress(0.35, text="Consultando compras/licitações no PNCP...")
-            compras_pncp, erro = pncp_search(cnpj_limpo, "compra", data_min)
-            status_fontes.append(("PNCP — compras", erro))
-
-            progresso.progress(0.55, text="Consultando atas de registro de preços (PNCP)...")
-            atas_pncp, erro = pncp_search(cnpj_limpo, "ata", data_min)
-            status_fontes.append(("PNCP — atas", erro))
-
-            progresso.progress(0.75, text="Consultando atas e adesões vigentes (Compras.gov.br)...")
-            atas_dadosabertos, erro = itens_arp_por_fornecedor(cnpj_limpo, anos_janela)
-            status_fontes.append(("Compras.gov.br — ARP", erro))
-
-            # pregões/concorrências → aba Contratos; dispensas e inexigibilidades → aba Dispensas
-            def _direta(c):
-                return str(c.get('modalidade_licitacao_nome') or '').lower() in ('dispensa', 'inexigibilidade')
-
-            progresso.progress(1.0, text="Consulta concluída!")
+            progresso = st.progress(0, text="Consultando 6 fontes em paralelo...")
+            with ThreadPoolExecutor(max_workers=len(tarefas)) as pool:
+                futuros = {pool.submit(fn): nome for nome, fn in tarefas.items()}
+                for i, futuro in enumerate(as_completed(futuros), start=1):
+                    nome = futuros[futuro]
+                    try:
+                        resultados[nome] = futuro.result()
+                    except Exception as exc:  # uma fonte com defeito não derruba as demais
+                        resultados[nome] = None
+                        resultados[nome + "_erro"] = f"erro inesperado ({type(exc).__name__})"
+                    progresso.progress(i / len(tarefas), text=f"{i} de {len(tarefas)} fontes concluídas")
             progresso.empty()
+
+        def _res(nome, vazio):
+            dado = resultados.get(nome)
+            return (dado[0], dado[1]) if dado else (vazio, resultados.get(nome + "_erro", "falha na consulta"))
+
+        cadastro = resultados.get("cadastro") or {"opencnpj": None, "brasilapi": None, "erros": {}}
+        contratos_pncp, erro_contratos = _res("contratos", [])
+        compras_pncp, erro_compras = _res("compras", [])
+        atas_pncp, erro_atas = _res("atas", [])
+        atas_dadosabertos, erro_arp = _res("arp", [])
+        sancoes, datas_sancoes, erro_sancoes = (resultados.get("sancoes") or ({}, {}, resultados.get("sancoes_erro", "falha na consulta")))
+        status_fontes = [
+            ("OpenCNPJ", cadastro["erros"].get("opencnpj")), ("BrasilAPI", cadastro["erros"].get("brasilapi")),
+            ("PNCP — contratos", erro_contratos), ("PNCP — compras", erro_compras), ("PNCP — atas", erro_atas),
+            ("Compras.gov.br — ARP", erro_arp), ("Sanções (CEIS/CNEP/CEPIM)", erro_sancoes),
+        ]
+
+        # pregões/concorrências → aba Contratos; dispensas e inexigibilidades → aba Dispensas
+        def _direta(c):
+            return str(c.get('modalidade_licitacao_nome') or '').lower() in ('dispensa', 'inexigibilidade')
 
         st.session_state['cnpj_consulta'] = cnpj_limpo
         st.session_state['dados_empresa'] = cadastro["opencnpj"]
@@ -396,6 +410,8 @@ if (btn_consultar or _prefill_cnpj) and cnpj_input:
         st.session_state['compras_dispensa'] = [c for c in compras_pncp if _direta(c)]
         st.session_state['atas_pncp'] = atas_pncp
         st.session_state['atas_dadosabertos'] = atas_dadosabertos
+        st.session_state['sancoes'] = sancoes
+        st.session_state['datas_sancoes'] = datas_sancoes
         st.session_state['status_fontes'] = status_fontes
         st.session_state['anos_janela_consulta'] = anos_janela
 
@@ -411,6 +427,8 @@ if 'cnpj_consulta' in st.session_state:
     compras_dispensa = st.session_state.get('compras_dispensa', [])
     atas_pncp = st.session_state.get('atas_pncp', [])
     atas_dadosabertos = st.session_state.get('atas_dadosabertos', [])
+    sancoes = st.session_state.get('sancoes', {})
+    datas_sancoes = st.session_state.get('datas_sancoes', {})
     status_fontes = st.session_state.get('status_fontes', [])
     anos_consulta = st.session_state.get('anos_janela_consulta', 3)
 
@@ -424,6 +442,17 @@ if 'cnpj_consulta' in st.session_state:
     if status_fontes:
         st.caption("Fontes consultadas: " + " · ".join(f"{'❌' if e else '✅'} {f}" for f, e in status_fontes))
     st.caption(f"Período consultado: últimos {anos_consulta} ano(s) (contratos, compras, atas e ARPs).")
+
+    _sancoes_vigentes = [(lista_nome, r) for lista_nome, lista in sancoes.items() for r in lista if r.get('vigente')]
+    _sancoes_total = sum(len(v) for v in sancoes.values())
+    _bases_txt = ", ".join(f"{k} de {datetime.date.fromisoformat(v):%d/%m/%Y}" for k, v in datas_sancoes.items())
+    if _sancoes_vigentes:
+        st.error(f"🚫 **Atenção: sanção vigente encontrada** ({len(_sancoes_vigentes)}) — veja a aba **🚫 Sanções**. "
+                 "Verifique o impedimento antes de qualquer contratação.")
+    elif _sancoes_total:
+        st.warning(f"⚠️ {_sancoes_total} registro(s) de sanção encontrado(s), todos com prazo já encerrado — veja a aba **🚫 Sanções**.")
+    elif sancoes:
+        st.success(f"✅ Nenhuma sanção encontrada em CEIS, CNEP e CEPIM (bases: {_bases_txt}).")
 
     # ---- Exportação ----
     def _df_pncp(registros):
@@ -440,6 +469,8 @@ if 'cnpj_consulta' in st.session_state:
     _contratos_aba = contratos_pncp + compras_pregao
     _vigentes_exp, _ = separar_vigentes(atas_dadosabertos)
     _ids_vigentes = {id(a) for a in _vigentes_exp}
+    _sancoes_df = pd.DataFrame([{'Cadastro': sigla, **{k: v for k, v in r.items() if k != 'vigente'}, 'Vigente': 'Sim' if r.get('vigente') else 'Não'}
+                                for sigla, lista in sancoes.items() for r in lista])
     _empresa_df = pd.DataFrame()
     if dados_empresa:
         _empresa_df = pd.DataFrame([
@@ -468,7 +499,7 @@ if 'cnpj_consulta' in st.session_state:
             "📊 Exportar tudo (Excel)", key="exp_xlsx",
             data=gerar_excel({'Empresa': _empresa_df, 'Sócios': _qsa_df, 'Contratos e compras': _df_pncp(_contratos_aba),
                               'Atas PNCP': _df_pncp(atas_pncp), 'ARP itens': _arp_df,
-                              'Dispensas': _df_pncp(compras_dispensa)}),
+                              'Dispensas': _df_pncp(compras_dispensa), 'Sanções': _sancoes_df}),
             file_name=f"fornecedor_{cnpj_limpo}.xlsx", use_container_width=True,
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     with exp2:
@@ -484,15 +515,17 @@ if 'cnpj_consulta' in st.session_state:
                 formatar_cnpj(cnpj_limpo), _ficha_campos,
                 [("Contratos (PNCP)", str(len(contratos_pncp))), ("Compras/licitações (PNCP)", str(len(compras_pregao))),
                  ("Dispensas/inexigibilidades", str(len(compras_dispensa))), ("Atas de registro de preços (PNCP)", str(len(atas_pncp))),
-                 ("Itens de ARP (Compras.gov.br)", str(len(atas_dadosabertos))), ("Itens com adesão aberta", str(len(_vigentes_exp)))],
+                 ("Itens de ARP (Compras.gov.br)", str(len(atas_dadosabertos))), ("Itens com adesão aberta", str(len(_vigentes_exp))),
+                 ("Sanções (CEIS/CNEP/CEPIM)", (f"{len(_sancoes_vigentes)} vigente(s) de {_sancoes_total} registro(s) — bases de {_bases_txt}" if sancoes else "não consultadas"))],
                 [(c.get('title', ''), c.get('orgao_nome', ''), str(c.get('data_publicacao_pncp') or c.get('data_inicio_vigencia') or '')[:10],
                   formatar_moeda_br(c.get('valor_global') or c.get('valor_total_estimado', 0))) for c in _recentes],
                 [(f"ARP {k[0]}", it.get('nomeUnidadeGerenciadora', ''), f"{str(it.get('dataVigenciaInicial', ''))[:10]} a {str(it.get('dataVigenciaFinal', ''))[:10]}", str(n))
                  for k, (it, n) in list(_atas_pdf.items())[:15]]),
             file_name=f"ficha_fornecedor_{cnpj_limpo}.pdf", mime="application/pdf", use_container_width=True)
 
-    tab_empresa, tab_contratos, tab_atas, tab_adesoes, tab_compras, tab_nf = st.tabs([
+    tab_empresa, tab_sancoes, tab_contratos, tab_atas, tab_adesoes, tab_compras, tab_nf = st.tabs([
         "🏢 Dados da Empresa",
+        "🚫 Sanções" + (f" ({_sancoes_total})" if _sancoes_total else ""),
         "📋 Contratos Governamentais",
         "📑 Atas de Registro de Preços",
         "🤝 Adesões Vigentes",
@@ -610,6 +643,38 @@ if 'cnpj_consulta' in st.session_state:
                 st.dataframe(pd.DataFrame(qsa_data), use_container_width=True, hide_index=True)
         else:
             st.warning("Não foi possível carregar os dados cadastrais desta empresa (OpenCNPJ). Veja o aviso de fontes acima, se houver.")
+
+    # ==================== ABA SANÇÕES ====================
+    with tab_sancoes:
+        st.markdown("### Sanções e impedimentos")
+        st.write("##### Fonte: Portal da Transparência (CGU) — CEIS, CNEP e CEPIM")
+        if not sancoes:
+            st.info("As bases de sanções não puderam ser consultadas agora. Tente novamente em alguns minutos "
+                    "ou consulte diretamente em https://portaldatransparencia.gov.br/sancoes/consulta.")
+        else:
+            st.caption(f"Bases utilizadas: {_bases_txt}. Atualizadas pelo Portal em dias úteis.")
+            for sigla, lista in sancoes.items():
+                descricao = {"CEIS": "Empresas Inidôneas e Suspensas", "CNEP": "Empresas Punidas (Lei Anticorrupção)",
+                             "CEPIM": "Entidades Privadas sem Fins Lucrativos Impedidas"}[sigla]
+                st.markdown(f"#### {sigla} — {descricao}: {len(lista)} registro(s)")
+                if not lista:
+                    st.caption("Nenhum registro para este CNPJ.")
+                for r in lista:
+                    if sigla == "CEPIM":
+                        titulo, linhas = "Impedimento", [("Entidade", r.get('NOME ENTIDADE')), ("Convênio", r.get('NÚMERO CONVÊNIO')),
+                                                          ("Órgão concedente", r.get('ÓRGÃO CONCEDENTE')), ("Motivo", r.get('MOTIVO DO IMPEDIMENTO'))]
+                        marca = "🔴"
+                    else:
+                        marca = "🔴 Vigente" if r.get('vigente') else "⚪ Encerrada"
+                        titulo = r.get('CATEGORIA DA SANÇÃO') or 'Sanção'
+                        linhas = [("Período", f"{r.get('DATA INÍCIO SANÇÃO') or 'N/I'} a {r.get('DATA FINAL SANÇÃO') or 'sem data final'}"),
+                                  ("Órgão sancionador", r.get('ÓRGÃO SANCIONADOR')), ("Processo", r.get('NÚMERO DO PROCESSO')),
+                                  ("Abrangência", r.get('ABRAGÊNCIA DA SANÇÃO')), ("Fundamentação", str(r.get('FUNDAMENTAÇÃO LEGAL') or '')[:300])]
+                        if r.get('VALOR DA MULTA'):
+                            linhas.insert(1, ("Valor da multa", f"R$ {r.get('VALOR DA MULTA')}"))
+                    corpo = "".join(f'<div style="margin-bottom:0.25rem; color:#cbd5e1;"><strong>{esc(k)}:</strong> {esc(v)}</div>' for k, v in linhas)
+                    st.markdown(f'<div class="contract-card"><div class="contract-title">{marca} — {esc(titulo)}</div>{corpo}</div>', unsafe_allow_html=True)
+            st.caption("Consulta informativa com base em dados abertos; a certidão oficial é emitida pelo próprio Portal / SICAF.")
 
     # ==================== ABA 2: CONTRATOS ====================
     with tab_contratos:
