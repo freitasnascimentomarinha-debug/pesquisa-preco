@@ -11,7 +11,7 @@ def test_ramo_pelo_pdm_mais_longo_e_servico_aproximado():
     r = F.ramo_do_item("PAPEL A4, GRAMATURA: 75 G/M2", True, FAMILIAS)
     assert r["ramo"] == "PAPEL A4" and r["base"] == "PDM (CATMAT)"
     assert F.ramo_do_item("Salgados Diversos aplicação: coquetel", True, FAMILIAS)["chave"] == "PDM 11919"
-    s = F.ramo_do_item("Manutenção de Veículos Pesados", False, FAMILIAS)
+    s = F.ramo_do_item("Manutenção de Veículos Pesados", False, FAMILIAS, {})
     assert s["base"] == "descrição (aproximado)" and s["ramo"] == "MANUTENCAO VEICULOS PESADOS"
 
 
@@ -70,6 +70,34 @@ def test_justificativa_e_relatorio():
     assert "até 300%" in corpo and "10% abaixo" in corpo
     oficio = MP.corpo_oficio_adesao({"justificativa": txt})
     assert "foram comparados" in oficio and "mostraram-se vantajosos" not in oficio
+
+
+def test_servicos_pelo_catser_e_subelemento():
+    import natureza_despesa as ND
+    servicos = {"SEGURO AUTOMOTIVO": ("30127", "SEGURO AUTOMOTIVO"),
+                "REVISAO VEICULO QUILOMETRAGEM": ("22250", "REVISAO VEICULO - QUILOMETRAGEM")}
+    r = F.ramo_do_item("Seguro Automotivo Seguro Automotivo", False, FAMILIAS, servicos)
+    assert r["chave"] == "CATSER 30127" and r["tipo"] == "Serviço"
+    r = F.ramo_do_item("Revisão Veículo - Quilometragem Revisão Veículo - Quilometragem", False, FAMILIAS, servicos)
+    assert r["ramo"] == "REVISAO VEICULO - QUILOMETRAGEM"
+    assert ND.sugerir(False, "SEGURO AUTOMOTIVO") == "33903969"
+    assert ND.sugerir(True, "PAPEL A4", "ARTIGOS PARA ESCRITÓRIO") == "33903016"
+    assert ND.sugerir(True, "MESA", "MOBILIÁRIO") == "44905242"
+    assert ND.rotulo("33903016") == "3.3.90.30.16 – Material de expediente"
+    assert ND.codigo_do_rotulo(ND.rotulo("44905242")) == "44905242"
+
+
+def test_soma_por_subelemento_com_ajuste():
+    compras = [_compra(1, 30000), _compra(2, 20000, "Salgados Diversos aplicação: x")]
+    grupos = F.consolidar(compras, FAMILIAS, {})
+    papel = next(g for g in grupos if g["ramo"] == "PAPEL A4")
+    subs = {s["subelemento"]: s["total"] for s in F.por_subelemento(grupos)}
+    assert subs["33903016"] == 30000 and subs["33903007"] == 20000
+    ajustes = {f"II|{papel['chave']}": "33903007"}                       # operador junta tudo em 30.07
+    subs = {s["subelemento"]: s["total"] for s in F.por_subelemento(grupos, ajustes)}
+    assert subs == {"33903007": 50000}
+    corpo = F.corpo_relatorio("1", "OM", 2026, grupos, compras, ajustes)
+    assert "SOMATÓRIO POR NATUREZA DE DESPESA E SUBELEMENTO" in corpo and "3.3.90.30.07" in corpo
 
 
 if __name__ == "__main__":

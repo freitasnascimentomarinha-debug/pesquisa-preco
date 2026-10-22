@@ -22,9 +22,11 @@ from functools import lru_cache
 from typing import Callable
 
 import modelos_processo as MP
+import natureza_despesa as ND
 
 DADOSABERTOS = "https://dadosabertos.compras.gov.br"
 CATALOGO = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Projeto Adesões", "catalogo_catmat.csv.gz")
+CATALOGO_SERVICOS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Projeto Adesões", "catalogo_servicos.json")
 MODALIDADE_DISPENSA = 6               # código da modalidade "Dispensa" no módulo de contratações
 SITUACOES_SEM_DESPESA = ("cancelad", "desert", "fracassad", "anulad", "revogad")
 PALAVRAS_VAZIAS = {"de", "da", "do", "das", "dos", "e", "para", "com", "em", "a", "o", "tipo", "servico", "servicos"}
@@ -48,19 +50,67 @@ def familias_catmat() -> dict[str, tuple[str, str, str]]:
     return familias
 
 
-def ramo_do_item(descricao: str, material: bool, familias: dict | None = None) -> dict:
-    """{'chave', 'ramo', 'classe', 'base'} do item. base: 'PDM (CATMAT)' ou 'descrição (aproximado)'."""
+@lru_cache(maxsize=1)
+def servicos_catser() -> dict[str, tuple[str, str]]:
+    """Nome normalizado do serviço no catálogo (CATSER) -> (código, nome)."""
+    import json
+    if not os.path.exists(CATALOGO_SERVICOS):
+        return {}
+    with open(CATALOGO_SERVICOS, encoding="utf-8") as arq:
+        catalogo = json.load(arq)
+    servicos: dict[str, tuple[str, str]] = {}
+    for nome, codigo in catalogo.items():
+        servicos.setdefault(_norm(nome), (str(codigo), nome))
+    return servicos
+
+
+def _sem_repeticao(palavras: list[str]) -> list[str]:
+    """A API repete o nome do serviço na descrição ('SEGURO AUTOMOTIVO SEGURO AUTOMOTIVO'): fica só uma vez."""
+    for n in range(len(palavras) // 2, 0, -1):
+        if palavras[:n] == palavras[n:2 * n]:
+            return palavras[:n] + palavras[2 * n:]
+    return palavras
+
+
+def _servico(descricao: str, servicos: dict) -> dict | None:
+    palavras = _sem_repeticao(_norm(descricao).split())
+    for n in range(min(20, len(palavras)), 0, -1):            # 1º: o nome do catálogo no começo da descrição
+        achado = servicos.get(" ".join(palavras[:n]))
+        if achado and n >= 2:
+            return {"chave": f"CATSER {achado[0]}", "ramo": achado[1], "classe": "", "base": "CATSER"}
+    alvo = set(palavras[:12]) - {p.upper() for p in PALAVRAS_VAZIAS}
+    melhor, nota = None, 0.0                                   # 2º: o serviço do catálogo mais parecido
+    for nome, achado in servicos.items():
+        tokens = set(nome.split()) - {p.upper() for p in PALAVRAS_VAZIAS}
+        if alvo and tokens:
+            s = len(alvo & tokens) / len(alvo | tokens)
+            if s > nota:
+                melhor, nota = achado, s
+    if melhor and nota >= 0.6:
+        return {"chave": f"CATSER {melhor[0]}", "ramo": melhor[1], "classe": "", "base": f"CATSER (semelhança {nota:.0%})"}
+    return None
+
+
+def ramo_do_item(descricao: str, material: bool, familias: dict | None = None, servicos: dict | None = None) -> dict:
+    """{'chave', 'ramo', 'classe', 'base', 'tipo'} do item.
+    base: 'PDM (CATMAT)', 'CATSER', 'CATSER (semelhança N%)' ou 'descrição (aproximado)'."""
     familias = familias_catmat() if familias is None else familias
-    cabeca = re.split(r"\s+\S+:", " " + str(descricao or ""), maxsplit=1)[0]   # corta no 1º atributo "NOME:"
-    palavras = _norm(cabeca).split()
     if material:
+        cabeca = re.split(r"\s+\S+:", " " + str(descricao or ""), maxsplit=1)[0]   # corta no 1º atributo "NOME:"
+        palavras = _norm(cabeca).split()
         for n in range(min(6, len(palavras)), 0, -1):
             achado = familias.get(" ".join(palavras[:n]))
             if achado:
-                return {"chave": f"PDM {achado[0]}", "ramo": achado[1], "classe": achado[2], "base": "PDM (CATMAT)"}
-    uteis = [p for p in _norm(descricao).split() if p.lower() not in PALAVRAS_VAZIAS][:4]
+                return {"chave": f"PDM {achado[0]}", "ramo": achado[1], "classe": achado[2], "base": "PDM (CATMAT)",
+                        "tipo": "Material"}
+    else:
+        achado = _servico(descricao, servicos_catser() if servicos is None else servicos)
+        if achado:
+            return {**achado, "tipo": "Serviço"}
+    uteis = [p for p in _sem_repeticao(_norm(descricao).split()) if p.lower() not in PALAVRAS_VAZIAS][:6]
     rotulo = " ".join(uteis) or "SEM DESCRIÇÃO"
-    return {"chave": f"DESC {rotulo}", "ramo": rotulo, "classe": "", "base": "descrição (aproximado)"}
+    return {"chave": f"DESC {rotulo}", "ramo": rotulo, "classe": "", "base": "descrição (aproximado)",
+            "tipo": "Material" if material else "Serviço"}
 
 
 def inciso(amparo: str) -> str | None:
@@ -113,8 +163,8 @@ def _valor_item(item: dict) -> tuple[float, bool]:
     return float(item.get("valorTotal") or 0), True
 
 
-def consolidar(compras: list[dict], familias: dict | None = None) -> list[dict]:
-    """Grupos por (inciso, ramo): total, compras, itens, se há valor estimado e situação frente ao limite."""
+def consolidar(compras: list[dict], familias: dict | None = None, servicos: dict | None = None) -> list[dict]:
+    """Grupos por (inciso, ramo): tipo, subelemento sugerido, total, compras, itens, se há valor estimado e situação."""
     grupos: dict[tuple, dict] = {}
     for compra in compras:
         inc = inciso(compra.get("amparoLegalNome"))
@@ -127,7 +177,7 @@ def consolidar(compras: list[dict], familias: dict | None = None) -> list[dict]:
             if any(s in str(item.get("situacaoCompraItemNome") or "").lower() for s in SITUACOES_SEM_DESPESA):
                 continue
             r = ramo_do_item(item.get("descricaoResumida") or item.get("descricaodetalhada"),
-                             item.get("materialOuServico") == "M", familias)
+                             item.get("materialOuServico") != "S", familias, servicos)
             valor, estimado = _valor_item(item)
             g = grupos.setdefault((inc, r["chave"]), {"inciso": inc, **r, "total": 0.0, "compras": set(), "itens": 0,
                                                      "estimado": False, "exemplos": []})
@@ -145,8 +195,30 @@ def consolidar(compras: list[dict], familias: dict | None = None) -> list[dict]:
         g["uso"] = g["total"] / limite
         g["situacao"] = "🔴 ultrapassado" if g["uso"] >= 1 else "🟡 acima de 80%" if g["uso"] >= 0.8 else "🟢 dentro do limite"
         g["compras"] = sorted(g["compras"])
+        g["subelemento"] = ND.sugerir(g["tipo"] == "Material", g["ramo"], g["classe"])
         saida.append(g)
     return sorted(saida, key=lambda g: -g["uso"])
+
+
+def por_subelemento(grupos: list[dict], ajustes: dict[str, str] | None = None) -> list[dict]:
+    """Soma por (inciso, subelemento). ajustes: chave do grupo -> código escolhido pelo operador."""
+    ajustes = ajustes or {}
+    somas: dict[tuple, dict] = {}
+    for g in grupos:
+        codigo = ajustes.get(f"{g['inciso']}|{g['chave']}", g.get("subelemento") or "")
+        s = somas.setdefault((g["inciso"], codigo), {"inciso": g["inciso"], "subelemento": codigo,
+                                                     "rotulo": ND.rotulo(codigo), "total": 0.0, "ramos": 0,
+                                                     "compras": set()})
+        s["total"] += g["total"]
+        s["ramos"] += 1
+        s["compras"].update(g["compras"])
+    saida = []
+    for s in somas.values():
+        limite = MP.LIMITES_DISPENSA["inciso_I" if s["inciso"] == "I" else "inciso_II"]
+        s.update(limite=limite, saldo=limite - s["total"], uso=s["total"] / limite, compras=len(s["compras"]))
+        s["situacao"] = "🔴 ultrapassado" if s["uso"] >= 1 else "🟡 acima de 80%" if s["uso"] >= 0.8 else "🟢 dentro do limite"
+        saida.append(s)
+    return sorted(saida, key=lambda s: -s["uso"])
 
 
 def simular(grupos: list[dict], descricao: str, valor: float, material: bool, inc: str = "II",
@@ -160,38 +232,59 @@ def simular(grupos: list[dict], descricao: str, valor: float, material: bool, in
             "saldo": limite - ja}
 
 
-def corpo_relatorio(uasg: str, nome_uasg: str, ano: int, grupos: list[dict], compras: list[dict]) -> str:
+def corpo_relatorio(uasg: str, nome_uasg: str, ano: int, grupos: list[dict], compras: list[dict],
+                    ajustes: dict[str, str] | None = None) -> str:
     brl = MP.brl
     cel = lambda t: str(t or "").replace("|", "/").replace("\n", " ").strip()
+    ajustes = ajustes or {}
+    sub = lambda g: ND.rotulo(ajustes.get(f"{g['inciso']}|{g['chave']}", g.get("subelemento") or ""))
     linhas = ["### 1. OBJETIVO",
               f"Verificar, para a UASG {uasg}{' – ' + nome_uasg if nome_uasg else ''}, o somatório das contratações "
-              f"diretas em razão do valor realizadas no exercício de {ano}, por ramo de atividade, nos termos do art. 75, "
-              "§1º, da Lei nº 14.133/2021.",
+              f"diretas em razão do valor realizadas no exercício de {ano}, por ramo de atividade e por natureza de "
+              "despesa, nos termos do art. 75, §1º, da Lei nº 14.133/2021.",
               "", "### 2. METODOLOGIA",
               f"Foram consideradas as {len(compras)} dispensas fundamentadas no art. 75, I ou II, publicadas no PNCP e "
               "disponíveis nos dados abertos do Compras.gov.br. O ramo de atividade foi definido pela família do item no "
-              "CATMAT (PDM), deduzida da descrição do item, e, para serviços ou itens sem correspondência, pelas primeiras "
-              "palavras da descrição (agrupamento aproximado). Usou-se o valor homologado do item e, na falta dele, o "
-              f"valor estimado. {MP.nota_limites()}",
-              "", "### 3. SOMATÓRIO POR RAMO DE ATIVIDADE",
-              "| Inciso | Ramo de atividade | Base | Dispensas | Total no exercício | Limite | Saldo | Situação |",
-              "|---|---|---|---|---|---|---|---|"]
-    for g in grupos:
-        linhas.append(f"| {g['inciso']} | {cel(g['ramo'])} | {g['base']} | {len(g['compras'])} | "
-                      f"{brl(g['total'])}{' (*)' if g['estimado'] else ''} | {brl(g['limite'])} | "
-                      f"{brl(max(g['saldo'], 0))} | {g['situacao'][2:]} |")
+              "CATMAT (PDM), para materiais, e pelo serviço do CATSER, para serviços, ambos identificados pela descrição "
+              "do item; sem correspondência no catálogo, o agrupamento é aproximado. A natureza de despesa e o "
+              "subelemento (Portaria STN nº 448/2002) foram sugeridos pela família ou pelo serviço e conferidos pelo "
+              "operador. Usou-se o valor homologado do item e, na falta dele, o valor estimado. " + MP.nota_limites()]
+    n = 3
+    for tipo in ("Material", "Serviço"):
+        do_tipo = [g for g in grupos if g.get("tipo", "Material") == tipo]
+        if not do_tipo:
+            continue
+        linhas += ["", f"### {n}. {'MATERIAIS' if tipo == 'Material' else 'SERVIÇOS'} — SOMATÓRIO POR RAMO DE ATIVIDADE",
+                   "| Inciso | Ramo de atividade | Subelemento | Dispensas | Total no exercício | Saldo | Situação |",
+                   "|---|---|---|---|---|---|---|"]
+        for g in do_tipo:
+            linhas.append(f"| {g['inciso']} | {cel(g['ramo'])} | {cel(sub(g))} | {len(g['compras'])} | "
+                          f"{brl(g['total'])}{' (*)' if g['estimado'] else ''} | {brl(max(g['saldo'], 0))} | "
+                          f"{g['situacao'][2:]} |")
+        n += 1
+    linhas += ["", f"### {n}. SOMATÓRIO POR NATUREZA DE DESPESA E SUBELEMENTO",
+               "| Inciso | Natureza / subelemento | Ramos | Dispensas | Total no exercício | Saldo | Situação |",
+               "|---|---|---|---|---|---|---|"]
+    for s_ in por_subelemento(grupos, ajustes):
+        linhas.append(f"| {s_['inciso']} | {cel(s_['rotulo'])} | {s_['ramos']} | {s_['compras']} | {brl(s_['total'])} | "
+                      f"{brl(max(s_['saldo'], 0))} | {s_['situacao'][2:]} |")
     if any(g["estimado"] for g in grupos):
         linhas.append("(*) inclui valor estimado de item ainda sem resultado registrado.")
+    n += 1
     acima = [g for g in grupos if g["uso"] >= 1]
-    linhas += ["", "### 4. CONCLUSÃO"]
-    if acima:
-        linhas.append("Os ramos abaixo ultrapassaram o limite no exercício e devem ser avaliados quanto a possível "
-                      "fracionamento de despesa:")
-        linhas += [f"- {g['ramo']} (art. 75, {g['inciso']}): {brl(g['total'])}" for g in acima]
+    acima_sub = [s_ for s_ in por_subelemento(grupos, ajustes) if s_["uso"] >= 1 and s_["subelemento"]]
+    linhas += ["", f"### {n}. CONCLUSÃO"]
+    if acima or acima_sub:
+        linhas.append("Ultrapassaram o limite no exercício e devem ser avaliados quanto a possível fracionamento de despesa:")
+        linhas += [f"- Ramo {g['ramo']} (art. 75, {g['inciso']}): {brl(g['total'])}" for g in acima]
+        linhas += [f"- Subelemento {s_['rotulo']} (art. 75, {s_['inciso']}): {brl(s_['total'])}" for s_ in acima_sub]
     else:
-        linhas.append("Nenhum ramo de atividade ultrapassou o limite no exercício, com base nos dados publicados.")
-    linhas += ["", "### 5. LIMITES DA VERIFICAÇÃO",
+        linhas.append("Nenhum ramo de atividade nem subelemento ultrapassou o limite no exercício, com base nos dados "
+                      "publicados.")
+    linhas += ["", f"### {n + 1}. LIMITES DA VERIFICAÇÃO",
                "A verificação usa apenas contratações já publicadas no PNCP; compras recentes ainda não divulgadas não "
-               "aparecem. O enquadramento em \"mesmo ramo de atividade\" é aproximado quando não há correspondência no "
-               "CATMAT e deve ser confirmado pelo agente de contratação."]
+               "aparecem. A API pública não informa a natureza de despesa dos itens: o subelemento é sugerido e deve ser "
+               "confirmado pelo operador. Despesas de TIC têm naturezas próprias (3.3.90.40 e 4.4.90.40), não "
+               "detalhadas aqui. O enquadramento em \"mesmo ramo de atividade\" deve ser confirmado pelo agente de "
+               "contratação."]
     return "\n".join(linhas)

@@ -21,11 +21,12 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 import sys as _sys
 _sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from atualizar_modulos import recarregar_se_mudou  # noqa: E402
-recarregar_se_mudou("documento_oficial", "modelos_processo", "conferencia_processo", "fracionamento")  # evita módulo antigo em memória após deploy
+recarregar_se_mudou("documento_oficial", "modelos_processo", "conferencia_processo", "natureza_despesa", "fracionamento")  # evita módulo antigo em memória após deploy
 import documento_oficial  # noqa: E402
 import modelos_processo as MP  # noqa: E402
 import conferencia_processo as CP  # noqa: E402
 import fracionamento as FR  # noqa: E402
+import natureza_despesa as ND  # noqa: E402
 
 try:
     from dotenv import load_dotenv
@@ -1086,8 +1087,12 @@ def _form_secoes(tipo: str, bloqueado: bool):
                                             format="%.2f", key="tjdl_valor")
                 _fr = st.session_state.get("frac_resultado")
                 if _fr and _fr["grupos"]:
-                    _opcoes_fr = {f"{x['ramo']} (art. 75, {x['inciso']}) — {MP.brl(x['total'])}": x["total"] for x in _fr["grupos"]}
-                    st.selectbox("Preencher \"já contratado\" com um ramo verificado na aba ⚖️ Limite de Dispensa",
+                    _opcoes_fr = {f"Ramo: {x['ramo']} (art. 75, {x['inciso']}) — {MP.brl(x['total'])}": x["total"]
+                                  for x in _fr["grupos"]}
+                    _opcoes_fr.update({f"Subelemento: {x['rotulo']} (art. 75, {x['inciso']}) — {MP.brl(x['total'])}": x["total"]
+                                       for x in FR.por_subelemento(_fr["grupos"], st.session_state.get("frac_ajustes"))
+                                       if x["subelemento"]})
+                    st.selectbox("Preencher \"já contratado\" com um ramo ou subelemento verificado na aba ⚖️ Limite de Dispensa",
                                  ["—"] + list(_opcoes_fr), key="tjdl_ramo_fr",
                                  on_change=lambda: st.session_state.__setitem__(
                                      "tjdl_acumulado", float(_opcoes_fr.get(st.session_state["tjdl_ramo_fr"], 0.0))))
@@ -2247,7 +2252,8 @@ for _info in INFO_MODALIDADES.values():
     for _campo, _texto in _info.items():
         _info[_campo] = (_texto.replace("{LIM_I}", MP.brl(MP.LIMITES_DISPENSA["inciso_I"]))
                          .replace("{LIM_II}", MP.brl(MP.LIMITES_DISPENSA["inciso_II"]))
-                         .replace("{NOTA_LIMITES}", MP.nota_limites()))
+                         .replace("{NOTA_LIMITES}", MP.nota_limites())
+                         .replace("$", "\\$"))   # "R$ ... R$" na mesma linha viraria fórmula no Markdown
 
 def verificar_alertas(palavras_chave: list[str] | None = None) -> list[dict]:
     """Verifica alertas proativos consultando APIs."""
@@ -4154,9 +4160,10 @@ with tab_fracionamento:
     </div>
     """, unsafe_allow_html=True)
     st.caption("O limite do art. 75, I e II, vale para o somatório do exercício na unidade gestora, por objetos do mesmo "
-               "ramo de atividade (art. 75, §1º). Ramo: família do item no CATMAT (PDM) para materiais e descrição do "
-               "serviço para serviços (IN SEGES/ME nº 67/2021). Fonte: dispensas publicadas no PNCP (dados abertos do "
-               "Compras.gov.br). " + MP.nota_limites())
+               "ramo de atividade (art. 75, §1º). Ramo: família do item no CATMAT (PDM) para materiais e serviço do "
+               "CATSER para serviços (IN SEGES/ME nº 67/2021). Também soma por natureza de despesa e subelemento "
+               "(Portaria STN nº 448/2002), sugeridos pelo sistema e ajustáveis por você. Fonte: dispensas publicadas no "
+               "PNCP (dados abertos do Compras.gov.br). " + MP.nota_limites().replace("$", "\\$"))
     _f1, _f2, _f3 = st.columns([2, 1, 2])
     with _f1:
         _preencher("frac_uasg", _om("uasg"))
@@ -4179,37 +4186,92 @@ with tab_fracionamento:
         else:
             _grupos = FR.consolidar(_compras)
             _nome = next((c.get("unidadeOrgaoNomeUnidade") for c in _compras if c.get("unidadeOrgaoNomeUnidade")), "")
+            _anterior = st.session_state.get("frac_resultado") or {}
+            if _anterior.get("uasg") != frac_uasg.strip():
+                st.session_state["frac_ajustes"] = {}      # subelementos escolhidos valem para a mesma UASG
             st.session_state["frac_resultado"] = {"uasg": frac_uasg.strip(), "ano": int(frac_ano), "nome": _nome,
-                                                  "compras": _compras, "grupos": _grupos}
-            _registrar_doc(MP.DOC_FRACIONAMENTO, "RELATÓRIO DE VERIFICAÇÃO DE FRACIONAMENTO",
-                           FR.corpo_relatorio(frac_uasg.strip(), _nome, int(frac_ano), _grupos, _compras),
-                           f"fracionamento_{frac_uasg.strip()}_{int(frac_ano)}")
+                                                  "compras": _compras, "grupos": _grupos,
+                                                  "versao": int(datetime.now().timestamp())}
+            st.session_state.pop(f"doc_gerado_{MP.DOC_FRACIONAMENTO}", None)
+            st.session_state.pop(f"doc_editado_{MP.DOC_FRACIONAMENTO}", None)
 
     _fr = st.session_state.get("frac_resultado")
     if _fr:
         _g = _fr["grupos"]
+        _ajustes = st.session_state.setdefault("frac_ajustes", {})
+        _materiais = [x for x in _g if x.get("tipo", "Material") == "Material"]
+        _servicos = [x for x in _g if x.get("tipo") == "Serviço"]
         st.markdown(f"**UASG {_fr['uasg']}{' – ' + _fr['nome'] if _fr['nome'] else ''} · exercício {_fr['ano']}**")
-        _k1, _k2, _k3, _k4 = st.columns(4)
+        _k1, _k2, _k3, _k4, _k5 = st.columns(5)
         _k1.metric("Dispensas por valor", len(_fr["compras"]))
-        _k2.metric("Ramos de atividade", len(_g))
-        _k3.metric("🔴 Ultrapassados", sum(1 for x in _g if x["uso"] >= 1))
-        _k4.metric("🟡 Acima de 80%", sum(1 for x in _g if 0.8 <= x["uso"] < 1))
+        _k2.metric("📦 Ramos de material", len(_materiais))
+        _k3.metric("🛠️ Ramos de serviço", len(_servicos))
+        _k4.metric("🔴 Ultrapassados", sum(1 for x in _g if x["uso"] >= 1))
+        _k5.metric("🟡 Acima de 80%", sum(1 for x in _g if 0.8 <= x["uso"] < 1))
         if not _fr["compras"]:
             st.info("Nenhuma dispensa por valor (art. 75, I ou II) publicada no PNCP para esta UASG no exercício.")
         else:
-            st.dataframe(
-                pd.DataFrame([{"Situação": x["situacao"], "Inciso": x["inciso"], "Ramo de atividade": x["ramo"],
-                               "Classe": x["classe"], "Base": x["base"], "Dispensas": len(x["compras"]),
-                               "Total": x["total"], "Saldo": max(x["saldo"], 0), "Uso": x["uso"] * 100,
-                               "Exemplos de itens": "; ".join(x["exemplos"]),
-                               "Valor estimado?": "sim" if x["estimado"] else ""} for x in _g]),
-                hide_index=True, width="stretch",
-                column_config={"Total": st.column_config.NumberColumn(format="R$ %.2f"),
-                               "Saldo": st.column_config.NumberColumn(format="R$ %.2f"),
-                               "Uso": st.column_config.ProgressColumn("Uso do limite", format="%.0f%%", min_value=0,
-                                                                     max_value=100)})
-            st.caption("\"Base: descrição (aproximado)\" = item sem correspondência no CATMAT (em geral serviços), "
-                       "agrupado pelas primeiras palavras da descrição: confira se o agrupamento faz sentido.")
+            _opcoes_nd = ND.opcoes()
+            _t_mat, _t_serv, _t_nd = st.tabs([f"📦 Materiais ({len(_materiais)})", f"🛠️ Serviços ({len(_servicos)})",
+                                              "🧾 Por natureza de despesa"])
+            _conf_moeda = {"Total": st.column_config.NumberColumn(format="R$ %.2f"),
+                           "Saldo": st.column_config.NumberColumn(format="R$ %.2f"),
+                           "Uso": st.column_config.ProgressColumn("Uso do limite", format="%.0f%%", min_value=0,
+                                                                 max_value=100)}
+            for _aba, _lista, _tipo in ((_t_mat, _materiais, "Material"), (_t_serv, _servicos, "Serviço")):
+                with _aba:
+                    if not _lista:
+                        st.info(f"Nenhum {'material' if _tipo == 'Material' else 'serviço'} nas dispensas por valor do exercício.")
+                        continue
+                    _df = pd.DataFrame([{
+                        "Situação": x["situacao"], "Inciso": x["inciso"], "Ramo de atividade": x["ramo"],
+                        "Subelemento": ND.rotulo(_ajustes.get(f"{x['inciso']}|{x['chave']}", x.get("subelemento") or "")),
+                        "Dispensas": len(x["compras"]), "Total": x["total"], "Saldo": max(x["saldo"], 0),
+                        "Uso": x["uso"] * 100, "Base": x["base"], "Classe": x["classe"],
+                        "Exemplos de itens": "; ".join(x["exemplos"]),
+                        "Valor estimado?": "sim" if x["estimado"] else ""} for x in _lista])
+                    _ed = st.data_editor(
+                        _df, key=f"frac_ed_{_tipo}_{_fr.get('versao', 0)}", hide_index=True, width="stretch",
+                        disabled=[c for c in _df.columns if c != "Subelemento"],
+                        column_config={**_conf_moeda, "Subelemento": st.column_config.SelectboxColumn(
+                            "Subelemento (editável)", options=_opcoes_nd, width="large",
+                            help="Sugerido pela família ou pelo serviço. Corrija se a sua OM classifica de outro modo.")})
+                    for _x, _rot in zip(_lista, _ed["Subelemento"]):
+                        _chave = f"{_x['inciso']}|{_x['chave']}"
+                        _cod = ND.codigo_do_rotulo(_rot)
+                        if _cod != (_x.get("subelemento") or ""):
+                            _ajustes[_chave] = _cod
+                        else:
+                            _ajustes.pop(_chave, None)
+                    if _tipo == "Serviço":
+                        st.caption("Serviços agrupados pelo catálogo CATSER. \"CATSER (semelhança N%)\" = nome do serviço "
+                                   "não idêntico ao do catálogo; confira o agrupamento.")
+                    else:
+                        st.caption("Materiais agrupados pela família do CATMAT (PDM). \"descrição (aproximado)\" = item "
+                                   "sem correspondência no catálogo.")
+            with _t_nd:
+                _subs = FR.por_subelemento(_g, _ajustes)
+                st.dataframe(pd.DataFrame([{
+                    "Situação": x["situacao"], "Inciso": x["inciso"], "Natureza / subelemento": x["rotulo"],
+                    "Ramos": x["ramos"], "Dispensas": x["compras"], "Total": x["total"], "Saldo": max(x["saldo"], 0),
+                    "Uso": x["uso"] * 100} for x in _subs]), hide_index=True, width="stretch", column_config=_conf_moeda)
+                if any(not x["subelemento"] for x in _subs):
+                    st.warning("Há ramos com subelemento **a definir**: escolha o subelemento nas abas Materiais e "
+                               "Serviços para a soma ficar completa.")
+                st.caption("Soma por subelemento da Portaria STN nº 448/2002 (3.3.90.30, 3.3.90.39 e 4.4.90.52), usando "
+                           "os subelementos escolhidos nas abas ao lado. Despesas de TIC têm naturezas próprias "
+                           "(3.3.90.40 e 4.4.90.40) e não estão detalhadas.")
+            # relatório acompanha os subelementos escolhidos (sem apagar edições feitas à mão no texto)
+            _corpo_novo = FR.corpo_relatorio(_fr["uasg"], _fr["nome"], _fr["ano"], _g, _fr["compras"], _ajustes)
+            _doc_atual = st.session_state.get(f"doc_gerado_{MP.DOC_FRACIONAMENTO}")
+            if not _doc_atual or _doc_atual["corpo"] != _corpo_novo:
+                _editado = st.session_state.get(f"doc_editado_{MP.DOC_FRACIONAMENTO}")
+                _mexido = _doc_atual and _editado and _editado != _doc_atual["corpo"]
+                st.session_state[f"doc_gerado_{MP.DOC_FRACIONAMENTO}"] = {
+                    "titulo": "RELATÓRIO DE VERIFICAÇÃO DE FRACIONAMENTO", "corpo": _corpo_novo,
+                    "nome": f"fracionamento_{_fr['uasg']}_{_fr['ano']}", "oficio": None}
+                if not _mexido:
+                    st.session_state[f"doc_editado_{MP.DOC_FRACIONAMENTO}"] = _corpo_novo
 
         st.markdown("##### 🧮 Simular uma nova dispensa")
         _s1, _s2, _s3, _s4 = st.columns([3, 1.3, 1, 1])
@@ -4228,6 +4290,18 @@ with tab_fracionamento:
                     f"dispensa {MP.brl(_sim['novo'])} = **{MP.brl(_sim['total'])}** de {MP.brl(_sim['limite'])}.").replace("$", "\\$")
             (st.success if _sim["cabe"] else st.error)(
                 _msg + (" Cabe no limite." if _sim["cabe"] else " **Ultrapassa o limite**: avalie licitar ou outra hipótese."))
+            _cod_sim = next((_ajustes.get(f"{_sim_inc}|{x['chave']}", x.get("subelemento") or "") for x in _g
+                             if x["chave"] == _sim["chave"] and x["inciso"] == _sim_inc), "") \
+                or ND.sugerir(_sim_tipo == "Material", _sim["ramo"], _sim.get("classe", ""))
+            if _cod_sim:
+                _ja_sub = sum(x["total"] for x in FR.por_subelemento(_g, _ajustes)
+                              if x["subelemento"] == _cod_sim and x["inciso"] == _sim_inc)
+                _tot_sub = _ja_sub + _sim_valor
+                (st.success if _tot_sub < _sim["limite"] else st.error)(
+                    (f"Subelemento **{ND.rotulo(_cod_sim)}**: já contratado {MP.brl(_ja_sub)} + esta dispensa = "
+                     f"**{MP.brl(_tot_sub)}** de {MP.brl(_sim['limite'])}."
+                     + (" Cabe no limite." if _tot_sub < _sim["limite"] else " **Ultrapassa o limite pelo subelemento.**")
+                     ).replace("$", "\\$"))
 
         _faltam_fr = _pendencias_documento()
         _doc_fr = st.session_state.get(f"doc_gerado_{MP.DOC_FRACIONAMENTO}")
