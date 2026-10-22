@@ -111,6 +111,7 @@ with st.sidebar:
     st.page_link("pages/Cotação_Rápida.py", label="Cotação Rápida", icon="⚡")
     st.page_link("pages/Cotação_Direta.py", label="Cotação Direta", icon="📨")
     st.page_link("pages/Detalhes_Compra.py", label="Detalhes Compra", icon="🔍")
+    st.page_link("pages/Radar_de_Licitacoes.py", label="Radar de Licitações", icon="📡")
     st.page_link("pages/Adesões.py", label="Adesões", icon="🤝")
     st.page_link("pages/Notas_Fiscais.py", label="Notas Fiscais", icon="📄")
     st.page_link("pages/Banco_de_Fornecedores.py", label="Fornecedores", icon="🏢")
