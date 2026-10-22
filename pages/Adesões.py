@@ -10,6 +10,7 @@ from typing import Dict, List, Optional, Tuple
 
 import aiohttp
 import folium
+import pandas as pd
 import requests
 import streamlit as st
 from streamlit_folium import st_folium
@@ -1135,6 +1136,13 @@ def _incluir_outros_itens(chave_ata: str, chave_sel: str) -> None:
     st.session_state[chave_sel] = []
 
 
+def _marcar_reanalise(chave_ata: str) -> None:
+    """Ao marcar/desmarcar 'compras homologadas', a análise já exibida é refeita no novo modo."""
+    grupo = (st.session_state.get("_cesta_adesao") or {}).get(chave_ata)
+    if grupo and grupo.get("analise") is not None:
+        grupo["reanalisar"] = True
+
+
 def _aplicar_edicao_cesta(chave_ata: str, chave_editor: str) -> None:
     """Grava na cesta as quantidades digitadas e retira os itens desmarcados."""
     grupo = (st.session_state.get("_cesta_adesao") or {}).get(chave_ata)
@@ -1148,13 +1156,16 @@ def _aplicar_edicao_cesta(chave_ata: str, chave_editor: str) -> None:
         item = grupo["itens"][int(linha)]
         if "Quantidade pretendida" in campos:
             item["Quantidade"] = campos["Quantidade pretendida"]
+        if "Preço de referência (manual)" in campos:
+            item["ref_manual"] = campos["Preço de referência (manual)"]
         if campos.get("Incluir") is False:
             retirar.add(int(linha))
     if retirar:
         grupo["itens"] = [i for n, i in enumerate(grupo["itens"]) if n not in retirar]
         st.session_state["_cesta_seq"] = int(st.session_state.get("_cesta_seq") or 0) + 1
         grupo["versao"] = st.session_state["_cesta_seq"]
-    grupo.pop("analise", None)
+    if grupo.pop("analise", None) is not None:
+        grupo["reanalisar"] = True   # a análise já feita é refeita com as quantidades e preços novos
     if not grupo["itens"]:
         st.session_state["_cesta_adesao"].pop(chave_ata, None)
 
@@ -1189,7 +1200,8 @@ def _painel_cesta_adesao() -> None:
         with st.container(border=True):
             st.markdown(f"**Ata {grupo['ata']}** — {grupo['gerenciador']} (UASG {grupo['uasg']}) · {grupo['licitacao']}")
             linhas = [{"Incluir": True, "Item": i["Item"], "Descrição": i["Descrição"], "Preço registrado": i.get("preco"),
-                       "Máx. por órgão": i.get("max"), "Quantidade pretendida": _num(i.get("Quantidade"))}
+                       "Máx. por órgão": i.get("max"), "Quantidade pretendida": _num(i.get("Quantidade")),
+                       "Preço de referência (manual)": _num(i.get("ref_manual"))}
                       for i in grupo["itens"]]
             chave_editor = f"cesta_ed_{chave_ata}_{grupo['versao']}"
             st.data_editor(
@@ -1200,6 +1212,10 @@ def _painel_cesta_adesao() -> None:
                     "Preço registrado": st.column_config.NumberColumn(format="R$ %.2f"),
                     "Máx. por órgão": st.column_config.NumberColumn(format="%.0f"),
                     "Quantidade pretendida": st.column_config.NumberColumn(min_value=0, step=1, required=False),
+                    "Preço de referência (manual)": st.column_config.NumberColumn(
+                        min_value=0.0, format="R$ %.2f", required=False,
+                        help="Use quando o sistema não achar preço de mercado: informe o valor obtido na sua pesquisa "
+                             "(ex.: Cotação Rápida) e analise de novo."),
                     "Descrição": st.column_config.TextColumn(width="large"),
                 },
                 on_change=_aplicar_edicao_cesta, args=(chave_ata, chave_editor))
@@ -1215,7 +1231,8 @@ def _painel_cesta_adesao() -> None:
                         "rotulo": f"Item {r.get('numeroItem')} — {str(r.get('descricaoItem') or '')[:90]} — "
                                   f"{MP_brl(r.get('valorUnitario'))}",
                         "item": {"Item": str(r.get("numeroItem")), "Descrição": str(r.get("descricaoItem") or ""),
-                                 "Unidade": "", "codigo": str(r.get("codigoItem") or ""), "preco": _num(r.get("valorUnitario")),
+                                 "Unidade": "", "codigo": str(r.get("codigoItem") or ""), "pdm": str(r.get("codigoPdm") or ""),
+                                 "preco": _num(r.get("valorUnitario")),
                                  "max": (_num(r.get("quantidadeHomologadaItem")) or 0) * 0.5 or None, "Quantidade": ""},
                     } for r in lista if r.get("maximoAdesao")]
                 ja = {i["Item"] for i in grupo["itens"]}
@@ -1237,11 +1254,15 @@ def _painel_cesta_adesao() -> None:
             sem_qtd = [i["Item"] for i in grupo["itens"] if not _num(i.get("Quantidade"))]
             _c1, _c2, _c3 = st.columns([2, 2, 1])
             with _c1:
-                compras = st.checkbox("Incluir compras homologadas (mais preciso, mais lento)", key=f"cesta_cmp_{chave_ata}")
-                if st.button("📊 Analisar vantajosidade", key=f"cesta_an_{chave_ata}", use_container_width=True):
-                    with st.spinner("Buscando preços do mesmo item em outras atas e compras dos últimos 12 meses..."):
+                compras = st.checkbox("Incluir compras homologadas (mais preciso, mais lento)", key=f"cesta_cmp_{chave_ata}",
+                                      on_change=_marcar_reanalise, args=(chave_ata,))
+                analisar = st.button("📊 Analisar vantajosidade", key=f"cesta_an_{chave_ata}", use_container_width=True)
+                if analisar or grupo.pop("reanalisar", False):
+                    with st.spinner("Buscando preços de mercado dos últimos 12 meses"
+                                    + (" (compras homologadas: consulta lenta, uma por vez)..." if compras else "...")):
                         grupo["analise"] = V.analisar(
                             [{**i, "Quantidade": i.get("Quantidade") or 0} for i in grupo["itens"]], chave_ata, compras)
+                        grupo["analise_com_compras"] = compras
             with _c2:
                 if st.button("✉️ Gerar ofício no Babilaca", key=f"cesta_of_{chave_ata}", type="primary",
                              use_container_width=True):
@@ -1256,11 +1277,33 @@ def _painel_cesta_adesao() -> None:
             analise = grupo.get("analise")
             if analise:
                 r = V.resumo(analise)
-                st.dataframe([{"Item": a["item"], "Preço da ata": MP_brl(a["preco"]), "Mediana de mercado": MP_brl(a["mediana"]),
-                               "Preços": f"{a['aceitos']}/{a['fontes']}",
-                               "Diferença": f"{a['diferenca'] * 100:+.1f}%" if a["diferenca"] is not None else "-",
-                               "Economia": MP_brl(a["economia"]), "Situação": a["situacao"],
-                               "Obs.": a.get("erro") or ""} for a in analise], hide_index=True, width="stretch")
+                st.caption("Análise " + ("com" if grupo.get("analise_com_compras") else "sem")
+                           + " compras homologadas. Verde: vantajoso · amarelo: compatível com o mercado · vermelho: "
+                             "acima do mercado ou sem preço de referência.")
+                tabela = pd.DataFrame([{
+                    "Item": a["item"], "Preço da ata": MP_brl(a["preco"]), "Mediana de mercado": MP_brl(a["mediana"]),
+                    "Faixa de mercado": f"{MP_brl(a['menor'])} a {MP_brl(a['maior'])}" if a["mediana"] is not None else "a pesquisar",
+                    "Preços": f"{a['aceitos']}/{a['fontes']}",
+                    "Diferença": f"{a['diferenca'] * 100:+.1f}%".replace(".", ",") if a["diferenca"] is not None else "-",
+                    "Economia": MP_brl(a["economia"]), "Situação": a["situacao"], "Obs.": a.get("erro") or "",
+                    "_classe": a["classe"]} for a in analise])
+                cores = {"vantajoso": "#14532d", "compativel": "#713f12", "acima": "#7f1d1d", "sem_ref": "#7f1d1d"}
+                st.dataframe(tabela.style.apply(lambda linha: [f"background-color: {cores.get(linha['_classe'], '')}"] * len(linha),
+                                                axis=1), hide_index=True, width="stretch",
+                             column_order=[c for c in tabela.columns if c != "_classe"])
+                if r["sem_referencia"]:
+                    st.error("Sem preço de referência no(s) item(ns) " + ", ".join(str(a["item"]) for a in r["sem_referencia"])
+                             + ". Confira se o código do item não está restrito demais (o sistema já tentou itens "
+                               "semelhantes da mesma família). Se não estiver, pesquise o preço (ex.: Cotação Rápida) e "
+                               "informe-o na coluna **Preço de referência (manual)** acima, ou complete o campo marcado "
+                               "com __________ no relatório editável do Babilaca.")
+                if r["desvantajosos"]:
+                    st.warning("Acima de todos os preços de mercado encontrados: item(ns) "
+                               + ", ".join(str(a["item"]) for a in r["desvantajosos"])
+                               + ". Retire da adesão ou justifique no relatório.")
+                with st.expander("Justificativa por item (vai no relatório)"):
+                    for a in analise:
+                        st.markdown("- " + V.justificativa_item(a).replace("$", "\\$"))
                 if r["itens_com_referencia"] and r["valor_mercado"]:
                     cor = st.success if r["economia"] >= 0 else st.warning
                     cor(f"Adesão: {MP_brl(r['valor_ata'])} × mercado (mediana): {MP_brl(r['valor_mercado'])} → "
@@ -1704,6 +1747,7 @@ if results:
                                 "Descrição": _desc_item or f"Item {numero_item}",
                                 "Unidade": str(raw.get("unidadeFornecimento") or raw.get("siglaUnidadeFornecimento") or ""),
                                 "codigo": str(raw.get("codigoItem") or ""),
+                                "pdm": str(raw.get("codigoPdm") or ""),
                                 "preco": _num(raw.get("valorUnitario")),
                                 "max": _num(max_por_orgao_txt.replace(".", "").replace(",", ".")) if max_por_orgao_txt != "N/I" else None,
                                 "Quantidade": "",
