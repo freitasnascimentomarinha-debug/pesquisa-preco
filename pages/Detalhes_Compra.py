@@ -21,7 +21,13 @@ import requests
 import streamlit as st
 from streamlit.runtime.scriptrunner import add_script_run_ctx, get_script_run_ctx
 
-from servicos_publicos import gerar_excel, http_get_json, limpar_cnpj
+try:
+    from servicos_publicos import gerar_excel, http_get_json, limpar_cnpj
+except ImportError:  # após uma atualização do código o servidor pode manter a versão antiga do módulo em memória
+    import importlib
+    import servicos_publicos
+    importlib.reload(servicos_publicos)
+    from servicos_publicos import gerar_excel, http_get_json, limpar_cnpj
 
 # ── Caminhos ───────────────────────────────────────────────────────────────
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "Projeto Adesões")

@@ -8,10 +8,19 @@ from html import escape
 
 from fornecedores_nf import formatar_cnae
 from relatorio_fornecedor import gerar_ficha_pdf
-from servicos_publicos import (
-    baixar_csv_drive, cnpj_valido, consultar_cadastro_cnpj, consultar_sancoes, formatar_cnpj, gerar_excel, itens_arp_por_fornecedor, limpar_cnpj,
-    listar_arquivos_drive, pesquisar_notas_por_cnpj, pncp_search, resumo_notas, separar_vigentes,
-)
+try:
+    from servicos_publicos import (
+        baixar_csv_drive, cnpj_valido, consultar_cadastro_cnpj, consultar_sancoes, formatar_cnpj, gerar_excel, itens_arp_por_fornecedor, limpar_cnpj,
+        listar_arquivos_drive, pesquisar_notas_por_cnpj, pncp_search, resumo_notas, separar_vigentes,
+    )
+except ImportError:  # após uma atualização do código o servidor pode manter a versão antiga do módulo em memória
+    import importlib
+    import servicos_publicos
+    importlib.reload(servicos_publicos)
+    from servicos_publicos import (
+        baixar_csv_drive, cnpj_valido, consultar_cadastro_cnpj, consultar_sancoes, formatar_cnpj, gerar_excel, itens_arp_por_fornecedor, limpar_cnpj,
+        listar_arquivos_drive, pesquisar_notas_por_cnpj, pncp_search, resumo_notas, separar_vigentes,
+    )
 
 # Configuração da página
 st.set_page_config(
