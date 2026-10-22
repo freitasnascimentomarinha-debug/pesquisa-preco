@@ -6,15 +6,17 @@ Busca contratos, documentos e dados de compras via APIs públicas
 
 import base64
 import json
+from html import escape as _e
 import os
 import re
-import time
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlencode
 
 import requests
 import streamlit as st
+
+from servicos_publicos import http_get_json
 
 # ── Caminhos ───────────────────────────────────────────────────────────────
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "Projeto Adesões")
@@ -216,36 +218,11 @@ st.markdown("""
 # ═══════════════════════════════════════════════════════════════════════════
 
 def _api_get(url: str, timeout: int = REQUEST_TIMEOUT) -> Optional[Any]:
-    """GET com retry e tratamento de erros. Lida com migração de API PNCP."""
-    for attempt in range(MAX_RETRIES + 1):
-        try:
-            r = requests.get(url, timeout=timeout, headers={"User-Agent": "Mozilla/5.0"}, verify=True)
-            if r.status_code == 404:
-                return None
-            if r.status_code == 301:
-                # API PNCP migrou — tentar nova URL uma única vez (timeout curto)
-                if PNCP_API_BASE in url:
-                    alt_url = url.replace(PNCP_API_BASE, PNCP_API_BASE_NEW)
-                    try:
-                        r2 = requests.get(alt_url, timeout=12, headers={"User-Agent": "Mozilla/5.0"}, verify=True)
-                        if r2.status_code == 200:
-                            return r2.json()
-                    except Exception:
-                        pass
-                return None
-            r.raise_for_status()
-            return r.json()
-        except requests.exceptions.Timeout:
-            if attempt < MAX_RETRIES:
-                time.sleep(0.5)
-                continue
-            return None
-        except requests.exceptions.RequestException:
-            if attempt < MAX_RETRIES:
-                time.sleep(0.5)
-                continue
-            return None
-    return None
+    """GET em JSON (cliente compartilhado, com retry). Se a API antiga do PNCP falhar, tenta a nova URL uma única vez."""
+    dados, erro = http_get_json(url, timeout=timeout, tentativas=MAX_RETRIES + 1, ok_404=True)
+    if dados is None and erro and PNCP_API_BASE in url:
+        dados, _ = http_get_json(url.replace(PNCP_API_BASE, PNCP_API_BASE_NEW), timeout=12, tentativas=1, ok_404=True)
+    return dados
 
 
 def parse_pncp_control(ctrl: str) -> Optional[Tuple[str, str, str]]:
@@ -345,20 +322,6 @@ def normalize_id_compra(raw_value: Any) -> str:
     return re.sub(r"\D", "", str(raw_value))
 
 
-def infer_year_from_id_compra(id_compra: str) -> Optional[int]:
-    """Infere o ano a partir dos 4 últimos dígitos do ID da compra."""
-    normalized = normalize_id_compra(id_compra)
-    if len(normalized) < 4:
-        return None
-    try:
-        year = int(normalized[-4:])
-    except ValueError:
-        return None
-    if 2000 <= year <= 2100:
-        return year
-    return None
-
-
 def parse_id_compra(id_compra: str) -> Optional[Dict[str, str]]:
     """Extrai componentes conhecidos do ID da compra.
 
@@ -373,19 +336,6 @@ def parse_id_compra(id_compra: str) -> Optional[Dict[str, str]]:
         "sequencial": normalized[8:13],
         "ano": normalized[13:17],
     }
-
-
-def id_compra_matches(candidate: Any, expected: str) -> bool:
-    """Compara IDs de compra de forma tolerante a formatação."""
-    normalized_candidate = normalize_id_compra(candidate)
-    normalized_expected = normalize_id_compra(expected)
-    if not normalized_candidate or not normalized_expected:
-        return False
-    return (
-        normalized_candidate == normalized_expected
-        or normalized_candidate.endswith(normalized_expected)
-        or normalized_expected.endswith(normalized_candidate)
-    )
 
 
 def dedupe_by_keys(items: List[Dict], keys: List[str]) -> List[Dict]:
@@ -450,34 +400,6 @@ def buscar_link_compra_fase_externa(id_compra: str) -> Dict[str, str]:
             "status": "error",
             "message": "Não foi possível consultar a API pública do ComprasNet no momento.",
         }
-
-
-def render_status_compra_publica(id_compra: str):
-    """Mostra o status público de detalhamento da compra no ComprasNet."""
-    status = buscar_link_compra_fase_externa(id_compra)
-    raw_status = status.get("status", "error")
-    message = status.get("message", "")
-
-    if raw_status == "found":
-        st.success(message)
-        link = status.get("link", "")
-        if link:
-            st.markdown(
-                f'<div class="info-card"><h4>🔗 Fase Externa Pública</h4>'
-                f'<p>Foi encontrado um link público mais específico para esta compra.</p>'
-                f'<p><a href="{link}" target="_blank">Abrir detalhamento público da compra</a></p></div>',
-                unsafe_allow_html=True,
-            )
-    elif raw_status == "not-found":
-        st.warning(
-            "A API pública detalhada do ComprasNet não encontrou esta compra. "
-            "Isso indica que pode existir um identificador válido e um link de acesso, mas sem detalhes públicos disponíveis nessa rota."
-        )
-        st.caption(message)
-    elif raw_status == "timeout":
-        st.warning(message)
-    else:
-        st.info(message or "Não houve retorno conclusivo da consulta pública do ComprasNet.")
 
 
 @st.cache_data(ttl=300, show_spinner=False)
@@ -571,7 +493,7 @@ def buscar_cnpj_orgao_por_uasg(codigo_uasg: str, ano: int) -> Dict[str, Any]:
                         params=params,
                         timeout=REQUEST_TIMEOUT,
                         headers=headers,
-                        verify=False,
+                        verify=True,
                     )
                     attempt = {
                         "fonte": f"pncp-search:{tipo_documento}",
@@ -661,23 +583,6 @@ def buscar_contratos_uasg(codigo_uasg: str, ano: int) -> List[Dict]:
     return []
 
 
-@st.cache_data(ttl=300, show_spinner=False)
-def buscar_contratos_item_uasg(codigo_uasg: str, ano: int) -> List[Dict]:
-    """Busca itens de contratos de uma UASG."""
-    params = {
-        "codigoUnidadeGestora": codigo_uasg,
-        "dataVigenciaInicialMin": f"{ano}-01-01",
-        "dataVigenciaInicialMax": f"{ano}-12-31",
-        "pagina": 1,
-        "tamanhoPagina": 500,
-    }
-    url = f"{COMPRASGOV_BASE}/modulo-contratos/2_consultarContratosItem?{urlencode(params)}"
-    data = _api_get(url)
-    if data and isinstance(data, dict):
-        return data.get("resultado", [])
-    return []
-
-
 # ── API ComprasGov: ARP (SRP) ─────────────────────────────────────────────
 
 @st.cache_data(ttl=300, show_spinner=False)
@@ -758,68 +663,6 @@ def buscar_documentos_ata_pncp(cnpj: str, ano_compra: str, seq_compra: str, seq_
 
 # ── API PNCP: Contratos por Contratação ───────────────────────────────────
 
-@st.cache_data(ttl=300, show_spinner=False)
-def buscar_contratos_pncp_por_contratacao(cnpj: str, ano: str, seq: str) -> List[Dict]:
-    """Busca contratos/empenhos vinculados a uma contratação no PNCP."""
-    seq_limpo = str(int(seq))  # remove zeros à esquerda
-    url = f"{PNCP_API_BASE}/orgaos/{cnpj}/contratos/contratacao/{ano}/{seq_limpo}?pagina=1&tamanhoPagina=500"
-    data = _api_get(url)
-    if isinstance(data, dict):
-        return data.get("data", [])
-    if isinstance(data, list):
-        return data
-    return []
-
-
-@st.cache_data(ttl=300, show_spinner=False)
-def buscar_instrumentos_cobranca(cnpj: str, ano_contrato: str, seq_contrato: str) -> List[Dict]:
-    """Busca instrumentos de cobrança (Notas Fiscais) de um contrato no PNCP."""
-    url = f"{PNCP_API_BASE}/orgaos/{cnpj}/contratos/{ano_contrato}/{seq_contrato}/instrumentocobranca"
-    data = _api_get(url)
-    if isinstance(data, list):
-        return data
-    return []
-
-
-@st.cache_data(ttl=300, show_spinner=False)
-def buscar_termos_contrato_pncp(cnpj: str, ano_contrato: str, seq_contrato: str) -> List[Dict]:
-    """Busca termos aditivos de um contrato no PNCP."""
-    url = f"{PNCP_API_BASE}/orgaos/{cnpj}/contratos/{ano_contrato}/{seq_contrato}/termos"
-    data = _api_get(url)
-    if isinstance(data, list):
-        return data
-    return []
-
-
-@st.cache_data(ttl=300, show_spinner=False)
-def buscar_docs_contrato_pncp(cnpj: str, ano_contrato: str, seq_contrato: str) -> List[Dict]:
-    """Busca documentos de um contrato no PNCP."""
-    url = f"{PNCP_API_BASE}/orgaos/{cnpj}/contratos/{ano_contrato}/{seq_contrato}/arquivos"
-    data = _api_get(url)
-    if isinstance(data, list):
-        return data
-    return []
-
-
-@st.cache_data(ttl=300, show_spinner=False)
-def buscar_historico_compra_pncp(cnpj: str, ano: str, seq: str) -> List[Dict]:
-    """Busca histórico de uma contratação no PNCP."""
-    url = f"{PNCP_API_BASE}/orgaos/{cnpj}/compras/{ano}/{seq}/historico"
-    data = _api_get(url)
-    if isinstance(data, list):
-        return data
-    return []
-
-
-@st.cache_data(ttl=300, show_spinner=False)
-def buscar_docs_termo_pncp(cnpj: str, ano_contrato: str, seq_contrato: str, seq_termo: str) -> List[Dict]:
-    """Busca documentos de um termo aditivo de contrato."""
-    url = f"{PNCP_API_BASE}/orgaos/{cnpj}/contratos/{ano_contrato}/{seq_contrato}/termos/{seq_termo}/arquivos"
-    data = _api_get(url)
-    if isinstance(data, list):
-        return data
-    return []
-
 
 # ── UASG Index ─────────────────────────────────────────────────────────────
 
@@ -850,10 +693,10 @@ def render_documentos(docs: List[Dict], titulo: str = "Documentos"):
         titulo_doc = doc.get("titulo", "Documento sem título")
         tipo = doc.get("tipoDocumentoNome", doc.get("tipoDocumentoDescricao", ""))
         url_doc = doc.get("url", doc.get("uri", ""))
-        badge = f' <span class="doc-badge">{tipo}</span>' if tipo else ""
+        badge = f' <span class="doc-badge">{_e(str(tipo))}</span>' if tipo else ""
         st.markdown(
             f'<div class="doc-card">'
-            f'<a href="{url_doc}" target="_blank">📥 {titulo_doc}</a>{badge}'
+            f'<a href="{_e(str(url_doc), quote=True)}" target="_blank">📥 {_e(str(titulo_doc))}</a>{badge}'
             f"</div>",
             unsafe_allow_html=True,
         )
@@ -875,6 +718,9 @@ def render_links_externos(id_compra: str, cnpj: str = "", ano: str = "", seq: st
 def render_resultado_id_pncp(resultado: Dict[str, Any], id_compra: str, nome_uasg: str, uf: str = ""):
     """Exibe o resultado da validação de um ID de compra em links externos."""
     parsed = parse_id_compra(id_compra) or {}
+    nome_uasg = _e(str(nome_uasg))
+    uf = _e(str(uf))
+    cnpj_info = _e(str(resultado.get("cnpj") or "N/I"))
     base_info = (
         f"<div class='lookup-meta'>UASG {parsed.get('uasg', 'N/I')}"
         f" • Sequencial {parsed.get('sequencial', 'N/I')} • Ano {parsed.get('ano', 'N/I')}</div>"
@@ -882,10 +728,10 @@ def render_resultado_id_pncp(resultado: Dict[str, Any], id_compra: str, nome_uas
 
     if resultado.get("status") in {"found-pncp", "found-both"}:
         compra = resultado.get("compra", {}) or {}
-        objeto = compra.get("objetoCompra", "") or "Objeto não informado"
-        modalidade = compra.get("modalidadeNome", "Publicação encontrada") or "Publicação encontrada"
+        objeto = _e(str(compra.get("objetoCompra", "") or "Objeto não informado"))
+        modalidade = _e(str(compra.get("modalidadeNome", "Publicação encontrada") or "Publicação encontrada"))
         orgao = compra.get("orgaoEntidade", {}) or {}
-        orgao_nome = orgao.get("razaoSocial", "") or nome_uasg
+        orgao_nome = _e(str(orgao.get("razaoSocial", "") or nome_uasg))
         st.markdown(
             f"""
             <div class="lookup-panel success">
@@ -894,7 +740,7 @@ def render_resultado_id_pncp(resultado: Dict[str, Any], id_compra: str, nome_uas
                 <div class="lookup-text">{objeto}</div>
                 <div class="lookup-text"><strong>Órgão:</strong> {orgao_nome}</div>
                 <div class="lookup-text"><strong>UASG:</strong> {nome_uasg}{' — ' + uf if uf else ''}</div>
-                <div class="lookup-text"><strong>CNPJ:</strong> {resultado.get('cnpj', 'N/I')}</div>
+                <div class="lookup-text"><strong>CNPJ:</strong> {cnpj_info}</div>
                 {base_info}
             </div>
             """,
@@ -913,7 +759,7 @@ def render_resultado_id_pncp(resultado: Dict[str, Any], id_compra: str, nome_uas
                 <div class="lookup-title">Link externo localizado para o ID {normalize_id_compra(id_compra)}</div>
                 <div class="lookup-text">O ComprasNet possui uma página pública para este ID, mas o PNCP não retornou publicação de detalhe.</div>
                 <div class="lookup-text"><strong>UASG:</strong> {nome_uasg}{' — ' + uf if uf else ''}</div>
-                <div class="lookup-text"><strong>CNPJ:</strong> {resultado.get('cnpj', 'N/I')}</div>
+                <div class="lookup-text"><strong>CNPJ:</strong> {cnpj_info}</div>
                 {base_info}
             </div>
             """,
@@ -923,7 +769,7 @@ def render_resultado_id_pncp(resultado: Dict[str, Any], id_compra: str, nome_uas
             st.link_button("🔗 Abrir acompanhamento no ComprasNet", resultado.get("comprasnet_url", ""), use_container_width=True)
         return
 
-    motivo = resultado.get("message", "Nenhuma publicação do PNCP foi encontrada para este ID.")
+    motivo = _e(str(resultado.get("message", "Nenhuma publicação do PNCP foi encontrada para este ID.")))
     st.markdown(
         f"""
         <div class="lookup-panel warning">
@@ -932,54 +778,6 @@ def render_resultado_id_pncp(resultado: Dict[str, Any], id_compra: str, nome_uas
             <div class="lookup-text"><strong>UASG:</strong> {nome_uasg}{' — ' + uf if uf else ''}</div>
             {base_info}
         </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-
-def render_autoload_trigger(section: str, button_text: str):
-    """Dispara clique automático em botão oculto quando o marcador entra na área visível."""
-    marker_id = f"dc_autoload_{section}_marker"
-    storage_key = f"dc_autoload_{section}_last_click"
-    listener_key = f"__dc_autoload_listener_{section}"
-    js_button_text = json.dumps(button_text)
-    st.markdown(
-        f"""
-        <div id="{marker_id}" style="height:1px;"></div>
-        <div style="display:none;"><script>
-        (function() {{
-            const parentWin = window.parent;
-            const doc = parentWin.document;
-
-            const findButton = () => Array.from(doc.querySelectorAll("button"))
-                .find((btn) => (btn.innerText || "").trim() === {js_button_text});
-
-            const attemptLoad = () => {{
-                const marker = doc.getElementById("{marker_id}");
-                const btn = findButton();
-                if (!marker || !btn) return;
-
-                const rect = marker.getBoundingClientRect();
-                const nearViewport = rect.top <= (parentWin.innerHeight + 140);
-                if (!nearViewport) return;
-
-                const now = Date.now();
-                const last = Number(parentWin.sessionStorage.getItem("{storage_key}") || 0);
-                if (now - last < 1200) return;
-
-                parentWin.sessionStorage.setItem("{storage_key}", String(now));
-                btn.click();
-            }};
-
-            attemptLoad();
-
-            if (!parentWin["{listener_key}"]) {{
-                parentWin.addEventListener("scroll", attemptLoad, {{ passive: true }});
-                parentWin.addEventListener("resize", attemptLoad);
-                parentWin["{listener_key}"] = true;
-            }}
-        }})();
-        </script></div>
         """,
         unsafe_allow_html=True,
     )
@@ -1098,87 +896,6 @@ def render_arp(ata: Dict):
     return ctrl_compra, ctrl_ata, id_compra
 
 
-def render_contrato_pncp(ct: Dict, cnpj_orgao: str):
-    """Renderiza contrato PNCP com NFs, termos e docs."""
-    ano_ct = str(ct.get("anoContrato", ""))
-    seq_ct = str(ct.get("sequencialContrato", ""))
-    numero = ct.get("numeroContratoEmpenho", ct.get("numero", "N/I"))
-    objeto = ct.get("objetoContrato", "N/I")
-    fornecedor = ct.get("nomeRazaoSocialFornecedor", "")
-    cnpj_forn = ct.get("niFornecedor", "")
-    valor = ct.get("valorInicial", ct.get("valorGlobal", ""))
-    data_vig_ini = _fmt_data(ct.get("dataVigenciaInicio", ct.get("dataVigenciaInicial", "")))
-    data_vig_fim = _fmt_data(ct.get("dataVigenciaFim", ct.get("dataVigenciaFinal", "")))
-    tipo = ct.get("tipoCategoriaProcessoNome", ct.get("tipoContratoNome", ""))
-
-    vigencia = f"{data_vig_ini} a {data_vig_fim}" if data_vig_ini else "N/I"
-    tipo_label = f" ({tipo})" if tipo else ""
-
-    st.markdown(f"###### 📄 {numero}{tipo_label}")
-    col_a, col_b = st.columns([3, 1])
-    with col_a:
-        if fornecedor:
-            st.markdown(f"**Fornecedor:** {fornecedor} ({cnpj_forn})")
-        if objeto and objeto != "N/I":
-            st.markdown(f"**Objeto:** {str(objeto)[:200]}")
-    with col_b:
-        st.metric("Valor", _fmt_valor(valor))
-        st.caption(f"Vigência: {vigencia}")
-
-    # Sub-abas do contrato: NFs, Termos, Documentos
-    if ano_ct and seq_ct:
-        # Use cnpj from orgaoEntidade if available
-        org = ct.get("orgaoEntidade", {})
-        cnpj_ct = org.get("cnpj", cnpj_orgao) if isinstance(org, dict) else cnpj_orgao
-
-        sub_nf, sub_termos, sub_docs = st.tabs(["💰 Notas Fiscais", "📝 Termos Aditivos", "📎 Documentos"])
-
-        with sub_nf:
-            nfs = buscar_instrumentos_cobranca(cnpj_ct, ano_ct, seq_ct)
-            if nfs:
-                st.success(f"✅ {len(nfs)} instrumento(s) de cobrança encontrado(s)")
-                for nf in nfs:
-                    tipo_nf = nf.get("tipoInstrumentoCobrancaNome", "N/I")
-                    numero_nf = nf.get("numero", "N/I")
-                    valor_liq = nf.get("valorLiquido", "")
-                    valor_bruto = nf.get("valorBruto", "")
-                    data_emissao = _fmt_data(nf.get("dataEmissao", nf.get("dataInclusao", "")))
-                    data_pgto = _fmt_data(nf.get("dataPagamento", ""))
-                    st.markdown(
-                        f"**{tipo_nf}** — Nº {numero_nf}  \n"
-                        f"Valor líquido: {_fmt_valor(valor_liq)} | Valor bruto: {_fmt_valor(valor_bruto)}  \n"
-                        f"Emissão: {data_emissao or 'N/I'}"
-                        + (f" | Pagamento: {data_pgto}" if data_pgto else "")
-                    )
-                    st.markdown("---")
-            else:
-                st.caption("Nenhuma nota fiscal / instrumento de cobrança registrado para este contrato.")
-
-        with sub_termos:
-            termos = buscar_termos_contrato_pncp(cnpj_ct, ano_ct, seq_ct)
-            if termos:
-                for termo in termos:
-                    seq_termo = str(termo.get("sequencialTermoContrato", ""))
-                    tipo_termo = termo.get("tipoTermoContratoNome", "N/I")
-                    data_assinatura = _fmt_data(termo.get("dataAssinatura", ""))
-                    st.markdown(f"**{tipo_termo}** (seq: {seq_termo}) — Assinatura: {data_assinatura or 'N/I'}")
-                    # Docs do termo
-                    if seq_termo:
-                        docs_termo = buscar_docs_termo_pncp(cnpj_ct, ano_ct, seq_ct, seq_termo)
-                        if docs_termo:
-                            render_documentos(docs_termo, f"Documentos do Termo {seq_termo}")
-                    st.markdown("---")
-            else:
-                st.caption("Nenhum termo aditivo encontrado.")
-
-        with sub_docs:
-            docs_ct = buscar_docs_contrato_pncp(cnpj_ct, ano_ct, seq_ct)
-            if docs_ct:
-                render_documentos(docs_ct, "Documentos do Contrato")
-            else:
-                st.caption("Nenhum documento encontrado para este contrato.")
-
-
 def render_item_pncp(item: Dict, idx: int):
     """Renderiza um item PNCP de forma compacta."""
     desc = item.get("descricao", "Sem descrição")
@@ -1194,53 +911,6 @@ def render_item_pncp(item: Dict, idx: int):
         st.caption(f"Tipo: {tipo} | Qtd: {qtd} {unidade} | Situação: {situacao}")
     with col_val:
         st.metric("Valor Unit. Est.", _fmt_valor(valor))
-
-
-def render_compra_pncp_detalhes(compra: Dict, cnpj_orgao: str, ano: str, seq_str: str, id_compra: str):
-    """Renderiza detalhes de uma compra localizada diretamente no PNCP."""
-    obj = compra.get("objetoCompra", "")
-    modal = compra.get("modalidadeNome", "")
-    uorg = compra.get("unidadeOrgao", {}) or {}
-    cod_unidade = uorg.get("codigoUnidade", "")
-
-    with st.container(border=True):
-        st.markdown(f"##### 🏷️ {modal or 'Compra localizada no PNCP'}")
-        if obj:
-            st.markdown(f"**Objeto:** {obj}")
-        st.caption(f"UASG: {cod_unidade or 'N/I'}")
-        render_links_externos(id_compra, cnpj_orgao, ano, seq_str)
-
-    docs = buscar_documentos_pncp(cnpj_orgao, ano, seq_str)
-    if docs:
-        render_documentos(docs)
-
-    itens = buscar_itens_pncp(cnpj_orgao, ano, seq_str)
-    if itens:
-        with st.expander(f"📦 Itens ({len(itens)})", expanded=False):
-            for it in itens:
-                render_item_pncp(it, it.get("numeroItem", 0))
-
-    contratos_pncp = buscar_contratos_pncp_por_contratacao(cnpj_orgao, ano, seq_str)
-    if contratos_pncp:
-        st.markdown(f"##### 📄 Contratos/Empenhos ({len(contratos_pncp)})")
-        for ct in contratos_pncp:
-            with st.expander(
-                f"📄 {ct.get('numeroContratoEmpenho', 'N/I')} — {ct.get('nomeRazaoSocialFornecedor', '')}",
-                expanded=True,
-            ):
-                render_contrato_pncp(ct, cnpj_orgao)
-
-    atas = buscar_atas_pncp(cnpj_orgao, ano, seq_str)
-    if atas:
-        st.markdown(f"##### 📜 Atas ({len(atas)})")
-        for at in atas:
-            seq_at = at.get("sequencialAta", "")
-            forn = at.get("nomeRazaoSocialFornecedor", "")
-            with st.container(border=True):
-                st.markdown(f"**Ata seq {seq_at}** — {forn}")
-                docs_at = buscar_documentos_ata_pncp(cnpj_orgao, ano, seq_str, str(seq_at))
-                if docs_at:
-                    render_documentos(docs_at)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -1427,10 +1097,7 @@ with tab_busca:
                 uasg = parsed_id_compra["uasg"]
             ano = int(input_ano)
             id_filtro = input_id_compra.strip() if input_id_compra else ""
-            ano_inferido_id = infer_year_from_id_compra(id_filtro) if id_filtro else None
             anos_busca = [ano]
-            if id_filtro and ano_inferido_id:
-                anos_busca = [ano_inferido_id]
 
             # Info da UASG
             uasg_index = load_uasg_index()
@@ -1439,8 +1106,8 @@ with tab_busca:
             uf = uasg_info.get("siglaUf", "")
 
             st.markdown(
-                f'<div class="info-card"><h4>🏛️ UASG {uasg}</h4>'
-                f'<p><strong>{nome_uasg}</strong>{" — " + uf if uf else ""}</p></div>',
+                f'<div class="info-card"><h4>🏛️ UASG {_e(uasg)}</h4>'
+                f'<p><strong>{_e(str(nome_uasg))}</strong>{" — " + _e(str(uf)) if uf else ""}</p></div>',
                 unsafe_allow_html=True,
             )
             if parsed_id_compra:
@@ -1452,13 +1119,7 @@ with tab_busca:
                 with st.spinner("Validando publicação externa no PNCP..."):
                     resultado_id = resolver_publicacao_pncp_por_id(id_filtro, uasg)
                 render_resultado_id_pncp(resultado_id, id_filtro, nome_uasg, uf)
-                st.stop()
-            if id_filtro and ano_inferido_id:
-                st.info(
-                    f"Ano inferido a partir do ID da compra: {ano_inferido_id}. "
-                    f"A busca será feita nesse ano e a UASG pode ser usada automaticamente a partir dos 6 primeiros dígitos do ID."
-                )
-
+                st.stop()  # com ID da compra o resultado é o detalhamento direto; a listagem por UASG/ano abaixo não se aplica
             # ── 1. Buscar Contratos ───────────────────────────────────────────
             with st.spinner("Buscando contratos no ComprasGov..."):
                 contratos = []
@@ -1466,19 +1127,12 @@ with tab_busca:
                     contratos.extend(buscar_contratos_uasg(uasg, ano_busca))
                 contratos = dedupe_by_keys(contratos, ["numeroContrato", "idCompra", "numeroControlePncpCompra"])
 
-            # Filtrar por idCompra se informado
-            if id_filtro and contratos:
-                contratos = [c for c in contratos if id_compra_matches(c.get("idCompra", ""), id_filtro)]
-
             # ── 2. Buscar ARPs (SRP) ──────────────────────────────────────────
             with st.spinner("Buscando Atas de Registro de Preço (SRP)..."):
                 arps = []
                 for ano_busca in anos_busca:
                     arps.extend(buscar_arp_uasg(uasg, ano_busca))
                 arps = dedupe_by_keys(arps, ["numeroAtaRegistroPreco", "idCompra", "numeroControlePncpAta"])
-
-            if id_filtro and arps:
-                arps = [a for a in arps if id_compra_matches(a.get("idCompra", ""), id_filtro)]
 
             # ── Filtros avançados aplicados nos resultados ────────────────────
             _modalidade_map = {
@@ -1607,10 +1261,6 @@ with tab_busca:
                     "Nenhum registro encontrado. "
                     "As APIs do ComprasGov podem estar instáveis — tente novamente em alguns minutos."
                 )
-                if id_filtro:
-                    st.markdown("---")
-                    st.markdown("**Mesmo sem resultados da API, você pode tentar os links diretos:**")
-                    render_links_externos(id_filtro)
 
             # ═══ RESULTADOS ORGANIZADOS EM ABAS ═══════════════════════════════
             if contratos or arps:
@@ -1618,7 +1268,6 @@ with tab_busca:
                     f"📋 Compras ({len(contratos)})",
                     f"📜 ARPs ({len(arps)})",
                 ])
-
 
 
                 # ── ABA COMPRAS ────────────────────────────────────────────────
@@ -1635,7 +1284,7 @@ with tab_busca:
                         if _compras_shown < len(contratos):
                             st.info(
                                 f"📌 **Exibindo {_compras_shown} de {len(contratos)} compras.** "
-                                f"Ainda há {len(contratos) - _compras_shown} para carregar conforme você rolar a tela."
+                                f"Ainda há {len(contratos) - _compras_shown} — use o botão **Carregar mais compras** abaixo."
                             )
 
                         for i, contrato in enumerate(contratos[:_compras_shown]):
@@ -1683,21 +1332,20 @@ with tab_busca:
                                                 st.markdown("---")
 
                         if _compras_shown < len(contratos):
-                            _load_label_compras = "Carregar mais Compras (auto)"
+                            _load_label_compras = "⬇️ Carregar mais compras"
                             if st.button(_load_label_compras, key="btn_load_more_compras_auto"):
                                 st.session_state["_dc_compras_shown"] = min(
                                     _compras_shown + _COMPRA_PAGE_SIZE,
                                     len(contratos),
                                 )
                                 st.rerun()
-                            render_autoload_trigger("compras", _load_label_compras)
                         elif len(contratos) > _COMPRA_PAGE_SIZE:
                             st.caption(f"✅ Todas as {len(contratos)} compras foram carregadas.")
 
                         st.markdown("---")
                         st.caption("💾 Documentos são carregados sob demanda ao expandir cada item.")
 
-                # ── ABA ARPs (carregamento progressivo / infinite scroll) ────────────────────
+                # ── ABA ARPs (carregamento progressivo) ────────────────────
                 with tab_arps:
                     if not arps:
                         st.info("Nenhuma ARP (SRP) encontrada para os filtros selecionados.")
@@ -1710,7 +1358,7 @@ with tab_busca:
                         if _arps_shown < len(arps):
                             st.info(
                                 f"📌 **Exibindo {_arps_shown} de {len(arps)} ARPs.** "
-                                f"Ainda há {len(arps) - _arps_shown} para carregar conforme você rolar a tela."
+                                f"Ainda há {len(arps) - _arps_shown} — use o botão **Carregar mais ARPs** abaixo."
                             )
 
                         for i, ata in enumerate(arps[:_arps_shown]):
@@ -1765,205 +1413,15 @@ with tab_busca:
                                         if not docs_compra and not atas_pncp:
                                             st.caption("Nenhum documento encontrado no PNCP para esta ARP.")
 
-                        # ── Carregamento automático ao rolar ───────────────────
+                        # ── Carregamento progressivo ──────────────────────────────────
                         if _arps_shown < len(arps):
-                            _load_label_arps = "Carregar mais ARPs (auto)"
+                            _load_label_arps = "⬇️ Carregar mais ARPs"
                             if st.button(_load_label_arps, key="btn_load_more_arps_auto"):
                                 st.session_state["_dc_arps_shown"] = min(
                                     _arps_shown + _ARP_PAGE_SIZE,
                                     len(arps),
                                 )
                                 st.rerun()
-                            render_autoload_trigger("arps", _load_label_arps)
                         else:
                             if len(arps) > _ARP_PAGE_SIZE:
                                 st.caption(f"✅ Todas as {len(arps)} ARPs foram carregadas.")
-
-
-            # ── 5. Busca direta PNCP se nada foi encontrado via ComprasGov ───
-            if consultar and not contratos and not arps and id_filtro:
-                st.markdown("---")
-                st.markdown(
-                    '<div style="color: #d4af37; font-size: 16px; font-weight: bold; margin: 1rem 0;">'
-                    "🔎 Busca direta no PNCP (fallback)</div>",
-                    unsafe_allow_html=True,
-                )
-                st.info("Tentando localizar a compra diretamente no PNCP via contratações...")
-
-                if parsed_id_compra:
-                    st.markdown(
-                        f'<div class="info-card"><h4>🧩 Compra identificada pelo ID</h4>'
-                        f'<p><strong>ID:</strong> {normalize_id_compra(id_filtro)}</p>'
-                        f'<p><strong>UASG:</strong> {parsed_id_compra["uasg"]}</p>'
-                        f'<p><strong>Sequencial:</strong> {parsed_id_compra["sequencial"]}</p>'
-                        f'<p><strong>Ano:</strong> {parsed_id_compra["ano"]}</p></div>',
-                        unsafe_allow_html=True,
-                    )
-                cnpj_orgao = ""
-                compra_localizada_diretamente = False
-                if cnpj_orgao:
-                    st.markdown(f"CNPJ do órgão informado: **{cnpj_orgao}**")
-                    if parsed_id_compra:
-                        seq_direto = parsed_id_compra["sequencial"]
-                        st.info(
-                            f"Consultando diretamente o PNCP com CNPJ {cnpj_orgao}, ano {ano} e sequencial {seq_direto}."
-                        )
-                        with st.spinner("Consultando compra diretamente no PNCP com o CNPJ informado..."):
-                            compra_direta = buscar_compra_pncp(cnpj_orgao, str(ano), seq_direto)
-                        if compra_direta:
-                            st.success(f"Compra localizada diretamente no PNCP com o CNPJ informado. Sequencial: {seq_direto}")
-                            render_compra_pncp_detalhes(compra_direta, cnpj_orgao, str(ano), seq_direto, id_filtro)
-                            cnpj_lookup = {"cnpj": cnpj_orgao, "attempts": [], "status": "found"}
-                            compra_localizada_diretamente = True
-                        else:
-                            st.warning(
-                                "O PNCP não retornou a compra diretamente com o CNPJ informado e o sequencial extraído do ID. "
-                                "A busca continuará no modo de varredura, usando esse mesmo CNPJ."
-                            )
-
-                if not cnpj_orgao:
-                    with st.spinner("Buscando CNPJ do órgão..."):
-                        cnpj_lookup = buscar_cnpj_orgao_por_uasg(uasg, ano)
-                        cnpj_orgao = cnpj_lookup.get("cnpj", "")
-                else:
-                    cnpj_lookup = {"cnpj": cnpj_orgao, "attempts": [], "status": "found"}
-
-                if not cnpj_orgao:
-                    attempts = cnpj_lookup.get("attempts", [])
-                    statuses = ", ".join(
-                        f"{item.get('fonte')}: {item.get('status')}"
-                        for item in attempts
-                    )
-                    st.warning(
-                        "Não foi possível obter o CNPJ do órgão automaticamente a partir da UASG. "
-                        "As consultas públicas do ComprasGov e o fallback textual do PNCP Search não retornaram um registro utilizável para essa UASG/ano."
-                    )
-                    if statuses:
-                        st.caption(f"Diagnóstico da consulta do CNPJ do órgão: {statuses}")
-                    for item in attempts:
-                        message = item.get("message")
-                        if message:
-                            st.caption(f"{item.get('fonte')}: {message}")
-                elif not compra_localizada_diretamente:
-                    st.markdown(f"CNPJ do órgão: **{cnpj_orgao}**")
-                    evidence = cnpj_lookup.get("evidence") or {}
-                    if evidence:
-                        st.caption(
-                            "CNPJ inferido pelo índice de busca do PNCP: "
-                            f"{evidence.get('tipo_documento', 'documento')} | "
-                            f"unidade {evidence.get('unidade_codigo', '')} | "
-                            f"{evidence.get('title', '')}"
-                        )
-                    if parsed_id_compra:
-                        render_links_externos(
-                            id_filtro,
-                            cnpj_orgao,
-                            parsed_id_compra["ano"],
-                            parsed_id_compra["sequencial"],
-                        )
-                    encontrou = False
-                    status_fallback = st.empty()
-                    progress_fallback = st.progress(0, text="Preparando busca direta no PNCP…")
-
-                    seq_candidates: List[int] = []
-                    if parsed_id_compra:
-                        try:
-                            seq_candidates.append(int(parsed_id_compra["sequencial"]))
-                        except ValueError:
-                            pass
-                    seen_seq = set()
-                    seq_candidates = [seq for seq in seq_candidates if not (seq in seen_seq or seen_seq.add(seq))]
-                    total_seq = len(seq_candidates)
-
-                    if not seq_candidates:
-                        progress_fallback.progress(100, text="Não foi possível extrair o sequencial do ID da compra.")
-                        status_fallback.warning(
-                            "O sequencial não pôde ser extraído do ID da compra."
-                        )
-                        st.warning(
-                            "A consulta direta no PNCP exige um sequencial válido no ID da compra."
-                        )
-                        st.stop()
-
-                    with st.spinner("Escaneando compras recentes no PNCP..."):
-                        for idx, seq_try in enumerate(seq_candidates, start=1):
-                            seq_str = f"{seq_try:06d}"
-                            progress_value = min(int(idx / total_seq * 100), 100)
-                            status_fallback.info(
-                                f"Consultando PNCP: tentativa {idx}/{total_seq} | sequencial {seq_str}"
-                            )
-                            progress_fallback.progress(
-                                progress_value,
-                                text=f"Consultando sequencial {seq_str} no PNCP ({idx}/{total_seq})",
-                            )
-                            compra = buscar_compra_pncp(cnpj_orgao, str(ano), seq_str)
-                            if not compra:
-                                continue
-                            link_origem = compra.get("linkSistemaOrigem", "") or ""
-                            uorg = compra.get("unidadeOrgao", {}) or {}
-                            cod_unidade = uorg.get("codigoUnidade", "")
-
-                            if id_filtro and id_filtro in link_origem:
-                                encontrou = True
-                                progress_fallback.progress(100, text=f"Compra localizada no PNCP no sequencial {seq_str}.")
-                                status_fallback.success(f"Compra localizada no PNCP no sequencial {seq_str}.")
-                                st.success(f"Compra encontrada no PNCP! Sequencial: {seq_str}")
-                                obj = compra.get("objetoCompra", "")
-                                modal = compra.get("modalidadeNome", "")
-
-                                with st.container(border=True):
-                                    st.markdown(f"##### 🏷️ {modal}")
-                                    st.markdown(f"**Objeto:** {obj}")
-                                    st.caption(f"UASG: {cod_unidade}")
-                                    render_links_externos(id_filtro, cnpj_orgao, str(ano), seq_str)
-
-                                # Documentos da compra
-                                docs = buscar_documentos_pncp(cnpj_orgao, str(ano), seq_str)
-                                if docs:
-                                    render_documentos(docs)
-
-                                # Itens
-                                itens = buscar_itens_pncp(cnpj_orgao, str(ano), seq_str)
-                                if itens:
-                                    with st.expander(f"📦 Itens ({len(itens)})", expanded=False):
-                                        for it in itens:
-                                            render_item_pncp(it, it.get("numeroItem", 0))
-
-                                # Contratos PNCP
-                                contratos_pncp = buscar_contratos_pncp_por_contratacao(cnpj_orgao, str(ano), seq_str)
-                                if contratos_pncp:
-                                    st.markdown(f"##### 📄 Contratos/Empenhos ({len(contratos_pncp)})")
-                                    for ct in contratos_pncp:
-                                        with st.expander(
-                                            f"📄 {ct.get('numeroContratoEmpenho', 'N/I')} — "
-                                            f"{ct.get('nomeRazaoSocialFornecedor', '')}",
-                                            expanded=True,
-                                        ):
-                                            render_contrato_pncp(ct, cnpj_orgao)
-
-                                # Atas
-                                atas = buscar_atas_pncp(cnpj_orgao, str(ano), seq_str)
-                                if atas:
-                                    st.markdown(f"##### 📜 Atas ({len(atas)})")
-                                    for at in atas:
-                                        seq_at = at.get("sequencialAta", "")
-                                        forn = at.get("nomeRazaoSocialFornecedor", "")
-                                        with st.container(border=True):
-                                            st.markdown(f"**Ata seq {seq_at}** — {forn}")
-                                            docs_at = buscar_documentos_ata_pncp(cnpj_orgao, str(ano), seq_str, str(seq_at))
-                                            if docs_at:
-                                                render_documentos(docs_at)
-                                break
-
-                    if not encontrou:
-                        progress_fallback.progress(100, text="Consulta do sequencial do ID concluída sem localizar detalhes adicionais.")
-                        status_fallback.warning(
-                            "Consulta direta concluída. O PNCP não retornou detalhes para o sequencial extraído do ID."
-                        )
-                        st.warning(
-                            "Compra não encontrada no PNCP com detalhes adicionais para o sequencial do próprio ID. "
-                            "Isso normalmente significa que a compra existe pelo ID/ComprasNet, mas ainda não está exposta na rota de detalhe consultada do PNCP."
-                        )
-                        st.caption(
-                            "Os links diretos acima continuam válidos para abrir a compra pelo ID informado."
-                        )

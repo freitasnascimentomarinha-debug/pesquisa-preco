@@ -10,6 +10,8 @@ from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
 from fpdf import FPDF
 
+from servicos_publicos import formatar_cnpj, limpar_cnpj
+
 # ── Caminhos dos dados ─────────────────────────────────────────────────────
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "Projeto Adesões")
 
@@ -330,14 +332,6 @@ def _load_cnaes() -> dict:
 CNAE_LIST = _load_cnaes()
 
 
-def format_cnpj(cnpj: str) -> str:
-    """Formata CNPJ: XX.XXX.XXX/XXXX-XX"""
-    cnpj = cnpj.strip()
-    if len(cnpj) == 14:
-        return f"{cnpj[:2]}.{cnpj[2:5]}.{cnpj[5:8]}/{cnpj[8:12]}-{cnpj[12:]}"
-    return cnpj
-
-
 def search_fornecedores(codigo_cnae: int, apenas_ativos: bool = True) -> list:
     """Busca fornecedores na API do Compras.gov.br pelo código CNAE."""
     all_results = []
@@ -571,7 +565,7 @@ if resultados:
             nome = forn.get("nomeRazaoSocialFornecedor", "Nome não informado")
             cnpj = forn.get("cnpj") or forn.get("cpf") or "N/I"
             if cnpj != "N/I" and len(cnpj.replace(".", "").replace("/", "").replace("-", "")) == 14:
-                cnpj_fmt = format_cnpj(cnpj.replace(".", "").replace("/", "").replace("-", ""))
+                cnpj_fmt = formatar_cnpj(limpar_cnpj(cnpj))
             else:
                 cnpj_fmt = cnpj
 
