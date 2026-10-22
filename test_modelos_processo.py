@@ -80,6 +80,18 @@ def test_larguras_cabem_na_pagina():
     assert abs(sum(larg) - 165) < 0.01 and min(larg) > 6
 
 
+
+
+def test_mapa_comparativo_media_mediana_e_total():
+    linhas = MP.linhas_mapa([{"descricao": "A", "quantidade": 2, "preco1": 10, "preco2": 20, "preco3": 0},
+                             {"descricao": "B", "quantidade": 1, "preco1": 1, "preco2": 2, "preco3": 9}])
+    assert linhas[0]["media"] == 15 and linhas[0]["mediana"] == 15 and linhas[0]["total"] == 30
+    assert linhas[1]["mediana"] == 2
+    corpo = MP.corpo_mapa_comparativo([{"descricao": "A", "quantidade": 2, "preco1": 10, "preco2": 20}], "obs")
+    assert "R$ 30,00" in corpo and "menos de 3 preços" in corpo and "### 3. OBSERVAÇÕES" in corpo
+    assert D.gerar_pdf("MAPA COMPARATIVO DE PREÇOS", corpo, DADOS)[:4] == b"%PDF"
+
+
 if __name__ == "__main__":
     for nome, f in list(globals().items()):
         if nome.startswith("test_"):

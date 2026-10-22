@@ -625,3 +625,56 @@ CHECKLIST = {k: CHECKLIST[k] for k in (
     "Inexigibilidade de Licitação (TJIL)", "Adesão a Ata de Registro de Preços (carona)",
     "Participação em IRP (Intenção de Registro de Preços)", "Prorrogação da vigência de Ata de Registro de Preços",
     "Termo Aditivo", "Apostilamento")}
+
+
+# ── Mapa comparativo de preços ───────────────────────────────────────────────────────────────────────────────
+def _mediana(valores: list[float]) -> float:
+    v = sorted(valores)
+    if not v:
+        return 0.0
+    meio = len(v) // 2
+    return v[meio] if len(v) % 2 else (v[meio - 1] + v[meio]) / 2
+
+
+def linhas_mapa(itens: list[dict]) -> list[dict]:
+    """Calcula média, mediana, menor preço e total estimado (pela média) de cada item."""
+    linhas = []
+    for n, item in enumerate(itens, 1):
+        precos = [float(item.get(f"preco{j}") or 0) for j in (1, 2, 3)]
+        validos = [p for p in precos if p > 0]
+        qtd = float(item.get("quantidade") or 1)
+        media = sum(validos) / len(validos) if validos else 0.0
+        linhas.append({"n": n, "descricao": str(item.get("descricao") or "").strip(), "quantidade": qtd,
+                       "precos": precos, "validos": len(validos), "media": media, "mediana": _mediana(validos),
+                       "menor": min(validos) if validos else 0.0, "total": media * qtd})
+    return linhas
+
+
+def _qtd_txt(q: float) -> str:
+    return str(int(q)) if float(q).is_integer() else f"{q:.2f}".replace(".", ",")
+
+
+def corpo_mapa_comparativo(itens: list[dict], observacoes: str = "") -> str:
+    linhas_calc = linhas_mapa(itens)
+    total = sum(l["total"] for l in linhas_calc)
+    v = lambda x: brl(x) if x else "-"
+    linhas = ["### 1. PREÇOS PESQUISADOS",
+              "| Item | Descrição | Qtd | Fornecedor 1 | Fornecedor 2 | Fornecedor 3 | Média | Mediana | Total estimado |",
+              "|---|---|---|---|---|---|---|---|---|"]
+    for l in linhas_calc:
+        linhas.append("| " + " | ".join([str(l["n"]), _celula(l["descricao"]) or "__________", _qtd_txt(l["quantidade"]),
+                                         *[v(p) for p in l["precos"]], v(l["media"]), v(l["mediana"]),
+                                         v(l["total"])]) + " |")
+    linhas.append(f"| | **TOTAL GERAL ESTIMADO** | | | | | | | **{brl(total)}** |")
+    poucos = [str(l["n"]) for l in linhas_calc if 0 < l["validos"] < 3]
+    linhas += ["", "### 2. METODOLOGIA",
+               "O preço estimado de cada item corresponde à média dos preços válidos obtidos na pesquisa, realizada nos "
+               "termos do art. 23 da Lei nº 14.133/2021 e da IN SEGES/ME nº 65/2021. O total estimado é o produto do "
+               "preço médio pela quantidade. A mediana é apresentada para conferência da dispersão dos preços.",
+               f"Valor total estimado da contratação: **{brl(total)}**."]
+    if poucos:
+        linhas.append(f"Itens com menos de 3 preços válidos ({', '.join(poucos)}): justificar no processo a "
+                      "impossibilidade de obter mais cotações.")
+    if (observacoes or "").strip():
+        linhas += ["", "### 3. OBSERVAÇÕES", observacoes.strip()]
+    return "\n".join(linhas)

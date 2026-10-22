@@ -1080,6 +1080,41 @@ def adesoes_aprovadas(numero_ata: str, unidade_gerenciadora: str, numero_item: s
     return (dados or {}).get("resultado", []) or [], erro
 
 
+def _brl_un(valor) -> str:
+    try:
+        return "R$ " + f"{float(valor):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    except (TypeError, ValueError):
+        return "N/I"
+
+
+def _incluir_na_cesta(ata: Dict, item: Dict) -> None:
+    """Junta o item à lista do ofício de adesão. Itens de outra ata recomeçam a lista (um ofício por ata)."""
+    cesta = st.session_state.get("_cesta_adesao")
+    if not cesta or (cesta["ata"], cesta["uasg"]) != (ata["ata"], ata["uasg"]):
+        cesta = {**ata, "itens": []}
+    if all(i["Item"] != item["Item"] for i in cesta["itens"]):
+        cesta["itens"].append(item)
+    st.session_state["_cesta_adesao"] = cesta
+
+
+def _painel_cesta_adesao() -> None:
+    cesta = st.session_state.get("_cesta_adesao")
+    if not cesta or not cesta.get("itens"):
+        return
+    with st.container(border=True):
+        st.markdown(f"**✉️ Ofício de adesão em preparo** — Ata {cesta['ata']} ({cesta['gerenciador']}, UASG {cesta['uasg']}): "
+                    f"{len(cesta['itens'])} item(ns): " + ", ".join(i["Item"] for i in cesta["itens"]))
+        _c1, _c2 = st.columns([3, 1])
+        with _c1:
+            if st.button("✉️ Gerar o ofício no Babilaca", key="btn_cesta_oficio", type="primary", use_container_width=True):
+                st.session_state["_ofad_prefill"] = dict(cesta)
+                st.switch_page("pages/O_Babilaca_(IA).py")
+        with _c2:
+            if st.button("Limpar", key="btn_cesta_limpar", use_container_width=True):
+                st.session_state.pop("_cesta_adesao", None)
+                st.rerun()
+
+
 def run_enrich(
     display_results: List[Dict],
     status_placeholder: st.delta_generator.DeltaGenerator,
@@ -1392,6 +1427,7 @@ if results:
             with st.spinner("Consultando a situação dos fornecedores no SICAF…"):
                 sicaf_por_cnpj = situacao_sicaf_fornecedores([str(r.get("niFornecedor") or "") for r in display_results])
 
+            _painel_cesta_adesao()
             for idx, raw in enumerate(display_results):
                 normalized = normalize_item(raw)
                 if not normalized:
@@ -1491,7 +1527,27 @@ if results:
                         unsafe_allow_html=True,
                     )
 
-                    col_docs, col_ades = st.columns([1, 1])
+                    col_docs, col_ades, col_of = st.columns([1, 1, 1])
+                    with col_of:
+                        _desc_item = str(raw.get("descricaoItem") or raw.get("descricao") or "").strip()
+                        _modalidade = str(raw.get("nomeModalidadeCompra") or "Pregão Eletrônico").strip()
+                        _ano = str(raw.get("anoCompra") or "").strip()
+                        st.button(
+                            "✉️ Incluir no ofício de adesão", key=f"btn_of_{idx}_{identificador[:30]}",
+                            on_click=_incluir_na_cesta,
+                            args=({
+                                "ata": str(numero), "gerenciador": str(unidade), "uasg": str(uasg_code),
+                                "licitacao": f"{_modalidade} nº {num_compra}" + (f"/{_ano}" if _ano and "/" not in num_compra else ""),
+                                "objeto": _desc_item,
+                            }, {
+                                "Item": str(numero_item),
+                                "Descrição": f"{_desc_item or 'Item ' + str(numero_item)} (valor registrado: "
+                                             f"{_brl_un(raw.get('valorUnitario'))}; máx. por órgão: {max_por_orgao_txt})",
+                                "Unidade": str(raw.get("unidadeFornecimento") or raw.get("siglaUnidadeFornecimento") or ""),
+                                "Quantidade": "",
+                            }),
+                            help="Junta este item ao ofício de solicitação de adesão do Babilaca (itens da mesma ata).",
+                        )
                     with col_docs:
                         clicou_docs = st.button("📂 Outros Docs", key=btn_key)
                     with col_ades:
