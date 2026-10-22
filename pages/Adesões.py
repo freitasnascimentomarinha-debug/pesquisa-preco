@@ -1108,6 +1108,33 @@ def _incluir_na_cesta(ata: Dict, item: Dict) -> None:
     st.toast(f"Item {item['Item']} incluído na adesão à Ata {ata['ata']}.")
 
 
+@st.cache_data(ttl=3600, show_spinner=False)
+def itens_da_ata(numero_controle_ata: str) -> Tuple[List[Dict], Optional[str]]:
+    """Todos os itens de uma ata (do mesmo fornecedor), para incluir outros itens além do pesquisado."""
+    dados, erro = http_get_json("https://dadosabertos.compras.gov.br/modulo-arp/2.1_consultarARPItem_Id",
+                                {"numeroControlePncpAta": numero_controle_ata}, timeout=60)
+    if erro:
+        return [], erro
+    return (dados or {}).get("resultado") or [], None
+
+
+def _incluir_outros_itens(chave_ata: str, chave_sel: str) -> None:
+    grupo = (st.session_state.get("_cesta_adesao") or {}).get(chave_ata)
+    escolhidos = st.session_state.get(chave_sel) or []
+    if not grupo or not escolhidos:
+        return
+    por_rotulo = {o["rotulo"]: o for o in grupo.get("outros") or []}
+    ja = {i["Item"] for i in grupo["itens"]}
+    for rotulo in escolhidos:
+        o = por_rotulo.get(rotulo)
+        if o and o["item"]["Item"] not in ja:
+            grupo["itens"].append(dict(o["item"]))
+    st.session_state["_cesta_seq"] = int(st.session_state.get("_cesta_seq") or 0) + 1
+    grupo["versao"] = st.session_state["_cesta_seq"]
+    grupo.pop("analise", None)
+    st.session_state[chave_sel] = []
+
+
 def _aplicar_edicao_cesta(chave_ata: str, chave_editor: str) -> None:
     """Grava na cesta as quantidades digitadas e retira os itens desmarcados."""
     grupo = (st.session_state.get("_cesta_adesao") or {}).get(chave_ata)
@@ -1176,6 +1203,33 @@ def _painel_cesta_adesao() -> None:
                     "Descrição": st.column_config.TextColumn(width="large"),
                 },
                 on_change=_aplicar_edicao_cesta, args=(chave_ata, chave_editor))
+            with st.expander("➕ Outros itens desta ata", expanded=False):
+                st.caption("A busca mostra só os itens da família pesquisada. Aqui aparecem todos os itens desta ata "
+                           "(mesmo fornecedor) para você incluir no mesmo ofício.")
+                if st.button("Carregar os itens da ata", key=f"cesta_out_{chave_ata}"):
+                    with st.spinner("Buscando os itens da ata..."):
+                        lista, erro = itens_da_ata(chave_ata)
+                    if erro:
+                        st.warning(f"Não foi possível carregar os itens agora ({erro}).")
+                    grupo["outros"] = [{
+                        "rotulo": f"Item {r.get('numeroItem')} — {str(r.get('descricaoItem') or '')[:90]} — "
+                                  f"{MP_brl(r.get('valorUnitario'))}",
+                        "item": {"Item": str(r.get("numeroItem")), "Descrição": str(r.get("descricaoItem") or ""),
+                                 "Unidade": "", "codigo": str(r.get("codigoItem") or ""), "preco": _num(r.get("valorUnitario")),
+                                 "max": (_num(r.get("quantidadeHomologadaItem")) or 0) * 0.5 or None, "Quantidade": ""},
+                    } for r in lista if r.get("maximoAdesao")]
+                ja = {i["Item"] for i in grupo["itens"]}
+                disponiveis = [o["rotulo"] for o in grupo.get("outros") or [] if o["item"]["Item"] not in ja]
+                if grupo.get("outros") is not None:
+                    if disponiveis:
+                        chave_sel = f"cesta_sel_{chave_ata}"
+                        st.multiselect("Itens da ata que aceitam adesão", disponiveis, key=chave_sel)
+                        st.button("Incluir os itens marcados", key=f"cesta_inc_{chave_ata}",
+                                  on_click=_incluir_outros_itens, args=(chave_ata, chave_sel))
+                        st.caption("Máximo por órgão destes itens = 50% da quantidade registrada. O saldo de adesão já "
+                                   "consumido por outros órgãos só aparece nos itens vindos da busca: confira no card.")
+                    else:
+                        st.caption("Todos os itens da ata que aceitam adesão já estão na lista.")
             acima = [i["Item"] for i in grupo["itens"] if _num(i.get("Quantidade")) and i.get("max")
                      and _num(i["Quantidade"]) > i["max"]]
             if acima:
