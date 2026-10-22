@@ -169,7 +169,6 @@ st.markdown(
 )
 
 st.markdown('<div class="su-panel"><h3>Divulgue o AtaCotada</h3><p>Compartilhe com colegas pelo WhatsApp. O link já abre na página <b>Sobre o projeto</b>, que apresenta o sistema.</p></div>', unsafe_allow_html=True)
-st.markdown(f'<div class="su-msg">{mensagem}</div>', unsafe_allow_html=True)
 st.link_button("📲 Compartilhar o AtaCotada no WhatsApp", link_compartilhar, use_container_width=True)
 
 st.markdown('<div class="su-panel"><h3>Contribuidores</h3><p>Conheça quem ajudou a criar e a aperfeiçoar o sistema. Toque em um card para baixar o PDF.</p></div>', unsafe_allow_html=True)
