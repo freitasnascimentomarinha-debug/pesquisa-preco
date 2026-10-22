@@ -1,59 +1,66 @@
 """Contribuidores do AtaCotada e geração do "card" em PDF de cada um (baixado ao clicar no card, na página Suporte ao sistema).
 
-Para incluir alguém, acrescente um item em CONTRIBUIDORES. O visual do card (gerar_card_pdf) é provisório e será ajustado ao modelo oficial.
+Para incluir alguém, acrescente um item em CONTRIBUIDORES. O card em PDF (gerar_card_pdf) segue o modelo com foto redonda; para incluir foto, ponha o PNG em contribuidores_fotos/.
 """
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from fpdf import FPDF
 
 CONTRIBUIDORES = [
-    {"nome": "2°SG-PL Freitas", "papel": "Idealização, desenvolvimento, manutenção e suporte"},
+    {
+        "nome": "2°SG-PL Freitas", "papel": "Idealização, desenvolvimento, manutenção e suporte",
+        # dados do card em PDF: título (nome de guerra), posto, e-mail e foto (PNG redondo em contribuidores_fotos/)
+        "card": {"titulo": "FREITAS", "posto": "2°SG-PL", "email": "freitas.nascimento@marinha.mil.br", "foto": "freitas.png"},
+    },
 ]
 
-AZUL, DOURADO, BRANCO = (0, 26, 77), (212, 175, 55), (255, 255, 255)
+PASTA_FOTOS = Path(__file__).resolve().parent / "contribuidores_fotos"
+FUNDO, DOURADO, BRANCO, CINZA = (11, 31, 58), (212, 175, 55), (255, 255, 255), (190, 200, 215)
 
 
-def nome_do_arquivo(contribuidor: dict[str, str]) -> str:
+def nome_do_arquivo(contribuidor: dict) -> str:
     base = "".join(c if c.isalnum() else "_" for c in contribuidor["nome"])
     return f"Card_AtaCotada_{base}.pdf"
 
 
-def gerar_card_pdf(contribuidor: dict[str, str]) -> bytes:
-    """PDF de uma página no formato de cartão (100 x 62 mm, paisagem) com nome e contribuição."""
-    pdf = FPDF(orientation="L", unit="mm", format=(62, 100))
+def gerar_card_pdf(contribuidor: dict) -> bytes:
+    """PDF de uma página no formato de card vertical (72 x 92 mm): foto com anel dourado, nome, posto e e-mail."""
+    dados = contribuidor.get("card", {})
+    pdf = FPDF(orientation="P", unit="mm", format=(72, 92))
     pdf.set_auto_page_break(False)
     pdf.add_page()
-    pdf.set_fill_color(*AZUL)
-    pdf.rect(0, 0, 100, 62, "F")
-    pdf.set_draw_color(*DOURADO)
-    pdf.set_line_width(0.8)
-    pdf.rect(2.5, 2.5, 95, 57, "D")
-    pdf.set_line_width(0.25)
-    pdf.rect(4, 4, 92, 54, "D")
+    pdf.set_fill_color(*FUNDO)
+    pdf.rect(0, 0, 72, 92, "F")
 
-    pdf.set_text_color(*DOURADO)
-    pdf.set_font("Helvetica", "B", 8)
-    pdf.set_xy(8, 9)
-    pdf.cell(84, 5, "MARINHA DO BRASIL", align="C")
-    pdf.set_font("Helvetica", "B", 17)
-    pdf.set_xy(8, 15)
-    pdf.cell(84, 9, "AtaCotada", align="C")
-    pdf.set_font("Helvetica", "", 7)
-    pdf.set_xy(8, 24)
-    pdf.cell(84, 4, "CONTRIBUIDOR DO PROJETO", align="C")
-    pdf.line(30, 30, 70, 30)
+    foto = PASTA_FOTOS / dados.get("foto", "")
+    if dados.get("foto") and foto.exists():
+        pdf.set_fill_color(*DOURADO)
+        pdf.ellipse(13, 7, 46, 46, "F")  # anel dourado
+        pdf.image(str(foto), x=14.3, y=8.3, w=43.4, h=43.4)
+        topo_texto = 59
+    else:
+        topo_texto = 28
 
     pdf.set_text_color(*BRANCO)
-    pdf.set_font("Helvetica", "B", 14)
-    pdf.set_xy(8, 36)
-    pdf.cell(84, 8, contribuidor["nome"], align="C")
-    pdf.set_text_color(*DOURADO)
-    pdf.set_font("Helvetica", "I", 8)
-    pdf.set_xy(8, 46)
-    pdf.cell(84, 4, contribuidor.get("papel", ""), align="C")
-    pdf.set_text_color(160, 174, 192)
-    pdf.set_font("Helvetica", "", 6)
-    pdf.set_xy(8, 53)
-    pdf.cell(84, 3, "Centro de Operações do Abastecimento - AtaCotada V2.0", align="C")
+    pdf.set_font("Helvetica", "B", 27)
+    pdf.set_xy(0, topo_texto)
+    pdf.cell(72, 12, dados.get("titulo", contribuidor["nome"]).upper(), align="C")
+    if dados.get("posto"):
+        pdf.set_text_color(*DOURADO)
+        pdf.set_font("Helvetica", "B", 11)
+        pdf.set_char_spacing(0.6)
+        pdf.set_xy(0, topo_texto + 14)
+        pdf.cell(72, 6, dados["posto"], align="C")
+        pdf.set_char_spacing(0)
+    if dados.get("email"):
+        pdf.set_text_color(*CINZA)
+        pdf.set_font("Helvetica", "", 7.5)
+        pdf.set_xy(0, topo_texto + 22)
+        pdf.cell(72, 5, dados["email"], align="C")
+    pdf.set_draw_color(*DOURADO)
+    pdf.set_line_width(0.5)
+    pdf.line(16, topo_texto + 31, 56, topo_texto + 31)
     return bytes(pdf.output())
