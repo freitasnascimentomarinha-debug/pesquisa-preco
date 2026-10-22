@@ -110,6 +110,7 @@ FERRAMENTAS = [
     ("⚡", "Cotação Rápida", "Cota vários itens de uma vez e monta o mapa comparativo de preços em PDF e Excel."),
     ("📨", "Cotação Direta", "Pede orçamento por e-mail a fornecedores que venderam recentemente, com proposta em Word."),
     ("🔍", "Detalhes Compra", "Consulta os detalhes de uma compra pública."),
+    ("📡", "Radar de Licitações", "Busca licitações no PNCP por objeto, UASG, período e situação: calendário de encerramentos, documentos, link de acompanhamento, itens com deságio, fornecedores, atas e participantes."),
     ("🤝", "Adesões", "Localiza atas de registro de preços vigentes para adesão, por estado, com saldos e limites."),
     ("📄", "Notas Fiscais", "Pesquisa preços em notas fiscais eletrônicas dos dados abertos e relaciona as NF-e para autenticação."),
     ("🏢", "Fornecedores", "Lista fornecedores por atividade econômica (CNAE), com contatos."),

@@ -20,7 +20,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CATALOGO_DIR = os.path.join(BASE_DIR, "Projeto Adesões")
 sys.path.insert(0, BASE_DIR)
 from atualizar_modulos import recarregar_se_mudou  # noqa: E402
-recarregar_se_mudou('tutorial_player', 'tutorial_cotacao', 'tutorial_catmat', 'tutorial_cotacao_direta', 'tutorial_cotacao_rapida', 'tutorial_adesoes', 'tutorial_notas_fiscais', 'tutorial_fornecedores', 'tutorial_web_scraping', 'tutorial_ipca', 'tutorial_detalhes_compra', 'tutorial_consulta_cnpj')  # evita módulo antigo em memória após deploy
+recarregar_se_mudou('tutorial_player', 'tutorial_cotacao', 'tutorial_catmat', 'tutorial_cotacao_direta', 'tutorial_cotacao_rapida', 'tutorial_adesoes', 'tutorial_notas_fiscais', 'tutorial_fornecedores', 'tutorial_web_scraping', 'tutorial_ipca', 'tutorial_detalhes_compra', 'tutorial_consulta_cnpj', 'tutorial_radar_licitacoes')  # evita módulo antigo em memória após deploy
 import tutorial_adesoes  # noqa: E402
 import tutorial_catmat  # noqa: E402
 import tutorial_cotacao  # noqa: E402
@@ -31,6 +31,7 @@ import tutorial_detalhes_compra  # noqa: E402
 import tutorial_fornecedores  # noqa: E402
 import tutorial_ipca  # noqa: E402
 import tutorial_notas_fiscais  # noqa: E402
+import tutorial_radar_licitacoes  # noqa: E402
 import tutorial_web_scraping  # noqa: E402
 from tutorial_player import ALTURA_IFRAME  # noqa: E402
 
@@ -42,6 +43,7 @@ VIDEOS = [
     {"id": "rapida", "titulo": "Cotação Rápida", "icone": "⚡", "resumo": "Cotar vários itens de uma vez e gerar o mapa comparativo.", "modulo": tutorial_cotacao_rapida},
     {"id": "direta", "titulo": "Cotação Direta", "icone": "📨", "resumo": "Pedidos de cotação direta a fornecedores.", "modulo": tutorial_cotacao_direta},
     {"id": "detalhes", "titulo": "Detalhes Compra", "icone": "🔍", "resumo": "Contratos, atas, itens, documentos e deságio de uma UASG.", "modulo": tutorial_detalhes_compra},
+    {"id": "radar", "titulo": "Radar de Licitações", "icone": "📡", "resumo": "Licitações do PNCP: calendário, documentos, deságio, fornecedores e atas.", "modulo": tutorial_radar_licitacoes},
     {"id": "adesoes", "titulo": "Adesões", "icone": "🤝", "resumo": "Atas de registro de preços e adesões.", "modulo": tutorial_adesoes},
     {"id": "nf", "titulo": "Notas Fiscais", "icone": "📄", "resumo": "Consulta de notas fiscais em lote.", "modulo": tutorial_notas_fiscais},
     {"id": "forn", "titulo": "Fornecedores", "icone": "🏢", "resumo": "Banco de fornecedores.", "modulo": tutorial_fornecedores},
