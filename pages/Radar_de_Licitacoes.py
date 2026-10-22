@@ -302,7 +302,7 @@ if uasg_txt.strip():
 
 col_sit, col_uf, col_ini, col_fim = st.columns(4)
 with col_sit:
-    situacao_rotulo = st.selectbox("Situação", list(SITUACOES), key="lic_sit",
+    situacao_rotulo = st.selectbox("Situação", list(SITUACOES), index=2, key="lic_sit",
                                    help="Recebendo propostas: ainda abertas. Encerradas: prazo de propostas já terminou.")
 with col_uf:
     uf = st.selectbox("UF", ["Todas"] + UFS, key="lic_uf")
