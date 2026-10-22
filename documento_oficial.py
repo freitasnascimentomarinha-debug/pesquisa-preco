@@ -2,12 +2,13 @@
 
 O texto chega em Markdown simples (o que os modelos e a IA produzem) e sai com:
 - timbre: Armas Nacionais (2,0 x 2,0 cm), "MARINHA DO BRASIL" e o nome da OM, em negrito (MaTDoc 1.4.1 e 1.4.2);
-- grupo indicador (quando informado) e local e data por extenso, à direita (MaTDoc 1.4.3 e 1.4.5);
+- local e data por extenso, à direita (MaTDoc 1.4.5);
 - título centralizado em negrito; NUP/processo, quando informado;
 - letra Carlito/Calibri 12, A4, margens 3,0 cm (esq.), 1,5 cm (dir.), 2,0 cm (sup. e inf.) (MaTDoc 1.2.2 a 1.2.4);
 - itens, subitens, alíneas a) e subalíneas I) com os recuos do MaTDoc; texto justificado;
 - tabelas de verdade (bordas, cabeçalho em negrito, repetido em cada página);
-- assinatura com nome, posto e cargo centralizados, três linhas abaixo do texto (MaTDoc 1.11);
+- uma ou mais assinaturas (nome, posto/graduação e cargo), três linhas abaixo do texto; várias assinaturas do mais antigo
+  para o mais moderno, da esquerda para a direita e de cima para baixo (MaTDoc 1.11);
 - paginação "- n de N -" no rodapé, só quando houver mais de uma página (MaTDoc 1.14), e NUP à direita (MaTDoc 1.6).
 
 DFD, TR, ETP, mapa e memória de cálculo não são tipos de documento administrativo da SGM-105 (1.3): seguem o cap. 1
@@ -43,17 +44,28 @@ def local_e_data(cidade: str = "", uf: str = "", dia: date | None = None) -> str
     return f"{lugar}, {numero} de {MESES[dia.month - 1]} de {dia.year}."
 
 
+def _assinantes(d: dict) -> list[dict]:
+    """Lista de signatários [{'nome', 'posto', 'cargo'}], na ordem informada (do mais antigo para o mais moderno)."""
+    lista = d.get("assinantes")
+    if not lista and any(d.get(k) for k in ("assinante_nome", "assinante_posto", "assinante_cargo")):
+        lista = [{"nome": d.get("assinante_nome"), "posto": d.get("assinante_posto"), "cargo": d.get("assinante_cargo")}]
+    limpos = [{k: (a.get(k) or "").strip() for k in ("nome", "posto", "cargo")} for a in (lista or [])]
+    limpos = [a for a in limpos if any(a.values())]
+    return limpos or [{"nome": "", "posto": "", "cargo": ""}]
+
+
+def _linhas_assinatura(a: dict) -> list[str]:
+    return [a["nome"].upper() or "NOME DO SIGNATÁRIO", a["posto"] or "Posto / graduação", a["cargo"] or "Cargo / função"]
+
+
 def _dados(d: dict | None) -> dict:
     d = dict(d or {})
     return {
         "om": (d.get("om") or "").strip(),
-        "grupo": (d.get("grupo") or "").strip(),          # grupo indicador (ex.: COpAb-20 / 30/080.1)
         "cidade": (d.get("cidade") or "").strip(),
         "uf": (d.get("uf") or "").strip(),
         "nup": (d.get("nup") or "").strip(),
-        "assinante_nome": (d.get("assinante_nome") or "").strip(),
-        "assinante_posto": (d.get("assinante_posto") or "").strip(),
-        "assinante_cargo": (d.get("assinante_cargo") or "").strip(),
+        "assinantes": _assinantes(d),
         "data": d.get("data") if isinstance(d.get("data"), date) else None,
     }
 
@@ -220,8 +232,6 @@ def _pdf(titulo: str, blocos: list[dict], d: dict, numerar: bool):
     pdf.ln(6)
     pdf.multi_cell(0, 6, (d["om"] or "NOME DA ORGANIZAÇÃO MILITAR").upper(), align="C", new_x="LMARGIN", new_y="NEXT")
     pdf.set_font("Carlito", "", 12)
-    if d["grupo"]:
-        pdf.cell(0, 6, d["grupo"], new_x="LMARGIN", new_y="NEXT")
     pdf.ln(6)
     pdf.cell(0, 6, local_e_data(d["cidade"], d["uf"], d["data"]), align="R", new_x="LMARGIN", new_y="NEXT")
     pdf.ln(12)
@@ -267,14 +277,25 @@ def _pdf(titulo: str, blocos: list[dict], d: dict, numerar: bool):
         pdf.multi_cell(largura - recuo, 6, _fpdf_md(b["texto"]), align="J", markdown=True, new_x="LMARGIN", new_y="NEXT")
         pdf.ln(1.5)
 
-    # assinatura (MaTDoc 1.11): três linhas em branco e o bloco centralizado, sem partir entre páginas
-    if pdf.get_y() + 18 + 18 > pdf.h - pdf.b_margin:
-        pdf.add_page()
-    pdf.ln(18)
+    # assinaturas (MaTDoc 1.11): três linhas em branco; uma centralizada ou duas por linha, da esquerda para a direita
     pdf.set_font("Carlito", "", 12)
-    for linha in (d["assinante_nome"].upper() or "NOME DO SIGNATÁRIO", d["assinante_posto"] or "Posto / graduação",
-                  d["assinante_cargo"] or "Cargo / função"):
-        pdf.cell(0, 6, linha, align="C", new_x="LMARGIN", new_y="NEXT")
+    assinantes = d["assinantes"]
+    for k in range(0, len(assinantes), 2):
+        dupla = assinantes[k:k + 2]
+        if len(dupla) == 1 and k + 1 == len(assinantes) and len(assinantes) > 1:
+            pdf.ln(6)
+        if pdf.get_y() + 18 + 18 > pdf.h - pdf.b_margin:  # bloco não parte entre páginas
+            pdf.add_page()
+        pdf.ln(18)
+        y0 = pdf.get_y()
+        coluna = largura / len(dupla)
+        for j, a in enumerate(dupla):
+            pdf.set_xy(MM["esq"] + j * coluna, y0)
+            for linha in _linhas_assinatura(a):
+                pdf.set_x(MM["esq"] + j * coluna)
+                pdf.multi_cell(coluna, 6, linha, align="C", new_x="LEFT", new_y="NEXT")
+            fim = pdf.get_y()
+        pdf.set_y(max(fim, y0 + 18))
     return pdf
 
 
@@ -336,8 +357,6 @@ def gerar_docx(titulo: str, corpo: str, dados: dict | None = None) -> bytes:
     par("MARINHA DO BRASIL", WD_ALIGN_PARAGRAPH.CENTER, negrito=True)
     par()
     par((d["om"] or "NOME DA ORGANIZAÇÃO MILITAR").upper(), WD_ALIGN_PARAGRAPH.CENTER, negrito=True)
-    if d["grupo"]:
-        par(d["grupo"], WD_ALIGN_PARAGRAPH.LEFT)
     par()
     par(local_e_data(d["cidade"], d["uf"], d["data"]), WD_ALIGN_PARAGRAPH.RIGHT)
     par()
@@ -401,12 +420,32 @@ def gerar_docx(titulo: str, corpo: str, dados: dict | None = None) -> bytes:
                         cel._tc.get_or_add_tcPr().append(sombra)
             par(depois=6)
 
-    # assinatura (MaTDoc 1.11)
+    # assinaturas (MaTDoc 1.11): três linhas em branco; uma centralizada ou duas por linha (tabela sem bordas)
+    assinantes = d["assinantes"]
     for _ in range(3):
         par(manter=True)
-    par(d["assinante_nome"].upper() or "NOME DO SIGNATÁRIO", WD_ALIGN_PARAGRAPH.CENTER, manter=True)
-    par(d["assinante_posto"] or "Posto / graduação", WD_ALIGN_PARAGRAPH.CENTER, manter=True)
-    par(d["assinante_cargo"] or "Cargo / função", WD_ALIGN_PARAGRAPH.CENTER)
+    if len(assinantes) == 1:
+        linhas = _linhas_assinatura(assinantes[0])
+        for k, linha in enumerate(linhas):
+            par(linha, WD_ALIGN_PARAGRAPH.CENTER, manter=k < len(linhas) - 1)
+    else:
+        for k in range(0, len(assinantes), 2):
+            dupla = assinantes[k:k + 2]
+            if k:
+                for _ in range(3):
+                    par(manter=True)
+            tab = doc.add_table(rows=1, cols=len(dupla))
+            tab.alignment = WD_TABLE_ALIGNMENT.CENTER
+            for j, a in enumerate(dupla):
+                cel = tab.rows[0].cells[j]
+                cel.text = ""
+                for n, linha in enumerate(_linhas_assinatura(a)):
+                    p = cel.paragraphs[0] if n == 0 else cel.add_paragraph()
+                    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                    p.add_run(linha)
+            trPr = tab.rows[0]._tr.get_or_add_trPr()
+            nao_parte = OxmlElement("w:cantSplit")
+            trPr.append(nao_parte)
 
     # rodapé: NUP à direita e "- n de N -" centralizado, só com mais de uma página (campo IF do Word)
     rod = sec.footer

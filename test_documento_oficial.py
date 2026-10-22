@@ -49,3 +49,14 @@ def test_gera_pdf_e_docx():
     documento = docx.Document(io.BytesIO(D.gerar_docx("TERMO DE REFERÊNCIA", CORPO, {"om": "COpAb"})))
     textos = [p.text for p in documento.paragraphs]
     assert "MARINHA DO BRASIL" in textos and "COPAB" in textos and len(documento.tables) == 1
+
+
+def test_varios_signatarios_e_sem_grupo_indicador():
+    import docx
+    dados = {"om": "OM Exemplo", "grupo": "XX-10", "assinantes": [
+        {"nome": "Fulano", "posto": "CF (IM)", "cargo": "Encarregado"}, {"nome": "Beltrano", "posto": "1T (IM)", "cargo": "Requisitante"}]}
+    documento = docx.Document(io.BytesIO(D.gerar_docx("DFD", "Texto.", dados)))
+    assert "XX-10" not in [p.text for p in documento.paragraphs]
+    assinaturas = documento.tables[-1].rows[0].cells
+    assert [c.paragraphs[0].text for c in assinaturas] == ["FULANO", "BELTRANO"]
+    assert D._assinantes({"assinante_nome": "Ciclano"})[0]["nome"] == "Ciclano"  # formato antigo continua aceito
