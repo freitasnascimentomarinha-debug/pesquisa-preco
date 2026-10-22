@@ -253,7 +253,7 @@ def _encerra_no_futuro(lic: dict) -> bool:
 
 
 @st.cache_data(ttl=900, show_spinner=False)
-def _detalhe(cnpj: str, ano: str, seq: str) -> dict:
+def _detalhe(cnpj: str, ano: str, seq: str, versao: int = 2) -> dict:  # `versao` descarta cache de versões anteriores do código
     return detalhar_licitacao(cnpj, ano, seq)
 
 
