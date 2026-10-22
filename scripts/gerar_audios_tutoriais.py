@@ -51,6 +51,8 @@ AULAS = {  # nome do áudio -> módulo da aula
 # Pronúncias: siglas viram letras separadas; termos que o sintetizador lê mal ganham grafia fonética.
 SUBSTITUICOES = [
     (r"IN SEGES/ME nº 65/2021", "Instrução Normativa Seges ME número 65 de 2021"),
+    (r"\bart\. (\d+), §(\d+)º", r"artigo \1, parágrafo \2 "),
+    (r"\bart\. (\d+)", r"artigo \1"),
     (r"Lei nº 14\.133/2021", "Lei número 14.133 de 2021"),
     (r"Compras\.gov\.br", "Compras ponto gov ponto bê érre"),
     (r"Compras\.gov", "Compras ponto gov"),

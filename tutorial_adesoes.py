@@ -6,8 +6,9 @@ from tutorial_player import montar_player
 
 TITULO = "Como usar a página Adesões"
 DESCRICAO = (
-    "Achar atas de registro de preços para adesão: tipo de item, família do catálogo, esfera federal, mapa por estado, "
-    "dados de cada ata e documentos. Duração aproximada: 3 min, com narração."
+    "Achar atas de registro de preços para adesão (tipo de item, família, esfera, mapa por estado, dados e documentos de "
+    "cada ata) e montar a adesão: itens, quantidades, vantajosidade e ofício no Babilaca. Duração aproximada: 5 min, "
+    "com narração."
 )
 
 _MOCK_CSS = r"""
@@ -23,6 +24,18 @@ _MOCK_CSS = r"""
 .ata b.t{font-size:12.5px}.ata .lk{color:#60a5fa;text-decoration:underline;margin:3px 0 5px;display:block}
 .docs{display:none;margin-top:6px}.docs.on{display:block}
 #a-list{display:none}#a-list.on{display:block}#a-mapbox.off{display:none}
+.ata .bts{display:flex;gap:6px;margin-top:6px}.ata .bts .btn{padding:5px 8px;font-size:11px;width:auto}
+.aprov{display:none;margin-top:6px}.aprov.on{display:block}
+#a-cesta,#a-van,#a-bab{display:none}#a-cesta.on,#a-van.on,#a-bab.on{display:block}
+.cbox{background:rgba(8,26,57,.85);border:1px solid #d4af37;border-radius:9px;padding:9px 12px;margin:8px 0;font-size:11.5px}
+table.tb{width:100%;border-collapse:collapse;font-size:11px;margin:6px 0}
+table.tb th{background:#0f2b52;color:#f8e7a1;text-align:left;padding:4px 5px;border:1px solid #1e3a5f}
+table.tb td{padding:4px 5px;border:1px solid #1e3a5f;color:#e2e8f0}
+td.q{background:#0b2a4a;min-width:44px;font-weight:800;color:#fde68a}
+.okm{background:#14532d;border:1px solid #22c55e;color:#dcfce7;border-radius:7px;padding:6px 9px;margin-top:6px;font-size:11.5px}
+.row3{display:flex;gap:8px;margin-top:6px}.row3 .btn{flex:1;padding:6px;font-size:11.5px}
+.bab{background:#f8fafc;color:#0f172a;border-radius:8px;padding:10px 14px;font-size:11px;line-height:1.45}
+.bab b{color:#0f172a}
 """
 
 _STAGE_HTML = r"""
@@ -60,6 +73,29 @@ _STAGE_HTML = r"""
     <div class="cntb" style="padding:6px"><div class="v" style="font-size:22px">4</div><div class="k">atas em RJ</div></div>
     <div id="a-cards"></div>
   </div>
+  <div id="a-cesta">
+    <div class="sec2">🛒 Itens escolhidos para adesão</div>
+    <div class="cap2">Cada ata vira um ofício ao seu órgão gerenciador. Informe a quantidade pretendida de cada item (até o máximo por órgão), analise a vantajosidade e gere o ofício no Babilaca.</div>
+    <div class="cbox" id="a-cbox"><b>Ata 00012/2026</b> — UNIDADE EXEMPLO RJ-A (UASG 000001) · Pregão Eletrônico nº 90005/2026
+      <table class="tb" id="a-ctab"><tr><th>Incluir</th><th>Item</th><th>Descrição</th><th>Preço registrado</th><th>Máx. por órgão</th><th>Quantidade pretendida</th></tr>
+        <tr id="a-r1"><td>☑</td><td>1</td><td>PAPEL A4, GRAMATURA 75 G/M2, RESMA 500 FL</td><td>R$ 22,50</td><td id="a-m1">300</td><td class="q" id="a-q1"></td></tr>
+        <tr id="a-r2"><td>☑</td><td>3</td><td>PAPEL A3, GRAMATURA 75 G/M2, RESMA 500 FL</td><td>R$ 48,00</td><td>100</td><td class="q" id="a-q2"></td></tr></table>
+      <div class="row3"><div class="btn" id="a-anl">📊 Analisar vantajosidade</div><div class="btn pri" id="a-gof">✉️ Gerar ofício no Babilaca</div><div class="btn" style="flex:.5">🗑️ Remover</div></div>
+      <div id="a-van">
+        <table class="tb"><tr><th>Item</th><th>Preço da ata</th><th>Mediana de mercado</th><th>Preços</th><th>Diferença</th><th>Economia</th><th>Situação</th></tr>
+          <tr><td>1</td><td>R$ 22,50</td><td>R$ 26,80</td><td>7/8</td><td>-16,0%</td><td>R$ 430,00</td><td>✅ vantajoso</td></tr>
+          <tr><td>3</td><td>R$ 48,00</td><td>R$ 45,00</td><td>4/4</td><td>+6,7%</td><td>-R$ 150,00</td><td>🟡 até 10% acima do mercado</td></tr></table>
+        <div class="okm" id="a-okm">Adesão: R$ 4.650,00 × mercado (mediana): R$ 4.930,00 → economia de R$ 280,00 (5,7%). O relatório e a justificativa vão junto com o ofício.</div>
+      </div>
+    </div>
+  </div>
+  <div id="a-bab">
+    <div class="sec2">🧠 O Babilaca abre o ofício já preenchido</div>
+    <div class="bab" id="a-babdoc"><b>Nº ___ — Assunto:</b> Solicitação de adesão a Ata de Registro de Preços<br><b>Anexo:</b> A) Relatório de vantajosidade da adesão.<br><br>
+      1. Solicito a autorização desse órgão gerenciador (UNIDADE EXEMPLO RJ-A) para que esta Organização Militar adira, na condição de órgão não participante, à Ata de Registro de Preços nº 00012/2026...<br>
+      2. A adesão se justifica porque os preços registrados foram comparados com 11 preços do mesmo item em outras atas e contratações dos últimos 12 meses, e o valor da adesão (R$ 4.650,00) é inferior em R$ 280,00 (5,7%) ao valor pela mediana de mercado...<br>
+      3. Itens e quantidades: item 1 — 100 resmas; item 3 — 50 resmas.</div>
+  </div>
 </div>
 <div class="foot">Idealizado e Desenvolvido por COpAb - Sobressalentes - V1.2026</div>
 """
@@ -68,13 +104,13 @@ _STATE_JS = r"""
 const UFS={RR:[2,0],AP:[4,0],AM:[1,1],PA:[3,1],MA:[4,1],CE:[5,1],RN:[6,1],AC:[0,2],RO:[1,2],MT:[2,2],TO:[3,2],PI:[4,2],PE:[5,2],PB:[6,2],MS:[2,3],GO:[3,3],DF:[4,3],BA:[5,3],AL:[6,3],SE:[7,3],PR:[2,4],SP:[3,4],MG:[4,4],ES:[5,4],SC:[2,5],RJ:[4,5],RS:[2,6]};
 const CNT={RJ:4,SP:3,DF:2,MG:2,PR:1,RS:1,BA:1};
 const ATAS=[
- {n:'00012/2026',u:'UNIDADE EXEMPLO RJ-A',uasg:'000001',f:'FORNECEDOR EXEMPLO 1 LTDA',c:'00005/2026',v:'15/03/2027',sa:'120',sr:'0',la:'600',lc:'1200',ac:true},
- {n:'00008/2026',u:'UNIDADE EXEMPLO RJ-B',uasg:'000002',f:'FORNECEDOR EXEMPLO 2 LTDA',c:'00003/2026',v:'30/11/2026',sa:'0',sr:'40',la:'300',lc:'600',ac:true},
- {n:'00021/2025',u:'UNIDADE EXEMPLO RJ-C',uasg:'000003',f:'FORNECEDOR EXEMPLO 3 LTDA',c:'00019/2025',v:'10/12/2026',sa:'N/I',sr:'N/I',la:'N/I',lc:'N/I',ac:false},
- {n:'00003/2026',u:'UNIDADE EXEMPLO RJ-D',uasg:'000004',f:'FORNECEDOR EXEMPLO 4 LTDA',c:'00001/2026',v:'05/05/2027',sa:'800',sr:'0',la:'1500',lc:'3000',ac:true}
+ {n:'00012/2026',it:'1',u:'UNIDADE EXEMPLO RJ-A',uasg:'000001',f:'FORNECEDOR EXEMPLO 1 LTDA',c:'90005/2026',v:'15/03/2027',sa:'480 de 600 (20% já usado)',mx:'300',qr:'600',ac:true,sc:'✅ SICAF: Ativo e habilitado a licitar'},
+ {n:'00012/2026',it:'3',u:'UNIDADE EXEMPLO RJ-A',uasg:'000001',f:'FORNECEDOR EXEMPLO 1 LTDA',c:'90005/2026',v:'15/03/2027',sa:'200 de 400 (50% já usado)',mx:'100',qr:'200',ac:true,sc:'✅ SICAF: Ativo e habilitado a licitar'},
+ {n:'00021/2025',it:'2',u:'UNIDADE EXEMPLO RJ-C',uasg:'000003',f:'FORNECEDOR EXEMPLO 3 LTDA',c:'90019/2025',v:'10/12/2026',sa:'N/I',mx:'N/I',qr:'150',ac:false,sc:'⚠️ SICAF: Ativo, não habilitado a licitar'},
+ {n:'00003/2026',it:'1',u:'UNIDADE EXEMPLO RJ-D',uasg:'000004',f:'FORNECEDOR EXEMPLO 4 LTDA',c:'90001/2026',v:'05/05/2027',sa:'800 de 1.500 (47% já usado)',mx:'375',qr:'750',ac:true,sc:'✅ SICAF: Ativo e habilitado a licitar'}
 ];
 let S;
-function resetS(){S={tipo:'',dd:false,q:'',fb:false,fdd:false,fam:'',fed:true,spin:false,res:false,uf:null,docs:false};}
+function resetS(){S={tipo:'',dd:false,q:'',fb:false,fdd:false,fam:'',fed:true,spin:false,res:false,uf:null,docs:false,aprov:false,cesta:0,q1:'',q2:'',van:false,bab:false};}
 function render(){
   const T=(id,t)=>{const e=document.getElementById(id);if(e)e.textContent=t;};
   T('a-tipo-v',S.tipo);$('#a-tipo-ph').style.display=S.tipo?'none':'inline';$('#a-dd').classList.toggle('on',S.dd);
@@ -86,15 +122,17 @@ function render(){
   if(!S.res)return;
   $('#a-mapbox').classList.toggle('off',!!S.uf);$('#a-list').classList.toggle('on',!!S.uf);
   $('#a-map').innerHTML=Object.keys(UFS).map(u=>{const c=CNT[u]||0,k=c>=4?4:c>=3?3:c>=2?2:c>=1?1:0;return '<div class="tile t'+k+'" id="u-'+u+'" style="left:'+(UFS[u][0]*62)+'px;top:'+(UFS[u][1]*44)+'px">'+u+'<small>'+(c||'')+'</small></div>';}).join('');
-  $('#a-cards').innerHTML=ATAS.map((x,i)=>'<div class="ata"><b class="t">Ata '+x.n+' • '+x.u+' (UASG '+x.uasg+')</b><span class="lk">Visualizar documento – '+x.f+'</span><div><span class="tag">🔢 Item: 1</span><span class="tag">🛒 Compra: '+x.c+'</span><span class="tag">📅 Vigência Final: '+x.v+'</span><span class="tag">📦 Saldo Adesões: '+x.sa+'</span><span class="tag">🔄 Saldo Remanej.: '+x.sr+'</span><span class="tag">📊 Lim. Adesão: '+x.la+'</span><span class="tag">🛒 Lim. Compra: '+x.lc+'</span><span class="tag" id="ac'+(i+1)+'">🤝 Aceita Adesão: '+(x.ac?'✅ Sim':'❌ Não')+'</span></div><div class="btn" id="a-docs'+(i+1)+'" style="width:130px;margin-top:6px;padding:5px">📂 Outros Docs</div><div class="docs'+(i===0&&S.docs?' on':'')+'" id="a-pills'+(i+1)+'"><span class="pill">📎 Edital do pregão <small>Edital</small></span><span class="pill">📎 Termo de homologação <small>Homologação</small></span></div></div>').join('');
+  $('#a-cards').innerHTML=ATAS.map((x,i)=>'<div class="ata" id="a-card'+(i+1)+'"><b class="t">Ata '+x.n+' • '+x.u+' (UASG '+x.uasg+')</b><span class="lk">Visualizar documento – '+x.f+'</span><div><span class="tag">🔢 Item: '+x.it+'</span><span class="tag">🛒 Compra: '+x.c+'</span><span class="tag">📅 Vigência Final: '+x.v+'</span><span class="tag" id="sa'+(i+1)+'">📦 Saldo para adesão: '+x.sa+'</span><span class="tag" id="mx'+(i+1)+'">🏛️ Máx. por órgão aderente: '+x.mx+'</span><span class="tag">📋 Qtd. registrada: '+x.qr+'</span><span class="tag" id="ac'+(i+1)+'">🤝 Aceita Adesão: '+(x.ac?'✅ Sim':'❌ Não')+'</span><span class="tag" id="sc'+(i+1)+'">'+x.sc+'</span></div><div class="bts"><div class="btn" id="a-docs'+(i+1)+'">📂 Outros Docs</div><div class="btn" id="a-apr'+(i+1)+'">📋 Adesões já aprovadas</div><div class="btn" id="a-inc'+(i+1)+'">🛒 Incluir na adesão</div></div><div class="docs'+(i===0&&S.docs?' on':'')+'" id="a-pills'+(i+1)+'"><span class="pill">📎 Edital do pregão <small>Edital</small></span><span class="pill">📎 Termo de homologação <small>Homologação</small></span></div><div class="aprov'+(i===0&&S.aprov?' on':'')+'" id="a-aprov'+(i+1)+'"><table class="tb"><tr><th>Órgão que aderiu</th><th>Quantidade aprovada</th><th>Aprovada em</th></tr><tr><td>UNIDADE EXEMPLO SP</td><td>120</td><td>12/06/2026</td></tr></table></div></div>').join('');
+  $('#a-cesta').classList.toggle('on',S.cesta>0);$('#a-r2').style.display=S.cesta>1?'':'none';
+  T('a-q1',S.q1);T('a-q2',S.q2);$('#a-van').classList.toggle('on',S.van);$('#a-bab').classList.toggle('on',S.bab);
 }
 """
 
 _STEPS_JS = r"""
 window.__STEPS__=[
 {short:'A tela',t:'Conheça a página Adesões',
- b:'A página <b>Adesões</b> procura <b>atas de registro de preços</b> vigentes no Compras.gov.br em que um órgão que <b>não participou</b> da licitação pode pedir <b>adesão</b> (a chamada “carona”). Você escolhe o item, o sistema encontra as atas e mostra <b>onde estão</b>, <b>quanto resta de saldo</b> e <b>se aceitam adesão</b>.',
- tip:'💡 A adesão a ata de registro de preços tem regras e limites na Lei nº 14.133/2021 (art. 86) e no regulamento aplicável: confira-os antes de aderir.',
+ b:'A página <b>Adesões</b> procura <b>atas de registro de preços</b> vigentes no Compras.gov.br em que um órgão que <b>não participou</b> da licitação pode pedir <b>adesão</b> (a chamada “carona”). Você escolhe o item, o sistema encontra as atas e mostra <b>onde estão</b>, <b>quanto resta de saldo</b> e <b>se aceitam adesão</b>. Depois você <b>monta a adesão</b>: escolhe os itens, informa as quantidades, confere a <b>vantajosidade</b> e gera o <b>ofício</b> no Babilaca.',
+ tip:'💡 A adesão a ata de registro de preços tem regras e limites na Lei nº 14.133/2021 (art. 86): esta página ajuda a cumpri-los.',
  run:async a=>{a.unring();await a.top();a.ring('#a-head','Atas para adesão');await a.sleep(3000);a.unring();}},
 
 {short:'Tipo',t:'Passo 1 — Escolha o tipo de item',
@@ -129,14 +167,34 @@ window.__STEPS__=[
  run:async a=>{a.unring();await a.scroll('#a-map',60);await a.click('#u-RJ',()=>a.set(S=>S.uf='RJ'));await a.sleep(500);await a.scroll('#a-cards',150);a.ring('#a-limpar','Voltar ao mapa');await a.sleep(1800);a.unring();}},
 
 {short:'Ler a ata',t:'Passo 7 — Leia os dados de cada ata',
- b:'Cada cartão mostra <b>número da ata</b>, <b>órgão gerenciador</b> (e UASG), o <b>fornecedor</b> (clique para ver o documento da ata) e as etiquetas: <b>vigência final</b>, <b>saldo de adesões</b>, <b>saldo de remanejamento</b>, <b>limite de adesão</b>, <b>limite de compra</b> e <b>Aceita Adesão</b>. Prefira atas <b>vigentes</b>, com <b>saldo</b> e que <b>aceitem adesão</b>.',
- tip:'💡 “Aceita Adesão: ❌ Não” significa que a ata não admite carona — descarte-a. Saldo 0 ou vigência perto do fim também pedem cuidado.',
- run:async a=>{a.unring();await a.scroll('#a-cards',110);a.ring('#a-cards','Dados de cada ata',4);await a.sleep(2400);a.unring();await a.scroll('#ac3',230);a.ring('#ac3','Não aceita adesão',4);await a.sleep(2800);a.unring();}},
+ b:'Cada cartão mostra o <b>número da ata</b>, o <b>órgão gerenciador</b> (e a UASG), o <b>fornecedor</b> (clique para ver o documento da ata) e as etiquetas: <b>vigência final</b>; <b>saldo para adesão</b>, com quanto já foi usado; <b>máximo por órgão aderente</b>, que é a metade da quantidade registrada; <b>Aceita Adesão</b>; e a situação do fornecedor no <b>SICAF</b>.',
+ tip:'💡 “Aceita Adesão: ❌ Não” significa que a ata não admite carona — descarte-a. Confira também se o fornecedor está ativo e habilitado no SICAF.',
+ run:async a=>{a.unring();await a.scroll('#a-cards',110);a.ring('#sa1','Saldo para adesão',4);await a.sleep(2200);a.unring();a.ring('#mx1','Máximo por órgão',4);await a.sleep(2200);a.unring();await a.scroll('#ac3',230);a.ring('#ac3','Não aceita adesão',4);await a.sleep(2400);a.unring();}},
 
-{short:'Documentos',t:'Passo 8 — Veja os outros documentos',
- b:'Clique em <b>📂 Outros Docs</b> para listar os <b>documentos da ata e da compra</b> (edital, termo de homologação etc.) como links. Use-os para conferir <b>objeto, condições e especificações</b> antes de pedir a adesão.',
- tip:'🎉 Fim da aula! <b>Resumo:</b> 1) tipo; 2) pesquise; 3) escolha a família; 4) esfera; 5) Buscar adesões; 6) estado; 7) leia a ata; 8) confira os documentos e <b>contate o órgão gerenciador</b> para formalizar a adesão.',
- run:async a=>{a.unring();await a.scroll('#a-docs1',120);await a.click('#a-docs1',()=>a.set(S=>S.docs=true));a.ring('#a-pills1','Documentos da ata',4);await a.sleep(3200);a.unring();}}
+{short:'Documentos',t:'Passo 8 — Documentos e adesões já aprovadas',
+ b:'Clique em <b>📂 Outros Docs</b> para listar os <b>documentos da ata e da compra</b> (edital, termo de homologação) e conferir objeto e especificações. Em <b>📋 Adesões já aprovadas</b> você vê <b>quais órgãos já aderiram</b> ao item e em que quantidade.',
+ tip:'💡 Muitas adesões já aprovadas consomem o saldo: confira antes de pedir.',
+ run:async a=>{a.unring();await a.scroll('#a-docs1',120);await a.click('#a-docs1',()=>a.set(S=>S.docs=true));a.ring('#a-pills1','Documentos da ata',4);await a.sleep(2400);a.unring();await a.click('#a-apr1',()=>a.set(S=>S.aprov=true));a.ring('#a-aprov1','Adesões aprovadas',4);await a.sleep(2600);a.unring();}},
+
+{short:'Incluir',t:'Passo 9 — Inclua os itens na adesão',
+ b:'Em cada item que você quer, clique em <b>🛒 Incluir na adesão</b>. Pode ser <b>um item</b> ou <b>vários</b>. Os itens aparecem no quadro <b>Itens escolhidos para adesão</b>, <b>agrupados por ata</b>: itens da mesma ata vão no <b>mesmo ofício</b>; itens de atas diferentes geram <b>ofícios separados</b>, um para cada órgão gerenciador.',
+ tip:'💡 Aqui incluímos os itens 1 e 3 da mesma ata: os dois irão juntos num só ofício.',
+ run:async a=>{a.unring();await a.scroll('#a-inc1',140);await a.click('#a-inc1',()=>a.set(S=>S.cesta=1));a.toast('Item 1 incluído na adesão à Ata 00012/2026.');await a.sleep(1200);await a.scroll('#a-inc2',140);await a.click('#a-inc2',()=>a.set(S=>S.cesta=2));a.toast('Item 3 incluído na adesão à Ata 00012/2026.');await a.sleep(1200);await a.scroll('#a-cbox',80);a.ring('#a-cbox','Um bloco por ata',4);await a.sleep(2400);a.unring();}},
+
+{short:'Quantidade',t:'Passo 10 — Informe a quantidade de cada item',
+ b:'Na tabela da ata, preencha a coluna <b>Quantidade pretendida</b> de cada item. Ao lado está o <b>máximo por órgão</b>: se você passar dele, o sistema avisa (art. 86, §4º). Para tirar um item, desmarque <b>Incluir</b>.',
+ tip:'💡 Se ainda não souber a quantidade, você pode completá-la depois, no ofício do Babilaca.',
+ run:async a=>{a.unring();await a.scroll('#a-cbox',80);await a.click('#a-q1');await a.type('#a-q1','100',140);a.set(S=>S.q1='100');await a.click('#a-q2');await a.type('#a-q2','50',140);a.set(S=>S.q2='50');a.ring('#a-m1','Limite por órgão',4);await a.sleep(2200);a.unring();}},
+
+{short:'Vantajosidade',t:'Passo 11 — Analise a vantajosidade',
+ b:'Clique em <b>📊 Analisar vantajosidade</b>. Para cada item, o sistema busca o <b>mesmo código do catálogo</b> em <b>outras atas dos últimos 12 meses</b> (e, se você marcar a opção, em compras homologadas), descarta preços muito fora da curva e compara o <b>preço da ata</b> com a <b>mediana de mercado</b>. Mostra a <b>diferença</b>, a <b>economia</b> na quantidade pedida e o <b>total</b> da adesão.',
+ tip:'💡 Item 🔴 acima do mercado deve sair da adesão ou ter a vantagem justificada por outro motivo, como urgência ou risco de desabastecimento.',
+ run:async a=>{a.unring();await a.scroll('#a-anl',150);await a.click('#a-anl',()=>a.set(S=>S.spin=true));await a.sleep(1500);a.set(S=>{S.spin=false;S.van=true;});await a.scroll('#a-van',60);a.ring('#a-van','Ata × mercado',4);await a.sleep(2400);a.unring();a.ring('#a-okm','Economia total',4);await a.sleep(2400);a.unring();}},
+
+{short:'Ofício',t:'Passo 12 — Gere o ofício no Babilaca',
+ b:'Clique em <b>✉️ Gerar ofício no Babilaca</b>. O Babilaca abre na aba <b>Documentos</b> com o <b>ofício de adesão</b> já preenchido: ata, órgão gerenciador, UASG, itens e quantidades, e a <b>justificativa com os números</b> da vantajosidade. O <b>relatório de vantajosidade</b> vai pronto, como anexo, e também entra no <b>Kit do processo</b>.',
+ tip:'🎉 Fim da aula! <b>Resumo:</b> 1) tipo; 2) pesquise; 3) família; 4) esfera; 5) Buscar adesões; 6) estado; 7) leia a ata; 8) documentos e adesões aprovadas; 9) inclua os itens; 10) quantidades; 11) vantajosidade; 12) gere o ofício, revise, assine e envie ao órgão gerenciador.',
+ run:async a=>{a.unring();await a.scroll('#a-gof',150);await a.click('#a-gof',()=>a.set(S=>S.bab=true));a.toast('Abrindo o Babilaca com o ofício preenchido…');await a.sleep(900);await a.scroll('#a-babdoc',60);a.ring('#a-babdoc','Ofício pronto para revisar',4);await a.sleep(3200);a.unring();}}
 ];
 """
 

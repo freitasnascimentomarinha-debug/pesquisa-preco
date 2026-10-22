@@ -44,7 +44,7 @@ VIDEOS = [
     {"id": "direta", "titulo": "Cotação Direta", "icone": "📨", "resumo": "Pedidos de cotação direta a fornecedores.", "modulo": tutorial_cotacao_direta},
     {"id": "detalhes", "titulo": "Detalhes Compra", "icone": "🔍", "resumo": "Contratos, atas, itens, documentos e deságio de uma UASG.", "modulo": tutorial_detalhes_compra},
     {"id": "radar", "titulo": "Radar de Licitações", "icone": "📡", "resumo": "Licitações do PNCP: calendário, documentos, deságio, fornecedores e atas.", "modulo": tutorial_radar_licitacoes},
-    {"id": "adesoes", "titulo": "Adesões", "icone": "🤝", "resumo": "Atas de registro de preços e adesões.", "modulo": tutorial_adesoes},
+    {"id": "adesoes", "titulo": "Adesões", "icone": "🤝", "resumo": "Atas para adesão, vantajosidade e ofício.", "modulo": tutorial_adesoes},
     {"id": "nf", "titulo": "Notas Fiscais", "icone": "📄", "resumo": "Consulta de notas fiscais em lote.", "modulo": tutorial_notas_fiscais},
     {"id": "forn", "titulo": "Fornecedores", "icone": "🏢", "resumo": "Banco de fornecedores.", "modulo": tutorial_fornecedores},
     {"id": "cnpj", "titulo": "Consulta CNPJ", "icone": "💻", "resumo": "Cadastro, sanções, contratos, adesões e notas fiscais de um fornecedor.", "modulo": tutorial_consulta_cnpj},
