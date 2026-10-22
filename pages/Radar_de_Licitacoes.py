@@ -435,21 +435,19 @@ if lic:
     with t_itens:
         if linhas_itens:
             df_itens = pd.DataFrame(linhas_itens)
-            st.dataframe(df_itens, use_container_width=True, hide_index=True, column_config={
-                "Valor unit. estimado": st.column_config.NumberColumn(format="R$ %.2f"),
-                "Valor total estimado": st.column_config.NumberColumn(format="R$ %.2f"),
-                "Valor unit. homologado": st.column_config.NumberColumn(format="R$ %.2f"),
-                "Valor total homologado": st.column_config.NumberColumn(format="R$ %.2f"),
-                "Deságio (%)": st.column_config.NumberColumn(format="%.1f%%"),
-            })
+            for _col in ("Valor unit. estimado", "Valor total estimado", "Valor unit. homologado", "Valor total homologado"):
+                df_itens[_col] = df_itens[_col].map(lambda v: _moeda(v) if v not in (None, "") and v == v else "—")
+            df_itens["Deságio (%)"] = df_itens["Deságio (%)"].map(lambda v: f"{v:.1f}%".replace(".", ",") if v not in (None, "") and v == v else "—")
+            st.dataframe(df_itens, use_container_width=True, hide_index=True)
             st.caption("Resultados cancelados mostram quem chegou a vencer o item e depois foi substituído (desistência, inabilitação etc.).")
         else:
             st.info("Itens não disponíveis no PNCP.")
 
     with t_forn:
         if lista_forn:
-            st.dataframe(pd.DataFrame(lista_forn), use_container_width=True, hide_index=True,
-                         column_config={"Valor homologado": st.column_config.NumberColumn(format="R$ %.2f")})
+            _df_forn = pd.DataFrame(lista_forn)
+            _df_forn["Valor homologado"] = _df_forn["Valor homologado"].map(_moeda)
+            st.dataframe(_df_forn, use_container_width=True, hide_index=True)
             st.caption("Fornecedores que tiveram resultado registrado. As propostas e lances dos demais participantes só aparecem "
                        "no acompanhamento do sistema de origem.")
             cf1, cf2 = st.columns([5, 1])

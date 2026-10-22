@@ -18,7 +18,15 @@ from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
 from typing import Any
 
-from servicos_publicos import http_get_json
+from servicos_publicos import http_get_json as _http_get_json
+
+
+def http_get_json(url: str, params: dict | None = None, timeout: int = 30, tentativas: int = 2, ok_404: bool = False):
+    """Como servicos_publicos.http_get_json, mas 'HTTP 204' (o PNCP responde assim quando não há registros) vira lista vazia."""
+    dados, erro = _http_get_json(url, params, timeout, tentativas, ok_404)
+    if erro == "HTTP 204":
+        return [], None
+    return dados, erro
 
 PNCP_SEARCH = "https://pncp.gov.br/api/search/"
 PNCP_CONSULTA = "https://pncp.gov.br/api/consulta/v1"
@@ -253,13 +261,18 @@ def tabela_itens(detalhe: dict) -> list[dict]:
 def resumo_desagio(detalhe: dict) -> dict:
     """Deságio da licitação: pelo total da compra quando houver; senão, pela soma dos itens com resultado."""
     compra = detalhe.get("compra", {})
+    linhas = tabela_itens(detalhe)
     est, hom = compra.get("valorTotalEstimado") or 0, compra.get("valorTotalHomologado") or 0
     base = "compra"
     if not (est and hom):
-        linhas = [l for l in tabela_itens(detalhe) if l["Valor total estimado"] and l["Valor total homologado"]]
-        est = sum(l["Valor total estimado"] for l in linhas)
-        hom = sum(l["Valor total homologado"] for l in linhas)
-        base = "itens"
+        com_resultado = [l for l in linhas if l["Valor total estimado"] and l["Valor total homologado"]]
+        if com_resultado:
+            est = sum(l["Valor total estimado"] for l in com_resultado)
+            hom = sum(l["Valor total homologado"] for l in com_resultado)
+            base = "itens"
+        else:  # ainda sem resultado: mostra só o estimado (da compra ou somando os itens)
+            est = est or sum((l["Valor total estimado"] or 0) for l in linhas)
+            hom = 0
     return {"estimado": est, "homologado": hom, "desagio": ((est - hom) / est * 100) if est and hom else None, "base": base}
 
 
