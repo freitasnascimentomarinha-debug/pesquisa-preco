@@ -361,3 +361,110 @@ def gerar_excel(abas: dict[str, pd.DataFrame]) -> bytes:
         if not escritas:
             pd.DataFrame({"Aviso": ["Nenhum registro para exportar."]}).to_excel(escritor, sheet_name="Resultado", index=False)
     return saida.getvalue()
+
+
+# ── Sanções (CEIS, CNEP, CEPIM): bases diárias públicas do Portal da Transparência (sem chave de API) ─────────
+SANCOES_URL = "https://portaldatransparencia.gov.br/download-de-dados/{tipo}/{data}"
+SANCOES_CACHE_DIR = os.path.join(tempfile.gettempdir(), "atacotada_sancoes")
+SANCOES_TIPOS = {
+    "ceis": ("CEIS", "Cadastro de Empresas Inidôneas e Suspensas", "CPF OU CNPJ DO SANCIONADO"),
+    "cnep": ("CNEP", "Cadastro Nacional de Empresas Punidas (Lei Anticorrupção)", "CPF OU CNPJ DO SANCIONADO"),
+    "cepim": ("CEPIM", "Cadastro de Entidades Privadas sem Fins Lucrativos Impedidas", "CNPJ ENTIDADE"),
+}
+
+
+_ultima_sondagem: dict[str, float] = {}
+
+
+def _baixar_base_sancoes(tipo: str, dias_atras: int = 12) -> tuple[str | None, str | None]:
+    """Caminho do CSV mais recente da base (com cache em disco por data) e a data dela (AAAA-MM-DD)."""
+    import zipfile
+
+    os.makedirs(SANCOES_CACHE_DIR, exist_ok=True)
+    hoje = _dt.date.today()
+    # a base é atualizada em dias úteis: uma cópia local de até 2 dias dispensa nova ida ao portal
+    locais = sorted(n for n in os.listdir(SANCOES_CACHE_DIR) if n.startswith(f"{tipo}_") and n.endswith(".csv"))
+    if locais:
+        dia_local = locais[-1][len(tipo) + 1:-4]
+        try:
+            recente = (hoje - _dt.datetime.strptime(dia_local, "%Y%m%d").date()).days <= 2
+        except ValueError:
+            recente = False
+        if recente or time.time() - _ultima_sondagem.get(tipo, 0) < 6 * 3600:  # base mais nova não existe: não insiste a cada consulta
+            return os.path.join(SANCOES_CACHE_DIR, locais[-1]), dia_local
+    _ultima_sondagem[tipo] = time.time()
+    for recuo in range(dias_atras + 1):
+        dia = (hoje - _dt.timedelta(days=recuo)).strftime("%Y%m%d")
+        destino = os.path.join(SANCOES_CACHE_DIR, f"{tipo}_{dia}.csv")
+        if os.path.exists(destino):
+            return destino, dia
+        try:
+            resposta = requests.get(SANCOES_URL.format(tipo=tipo, data=dia), headers=USER_AGENT, timeout=90)
+        except requests.RequestException:
+            continue
+        if resposta.status_code != 200 or "zip" not in resposta.headers.get("content-type", ""):
+            continue
+        try:
+            from io import BytesIO
+
+            with zipfile.ZipFile(BytesIO(resposta.content)) as arquivo:
+                nome = next(n for n in arquivo.namelist() if n.lower().endswith(".csv"))
+                dados = arquivo.read(nome)
+        except (zipfile.BadZipFile, StopIteration):
+            continue
+        with open(destino + ".tmp", "wb") as saida:
+            saida.write(dados)
+        os.replace(destino + ".tmp", destino)
+        for antigo in os.listdir(SANCOES_CACHE_DIR):  # mantém só a base mais recente de cada tipo
+            if antigo.startswith(f"{tipo}_") and antigo != os.path.basename(destino):
+                try:
+                    os.remove(os.path.join(SANCOES_CACHE_DIR, antigo))
+                except OSError:
+                    pass
+        return destino, dia
+    return None, None
+
+
+_bases_lidas: dict[str, pd.DataFrame] = {}  # CSV já lido em memória (uma base por tipo)
+
+
+def consultar_sancoes(cnpj: object) -> tuple[dict[str, list[dict]], dict[str, str], str | None]:
+    """Sanções do CNPJ no CEIS, CNEP e CEPIM.
+    Retorna ({'CEIS': [registro, ...], ...}, {'CEIS': 'AAAA-MM-DD' (data da base), ...}, erro).
+    Cada registro é o dicionário das colunas do CSV, com 'vigente' (bool) calculado pelo fim da sanção."""
+    alvo = limpar_cnpj(cnpj)
+    resultado: dict[str, list[dict]] = {}
+    datas: dict[str, str] = {}
+    erros: list[str] = []
+    hoje = _dt.date.today()
+    for tipo, (sigla, _descricao, coluna) in SANCOES_TIPOS.items():
+        def buscar(tipo=tipo, coluna=coluna) -> tuple[Any, str | None]:
+            caminho, dia = _baixar_base_sancoes(tipo)
+            if not caminho:
+                return None, f"base {tipo.upper()} indisponível no Portal da Transparência"
+            df = _bases_lidas.get(caminho)
+            if df is None:
+                try:
+                    df = pd.read_csv(caminho, sep=";", encoding="latin-1", dtype=str, keep_default_na=False)
+                except (OSError, ValueError, pd.errors.ParserError) as exc:
+                    return None, f"base {tipo.upper()} ilegível ({type(exc).__name__})"
+                for velho in [c for c in _bases_lidas if os.path.basename(c).startswith(f"{tipo}_")]:
+                    del _bases_lidas[velho]
+                _bases_lidas[caminho] = df
+            achados = df[df[coluna].str.replace(r"\D", "", regex=True) == alvo]
+            return (achados.to_dict("records"), dia), None
+
+        dados, erro = _com_cache(("sancoes", tipo, alvo, hoje), 6 * 3600, buscar)
+        if erro:
+            erros.append(erro)
+            continue
+        registros, dia = dados
+        for registro in registros:
+            fim = str(registro.get("DATA FINAL SANÇÃO", "")).strip()
+            try:
+                registro["vigente"] = (not fim) or _dt.datetime.strptime(fim, "%d/%m/%Y").date() >= hoje
+            except ValueError:
+                registro["vigente"] = True  # data ilegível: trata como vigente por prudência
+        resultado[sigla] = registros
+        datas[sigla] = f"{dia[:4]}-{dia[4:6]}-{dia[6:]}"
+    return resultado, datas, "; ".join(erros) or None

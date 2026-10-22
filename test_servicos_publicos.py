@@ -49,3 +49,17 @@ def test_gerar_excel_pula_abas_vazias():
     import openpyxl
     dados = sp.gerar_excel({"A": pd.DataFrame({"x": [1, 2]}), "Vazia": pd.DataFrame()})
     assert openpyxl.load_workbook(BytesIO(dados)).sheetnames == ["A"]
+
+
+def test_sancoes_vigente_e_encerrada(tmp_path, monkeypatch):
+    csv = tmp_path / "ceis_20260101.csv"
+    csv.write_text("CPF OU CNPJ DO SANCIONADO;DATA FINAL SANÇÃO;CATEGORIA DA SANÇÃO\n"
+                   "00.394.460/0001-41;01/01/2999;Impedimento\n00394460000141;01/01/2000;Suspensão\n11111111000191;;Outra\n", encoding="latin-1")
+    cep = tmp_path / "vazio.csv"
+    cep.write_text("CNPJ ENTIDADE;NOME ENTIDADE\n", encoding="latin-1")
+    monkeypatch.setattr(sp, "_baixar_base_sancoes", lambda tipo, dias_atras=12: (str(csv if tipo != "cepim" else cep), "20260101"))
+    sp._cache.clear()
+    sp._bases_lidas.clear()
+    resultado, datas, erro = sp.consultar_sancoes("00394460000141")
+    assert erro is None and datas["CEIS"] == "2026-01-01"
+    assert [r["vigente"] for r in resultado["CEIS"]] == [True, False]
