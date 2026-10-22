@@ -8,7 +8,7 @@ from __future__ import annotations
 from fpdf import FPDF
 
 CONTRIBUIDORES = [
-    {"nome": "2°SG-PL Freitas", "papel": "Idealização e desenvolvimento"},
+    {"nome": "2°SG-PL Freitas", "papel": "Idealização, desenvolvimento, manutenção e suporte"},
 ]
 
 AZUL, DOURADO, BRANCO = (0, 26, 77), (212, 175, 55), (255, 255, 255)
