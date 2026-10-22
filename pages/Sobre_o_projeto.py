@@ -99,7 +99,7 @@ with st.sidebar:
     st.page_link("pages/Sobre_o_projeto.py", label="Sobre o projeto", icon="ℹ️")
     st.markdown("---")
     st.markdown('<div style="text-align:center;color:#d4af37;font-size:10px;font-weight:600;padding:0.3rem 0;white-space:nowrap;">Centro de Operações do Abastecimento</div>', unsafe_allow_html=True)
-    st.markdown('<div class="sidebar-footer">Marinha do Brasil<br>AtaCotada v1.0</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sidebar-footer" style="color:#d4af37;">Marinha do Brasil<br>AtaCotada V2.0</div>', unsafe_allow_html=True)
     st.markdown('<style>[data-testid="stSidebar"] a[href*="Aprendendo_a_usar"][href][data-testid],[data-testid="stSidebar"] a[href*="Aprendendo_a_usar"][href][data-testid][aria-current="page"]{background:linear-gradient(135deg,#facc15,#eab308)!important;border:1px solid #fde047!important;box-shadow:0 0 14px rgba(250,204,21,.55)!important}[data-testid="stSidebar"] a[href*="Aprendendo_a_usar"][href][data-testid] *{background:transparent!important;color:#111!important;font-weight:800!important}[data-testid="stSidebar"] a[href*="Sobre_o_projeto"][href][data-testid],[data-testid="stSidebar"] a[href*="Sobre_o_projeto"][href][data-testid][aria-current="page"]{background:linear-gradient(135deg,#ef4444,#b91c1c)!important;border:1px solid #fca5a5!important;box-shadow:0 0 14px rgba(239,68,68,.55)!important}[data-testid="stSidebar"] a[href*="Sobre_o_projeto"][href][data-testid] *{background:transparent!important;color:#fff!important;font-weight:800!important}</style>', unsafe_allow_html=True)
 
 FERRAMENTAS = [
@@ -208,7 +208,7 @@ st.markdown(
     """
     <div style="margin-top:2rem;padding-top:1.4rem;border-top:1px solid #0033cc;text-align:center;">
         <p style="color:#d4af37;font-size:12px;margin:0;letter-spacing:.5px;">Idealizado e Desenvolvido pelo 2°SG-PL Freitas com o apoio do COpAb</p>
-        <p style="color:#94a3b8;font-size:11px;margin:.3rem 0 0;">Marinha do Brasil · Centro de Operações do Abastecimento · AtaCotada v1.0</p>
+        <p style="color:#94a3b8;font-size:11px;margin:.3rem 0 0;">Marinha do Brasil · Centro de Operações do Abastecimento · AtaCotada V2.0</p>
     </div>
     """,
     unsafe_allow_html=True,
