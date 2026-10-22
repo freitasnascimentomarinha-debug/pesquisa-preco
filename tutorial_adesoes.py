@@ -178,7 +178,7 @@ window.__STEPS__=[
 
 {short:'Incluir',t:'Passo 9 — Inclua os itens na adesão',
  b:'Em cada item que você quer, clique em <b>🛒 Incluir na adesão</b>. Pode ser <b>um item</b> ou <b>vários</b>. Os itens aparecem no quadro <b>Itens escolhidos para adesão</b>, <b>agrupados por ata</b>: itens da mesma ata vão no <b>mesmo ofício</b>; itens de atas diferentes geram <b>ofícios separados</b>, um para cada órgão gerenciador.',
- tip:'💡 Aqui incluímos os itens 1 e 3 da mesma ata: os dois irão juntos num só ofício.',
+ tip:'💡 A busca mostra só os itens da família pesquisada. Para juntar <b>outros itens da mesma ata</b>, abra <b>➕ Outros itens desta ata</b> no quadro da adesão, marque os itens e clique em <b>Incluir os itens marcados</b>.',
  run:async a=>{a.unring();await a.scroll('#a-inc1',140);await a.click('#a-inc1',()=>a.set(S=>S.cesta=1));a.toast('Item 1 incluído na adesão à Ata 00012/2026.');await a.sleep(1200);await a.scroll('#a-inc2',140);await a.click('#a-inc2',()=>a.set(S=>S.cesta=2));a.toast('Item 3 incluído na adesão à Ata 00012/2026.');await a.sleep(1200);await a.scroll('#a-cbox',80);a.ring('#a-cbox','Um bloco por ata',4);await a.sleep(2400);a.unring();}},
 
 {short:'Quantidade',t:'Passo 10 — Informe a quantidade de cada item',
