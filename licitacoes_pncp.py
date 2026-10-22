@@ -1,4 +1,4 @@
-"""Biblioteca de Licitações: busca de licitações no PNCP e detalhamento (calendário, documentos, itens, deságio,
+"""Radar de Licitações: busca de licitações no PNCP e detalhamento (calendário, documentos, itens, deságio,
 fornecedores, atas de registro de preços e partes envolvidas). Sem dependência do Streamlit.
 
 Fontes (públicas, sem chave):
@@ -308,7 +308,7 @@ def gerar_calendario_ics(licitacoes: list[dict]) -> bytes:
     """Arquivo .ics (Outlook/Google Agenda) com o encerramento do recebimento de propostas de cada licitação,
     e lembrete 1 dia antes. Licitações sem data de encerramento ficam de fora."""
     agora = _dt.datetime.utcnow().strftime("%Y%m%dT%H%M%SZ")
-    linhas = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//AtaCotada//Licitacoes//PT-BR", "CALSCALE:GREGORIAN"]
+    linhas = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//AtaCotada//Radar de Licitacoes//PT-BR", "CALSCALE:GREGORIAN"]
     for lic in licitacoes:
         inicio = _ics_data(lic.get("encerramento"))
         if not inicio:

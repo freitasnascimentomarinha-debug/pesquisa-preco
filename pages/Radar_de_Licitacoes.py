@@ -1,6 +1,6 @@
 """
-Licitações — AtaCotada
-Biblioteca de licitações publicadas no PNCP: busca por objeto, UASG, período e situação; calendário de encerramentos;
+Radar de Licitações — AtaCotada
+Licitações publicadas no PNCP: busca por objeto, UASG, período e situação; calendário de encerramentos;
 documentos (edital, TR, ETP), link de acompanhamento, itens com deságio, fornecedores, atas e participantes.
 """
 
@@ -24,7 +24,7 @@ from servicos_publicos import gerar_excel  # noqa: E402
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "Projeto Adesões")
 
 st.set_page_config(
-    page_title="AtaCotada - Licitações",
+    page_title="AtaCotada - Radar de Licitações",
     page_icon="⚓",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -175,7 +175,7 @@ with st.sidebar:
     st.page_link("pages/Cotação_Rápida.py", label="Cotação Rápida", icon="⚡")
     st.page_link("pages/Cotação_Direta.py", label="Cotação Direta", icon="📨")
     st.page_link("pages/Detalhes_Compra.py", label="Detalhes Compra", icon="🔍")
-    st.page_link("pages/Licitacoes.py", label="Licitações", icon="📚")
+    st.page_link("pages/Radar_de_Licitacoes.py", label="Radar de Licitações", icon="📡")
     st.page_link("pages/Adesões.py", label="Adesões", icon="🤝")
     st.page_link("pages/Notas_Fiscais.py", label="Notas Fiscais", icon="📄")
     st.page_link("pages/Banco_de_Fornecedores.py", label="Fornecedores", icon="🏢")
@@ -200,7 +200,7 @@ st.markdown("""
 <div class="header-container">
     <div class="logo-text">⚓ MARINHA DO BRASIL ⚓</div>
     <div class="sistema-nome">AtaCotada</div>
-    <div class="subtitulo">Biblioteca de Licitações</div>
+    <div class="subtitulo">Radar de Licitações</div>
 </div>
 """, unsafe_allow_html=True)
 
@@ -271,7 +271,7 @@ def _df_lista(licitacoes):
 # ═══════════════════════════════════════════════════════════════════════════
 
 st.markdown(
-    '<div class="info-card"><h4>📚 Biblioteca de Licitações</h4>'
+    '<div class="info-card"><h4>📡 Radar de Licitações</h4>'
     '<p>Encontre licitações publicadas no PNCP pelo <b>objeto</b>, pela <b>UASG</b> (código ou nome), pelo <b>período</b> e pela '
     '<b>situação</b>. Para cada uma: calendário, documentos (edital, termo de referência, estudo técnico), link de acompanhamento, '
     'itens com deságio, fornecedores, atas de registro de preços e participantes.</p></div>',
