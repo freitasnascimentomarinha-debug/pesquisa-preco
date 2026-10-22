@@ -678,3 +678,97 @@ def corpo_mapa_comparativo(itens: list[dict], observacoes: str = "") -> str:
     if (observacoes or "").strip():
         linhas += ["", "### 3. OBSERVAÇÕES", observacoes.strip()]
     return "\n".join(linhas)
+
+
+# ── Calculadora de prazos (contados em dias úteis, art. 183) ─────────────────────────────────────────────────
+def eh_util(dia: date) -> bool:
+    return dia.weekday() < 5 and dia not in feriados_nacionais(dia.year)
+
+
+def somar_dias_uteis(inicio: date, n: int) -> date:
+    """Data que fica n dias úteis depois (n > 0) ou antes (n < 0) de 'inicio', sem contar o próprio dia de início."""
+    passo = 1 if n >= 0 else -1
+    dia, faltam = inicio, abs(n)
+    while faltam:
+        dia += timedelta(days=passo)
+        if eh_util(dia):
+            faltam -= 1
+    return dia
+
+
+# (rótulo, dias úteis, sentido, data-base pedida, o que a data calculada significa, fundamento)
+# sentido +1: prazo conta para a frente a partir da data-base; -1: termina antes da data-base.
+PRAZOS = [
+    ("Edital — bens, menor preço ou maior desconto", 8, 1, "Data de divulgação do edital",
+     "Primeira data possível para a abertura (apresentação das propostas)", f"{L}, art. 55, I, a"),
+    ("Edital — bens, demais critérios", 15, 1, "Data de divulgação do edital",
+     "Primeira data possível para a abertura", f"{L}, art. 55, I, b"),
+    ("Edital — serviços comuns e obras/serviços comuns de engenharia, menor preço ou maior desconto", 10, 1,
+     "Data de divulgação do edital", "Primeira data possível para a abertura", f"{L}, art. 55, II, a"),
+    ("Edital — serviços especiais e obras/serviços especiais de engenharia, menor preço ou maior desconto", 25, 1,
+     "Data de divulgação do edital", "Primeira data possível para a abertura", f"{L}, art. 55, II, b"),
+    ("Edital — maior lance (leilão)", 15, 1, "Data de divulgação do edital",
+     "Primeira data possível para a abertura", f"{L}, art. 55, III"),
+    ("Edital — técnica e preço ou melhor técnica / conteúdo artístico", 35, 1, "Data de divulgação do edital",
+     "Primeira data possível para a abertura", f"{L}, art. 55, IV"),
+    ("Aviso de contratação direta (dispensa eletrônica)", 3, 1, "Data de divulgação do aviso",
+     "Primeira data possível para encerrar o recebimento de propostas", f"{L}, art. 75, §3º"),
+    ("Intenção de Registro de Preços (IRP)", 8, 1, "Data de divulgação da IRP",
+     "Primeira data possível para encerrar a manifestação de interesse", f"{L}, art. 86, caput"),
+    ("Impugnação ou pedido de esclarecimento ao edital", -3, -1, "Data de abertura do certame",
+     "Último dia para impugnar ou pedir esclarecimento", f"{L}, art. 164, caput"),
+    ("Resposta à impugnação / esclarecimento", -1, -1, "Data de abertura do certame",
+     "Último dia para a Administração responder (prazo de até 3 dias úteis, limitado a este dia)",
+     f"{L}, art. 164, parágrafo único"),
+    ("Recurso (razões) contra julgamento ou habilitação", 3, 1, "Data da intimação ou da lavratura da ata",
+     "Último dia para apresentar as razões do recurso", f"{L}, art. 165, I e §1º"),
+    ("Contrarrazões ao recurso", 3, 1, "Data da intimação ou divulgação da interposição do recurso",
+     "Último dia para as contrarrazões", f"{L}, art. 165, §4º"),
+    ("Reconsideração pelo agente de contratação", 3, 1, "Data do recebimento do recurso",
+     "Último dia para reconsiderar ou encaminhar à autoridade superior", f"{L}, art. 165, §2º"),
+    ("Decisão do recurso pela autoridade superior", 10, 1, "Data do recebimento dos autos",
+     "Último dia para a decisão", f"{L}, art. 165, §2º"),
+    ("Divulgação do contrato no PNCP — licitação", 20, 1, "Data da assinatura do contrato",
+     "Último dia para divulgar (condição de eficácia)", f"{L}, art. 94, I"),
+    ("Divulgação do contrato no PNCP — contratação direta", 10, 1, "Data da assinatura do contrato",
+     "Último dia para divulgar (condição de eficácia)", f"{L}, art. 94, II"),
+    ("Defesa no processo de sanção (multa, impedimento, inidoneidade)", 15, 1, "Data da intimação do licitante",
+     "Último dia para a defesa", f"{L}, arts. 157 e 158"),
+    ("Recurso contra sanção de advertência, multa ou impedimento", 15, 1, "Data da intimação da sanção",
+     "Último dia para o recurso", f"{L}, art. 166"),
+    ("Pedido de reconsideração da declaração de inidoneidade", 15, 1, "Data da intimação da sanção",
+     "Último dia para o pedido", f"{L}, art. 167"),
+]
+PRAZOS_POR_ROTULO = {p[0]: p for p in PRAZOS}
+
+
+def calcular_prazo(rotulo: str, base: date) -> dict:
+    _r, dias, _s, nome_base, significado, fundamento = PRAZOS_POR_ROTULO[rotulo]
+    alvo = somar_dias_uteis(base, dias)
+    return {"data": alvo, "dias": dias, "base": nome_base, "significado": significado, "fundamento": fundamento,
+            "base_util": eh_util(base)}
+
+
+# ── Revisão pela IA de textos montados pelo sistema (aviso e ofícios) ────────────────────────────────────────
+_REGRAS_REVISAO = {
+    "aviso": "Mantenha EXATAMENTE as seções \"### n. TÍTULO\" e a ordem. Melhore a descrição do objeto e complete "
+             "condições de entrega, habilitação e disposições com o contexto informado.",
+    "oficio": "É um Ofício da Marinha (MaTDoc cap. 16): itens numerados \"1.\", \"2.\"... SEM títulos, SEM vocativo, "
+              "SEM fecho de cortesia e SEM assinatura (o sistema monta cabeçalho e assinatura). Primeiro item expõe o "
+              "fato, os seguintes analisam e o último solicita ou conclui. Mantenha a tabela de itens como está.",
+    "oficio_externo": "É um Ofício Externo (MaTDoc cap. 17) para órgão fora da Marinha: parágrafos numerados \"1.\", "
+                      "\"2.\"... SEM vocativo e SEM fecho (o sistema já os coloca), SEM assinatura. Tratamento formal "
+                      "e por extenso. Mantenha a tabela de itens como está.",
+}
+
+
+def prompt_revisar(corpo: str, contexto: str, tipo: str) -> str:
+    """Pedido à IA para revisar e completar um texto que o sistema já montou com os dados do formulário."""
+    return "\n".join([
+        "Revise e complete o texto abaixo em redação oficial: linguagem impessoal, culta, clara e concisa.",
+        _REGRAS_REVISAO[tipo],
+        "Preserve todos os números, datas, valores, CNPJ, UASG e nomes que já constam. Não invente dados: o que faltar "
+        "fica como \"__________\". Não acrescente citações legais além das que já estão no texto.",
+        "", "TEXTO-BASE:", corpo, "",
+        "CONTEXTO INFORMADO PELO USUÁRIO:", (contexto or "").strip() or "(nenhum)",
+    ])
