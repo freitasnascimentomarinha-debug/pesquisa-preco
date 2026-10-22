@@ -5,8 +5,10 @@ import base64
 import datetime
 from html import escape
 
+from fornecedores_nf import formatar_cnae
+from relatorio_fornecedor import gerar_ficha_pdf
 from servicos_publicos import (
-    baixar_csv_drive, cnpj_valido, consultar_cadastro_cnpj, formatar_cnpj, itens_arp_por_fornecedor, limpar_cnpj,
+    baixar_csv_drive, cnpj_valido, consultar_cadastro_cnpj, formatar_cnpj, gerar_excel, itens_arp_por_fornecedor, limpar_cnpj,
     listar_arquivos_drive, pesquisar_notas_por_cnpj, pncp_search, resumo_notas, separar_vigentes,
 )
 
@@ -227,6 +229,34 @@ def card_pncp(emoji, c, rodape_rotulo, rodape_valor, valor):
     """, unsafe_allow_html=True)
 
 
+def abrir_detalhes(uasg, ano):
+    """Leva para a página Detalhes Compra já com a UASG/ano preenchidos e a busca executada."""
+    st.session_state["_dc_prefill"] = {"uasg": str(uasg), "ano": int(ano)}
+    st.switch_page("pages/Detalhes_Compra.py")
+
+
+def seletor_detalhes(registros, chave):
+    """Escolhe um registro do PNCP e abre a UASG/ano dele em Detalhes Compra."""
+    opcoes = [r for r in registros if r.get('unidade_codigo')]
+    if not opcoes:
+        return
+    st.markdown("**🔍 Ver detalhes na página Detalhes Compra**")
+    col_sel, col_btn = st.columns([5, 1])
+    with col_sel:
+        i = st.selectbox(
+            "Registro", range(len(opcoes)), key=f"sel_det_{chave}", label_visibility="collapsed",
+            format_func=lambda k: f"{opcoes[k].get('title', 'N/A')} — {opcoes[k].get('orgao_nome', '')} (UASG {opcoes[k].get('unidade_codigo')}, {opcoes[k].get('ano', '')})"[:160],
+        )
+    with col_btn:
+        if st.button("Abrir", key=f"btn_det_{chave}", use_container_width=True):
+            r = opcoes[i]
+            abrir_detalhes(r['unidade_codigo'], r.get('ano') or datetime.date.today().year)
+
+
+def _situacao_simples(valor):
+    return {"S": "Sim", "N": "Não"}.get(str(valor or "").strip().upper(), "Não informado")
+
+
 # ===================== NOTAS FISCAIS =====================
 
 PASTA_ID = "1369rEJAqpprCP3dZp55eXaTcQRU9D5Ol"
@@ -297,10 +327,15 @@ st.markdown("Busque por informações de contato atualizadas e verifique o hist�
 
 # ===================== INPUTS =====================
 
+# vindo de outra página (ex.: Detalhes Compra → "Consultar fornecedor"): preenche o CNPJ e executa a consulta
+_prefill_cnpj = st.session_state.pop("_cons_prefill", None)
+if _prefill_cnpj:
+    st.session_state["cons_cnpj"] = formatar_cnpj(_prefill_cnpj)
+
 with st.container():
     col1, col2, col3 = st.columns([2, 1, 1])
     with col1:
-        cnpj_input = st.text_input("Digite o CNPJ (somente números ou com pontuação):", placeholder="Ex: 00.000.000/0001-00")
+        cnpj_input = st.text_input("Digite o CNPJ (somente números ou com pontuação):", placeholder="Ex: 00.000.000/0001-00", key="cons_cnpj")
     with col2:
         anos_janela = st.number_input("Janela de Pesquisa (Anos de histórico):", min_value=1, max_value=10, value=3)
 
@@ -312,7 +347,7 @@ with st.container():
 
 # ===================== CONSULTA =====================
 
-if btn_consultar and cnpj_input:
+if (btn_consultar or _prefill_cnpj) and cnpj_input:
     cnpj_limpo = limpar_cnpj(cnpj_input)
     if len(cnpj_limpo) != 14:
         st.error("CNPJ inválido. Certifique-se de preencher 14 dígitos inteiros.")
@@ -327,28 +362,24 @@ if btn_consultar and cnpj_input:
         with st.spinner(f"Consultando bases de dados para o CNPJ {formatar_cnpj(cnpj_limpo)}..."):
             progresso = st.progress(0, text="Consultando dados cadastrais...")
             cadastro = consultar_cadastro_cnpj(cnpj_limpo)
-            for fonte, erro in cadastro["erros"].items():
-                status_fontes.append(("OpenCNPJ" if fonte == "opencnpj" else "BrasilAPI", erro))
+            status_fontes.append(("OpenCNPJ", cadastro["erros"].get("opencnpj")))
+            status_fontes.append(("BrasilAPI", cadastro["erros"].get("brasilapi")))
 
             progresso.progress(0.15, text="Consultando contratos no PNCP...")
             contratos_pncp, erro = pncp_search(cnpj_limpo, "contrato", data_min)
-            if erro:
-                status_fontes.append(("PNCP — contratos", erro))
+            status_fontes.append(("PNCP — contratos", erro))
 
             progresso.progress(0.35, text="Consultando compras/licitações no PNCP...")
             compras_pncp, erro = pncp_search(cnpj_limpo, "compra", data_min)
-            if erro:
-                status_fontes.append(("PNCP — compras", erro))
+            status_fontes.append(("PNCP — compras", erro))
 
             progresso.progress(0.55, text="Consultando atas de registro de preços (PNCP)...")
             atas_pncp, erro = pncp_search(cnpj_limpo, "ata", data_min)
-            if erro:
-                status_fontes.append(("PNCP — atas", erro))
+            status_fontes.append(("PNCP — atas", erro))
 
             progresso.progress(0.75, text="Consultando atas e adesões vigentes (Compras.gov.br)...")
             atas_dadosabertos, erro = itens_arp_por_fornecedor(cnpj_limpo, anos_janela)
-            if erro:
-                status_fontes.append(("Compras.gov.br — ARP", erro))
+            status_fontes.append(("Compras.gov.br — ARP", erro))
 
             # pregões/concorrências → aba Contratos; dispensas e inexigibilidades → aba Dispensas
             def _direta(c):
@@ -385,11 +416,80 @@ if 'cnpj_consulta' in st.session_state:
 
     st.markdown("---")
 
-    if status_fontes:
+    falhas = [(f, e) for f, e in status_fontes if e]
+    if falhas:
         st.warning("⚠️ Algumas fontes não responderam e os resultados podem estar incompletos. Tente novamente em alguns minutos.")
-        for fonte, erro in status_fontes:
+        for fonte, erro in falhas:
             st.caption(f"• **{fonte}**: {erro}")
+    if status_fontes:
+        st.caption("Fontes consultadas: " + " · ".join(f"{'❌' if e else '✅'} {f}" for f, e in status_fontes))
     st.caption(f"Período consultado: últimos {anos_consulta} ano(s) (contratos, compras, atas e ARPs).")
+
+    # ---- Exportação ----
+    def _df_pncp(registros):
+        return pd.DataFrame([{
+            'Título': c.get('title', ''), 'Órgão': c.get('orgao_nome', ''), 'Unidade': c.get('unidade_nome', ''),
+            'UASG': c.get('unidade_codigo', ''), 'UF': c.get('uf', ''), 'Modalidade': c.get('modalidade_licitacao_nome', ''),
+            'Situação': c.get('situacao_nome', ''), 'Objeto': c.get('description', ''),
+            'Início vigência': c.get('data_inicio_vigencia', ''), 'Fim vigência': c.get('data_fim_vigencia', ''),
+            'Publicação': str(c.get('data_publicacao_pncp', ''))[:10],
+            'Valor': c.get('valor_global') or c.get('valor_total_estimado', 0),
+            'Link PNCP': f"https://pncp.gov.br/app{c['item_url']}" if c.get('item_url') else '',
+        } for c in registros])
+
+    _contratos_aba = contratos_pncp + compras_pregao
+    _vigentes_exp, _ = separar_vigentes(atas_dadosabertos)
+    _ids_vigentes = {id(a) for a in _vigentes_exp}
+    _empresa_df = pd.DataFrame()
+    if dados_empresa:
+        _empresa_df = pd.DataFrame([
+            ('CNPJ', formatar_cnpj(cnpj_limpo)), ('Razão social', dados_empresa.get('razao_social', '')),
+            ('Nome fantasia', dados_empresa.get('nome_fantasia', '')), ('Situação', dados_empresa.get('situacao_cadastral', '')),
+            ('Natureza jurídica', dados_empresa.get('natureza_juridica', '')), ('Porte', dados_empresa.get('porte_empresa', '')),
+            ('Início da atividade', dados_empresa.get('data_inicio_atividade', '')),
+            ('Simples', _situacao_simples(dados_empresa.get('opcao_simples'))), ('MEI', _situacao_simples(dados_empresa.get('opcao_mei'))),
+            ('CNAE principal', formatar_cnae(dados_empresa.get('cnae_principal'))),
+            ('E-mail', dados_empresa.get('email') or (dados_brasil_api or {}).get('email', '')),
+            ('Município/UF', f"{dados_empresa.get('municipio', '')}/{dados_empresa.get('uf', '')}"),
+        ], columns=['Campo', 'Valor'])
+    _qsa_df = pd.DataFrame([{'Nome': q.get('nome_socio', ''), 'Qualificação': q.get('qualificacao_socio', ''),
+                             'Entrada': q.get('data_entrada_sociedade', '')} for q in (dados_empresa or {}).get('QSA') or []])
+    _arp_df = pd.DataFrame([{
+        'Nº ATA': a.get('numeroAtaRegistroPreco', ''), 'Unidade gerenciadora': a.get('nomeUnidadeGerenciadora', ''),
+        'UASG': a.get('codigoUnidadeGerenciadora', ''), 'Item': a.get('numeroItem', ''), 'Descrição': a.get('descricaoItem', ''),
+        'Vigência início': str(a.get('dataVigenciaInicial', ''))[:10], 'Vigência fim': str(a.get('dataVigenciaFinal', ''))[:10],
+        'Qtd homologada': a.get('quantidadeHomologadaItem', ''), 'Valor unitário': a.get('valorUnitario', ''),
+        'Valor total': a.get('valorTotal', ''), 'Máx. adesão': a.get('maximoAdesao', ''),
+        'Aberta p/ adesão': 'Sim' if id(a) in _ids_vigentes else 'Não',
+    } for a in atas_dadosabertos])
+    exp1, exp2, _ = st.columns([1, 1, 2])
+    with exp1:
+        st.download_button(
+            "📊 Exportar tudo (Excel)", key="exp_xlsx",
+            data=gerar_excel({'Empresa': _empresa_df, 'Sócios': _qsa_df, 'Contratos e compras': _df_pncp(_contratos_aba),
+                              'Atas PNCP': _df_pncp(atas_pncp), 'ARP itens': _arp_df,
+                              'Dispensas': _df_pncp(compras_dispensa)}),
+            file_name=f"fornecedor_{cnpj_limpo}.xlsx", use_container_width=True,
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+    with exp2:
+        _ficha_campos = [(k, v) for k, v in (_empresa_df.itertuples(index=False) if not _empresa_df.empty else [])]
+        _recentes = sorted(_contratos_aba, key=lambda c: str(c.get('data_publicacao_pncp') or c.get('data_inicio_vigencia') or ''), reverse=True)[:15]
+        _atas_pdf = {}
+        for it in _vigentes_exp:
+            k = (it.get('numeroAtaRegistroPreco'), it.get('codigoUnidadeGerenciadora'))
+            _atas_pdf.setdefault(k, [it, 0])[1] += 1
+        st.download_button(
+            "📄 Ficha do fornecedor (PDF)", key="exp_pdf",
+            data=gerar_ficha_pdf(
+                formatar_cnpj(cnpj_limpo), _ficha_campos,
+                [("Contratos (PNCP)", str(len(contratos_pncp))), ("Compras/licitações (PNCP)", str(len(compras_pregao))),
+                 ("Dispensas/inexigibilidades", str(len(compras_dispensa))), ("Atas de registro de preços (PNCP)", str(len(atas_pncp))),
+                 ("Itens de ARP (Compras.gov.br)", str(len(atas_dadosabertos))), ("Itens com adesão aberta", str(len(_vigentes_exp)))],
+                [(c.get('title', ''), c.get('orgao_nome', ''), str(c.get('data_publicacao_pncp') or c.get('data_inicio_vigencia') or '')[:10],
+                  formatar_moeda_br(c.get('valor_global') or c.get('valor_total_estimado', 0))) for c in _recentes],
+                [(f"ARP {k[0]}", it.get('nomeUnidadeGerenciadora', ''), f"{str(it.get('dataVigenciaInicial', ''))[:10]} a {str(it.get('dataVigenciaFinal', ''))[:10]}", str(n))
+                 for k, (it, n) in list(_atas_pdf.items())[:15]]),
+            file_name=f"ficha_fornecedor_{cnpj_limpo}.pdf", mime="application/pdf", use_container_width=True)
 
     tab_empresa, tab_contratos, tab_atas, tab_adesoes, tab_compras, tab_nf = st.tabs([
         "🏢 Dados da Empresa",
@@ -460,6 +560,12 @@ if 'cnpj_consulta' in st.session_state:
                     <div class="info-item"><span class="info-label">Situação:</span> <span class="info-value">{esc(situacao)}</span></div>
                     <div class="info-item"><span class="info-label">Capital Social:</span> <span class="info-value">R$ {esc(dados_empresa.get('capital_social'))}</span></div>
                     <div class="info-item"><span class="info-label">Porte:</span> <span class="info-value">{esc(dados_empresa.get('porte_empresa'))}</span></div>
+                    <div class="info-item"><span class="info-label">Natureza jurídica:</span> <span class="info-value">{esc(dados_empresa.get('natureza_juridica'))}</span></div>
+                    <div class="info-item"><span class="info-label">Matriz/Filial:</span> <span class="info-value">{esc(dados_empresa.get('matriz_filial'))}</span></div>
+                    <div class="info-item"><span class="info-label">Início da atividade:</span> <span class="info-value">{esc(dados_empresa.get('data_inicio_atividade'))}</span></div>
+                    <div class="info-item"><span class="info-label">Optante pelo Simples:</span> <span class="info-value">{_situacao_simples(dados_empresa.get('opcao_simples'))}</span></div>
+                    <div class="info-item"><span class="info-label">MEI:</span> <span class="info-value">{_situacao_simples(dados_empresa.get('opcao_mei'))}</span></div>
+                    <div class="info-item"><span class="info-label">CNAE principal:</span> <span class="info-value">{esc(formatar_cnae(dados_empresa.get('cnae_principal')))}</span></div>
                 </div>
                 """, unsafe_allow_html=True)
             with e_col2:
@@ -482,6 +588,12 @@ if 'cnpj_consulta' in st.session_state:
                     "Foram consultadas as APIs OpenCNPJ e BrasilAPI. "
                     "Esses campos são opcionais no cadastro da RFB e muitas empresas não os informam."
                 )
+
+            cnaes_sec = dados_empresa.get('cnaes_secundarios') or []
+            if cnaes_sec:
+                with st.expander(f"Atividades secundárias (CNAE) — {len(cnaes_sec)}"):
+                    for cnae in cnaes_sec:
+                        st.markdown(f"- {formatar_cnae(cnae)}")
 
             # Quadro societário
             qsa = dados_empresa.get('QSA', [])
@@ -513,6 +625,8 @@ if 'cnpj_consulta' in st.session_state:
             for c in todos_contratos_aba:
                 card_pncp("📄", c, "Vigência", f"{c.get('data_inicio_vigencia') or 'N/A'} a {c.get('data_fim_vigencia') or 'N/A'}", c.get('valor_global', 0))
 
+            seletor_detalhes(todos_contratos_aba, "contratos")
+
             # Tabela resumo
             with st.expander("📊 Ver tabela resumo dos contratos/licitações"):
                 df_contratos = pd.DataFrame([{
@@ -539,6 +653,8 @@ if 'cnpj_consulta' in st.session_state:
 
             for ata in atas_pncp:
                 card_pncp("📑", ata, "Publicação", str(ata.get('data_publicacao_pncp', ''))[:10], ata.get('valor_global') or ata.get('valor_total_estimado', 0))
+
+            seletor_detalhes(atas_pncp, "atas")
 
             with st.expander("📊 Ver tabela resumo das atas"):
                 df_atas = pd.DataFrame([{
@@ -588,7 +704,7 @@ if 'cnpj_consulta' in st.session_state:
 
             sub_vigentes, sub_todas = st.tabs(["🟢 Abertos para Adesão", "📋 Todos os Itens"])
 
-            def _render_atas_agrupadas(atas_dict):
+            def _render_atas_agrupadas(atas_dict, escopo):
                 for _chave, ata_info in atas_dict.items():
                     vigencia_fim = ata_info['data_fim']
                     aberta = vigencia_fim >= hoje_str
@@ -606,6 +722,11 @@ if 'cnpj_consulta' in st.session_state:
                         if ata_info['numero_pncp']:
                             link_pncp = f"https://pncp.gov.br/app/atas/{ata_info['numero_pncp']}"
                             st.markdown(f"[🔗 Ver ATA no PNCP]({link_pncp})")
+                        _uasg_ata = ata_info['itens'][0].get('codigoUnidadeGerenciadora')
+                        _ano_ata = (ata_info['data_ini'] or ata_info['data_fim'] or '')[:4]
+                        if _uasg_ata and _ano_ata.isdigit():
+                            if st.button("🔍 Ver detalhes na página Detalhes Compra", key=f"det_{escopo}_{_chave}"):
+                                abrir_detalhes(_uasg_ata, _ano_ata)
 
                         # Tabela de itens desta ATA
                         df_itens = pd.DataFrame([{
@@ -623,13 +744,13 @@ if 'cnpj_consulta' in st.session_state:
             with sub_vigentes:
                 if vigentes:
                     atas_vigentes = _agrupar_por_ata(vigentes)
-                    _render_atas_agrupadas(atas_vigentes)
+                    _render_atas_agrupadas(atas_vigentes, 'vig')
                 else:
                     st.info("Nenhum item vigente com adesão aberta encontrado para este CNPJ.")
 
             with sub_todas:
                 atas_todas = _agrupar_por_ata(todos_itens_arp)
-                _render_atas_agrupadas(atas_todas)
+                _render_atas_agrupadas(atas_todas, 'todas')
                 # Tabela resumo geral
                 with st.expander("📊 Tabela resumo de todos os itens"):
                     df_todos = pd.DataFrame([{
@@ -658,6 +779,8 @@ if 'cnpj_consulta' in st.session_state:
 
             for c in todas_dispensas_aba:
                 card_pncp("🛒", c, "Publicação", str(c.get('data_publicacao_pncp', ''))[:10], c.get('valor_global') or c.get('valor_total_estimado', 0))
+
+            seletor_detalhes(todas_dispensas_aba, "dispensas")
 
             with st.expander("📊 Ver tabela resumo"):
                 df_dispensas = pd.DataFrame([{
@@ -779,6 +902,10 @@ if 'cnpj_consulta' in st.session_state:
                     st.metric("Períodos com notas", periodos)
 
                 csv_export = df_exibir.to_csv(index=False, sep=";", encoding="utf-8-sig")
+                st.download_button(
+                    "📥 Baixar notas fiscais em Excel", key="exp_nf_xlsx",
+                    data=gerar_excel({'Notas fiscais': df_exibir}), file_name=f"notas_fiscais_{cnpj_limpo}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
                 st.download_button(
                     "📥 Baixar resultados em CSV",
                     data=csv_export,

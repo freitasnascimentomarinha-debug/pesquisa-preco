@@ -41,3 +41,11 @@ def test_cache_nao_guarda_falha(monkeypatch):
     sp._cache.clear()
     assert sp.pncp_search("00394460005887", "ata")[1] is not None
     assert sp.pncp_search("00394460005887", "ata")[1] is None  # a falha não ficou em cache
+
+
+def test_gerar_excel_pula_abas_vazias():
+    from io import BytesIO
+
+    import openpyxl
+    dados = sp.gerar_excel({"A": pd.DataFrame({"x": [1, 2]}), "Vazia": pd.DataFrame()})
+    assert openpyxl.load_workbook(BytesIO(dados)).sheetnames == ["A"]

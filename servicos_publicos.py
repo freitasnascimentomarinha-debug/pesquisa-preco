@@ -329,3 +329,35 @@ def resumo_notas(df: pd.DataFrame) -> dict:
         return {"itens": len(df), "notas": notas, "valor": float(unico[col_nota].map(numero_br).fillna(0).sum()), "base": "notas"}
 
     return {"itens": len(df), "notas": notas, "valor": None, "base": "itens"}
+
+
+# ── Exportação ────────────────────────────────────────────────────────────────────────────────────────────────
+def gerar_excel(abas: dict[str, pd.DataFrame]) -> bytes:
+    """Excel (.xlsx) com uma aba por DataFrame não vazio: cabeçalho em negrito, filtro, linha fixa e colunas ajustadas."""
+    from io import BytesIO
+
+    from openpyxl.styles import Alignment, Font, PatternFill
+    from openpyxl.utils import get_column_letter
+
+    saida = BytesIO()
+    with pd.ExcelWriter(saida, engine="openpyxl") as escritor:
+        escritas = 0
+        for nome, df in abas.items():
+            if df is None or df.empty:
+                continue
+            aba = re.sub(r"[\[\]\*\?/\\:]", "-", nome)[:31]
+            df.to_excel(escritor, sheet_name=aba, index=False)
+            ws = escritor.sheets[aba]
+            for celula in ws[1]:
+                celula.font = Font(bold=True, color="FFFFFF")
+                celula.fill = PatternFill("solid", fgColor="1F3864")
+                celula.alignment = Alignment(vertical="center", wrap_text=True)
+            ws.freeze_panes = "A2"
+            ws.auto_filter.ref = ws.dimensions
+            for i, coluna in enumerate(df.columns, start=1):
+                maior = max([len(str(coluna))] + [len(str(v)) for v in df[coluna].head(300)])
+                ws.column_dimensions[get_column_letter(i)].width = min(max(10, maior + 2), 60)
+            escritas += 1
+        if not escritas:
+            pd.DataFrame({"Aviso": ["Nenhum registro para exportar."]}).to_excel(escritor, sheet_name="Resultado", index=False)
+    return saida.getvalue()

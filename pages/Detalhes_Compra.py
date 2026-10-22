@@ -13,10 +13,11 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlencode
 
+import pandas as pd
 import requests
 import streamlit as st
 
-from servicos_publicos import http_get_json
+from servicos_publicos import gerar_excel, http_get_json, limpar_cnpj
 
 # ── Caminhos ───────────────────────────────────────────────────────────────
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "Projeto Adesões")
@@ -803,7 +804,15 @@ def _fmt_data(data_str: str) -> str:
         return data_str[:10] if data_str else ""
 
 
-def render_contrato(contrato: Dict):
+def botao_consultar_fornecedor(cnpj: str, chave: str):
+    """Abre a página Consulta CNPJ já com o fornecedor preenchido e a consulta executada."""
+    digitos = limpar_cnpj(cnpj)
+    if len(digitos) == 14 and st.button("🏢 Consultar fornecedor", key=f"forn_{chave}", help="Abre a página Consulta CNPJ com este fornecedor"):
+        st.session_state["_cons_prefill"] = digitos
+        st.switch_page("pages/Consulta.py")
+
+
+def render_contrato(contrato: Dict, chave: str = ""):
     """Renderiza card de um contrato do ComprasGov."""
     numero = contrato.get("numeroContrato", "N/I")
     fornecedor = contrato.get("nomeRazaoSocialFornecedor", "N/I")
@@ -837,11 +846,12 @@ def render_contrato(contrato: Dict):
         st.caption(f"Vigência: {vigencia}")
         if id_compra:
             st.caption(f"ID: {id_compra}")
+    botao_consultar_fornecedor(cnpj_forn, f"c_{chave}")
 
     return ctrl_pncp, id_compra
 
 
-def render_arp(ata: Dict):
+def render_arp(ata: Dict, chave: str = ""):
     """Renderiza card de uma ARP com informações completas."""
     numero_ata = ata.get("numeroAtaRegistroPreco", "N/I")
     fornecedor = ata.get("nomeRazaoSocialFornecedor", "N/I")
@@ -892,6 +902,7 @@ def render_arp(ata: Dict):
     with col_l1:
         if link_ata_pncp:
             st.link_button("📄 Ata no PNCP", link_ata_pncp, use_container_width=True)
+    botao_consultar_fornecedor(cnpj_forn, f"a_{chave}")
 
     return ctrl_compra, ctrl_ata, id_compra
 
@@ -955,6 +966,16 @@ with tab_busca:
 </p>
 """, unsafe_allow_html=True)
 
+    # vindo da página Consulta CNPJ ("Ver detalhes"): preenche UASG/ano e já executa a busca
+    _prefill = st.session_state.pop("_dc_prefill", None)
+    if _prefill:
+        st.session_state["dc_uasg"] = _prefill["uasg"]
+        st.session_state["dc_ano"] = min(max(int(_prefill["ano"]), 2020), 2030)
+        st.session_state["dc_id"] = ""
+        st.session_state["_dc_active"] = True
+        st.session_state["_dc_arps_shown"] = 3
+        st.session_state["_dc_compras_shown"] = 5
+
     inferred_from_state = parse_id_compra(st.session_state.get("detalhe_id_compra", ""))
     default_uasg = st.session_state.get("detalhe_uasg", "") or (
         inferred_from_state["uasg"] if inferred_from_state else ""
@@ -966,13 +987,17 @@ with tab_busca:
         except (TypeError, ValueError):
             pass
 
+    st.session_state.setdefault("dc_uasg", default_uasg)
+    st.session_state.setdefault("dc_ano", min(max(default_year, 2020), 2030))
+    st.session_state.setdefault("dc_id", st.session_state.get("detalhe_id_compra", ""))
+
     # ── Formulário de busca ───────────────────────────────────────────────────
     col_uasg, col_ano, col_id = st.columns([2, 1, 4])
 
     with col_uasg:
         input_uasg = st.text_input(
             "Código UASG",
-            value=default_uasg,
+            key="dc_uasg",
             placeholder="Ex: 153050, 771300",
             help="Código da Unidade Gestora (6 dígitos). Se você informar o ID da compra, a UASG pode ser preenchida automaticamente.",
         )
@@ -982,14 +1007,14 @@ with tab_busca:
             "Ano",
             min_value=2020,
             max_value=2030,
-            value=default_year,
+            key="dc_ano",
             help="Ano de vigência/referência. Quando o ID da compra é informado, o ano pode ser inferido automaticamente.",
         )
 
     with col_id:
         input_id_compra = st.text_input(
             "ID da Compra (opcional)",
-            value=st.session_state.get("detalhe_id_compra", ""),
+            key="dc_id",
             placeholder="Ex: 15305006000142026",
             help="Se informado, filtra os resultados por esse ID específico.",
         )
@@ -1256,6 +1281,33 @@ with tab_busca:
             c2.metric("ARPs (SRP)", len(arps))
             c3.metric("Total Registros", len(contratos) + len(arps))
 
+            if contratos or arps:
+                _df_contratos = pd.DataFrame([{
+                    "Nº contrato": c.get("numeroContrato", ""), "Tipo": c.get("nomeTipo", ""),
+                    "Modalidade": c.get("nomeModalidadeCompra", ""), "Nº compra": c.get("numeroCompra", ""),
+                    "Fornecedor": c.get("nomeRazaoSocialFornecedor", ""), "CNPJ fornecedor": c.get("niFornecedor", ""),
+                    "Objeto": c.get("objeto", ""), "Processo": c.get("processo", ""),
+                    "Vigência início": _fmt_data(c.get("dataVigenciaInicial", "")), "Vigência fim": _fmt_data(c.get("dataVigenciaFinal", "")),
+                    "Valor global": c.get("valorGlobal", ""), "ID da compra": c.get("idCompra", ""),
+                    "Controle PNCP": c.get("numeroControlePncpCompra", ""),
+                } for c in contratos])
+                _df_arps = pd.DataFrame([{
+                    "Nº ARP": a.get("numeroAtaRegistroPreco", ""), "Modalidade": a.get("nomeModalidadeCompra", ""),
+                    "Nº compra": a.get("numeroCompra", ""), "Ano compra": a.get("anoCompra", ""),
+                    "Fornecedor": a.get("nomeRazaoSocialFornecedor", ""), "CNPJ fornecedor": a.get("niFornecedor", ""),
+                    "Objeto": a.get("objeto", ""), "Órgão": a.get("nomeOrgao", a.get("nomeUnidadeGerenciadora", "")),
+                    "Vigência início": _fmt_data(a.get("dataVigenciaInicial", a.get("dataVigenciaInicio", ""))),
+                    "Vigência fim": _fmt_data(a.get("dataVigenciaFinal", a.get("dataVigenciaFim", ""))),
+                    "Valor total": a.get("valorTotal", ""), "Itens": a.get("quantidadeItens", ""),
+                    "ID da compra": a.get("idCompra", ""), "Link ata PNCP": a.get("linkAtaPNCP", ""),
+                } for a in arps])
+                st.download_button(
+                    "📊 Exportar resultados (Excel)", key="dc_exp_xlsx",
+                    data=gerar_excel({"Contratos": _df_contratos, "ARPs": _df_arps}),
+                    file_name=f"detalhes_compra_UASG{uasg}_{ano}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                )
+
             if not contratos and not arps:
                 st.warning(
                     "Nenhum registro encontrado. "
@@ -1302,7 +1354,7 @@ with tab_busca:
                                 f"{_fmt_valor(contrato.get('valorGlobal', ''))}",
                                 expanded=(i == 0),
                             ):
-                                ctrl_pncp, id_compra_c = render_contrato(contrato)
+                                ctrl_pncp, id_compra_c = render_contrato(contrato, f"{i}_{contrato.get('idCompra', '')}_{contrato.get('numeroContrato', '')}")
                                 parsed = parse_pncp_control(ctrl_pncp)
                                 cnpj_c = parsed[0] if parsed else ""
                                 ano_c = parsed[1] if parsed else ""
@@ -1373,7 +1425,7 @@ with tab_busca:
                                 f"{_obj_arp_trunc or _fmt_valor(ata.get('valorTotal', ''))}"
                             )
                             with st.expander(_titulo_arp, expanded=(i == 0)):
-                                ctrl_compra, ctrl_ata, id_compra_a = render_arp(ata)
+                                ctrl_compra, ctrl_ata, id_compra_a = render_arp(ata, f"{i}_{ata.get('idCompra', '')}_{ata.get('numeroAtaRegistroPreco', '')}")
                                 parsed_compra = parse_pncp_control(ctrl_compra)
                                 cnpj_a = parsed_compra[0] if parsed_compra else ""
                                 ano_a = parsed_compra[1] if parsed_compra else ""
