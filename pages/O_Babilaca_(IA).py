@@ -11,6 +11,7 @@ import os
 import re
 import io
 import hashlib
+import zipfile
 import base64
 from datetime import datetime, timedelta
 from fpdf import FPDF
@@ -1041,14 +1042,14 @@ def _texto_anexos(arquivos) -> str:
     return "\n\n".join(partes)
 
 
-def _gerar_com_ia(chave: str, titulo: str, prompt: str, consulta: str, nome_base: str):
+def _gerar_com_ia(chave: str, titulo: str, prompt: str, consulta: str, nome_base: str, oficio: dict | None = None):
     with st.spinner("O Babilaca está redigindo o documento..."):
         system = _build_system_prompt(buscar_base_juridica(consulta)) + INSTRUCOES_DOCUMENTO
         resultado = chamar_ia([{"role": "user", "content": prompt}], system)
     if not resultado or resultado.lstrip().startswith(("⚠️", "❌")):
         st.error(resultado or "A IA não retornou texto. Tente de novo.")
         return
-    _registrar_doc(chave, titulo, resultado, nome_base)
+    _registrar_doc(chave, titulo, resultado, nome_base, oficio)
 
 
 def _definir_enquadramento(chave_hip: str, chave_texto: str, tabela: dict):
@@ -1203,15 +1204,26 @@ def _form_aviso(bloqueado: bool):
         pagamento = st.text_input("Condição de pagamento (opcional)", key="aviso_pagamento")
     habilitacao = st.text_area("Habilitação exigida (opcional; em branco usa o texto padrão)", key="aviso_habilitacao",
                                height=70)
-    if st.button("📄 Gerar aviso", key="aviso_gerar", use_container_width=True, disabled=bloqueado):
-        corpo = MP.corpo_aviso({
-            "numero": numero, "uasg": uasg, "objeto": objeto, "hipotese_txt": MP.texto_hipotese(hip, MP.HIPOTESES_DISPENSA),
-            "valor": valor, "sigiloso": sigiloso, "criterio": criterio, "exclusiva_me": exclusiva,
-            "inicio": datetime.combine(d_ini, h_ini), "fim": datetime.combine(d_fim, h_fim),
-            "prazo_entrega": prazo_entrega, "local_entrega": local, "pagamento": pagamento,
-            "habilitacao": habilitacao, "contato": contato})
-        titulo = f"AVISO DE CONTRATAÇÃO DIRETA Nº {numero.strip()}" if numero.strip() else "AVISO DE CONTRATAÇÃO DIRETA"
-        _registrar_doc(MP.DOC_AVISO, titulo, corpo, "aviso_contratacao_direta")
+    contexto = st.text_area("🤖 Contexto para a IA (opcional): detalhes do objeto, exigências, condições especiais",
+                            key="aviso_contexto", height=70)
+    corpo = MP.corpo_aviso({
+        "numero": numero, "uasg": uasg, "objeto": objeto, "hipotese_txt": MP.texto_hipotese(hip, MP.HIPOTESES_DISPENSA),
+        "valor": valor, "sigiloso": sigiloso, "criterio": criterio, "exclusiva_me": exclusiva,
+        "inicio": datetime.combine(d_ini, h_ini), "fim": datetime.combine(d_fim, h_fim),
+        "prazo_entrega": prazo_entrega, "local_entrega": local, "pagamento": pagamento,
+        "habilitacao": habilitacao, "contato": contato})
+    titulo = f"AVISO DE CONTRATAÇÃO DIRETA Nº {numero.strip()}" if numero.strip() else "AVISO DE CONTRATAÇÃO DIRETA"
+    _b1, _b2 = st.columns(2)
+    with _b1:
+        if st.button("📄 Gerar aviso", key="aviso_gerar", use_container_width=True, disabled=bloqueado):
+            _registrar_doc(MP.DOC_AVISO, titulo, corpo, "aviso_contratacao_direta")
+    with _b2:
+        if st.button("🤖 Completar e revisar com IA", key="aviso_ia", use_container_width=True, disabled=bloqueado):
+            if objeto.strip():
+                _gerar_com_ia(MP.DOC_AVISO, titulo, MP.prompt_revisar(corpo, contexto, "aviso"),
+                              "dispensa eletrônica aviso art 75 IN 67/2021", "aviso_contratacao_direta_ia")
+            else:
+                st.warning("Descreva o objeto.")
 
 
 def _form_oficio(tipo: str, bloqueado: bool):
@@ -1295,21 +1307,31 @@ def _form_oficio(tipo: str, bloqueado: bool):
     else:
         st.page_link("pages/Radar_de_Licitacoes.py", label="Procurar IRPs abertas no Radar de Licitações", icon="📡")
 
-    if st.button("📄 Gerar ofício", key=f"{k}_gerar", use_container_width=True, disabled=bloqueado):
-        lista = itens.fillna("").to_dict("records")
-        if adesao:
-            corpo = MP.corpo_oficio_adesao({"gerenciador": gerenciador, "ata": ata, "licitacao": licitacao, "uasg": uasg,
-                                            "objeto": objeto, "justificativa": justificativa, "fornecedor_ciente": ciente,
-                                            "contato": contato, "itens": lista})
-        else:
-            corpo = MP.corpo_oficio_irp({"gerenciador": gerenciador, "irp": irp, "uasg": uasg, "objeto": objeto,
-                                         "prazo": prazo, "justificativa": justificativa, "local_entrega": local,
-                                         "contato": contato, "itens": lista})
-        oficio = {"externo": externo, "numero": numero, "do": do, "ao": ao, "via": via, "assunto": assunto,
-                  "referencias": referencias, "anexos": anexos,
-                  "copias": [c.strip() for c in copias.split(",") if c.strip()],
-                  "endereco": endereco, "destinatario": destinatario, "vocativo": vocativo, "fecho": fecho}
-        _registrar_doc(tipo, "OFÍCIO", corpo, "oficio_adesao" if adesao else "oficio_irp", oficio)
+    contexto = st.text_area("🤖 Contexto para a IA (opcional): histórico, urgência, situação da OM",
+                            key=f"{k}_contexto", height=70)
+    lista = itens.fillna("").to_dict("records")
+    if adesao:
+        corpo = MP.corpo_oficio_adesao({"gerenciador": gerenciador, "ata": ata, "licitacao": licitacao, "uasg": uasg,
+                                        "objeto": objeto, "justificativa": justificativa, "fornecedor_ciente": ciente,
+                                        "contato": contato, "itens": lista})
+    else:
+        corpo = MP.corpo_oficio_irp({"gerenciador": gerenciador, "irp": irp, "uasg": uasg, "objeto": objeto,
+                                     "prazo": prazo, "justificativa": justificativa, "local_entrega": local,
+                                     "contato": contato, "itens": lista})
+    oficio = {"externo": externo, "numero": numero, "do": do, "ao": ao, "via": via, "assunto": assunto,
+              "referencias": referencias, "anexos": anexos,
+              "copias": [c.strip() for c in copias.split(",") if c.strip()],
+              "endereco": endereco, "destinatario": destinatario, "vocativo": vocativo, "fecho": fecho}
+    nome_base = "oficio_adesao" if adesao else "oficio_irp"
+    _b1, _b2 = st.columns(2)
+    with _b1:
+        if st.button("📄 Gerar ofício", key=f"{k}_gerar", use_container_width=True, disabled=bloqueado):
+            _registrar_doc(tipo, "OFÍCIO", corpo, nome_base, oficio)
+    with _b2:
+        if st.button("🤖 Melhorar a redação com IA", key=f"{k}_ia", use_container_width=True, disabled=bloqueado):
+            _gerar_com_ia(tipo, "OFÍCIO", MP.prompt_revisar(corpo, contexto, "oficio_externo" if externo else "oficio"),
+                          "adesão ata registro de preços art 86" if adesao else "intenção de registro de preços art 86",
+                          f"{nome_base}_ia", oficio)
 
 
 def _form_modelo_processo(tipo: str, bloqueado: bool):
@@ -1321,6 +1343,89 @@ def _form_modelo_processo(tipo: str, bloqueado: bool):
         _form_aviso(bloqueado)
     else:
         _form_oficio(tipo, bloqueado)
+
+
+def _ck_chave(modalidade: str, texto: str) -> str:
+    return hashlib.md5((modalidade + texto).encode()).hexdigest()[:10]
+
+
+# ordem das peças no kit (a mesma em que costumam ser juntadas ao processo)
+ORDEM_KIT = [MP.DOC_DFD, MP.DOC_ETP, MP.DOC_RISCOS, MP.DOC_TR, MP.DOC_MAPA, MP.DOC_MEMORIA, "Cronograma Físico-Financeiro",
+             "Justificativa de Contratação", MP.DOC_TJDL, MP.DOC_TJIL, MP.DOC_AVISO, MP.DOC_OF_ADESAO, MP.DOC_OF_IRP,
+             "Ata de Registro de Preços", "Minuta de Contrato de Serviço / Material", "Outras justificativas",
+             "Outros documentos", "Classificação de Risco Jurídico"]
+
+
+def _documentos_gerados() -> list[tuple[str, dict]]:
+    """[(chave, documento)] dos documentos gerados nesta sessão, na ordem do processo."""
+    chaves = [k[len("doc_gerado_"):] for k in st.session_state.keys() if str(k).startswith("doc_gerado_")]
+    chaves = [c for c in chaves if st.session_state.get(f"doc_gerado_{c}")]
+    chaves.sort(key=lambda c: (ORDEM_KIT.index(c) if c in ORDEM_KIT else len(ORDEM_KIT), c))
+    return [(c, st.session_state[f"doc_gerado_{c}"]) for c in chaves]
+
+
+def _montar_kit(formatos: list[str]) -> tuple[bytes, list[str]]:
+    """ZIP com os documentos gerados (texto já editado), o checklist, o relatório de conferência e o índice."""
+    buf, nomes, n = io.BytesIO(), [], 0
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        def gravar(nome, dados):
+            z.writestr(nome, dados)
+            nomes.append(nome)
+
+        for chave, doc in _documentos_gerados():
+            n += 1
+            corpo = st.session_state.get(f"doc_editado_{chave}") or doc["corpo"]
+            base = f"{n:02d}_{doc['nome']}"
+            if "PDF" in formatos:
+                gravar(f"{base}.pdf", gerar_pdf_documento(doc["titulo"], corpo, doc.get("oficio")))
+            if "Word" in formatos:
+                gravar(f"{base}.docx", gerar_docx_documento(doc["titulo"], corpo, doc.get("oficio")))
+            if chave == MP.DOC_MAPA and st.session_state.get("mapa_xlsx"):
+                gravar(f"{base}.xlsx", st.session_state["mapa_xlsx"])
+        modalidade = st.session_state.get("checklist_modalidade")
+        if modalidade in CHECKLIST_MODALIDADES:
+            itens = CHECKLIST_MODALIDADES[modalidade]
+            chaves = [_ck_chave(modalidade, t) for t, _f, _a in itens]
+            if any(f"ck_st_{c}" in st.session_state for c in chaves):
+                situacoes = [st.session_state.get(f"ck_st_{c}") or "Pendente" for c in chaves]
+                observacoes = [st.session_state.get(f"ck_obs_{c}", "") for c in chaves]
+                ident = {c: st.session_state.get(f"ck_id_{c}", "") for c in ("objeto", "valor", "responsavel", "nup")}
+                corpo = MP.corpo_checklist(modalidade, itens, situacoes, observacoes, ident)
+                gravar("90_lista_de_verificacao.pdf",
+                       gerar_pdf_documento(f"LISTA DE VERIFICAÇÃO — {modalidade}", corpo, nup=ident["nup"]))
+        conf = st.session_state.get("conf_resultado")
+        if conf:
+            gravar("91_relatorio_conferencia.pdf", gerar_pdf_documento(
+                "RELATÓRIO DE CONFERÊNCIA DO PROCESSO",
+                CP.corpo_relatorio(conf["res"], conf["modalidade"], conf["arquivos"], conf["ext"])))
+        indice = ["KIT DO PROCESSO", f"OM: {_om('om')}", f"NUP: {_om('nup') or '-'}",
+                  f"Montado em {datetime.now().strftime('%d/%m/%Y %H:%M')}", "", "Arquivos:"] + [f"- {x}" for x in nomes]
+        indice += ["", "Documentos gerados com apoio do AtaCotada / Babilaca. Revise e assine cada peça antes de juntar ao "
+                   "processo."]
+        z.writestr("00_indice.txt", "\n".join(indice))
+    return buf.getvalue(), nomes
+
+
+def _painel_kit(bloqueado: bool):
+    docs = _documentos_gerados()
+    with st.expander(f"📦 Kit do processo (ZIP) — {len(docs)} documento(s) gerado(s) nesta sessão", expanded=False):
+        if not docs and not st.session_state.get("conf_resultado"):
+            st.caption("Gere ao menos um documento para montar o kit.")
+            return
+        st.caption("Reúne num ZIP os documentos gerados nesta sessão (com as edições feitas), numerados na ordem do "
+                   "processo, mais a lista de verificação e o relatório de conferência, se houver.")
+        st.markdown("\n".join(f"- {d['titulo'].title()}" for _c, d in docs) or "- (nenhum documento)")
+        formatos = st.multiselect("Formatos", ["PDF", "Word"], default=["PDF", "Word"], key="kit_formatos")
+        if st.button("📦 Montar kit", key="kit_montar", use_container_width=True, disabled=bloqueado or not formatos):
+            with st.spinner("Montando o kit..."):
+                st.session_state["kit_zip"], _ = _montar_kit(formatos)
+        if st.session_state.get("kit_zip"):
+            st.download_button("⬇️ Baixar kit do processo (.zip)", st.session_state["kit_zip"],
+                               f"kit_processo_{datetime.now().strftime('%Y%m%d')}.zip", "application/zip",
+                               key="kit_baixar", use_container_width=True)
+        if bloqueado:
+            st.caption("Preencha os dados obrigatórios da OM e do(s) signatário(s) para montar o kit.")
+
 
 
 TEMPLATE_DFD = """## DOCUMENTO DE FORMALIZAÇÃO DE DEMANDA (DFD)
@@ -3684,10 +3789,7 @@ utilizou as seguintes fontes, priorizando a ordem estabelecida no Art. 5° da IN
                 st.warning("Descreva o cenário de contratação.")
 
     _exibir_doc(tipo_doc)
-
-def _ck_chave(modalidade: str, texto: str) -> str:
-    return hashlib.md5((modalidade + texto).encode()).hexdigest()[:10]
-
+    _painel_kit(bool(_faltam_doc))
 
 def _ck_abrir_documento(rotulo: str):
     """Atalho da lista de verificação: deixa o modelo escolhido na aba Documentos."""
@@ -3759,6 +3861,28 @@ with tab_checklist:
             st.markdown(f"**📌 Quando se aplica**\n\n{info['quando_aplicar']}")
             st.markdown(f"**💰 Limites financeiros**\n\n{info['limites']}")
             st.markdown(f"**📋 Como montar o processo (Lei 14.133/2021)**\n\n{info['como_montar']}")
+
+    with st.expander("⏱️ Calculadora de prazos (dias úteis — Lei nº 14.133/2021)", expanded=False):
+        st.caption("Contagem do art. 183: exclui o dia do começo e inclui o do vencimento; só dias úteis. Descontados "
+                   "sábados, domingos e feriados nacionais (inclusive Sexta-feira Santa); feriados estaduais, municipais "
+                   "e pontos facultativos não entram: confira o calendário local.")
+        _pz1, _pz2 = st.columns([3, 1])
+        with _pz1:
+            _prazo_sel = st.selectbox("Prazo", [p[0] for p in MP.PRAZOS], key="prazo_sel")
+        _pz = MP.PRAZOS_POR_ROTULO[_prazo_sel]
+        with _pz2:
+            _base = st.date_input(_pz[3], value=datetime.now().date(), key="prazo_base", format="DD/MM/YYYY")
+        _calc = MP.calcular_prazo(_prazo_sel, _base)
+        _dias_semana = ["segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado", "domingo"]
+        st.success(f"**{_calc['significado']}: {_calc['data'].strftime('%d/%m/%Y')} ({_dias_semana[_calc['data'].weekday()]})** "
+                   f"— {abs(_calc['dias'])} dia(s) útil(eis) {'depois' if _calc['dias'] > 0 else 'antes'} de "
+                   f"{_base.strftime('%d/%m/%Y')}. Fundamento: {_calc['fundamento']}.")
+        if not _calc["base_util"] and _calc["dias"] > 0:
+            st.caption("A data-base não é dia útil: a contagem começa no primeiro dia útil seguinte, como no cálculo acima.")
+        if _prazo_sel.startswith("Edital"):
+            _imp = MP.somar_dias_uteis(_calc["data"], -3)
+            st.info(f"Com a abertura nessa data, o último dia para impugnação ou esclarecimento seria "
+                    f"**{_imp.strftime('%d/%m/%Y')}** (3 dias úteis antes — art. 164).")
 
     with st.expander("🗂️ Identificação do processo (sai no PDF)", expanded=False):
         _i1, _i2 = st.columns([3, 1])

@@ -92,6 +92,21 @@ def test_mapa_comparativo_media_mediana_e_total():
     assert D.gerar_pdf("MAPA COMPARATIVO DE PREÇOS", corpo, DADOS)[:4] == b"%PDF"
 
 
+def test_prazos_em_dias_uteis():
+    from datetime import date
+    assert MP.somar_dias_uteis(date(2026, 10, 1), 8) == date(2026, 10, 14)        # 12/10 é feriado
+    assert MP.somar_dias_uteis(date(2026, 10, 28), -3) == date(2026, 10, 23)
+    r = MP.calcular_prazo("Divulgação do contrato no PNCP — contratação direta", date(2026, 4, 1))
+    assert r["data"] == date(2026, 4, 16) and "art. 94, II" in r["fundamento"]  # 03/04/2026 Sexta-feira Santa
+    for rotulo, dias, sentido, *_ in MP.PRAZOS:
+        assert (dias > 0) == (sentido > 0), rotulo
+
+
+def test_prompt_revisar_preserva_texto():
+    p = MP.prompt_revisar("### 1. OBJETO\nPapel", "urgente", "oficio")
+    assert "Papel" in p and "urgente" in p and "SEM fecho" in p
+
+
 if __name__ == "__main__":
     for nome, f in list(globals().items()):
         if nome.startswith("test_"):
