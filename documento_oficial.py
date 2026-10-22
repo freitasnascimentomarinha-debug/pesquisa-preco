@@ -370,7 +370,7 @@ def _pdf(titulo: str, blocos: list[dict], d: dict, numerar: bool, of: dict | Non
             pdf.ln(1)
             with pdf.table(col_widths=larguras, width=largura, line_height=5, markdown=True, text_align="LEFT",
                            headings_style=FontFace(emphasis="BOLD", fill_color=(242, 242, 242)),
-                           repeat_headings=1, padding=1.2) as tabela:
+                           repeat_headings=1, padding=1.2, align="LEFT") as tabela:  # na margem do texto, não no centro da folha
                 for r in linhas:
                     linha = tabela.row()
                     for c in r:
@@ -565,6 +565,12 @@ def gerar_docx(titulo: str, corpo: str, dados: dict | None = None, oficio: dict 
             tab.style = "Table Grid"
             tab.alignment = WD_TABLE_ALIGNMENT.CENTER
             tab.autofit = False
+            tblW = tab._tbl.tblPr.find(qn("w:tblW"))
+            if tblW is None:
+                tblW = OxmlElement("w:tblW")
+                tab._tbl.tblPr.append(tblW)
+            tblW.set(qn("w:w"), str(round(165 / 25.4 * 1440)))         # largura exata da área do texto (16,5 cm)
+            tblW.set(qn("w:type"), "dxa")
             larguras = [Cm(w / 10) for w in _larguras_colunas(linhas, 165, tam)]
             for c, w in enumerate(larguras):
                 tab.columns[c].width = w                                # grade da tabela (lida pelo LibreOffice)

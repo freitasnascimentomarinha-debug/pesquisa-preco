@@ -88,10 +88,10 @@ _STAGE_HTML = r"""
         <tr id="a-r3"><td>☑</td><td>7</td><td>ENVELOPE PARDO, 240 X 340 MM</td><td>R$ 1,95</td><td>500</td><td class="q" id="a-q3"></td><td class="q" id="a-man3"></td></tr></table>
       <div class="outros" id="a-outros">➕ <b>Outros itens desta ata</b> — <span style="color:#93c5fd">Carregar os itens da ata</span>
         <div class="opt" id="a-opt">☑ Item 7 — ENVELOPE PARDO, 240 X 340 MM — R$ 1,95 &nbsp; <span class="btn" id="a-incm" style="display:inline-block;width:auto;padding:3px 8px">Incluir os itens marcados</span></div></div>
-      <div class="ckl" id="a-ckc">☐ Incluir compras homologadas (mais preciso, mais lento)</div>
+      <div class="ckl" id="a-ckc">☐ Incluir compras homologadas (só para itens sem preço nas atas; mais lento)</div>
       <div class="row3"><div class="btn" id="a-anl">📊 Analisar vantajosidade</div><div class="btn pri" id="a-gof">✉️ Gerar ofício no Babilaca</div><div class="btn" style="flex:.5">🗑️ Remover</div></div>
       <div id="a-van">
-        <div class="cap2" id="a-leg">O preço da ata é a estimativa: entram os preços iguais ou maiores que ele, até 300%, e os menores só até 10% abaixo (até 10 por item, os mais próximos). Verde: vantajoso · amarelo: compatível com o mercado · vermelho: acima do mercado ou sem preço de referência.</div>
+        <div class="cap2" id="a-leg">O preço da ata é a estimativa: entram os preços iguais ou maiores que ele, até 300%, e os menores só até 10% abaixo (de 1 a 3 por item, os mais próximos). Verde: vantajoso · amarelo: compatível com o mercado · vermelho: acima do mercado ou sem preço de referência.</div>
         <table class="tb" id="a-vtab"><tr><th>Item</th><th>Preço da ata</th><th>Mediana de mercado</th><th>Faixa de mercado</th><th>Preços</th><th>Diferença</th><th>Economia</th><th>Situação</th></tr>
           <tr class="vg"><td>1</td><td>R$ 22,50</td><td>R$ 23,40</td><td>R$ 21,00 a R$ 31,00</td><td>8/11</td><td>-3,8%</td><td>R$ 90,00</td><td>✅ vantajoso</td></tr>
           <tr class="vy"><td>3</td><td>R$ 48,00</td><td>R$ 45,00</td><td>R$ 44,00 a R$ 52,00</td><td>5/6</td><td>+6,7%</td><td>-R$ 150,00</td><td>🟡 compatível com o mercado</td></tr>

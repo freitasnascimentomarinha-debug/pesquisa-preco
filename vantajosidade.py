@@ -2,10 +2,11 @@
 
 Para cada item escolhido na página Adesões, compara o preço registrado na ata com preços de mercado dos últimos 12
 meses (IN SEGES/ME nº 65/2021, art. 5º, I e II):
-1. outras atas do mesmo código CATMAT/CATSER;
-2. se marcado, compras homologadas do mesmo código (consulta lenta e limitada pelo Compras.gov.br);
-3. se ainda houver menos de 3 preços, atas da mesma família (PDM) com descrição parecida;
-4. preço informado pelo operador (pesquisa complementar), quando nada for encontrado.
+1. outras atas do mesmo código CATMAT/CATSER (consulta rápida);
+2. só se o passo 1 não trouxer nenhum preço na faixa: atas da mesma família (PDM) com descrição parecida e, se
+   marcado, compras homologadas do mesmo código (consultas lentas);
+3. preço informado pelo operador (pesquisa complementar), quando nada for encontrado.
+Usa de 1 a 3 preços por item, os mais próximos do preço da ata.
 Saneia os extremos e classifica: vantajoso (até a mediana), compatível com o mercado (dentro da faixa pesquisada),
 acima do mercado, ou sem referência (o operador precisa pesquisar).
 """
@@ -25,7 +26,7 @@ import modelos_processo as MP
 DADOSABERTOS = "https://dadosabertos.compras.gov.br"
 FAIXA_SANEAMENTO = (0.5, 2.0)    # sem preço de estimativa: fora de 50% a 200% da mediana é descartado
 FAIXA_ESTIMATIVA = (0.9, 3.0)    # preço da ata como estimativa: aceita de 10% abaixo até o triplo dele
-MAXIMO_PRECOS = 10               # usa até 10 preços, priorizando os menores
+MAXIMO_PRECOS = 3                # usa de 1 a 3 preços por item, os mais próximos do preço da ata
 SEMELHANCA_MINIMA = 0.65         # descrições da mesma família consideradas comparáveis
 FAIXA_FAMILIA = FAIXA_ESTIMATIVA  # item "semelhante" com preço fora desta faixa do preço da ata é outro produto
 MINIMO_PRECOS = 3
@@ -174,7 +175,7 @@ def sanear(valores: list[float]) -> tuple[list[float], list[float]]:
 def selecionar(valores: list[float], estimativa: float) -> tuple[list[float], list[float], str]:
     """Filtra os preços usando o preço da ata como estimativa: aceita os iguais ou maiores que ele, até 300% (acima
     disso é preço absurdo), e os menores só até 10% abaixo. Entre os aceitos, usa os mais próximos do preço da ata
-    (até 10). Devolve (aceitos, descartados, observação)."""
+    (até MAXIMO_PRECOS). Devolve (aceitos, descartados, observação)."""
     if not estimativa:
         aceitos, fora = sanear(valores)
         return aceitos, fora, ""
@@ -228,8 +229,9 @@ def analisar_item(item: dict, fontes: list[dict]) -> dict:
     abaixo = sorted(v for v in descartados if preco and v < FAIXA_ESTIMATIVA[0] * preco)
     if not aceitos and abaixo:
         # todos os preços de mercado estão mais de 10% abaixo da ata: não se esconde o sobrepreço
-        med = median(abaixo[:MAXIMO_PRECOS])
-        return {**r, "mediana": med, "media": mean(abaixo[:MAXIMO_PRECOS]), "menor": min(abaixo), "maior": max(abaixo),
+        proximos = abaixo[-MAXIMO_PRECOS:]   # os mais próximos do preço da ata
+        med = median(proximos)
+        return {**r, "mediana": med, "media": mean(proximos), "menor": min(abaixo), "maior": max(abaixo),
                 "diferenca": (preco - med) / med, "economia": (med - preco) * qtd, "classe": "acima",
                 "situacao": "🔴 acima do mercado (preços encontrados mais de 10% abaixo da ata)"}
     if not aceitos or not preco:
@@ -244,13 +246,18 @@ def analisar_item(item: dict, fontes: list[dict]) -> dict:
     else:
         situacao, classe = "🔴 acima do mercado", "acima"
     if len(aceitos) < MINIMO_PRECOS:
-        situacao += " (menos de 3 preços)"
+        situacao += f" ({len(aceitos)} preço{'s' if len(aceitos) > 1 else ''})"
     return {**r, "mediana": med, "media": mean(aceitos), "menor": min(aceitos), "maior": max(aceitos),
             "diferenca": dif, "economia": (med - preco) * qtd, "situacao": situacao, "classe": classe}
 
 
+def _na_faixa(fontes: list[dict], item: dict) -> int:
+    """Quantos preços entram na regra da faixa (no máximo MAXIMO_PRECOS): com 1 ou mais, não se busca em outras fontes."""
+    return len(selecionar([x["valor"] for x in fontes], float(item.get("preco") or 0))[0])
+
+
 def coletar_atas(item: dict, ata_propria: str) -> tuple[list[dict], list[str]]:
-    """Fase rápida: atas do mesmo código e, se houver poucos preços, itens semelhantes da mesma família."""
+    """Fase rápida: atas do mesmo código; só se nenhuma trouxer preço na faixa, itens semelhantes da mesma família."""
     codigo = str(item.get("codigo") or "").strip()
     if not codigo:
         return [], ["item sem código CATMAT/CATSER"]
@@ -258,7 +265,7 @@ def coletar_atas(item: dict, ata_propria: str) -> tuple[list[dict], list[str]]:
     f, e = precos_atas(codigo, ata_propria)
     fontes += f
     avisos += [e] if e else []
-    if len(selecionar([x["valor"] for x in fontes], float(item.get("preco") or 0))[0]) < MINIMO_PRECOS and item.get("pdm"):
+    if not _na_faixa(fontes, item) and item.get("pdm"):
         f, e = precos_familia(str(item["pdm"]), item.get("Descrição") or "", codigo, ata_propria,
                               float(item.get("preco") or 0))
         fontes += f
@@ -271,7 +278,7 @@ def coletar_atas(item: dict, ata_propria: str) -> tuple[list[dict], list[str]]:
 def coletar(item: dict, ata_propria: str, incluir_compras: bool, prazo: float | None = None) -> tuple[list[dict], list[str]]:
     fontes, avisos = coletar_atas(item, ata_propria)
     codigo = str(item.get("codigo") or "").strip()
-    if incluir_compras and codigo:
+    if incluir_compras and codigo and not _na_faixa(fontes, item):
         f, e = precos_compras(codigo)
         fontes += f
         avisos += [e] if e else []
@@ -282,7 +289,8 @@ def analisar(itens: list[dict], ata_propria: str = "", incluir_compras: bool = F
              progresso=None) -> list[dict]:
     """Analisa vários itens em duas fases, com progresso(fracao, texto) chamado na thread de quem chamou:
     1) atas do mesmo código e da mesma família, em paralelo (segundos);
-    2) se pedido, compras homologadas, uma por vez (a API é lenta), parando após ~2,5 min."""
+    2) se pedido, compras homologadas, uma por vez (a API é lenta), parando após ~2,5 min — só para os itens que
+       ainda não têm nenhum preço na faixa."""
     from concurrent.futures import as_completed
     inicio = time.monotonic()
     total = len(itens)
@@ -304,6 +312,8 @@ def analisar(itens: list[dict], ata_propria: str = "", incluir_compras: bool = F
             fontes, avisos = coletas[k]
             if not codigo:
                 pass
+            elif _na_faixa(fontes, item):
+                avisos = avisos + ["compras homologadas dispensadas: as atas já trouxeram preço na faixa"]
             elif time.monotonic() - inicio > ORCAMENTO_COMPRAS and ("compras", codigo) not in _CACHE:
                 avisos = avisos + ["compras homologadas não consultadas: tempo limite da análise atingido"]
             else:
@@ -391,11 +401,11 @@ def corpo_relatorio(ata: dict, resultados: list[dict]) -> str:
               "", "### 2. METODOLOGIA",
               "Para cada item, o preço registrado foi comparado com preços de mercado dos últimos 12 meses (IN SEGES/ME "
               "nº 65/2021, art. 5º, I e II): outras atas de registro de preços do mesmo código do catálogo, compras "
-              "homologadas do mesmo código (quando consultadas) e, se houvesse menos de três preços, atas de itens "
-              "semelhantes da mesma família do catálogo. O preço registrado na ata foi usado como estimativa para filtrar "
+              "e, somente quando estas não trouxeram nenhum preço na faixa, atas de itens semelhantes da mesma família do "
+              "catálogo e compras homologadas do mesmo código (quando consultadas). O preço registrado na ata foi usado como estimativa para filtrar "
               f"os preços: foram considerados os iguais ou superiores a ele, até {FAIXA_ESTIMATIVA[1]:.0%} do seu valor, "
               f"e os inferiores somente até {1 - FAIXA_ESTIMATIVA[0]:.0%} abaixo dele, usando-se os mais próximos do "
-              f"preço registrado (até {MAXIMO_PRECOS} por item); preços fora dessa faixa foram tidos como "
+              f"preço registrado (de 1 a {MAXIMO_PRECOS} por item); preços fora dessa faixa foram tidos como "
               "inexequíveis, excessivamente elevados ou de produto diferente, e os inferiores descartados são "
               "informados na tabela. "
 "O preço é vantajoso quando igual ou inferior à mediana e compatível com o mercado "
