@@ -7,7 +7,7 @@ from tutorial_player import montar_player
 TITULO = "Como usar a página Adesões"
 DESCRICAO = (
     "Achar atas de registro de preços para adesão (tipo de item, família, esfera, mapa por estado, dados e documentos de "
-    "cada ata) e montar a adesão: itens, quantidades, vantajosidade e ofício no Babilaca. Duração aproximada: 5 min, "
+    "cada ata) e montar a adesão: itens, quantidades, vantajosidade (regra dos 20%) e ofício no Babilaca. Duração aproximada: 6 min, "
     "com narração."
 )
 
@@ -32,6 +32,11 @@ table.tb{width:100%;border-collapse:collapse;font-size:11px;margin:6px 0}
 table.tb th{background:#0f2b52;color:#f8e7a1;text-align:left;padding:4px 5px;border:1px solid #1e3a5f}
 table.tb td{padding:4px 5px;border:1px solid #1e3a5f;color:#e2e8f0}
 td.q{background:#0b2a4a;min-width:44px;font-weight:800;color:#fde68a}
+tr.vg td{background:#14532d}tr.vy td{background:#713f12}tr.vr td{background:#7f1d1d}
+.outros{border:1px dashed #64748b;border-radius:7px;padding:6px 9px;margin-top:6px;font-size:11px}
+.outros .opt{display:none;margin-top:5px}.outros .opt.on{display:block}
+.erm{background:#450a0a;border:1px solid #ef4444;color:#fee2e2;border-radius:7px;padding:6px 9px;margin-top:6px;font-size:11px}
+.ckl{font-size:11px;margin-top:6px}
 .okm{background:#14532d;border:1px solid #22c55e;color:#dcfce7;border-radius:7px;padding:6px 9px;margin-top:6px;font-size:11.5px}
 .row3{display:flex;gap:8px;margin-top:6px}.row3 .btn{flex:1;padding:6px;font-size:11.5px}
 .bab{background:#f8fafc;color:#0f172a;border-radius:8px;padding:10px 14px;font-size:11px;line-height:1.45}
@@ -77,15 +82,22 @@ _STAGE_HTML = r"""
     <div class="sec2">🛒 Itens escolhidos para adesão</div>
     <div class="cap2">Cada ata vira um ofício ao seu órgão gerenciador. Informe a quantidade pretendida de cada item (até o máximo por órgão), analise a vantajosidade e gere o ofício no Babilaca.</div>
     <div class="cbox" id="a-cbox"><b>Ata 00012/2026</b> — UNIDADE EXEMPLO RJ-A (UASG 000001) · Pregão Eletrônico nº 90005/2026
-      <table class="tb" id="a-ctab"><tr><th>Incluir</th><th>Item</th><th>Descrição</th><th>Preço registrado</th><th>Máx. por órgão</th><th>Quantidade pretendida</th></tr>
-        <tr id="a-r1"><td>☑</td><td>1</td><td>PAPEL A4, GRAMATURA 75 G/M2, RESMA 500 FL</td><td>R$ 22,50</td><td id="a-m1">300</td><td class="q" id="a-q1"></td></tr>
-        <tr id="a-r2"><td>☑</td><td>3</td><td>PAPEL A3, GRAMATURA 75 G/M2, RESMA 500 FL</td><td>R$ 48,00</td><td>100</td><td class="q" id="a-q2"></td></tr></table>
+      <table class="tb" id="a-ctab"><tr><th>Incluir</th><th>Item</th><th>Descrição</th><th>Preço registrado</th><th>Máx. por órgão</th><th>Quantidade pretendida</th><th>Preço de ref. (manual)</th></tr>
+        <tr id="a-r1"><td>☑</td><td>1</td><td>PAPEL A4, 75 G/M2, RESMA 500 FL</td><td>R$ 22,50</td><td id="a-m1">300</td><td class="q" id="a-q1"></td><td></td></tr>
+        <tr id="a-r2"><td>☑</td><td>3</td><td>PAPEL A3, 75 G/M2, RESMA 500 FL</td><td>R$ 48,00</td><td>100</td><td class="q" id="a-q2"></td><td></td></tr>
+        <tr id="a-r3"><td>☑</td><td>7</td><td>ENVELOPE PARDO, 240 X 340 MM</td><td>R$ 1,95</td><td>500</td><td class="q" id="a-q3"></td><td class="q" id="a-man3"></td></tr></table>
+      <div class="outros" id="a-outros">➕ <b>Outros itens desta ata</b> — <span style="color:#93c5fd">Carregar os itens da ata</span>
+        <div class="opt" id="a-opt">☑ Item 7 — ENVELOPE PARDO, 240 X 340 MM — R$ 1,95 &nbsp; <span class="btn" id="a-incm" style="display:inline-block;width:auto;padding:3px 8px">Incluir os itens marcados</span></div></div>
+      <div class="ckl" id="a-ckc">☐ Incluir compras homologadas (mais preciso, mais lento)</div>
       <div class="row3"><div class="btn" id="a-anl">📊 Analisar vantajosidade</div><div class="btn pri" id="a-gof">✉️ Gerar ofício no Babilaca</div><div class="btn" style="flex:.5">🗑️ Remover</div></div>
       <div id="a-van">
-        <table class="tb"><tr><th>Item</th><th>Preço da ata</th><th>Mediana de mercado</th><th>Preços</th><th>Diferença</th><th>Economia</th><th>Situação</th></tr>
-          <tr><td>1</td><td>R$ 22,50</td><td>R$ 26,80</td><td>7/8</td><td>-16,0%</td><td>R$ 430,00</td><td>✅ vantajoso</td></tr>
-          <tr><td>3</td><td>R$ 48,00</td><td>R$ 45,00</td><td>4/4</td><td>+6,7%</td><td>-R$ 150,00</td><td>🟡 até 10% acima do mercado</td></tr></table>
-        <div class="okm" id="a-okm">Adesão: R$ 4.650,00 × mercado (mediana): R$ 4.930,00 → economia de R$ 280,00 (5,7%). O relatório e a justificativa vão junto com o ofício.</div>
+        <div class="cap2" id="a-leg">O preço da ata é a estimativa: entram os preços entre 50% e 120% dele, priorizando os menores (até 10 por item). Verde: vantajoso · amarelo: compatível com o mercado · vermelho: acima do mercado ou sem preço de referência.</div>
+        <table class="tb" id="a-vtab"><tr><th>Item</th><th>Preço da ata</th><th>Mediana de mercado</th><th>Faixa de mercado</th><th>Preços</th><th>Diferença</th><th>Economia</th><th>Situação</th></tr>
+          <tr class="vg"><td>1</td><td>R$ 22,50</td><td>R$ 23,40</td><td>R$ 18,00 a R$ 26,90</td><td>8/11</td><td>-3,8%</td><td>R$ 90,00</td><td>✅ vantajoso</td></tr>
+          <tr class="vy"><td>3</td><td>R$ 48,00</td><td>R$ 45,00</td><td>R$ 41,00 a R$ 52,00</td><td>5/6</td><td>+6,7%</td><td>-R$ 150,00</td><td>🟡 compatível com o mercado</td></tr>
+          <tr id="a-v3" class="vr"><td>7</td><td>R$ 1,95</td><td id="a-v3m">-</td><td id="a-v3f">a pesquisar</td><td id="a-v3p">0/0</td><td id="a-v3d">-</td><td id="a-v3e">-</td><td id="a-v3s">🔴 sem preço de referência — pesquisar</td></tr></table>
+        <div class="erm" id="a-erm">Sem preço de referência no item 7. Confira se o código do item não está restrito demais; se não estiver, pesquise o preço e informe-o na coluna <b>Preço de referência (manual)</b>, ou complete o campo __________ no relatório do Babilaca.</div>
+        <div class="okm" id="a-okm">Adesão: R$ 4.650,00 × mercado (mediana): R$ 4.590,00 → dentro da faixa de mercado. O relatório, com a justificativa de cada item, vai junto com o ofício.</div>
       </div>
     </div>
   </div>
@@ -93,8 +105,8 @@ _STAGE_HTML = r"""
     <div class="sec2">🧠 O Babilaca abre o ofício já preenchido</div>
     <div class="bab" id="a-babdoc"><b>Nº ___ — Assunto:</b> Solicitação de adesão a Ata de Registro de Preços<br><b>Anexo:</b> A) Relatório de vantajosidade da adesão.<br><br>
       1. Solicito a autorização desse órgão gerenciador (UNIDADE EXEMPLO RJ-A) para que esta Organização Militar adira, na condição de órgão não participante, à Ata de Registro de Preços nº 00012/2026...<br>
-      2. A adesão se justifica porque os preços registrados foram comparados com 11 preços do mesmo item em outras atas e contratações dos últimos 12 meses, e o valor da adesão (R$ 4.650,00) é inferior em R$ 280,00 (5,7%) ao valor pela mediana de mercado...<br>
-      3. Itens e quantidades: item 1 — 100 resmas; item 3 — 50 resmas.</div>
+      2. A adesão se justifica porque os preços registrados foram comparados com 14 preços de mercado dos últimos 12 meses, e o valor da adesão (R$ 4.650,00) está dentro da faixa de preços praticados no mercado (mediana de R$ 4.590,00), sendo compatível com os valores de mercado...<br>
+      3. Itens e quantidades: item 1 — 100 resmas; item 3 — 50 resmas; item 7 — 500 envelopes.</div>
   </div>
 </div>
 <div class="foot">Idealizado e Desenvolvido por COpAb - Sobressalentes - V1.2026</div>
@@ -110,7 +122,7 @@ const ATAS=[
  {n:'00003/2026',it:'1',u:'UNIDADE EXEMPLO RJ-D',uasg:'000004',f:'FORNECEDOR EXEMPLO 4 LTDA',c:'90001/2026',v:'05/05/2027',sa:'800 de 1.500 (47% já usado)',mx:'375',qr:'750',ac:true,sc:'✅ SICAF: Ativo e habilitado a licitar'}
 ];
 let S;
-function resetS(){S={tipo:'',dd:false,q:'',fb:false,fdd:false,fam:'',fed:true,spin:false,res:false,uf:null,docs:false,aprov:false,cesta:0,q1:'',q2:'',van:false,bab:false};}
+function resetS(){S={tipo:'',dd:false,q:'',fb:false,fdd:false,fam:'',fed:true,spin:false,res:false,uf:null,docs:false,aprov:false,cesta:0,q1:'',q2:'',q3:'',outros:false,man:'',van:false,bab:false};}
 function render(){
   const T=(id,t)=>{const e=document.getElementById(id);if(e)e.textContent=t;};
   T('a-tipo-v',S.tipo);$('#a-tipo-ph').style.display=S.tipo?'none':'inline';$('#a-dd').classList.toggle('on',S.dd);
@@ -123,8 +135,12 @@ function render(){
   $('#a-mapbox').classList.toggle('off',!!S.uf);$('#a-list').classList.toggle('on',!!S.uf);
   $('#a-map').innerHTML=Object.keys(UFS).map(u=>{const c=CNT[u]||0,k=c>=4?4:c>=3?3:c>=2?2:c>=1?1:0;return '<div class="tile t'+k+'" id="u-'+u+'" style="left:'+(UFS[u][0]*62)+'px;top:'+(UFS[u][1]*44)+'px">'+u+'<small>'+(c||'')+'</small></div>';}).join('');
   $('#a-cards').innerHTML=ATAS.map((x,i)=>'<div class="ata" id="a-card'+(i+1)+'"><b class="t">Ata '+x.n+' • '+x.u+' (UASG '+x.uasg+')</b><span class="lk">Visualizar documento – '+x.f+'</span><div><span class="tag">🔢 Item: '+x.it+'</span><span class="tag">🛒 Compra: '+x.c+'</span><span class="tag">📅 Vigência Final: '+x.v+'</span><span class="tag" id="sa'+(i+1)+'">📦 Saldo para adesão: '+x.sa+'</span><span class="tag" id="mx'+(i+1)+'">🏛️ Máx. por órgão aderente: '+x.mx+'</span><span class="tag">📋 Qtd. registrada: '+x.qr+'</span><span class="tag" id="ac'+(i+1)+'">🤝 Aceita Adesão: '+(x.ac?'✅ Sim':'❌ Não')+'</span><span class="tag" id="sc'+(i+1)+'">'+x.sc+'</span></div><div class="bts"><div class="btn" id="a-docs'+(i+1)+'">📂 Outros Docs</div><div class="btn" id="a-apr'+(i+1)+'">📋 Adesões já aprovadas</div><div class="btn" id="a-inc'+(i+1)+'">🛒 Incluir na adesão</div></div><div class="docs'+(i===0&&S.docs?' on':'')+'" id="a-pills'+(i+1)+'"><span class="pill">📎 Edital do pregão <small>Edital</small></span><span class="pill">📎 Termo de homologação <small>Homologação</small></span></div><div class="aprov'+(i===0&&S.aprov?' on':'')+'" id="a-aprov'+(i+1)+'"><table class="tb"><tr><th>Órgão que aderiu</th><th>Quantidade aprovada</th><th>Aprovada em</th></tr><tr><td>UNIDADE EXEMPLO SP</td><td>120</td><td>12/06/2026</td></tr></table></div></div>').join('');
-  $('#a-cesta').classList.toggle('on',S.cesta>0);$('#a-r2').style.display=S.cesta>1?'':'none';
-  T('a-q1',S.q1);T('a-q2',S.q2);$('#a-van').classList.toggle('on',S.van);$('#a-bab').classList.toggle('on',S.bab);
+  $('#a-cesta').classList.toggle('on',S.cesta>0);$('#a-r2').style.display=S.cesta>1?'':'none';$('#a-r3').style.display=S.cesta>2?'':'none';
+  $('#a-opt').classList.toggle('on',S.outros&&S.cesta<3);
+  T('a-q1',S.q1);T('a-q2',S.q2);T('a-q3',S.q3);T('a-man3',S.man);
+  const ok=!!S.man;$('#a-v3').className=ok?'vg':'vr';$('#a-erm').style.display=ok?'none':'block';
+  T('a-v3m',ok?'R$ 2,10':'-');T('a-v3f',ok?'R$ 2,10 a R$ 2,10':'a pesquisar');T('a-v3p',ok?'1/1':'0/0');T('a-v3d',ok?'-7,1%':'-');
+  T('a-v3e',ok?'R$ 45,00':'-');T('a-v3s',ok?'✅ vantajoso (menos de 3 preços)':'🔴 sem preço de referência — pesquisar');$('#a-van').classList.toggle('on',S.van);$('#a-bab').classList.toggle('on',S.bab);
 }
 """
 
@@ -177,23 +193,28 @@ window.__STEPS__=[
  run:async a=>{a.unring();await a.scroll('#a-docs1',120);await a.click('#a-docs1',()=>a.set(S=>S.docs=true));a.ring('#a-pills1','Documentos da ata',4);await a.sleep(2400);a.unring();await a.click('#a-apr1',()=>a.set(S=>S.aprov=true));a.ring('#a-aprov1','Adesões aprovadas',4);await a.sleep(2600);a.unring();}},
 
 {short:'Incluir',t:'Passo 9 — Inclua os itens na adesão',
- b:'Em cada item que você quer, clique em <b>🛒 Incluir na adesão</b>. Pode ser <b>um item</b> ou <b>vários</b>. Os itens aparecem no quadro <b>Itens escolhidos para adesão</b>, <b>agrupados por ata</b>: itens da mesma ata vão no <b>mesmo ofício</b>; itens de atas diferentes geram <b>ofícios separados</b>, um para cada órgão gerenciador.',
- tip:'💡 A busca mostra só os itens da família pesquisada. Para juntar <b>outros itens da mesma ata</b>, abra <b>➕ Outros itens desta ata</b> no quadro da adesão, marque os itens e clique em <b>Incluir os itens marcados</b>.',
- run:async a=>{a.unring();await a.scroll('#a-inc1',140);await a.click('#a-inc1',()=>a.set(S=>S.cesta=1));a.toast('Item 1 incluído na adesão à Ata 00012/2026.');await a.sleep(1200);await a.scroll('#a-inc2',140);await a.click('#a-inc2',()=>a.set(S=>S.cesta=2));a.toast('Item 3 incluído na adesão à Ata 00012/2026.');await a.sleep(1200);await a.scroll('#a-cbox',80);a.ring('#a-cbox','Um bloco por ata',4);await a.sleep(2400);a.unring();}},
+ b:'Em cada item que você quer, clique em <b>🛒 Incluir na adesão</b>. Os itens aparecem no quadro <b>Itens escolhidos para adesão</b>, <b>agrupados por ata</b>: itens da mesma ata vão no <b>mesmo ofício</b>. A busca mostra só os itens da família pesquisada; para juntar <b>outros itens da mesma ata</b>, abra <b>➕ Outros itens desta ata</b>, marque os itens e clique em <b>Incluir os itens marcados</b>.',
+ tip:'💡 Itens de atas diferentes geram ofícios separados, um para cada órgão gerenciador.',
+ run:async a=>{a.unring();await a.scroll('#a-inc1',140);await a.click('#a-inc1',()=>a.set(S=>S.cesta=1));a.toast('Item 1 incluído na adesão à Ata 00012/2026.');await a.sleep(1000);await a.scroll('#a-inc2',140);await a.click('#a-inc2',()=>a.set(S=>S.cesta=2));a.toast('Item 3 incluído na adesão à Ata 00012/2026.');await a.sleep(1000);await a.scroll('#a-cbox',80);await a.click('#a-outros',()=>a.set(S=>S.outros=true));await a.sleep(700);await a.click('#a-incm',()=>a.set(S=>S.cesta=3));a.ring('#a-ctab','Três itens, um ofício',4);await a.sleep(2200);a.unring();}},
 
 {short:'Quantidade',t:'Passo 10 — Informe a quantidade de cada item',
  b:'Na tabela da ata, preencha a coluna <b>Quantidade pretendida</b> de cada item. Ao lado está o <b>máximo por órgão</b>: se você passar dele, o sistema avisa (art. 86, §4º). Para tirar um item, desmarque <b>Incluir</b>.',
  tip:'💡 Se ainda não souber a quantidade, você pode completá-la depois, no ofício do Babilaca.',
- run:async a=>{a.unring();await a.scroll('#a-cbox',80);await a.click('#a-q1');await a.type('#a-q1','100',140);a.set(S=>S.q1='100');await a.click('#a-q2');await a.type('#a-q2','50',140);a.set(S=>S.q2='50');a.ring('#a-m1','Limite por órgão',4);await a.sleep(2200);a.unring();}},
+ run:async a=>{a.unring();await a.scroll('#a-cbox',80);await a.click('#a-q1');await a.type('#a-q1','100',120);a.set(S=>S.q1='100');await a.click('#a-q2');await a.type('#a-q2','50',120);a.set(S=>S.q2='50');await a.click('#a-q3');await a.type('#a-q3','500',120);a.set(S=>S.q3='500');a.ring('#a-m1','Limite por órgão',4);await a.sleep(1800);a.unring();}},
 
 {short:'Vantajosidade',t:'Passo 11 — Analise a vantajosidade',
- b:'Clique em <b>📊 Analisar vantajosidade</b>. Para cada item, o sistema busca o <b>mesmo código do catálogo</b> em <b>outras atas dos últimos 12 meses</b> (e, se você marcar a opção, em compras homologadas), descarta preços muito fora da curva e compara o <b>preço da ata</b> com a <b>mediana de mercado</b>. Mostra a <b>diferença</b>, a <b>economia</b> na quantidade pedida e o <b>total</b> da adesão.',
- tip:'💡 Item 🔴 acima do mercado deve sair da adesão ou ter a vantagem justificada por outro motivo, como urgência ou risco de desabastecimento.',
- run:async a=>{a.unring();await a.scroll('#a-anl',150);await a.click('#a-anl',()=>a.set(S=>S.spin=true));await a.sleep(1500);a.set(S=>{S.spin=false;S.van=true;});await a.scroll('#a-van',60);a.ring('#a-van','Ata × mercado',4);await a.sleep(2400);a.unring();a.ring('#a-okm','Economia total',4);await a.sleep(2400);a.unring();}},
+ b:'Clique em <b>📊 Analisar vantajosidade</b>. O sistema busca o mesmo item em <b>outras atas dos últimos 12 meses</b> e, se você marcar a caixa, em <b>compras homologadas</b>, que é mais lento. O <b>preço da ata é a estimativa</b>: entram os preços entre 50% e 120% dele, a <b>regra dos 20%</b>, priorizando os <b>menores</b>. As cores mostram o resultado: <b>verde</b>, vantajoso; <b>amarelo</b>, compatível com o mercado, com justificativa pronta; <b>vermelho</b>, acima do mercado ou sem preço.',
+ tip:'💡 Marcar ou desmarcar a caixa de compras homologadas refaz a análise sozinho.',
+ run:async a=>{a.unring();await a.scroll('#a-ckc',150);a.ring('#a-ckc','Compras homologadas (opcional)',4);await a.sleep(1500);a.unring();await a.click('#a-anl',()=>a.set(S=>S.spin=true));await a.sleep(1300);a.set(S=>{S.spin=false;S.van=true;});await a.scroll('#a-van',40);a.ring('#a-leg','Regra dos 20%',4);await a.sleep(2200);a.unring();a.ring('#a-vtab','Verde, amarelo, vermelho',4);await a.sleep(2400);a.unring();}},
 
-{short:'Ofício',t:'Passo 12 — Gere o ofício no Babilaca',
- b:'Clique em <b>✉️ Gerar ofício no Babilaca</b>. O Babilaca abre na aba <b>Documentos</b> com o <b>ofício de adesão</b> já preenchido: ata, órgão gerenciador, UASG, itens e quantidades, e a <b>justificativa com os números</b> da vantajosidade. O <b>relatório de vantajosidade</b> vai pronto, como anexo, e também entra no <b>Kit do processo</b>.',
- tip:'🎉 Fim da aula! <b>Resumo:</b> 1) tipo; 2) pesquise; 3) família; 4) esfera; 5) Buscar adesões; 6) estado; 7) leia a ata; 8) documentos e adesões aprovadas; 9) inclua os itens; 10) quantidades; 11) vantajosidade; 12) gere o ofício, revise, assine e envie ao órgão gerenciador.',
+{short:'Sem preço',t:'Passo 12 — Item sem preço de referência',
+ b:'Quando o sistema não acha preço, a linha fica <b>vermelha</b>. Primeiro confira se o código do item não está restrito demais; o sistema já tenta itens semelhantes da mesma família. Se não estiver, <b>pesquise o preço</b>, por exemplo na Cotação Rápida, e lance o valor na coluna <b>Preço de referência (manual)</b>. A análise é refeita e o item ganha a sua classificação.',
+ tip:'💡 Se preferir, complete depois o campo “__________” no relatório editável do Babilaca.',
+ run:async a=>{a.unring();await a.scroll('#a-v3',120);a.ring('#a-erm','Pesquisar o preço',4);await a.sleep(2400);a.unring();await a.scroll('#a-man3',120);await a.click('#a-man3');await a.type('#a-man3','R$ 2,10',110);a.set(S=>S.man='R$ 2,10');a.toast('Análise refeita com o preço informado.');await a.scroll('#a-v3',120);a.ring('#a-v3','Agora com referência',4);await a.sleep(2400);a.unring();}},
+
+{short:'Ofício',t:'Passo 13 — Gere o ofício no Babilaca',
+ b:'Clique em <b>✉️ Gerar ofício no Babilaca</b>. O Babilaca abre na aba <b>Documentos</b> com o <b>ofício de adesão</b> já preenchido: ata, órgão gerenciador, UASG, itens e quantidades, e a <b>justificativa com os números</b> da vantajosidade, item a item. O <b>relatório de vantajosidade</b> vai pronto, como anexo, e também entra no <b>Kit do processo</b>.',
+ tip:'🎉 Fim da aula! <b>Resumo:</b> 1) tipo; 2) pesquise; 3) família; 4) esfera; 5) Buscar adesões; 6) estado; 7) leia a ata; 8) documentos e adesões aprovadas; 9) inclua os itens; 10) quantidades; 11) vantajosidade; 12) pesquise o preço que faltar; 13) gere o ofício, revise, assine e envie ao órgão gerenciador.',
  run:async a=>{a.unring();await a.scroll('#a-gof',150);await a.click('#a-gof',()=>a.set(S=>S.bab=true));a.toast('Abrindo o Babilaca com o ofício preenchido…');await a.sleep(900);await a.scroll('#a-babdoc',60);a.ring('#a-babdoc','Ofício pronto para revisar',4);await a.sleep(3200);a.unring();}}
 ];
 """

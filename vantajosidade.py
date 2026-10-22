@@ -24,7 +24,7 @@ import modelos_processo as MP
 
 DADOSABERTOS = "https://dadosabertos.compras.gov.br"
 FAIXA_SANEAMENTO = (0.5, 2.0)    # sem preço de estimativa: fora de 50% a 200% da mediana é descartado
-FAIXA_ESTIMATIVA = (0.5, 1.3)    # com o preço da ata como estimativa: aceita de 50% a 130% dele
+FAIXA_ESTIMATIVA = (0.5, 1.2)    # com o preço da ata como estimativa: aceita de 50% a 120% dele (regra dos 20%)
 MAXIMO_PRECOS = 10               # usa até 10 preços, priorizando os menores
 SEMELHANCA_MINIMA = 0.65         # descrições da mesma família consideradas comparáveis
 FAIXA_FAMILIA = FAIXA_ESTIMATIVA  # item "semelhante" com preço fora desta faixa do preço da ata é outro produto
@@ -162,7 +162,7 @@ def sanear(valores: list[float]) -> tuple[list[float], list[float]]:
 
 
 def selecionar(valores: list[float], estimativa: float) -> tuple[list[float], list[float], str]:
-    """Filtra os preços usando o preço da ata como estimativa: aceita os que estão entre 50% e 130% dele e, entre
+    """Filtra os preços usando o preço da ata como estimativa: aceita os que estão entre 50% e 120% dele e, entre
     esses, usa os menores (até 10). Se todos estiverem acima da faixa, usa os 3 menores e avisa.
     Devolve (aceitos, descartados, observação)."""
     if not estimativa:

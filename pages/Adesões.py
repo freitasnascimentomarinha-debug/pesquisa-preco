@@ -1278,7 +1278,7 @@ def _painel_cesta_adesao() -> None:
             if analise:
                 r = V.resumo(analise)
                 st.caption("Análise " + ("com" if grupo.get("analise_com_compras") else "sem")
-                           + " compras homologadas. O preço da ata é a estimativa: entram os preços entre 50% e 130% "
+                           + " compras homologadas. O preço da ata é a estimativa: entram os preços entre 50% e 120% "
                              "dele, priorizando os menores (até 10 por item). Verde: vantajoso · amarelo: compatível com "
                              "o mercado · vermelho: acima do mercado ou sem preço de referência.")
                 tabela = pd.DataFrame([{
