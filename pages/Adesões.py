@@ -18,7 +18,8 @@ from streamlit_folium import st_folium
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "Projeto Adesões")
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # catmat_busca.py (raiz do projeto)
 from atualizar_modulos import recarregar_se_mudou  # noqa: E402
-recarregar_se_mudou('catmat_busca')  # evita módulo antigo em memória após deploy
+recarregar_se_mudou('catmat_busca', 'servicos_publicos')  # evita módulo antigo em memória após deploy
+from servicos_publicos import consultar_sicaf, http_get_json, texto_sicaf  # noqa: E402
 from catmat_busca import (  # noqa: E402
     CATMAT_PATH,
     CATSERV_PATH,
@@ -32,6 +33,7 @@ from catmat_busca import (  # noqa: E402
 # ── Constantes da API ──────────────────────────────────────────────────────
 API_URL = "https://dadosabertos.compras.gov.br/modulo-arp/2_consultarARPItem"
 API_URL_UNIDADES = "https://dadosabertos.compras.gov.br/modulo-arp/3_consultarUnidadesItem"
+API_URL_ADESOES = "https://dadosabertos.compras.gov.br/modulo-arp/5_consultarAdesoesItem"
 MAX_CONCURRENCY = 4
 DATE_RANGE_DAYS = 360
 PAGE_SIZE = {"Material": 100, "Serviço": 100}
@@ -950,8 +952,10 @@ async def fetch_unit_detail(
                     response.raise_for_status()
                     data = await response.json()
                     results = data.get("resultado", [])
-                    if results:
-                        return results[0]
+                    # o saldo de adesões do item vem na linha da unidade GERENCIADORA (as demais são participantes)
+                    gerenciadora = [r for r in results if str(r.get("tipoUnidade", "")).upper() == "GERENCIADORA"]
+                    if gerenciadora or results:
+                        return (gerenciadora or results)[0]
                     return None
             except Exception:
                 if attempt == retries - 1:
@@ -985,7 +989,7 @@ async def enrich_results_async(
             numero_ata = raw.get("numeroAtaRegistroPreco", "")
             unidade = raw.get("codigoUnidadeGerenciadora", "") or str(raw.get("codigoUasg", ""))
             numero_item = raw.get("numeroItem", "")
-            identificador = raw.get("numeroControlePncpAta", "")
+            identificador = f'{raw.get("numeroControlePncpAta", "")}|{numero_item}'  # saldo é por item, não por ata
             if not (numero_ata and unidade and numero_item):
                 continue
 
@@ -1046,6 +1050,34 @@ async def enrich_results_async(
             f"Detalhes concluídos. {len(details)} atas enriquecidas."
         )
     return details
+
+
+def _qtd(valor) -> str:
+    """Quantidade sem casas decimais desnecessárias, no formato brasileiro."""
+    try:
+        numero = float(valor)
+    except (TypeError, ValueError):
+        return "N/I"
+    texto = f"{numero:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    return texto[:-3] if texto.endswith(",00") else texto
+
+
+def situacao_sicaf_fornecedores(cnpjs: List[str]) -> Dict[str, str]:
+    """Situação no cadastro de fornecedores (SICAF) de cada CNPJ, consultada em paralelo (com cache)."""
+    unicos = sorted({c for c in cnpjs if c})
+    if not unicos:
+        return {}
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        resultados = list(pool.map(consultar_sicaf, unicos))
+    return {c: (texto_sicaf(sit) if not erro else "N/I") for c, (sit, erro) in zip(unicos, resultados)}
+
+
+@st.cache_data(ttl=1800, show_spinner=False)
+def adesoes_aprovadas(numero_ata: str, unidade_gerenciadora: str, numero_item: str) -> Tuple[List[Dict], Optional[str]]:
+    """Adesões (caronas) já aprovadas para o item da ata: unidade não participante, quantidade e data."""
+    dados, erro = http_get_json(API_URL_ADESOES, {"numeroAta": numero_ata, "unidadeGerenciadora": unidade_gerenciadora,
+                                                  "numeroItem": numero_item, "pagina": 1, "tamanhoPagina": 100}, timeout=60, tentativas=3)
+    return (dados or {}).get("resultado", []) or [], erro
 
 
 def run_enrich(
@@ -1357,6 +1389,8 @@ if results:
                     enrich_status_placeholder,
                     enrich_progress_bar,
                 )
+            with st.spinner("Consultando a situação dos fornecedores no SICAF…"):
+                sicaf_por_cnpj = situacao_sicaf_fornecedores([str(r.get("niFornecedor") or "") for r in display_results])
 
             for idx, raw in enumerate(display_results):
                 normalized = normalize_item(raw)
@@ -1367,11 +1401,10 @@ if results:
                 # Código UASG do órgão
                 uasg_code = extract_uasg(raw) or "N/I"
 
-                detail = enriched.get(identificador, {})
+                detail = enriched.get(f"{identificador}|{raw.get('numeroItem', '')}", {})
                 saldo_adesoes = detail.get("saldoAdesoes", "N/I")
                 saldo_remanejamento = detail.get("saldoRemanejamentoEmpenho", "N/I")
                 qtd_limite_adesao = detail.get("qtdLimiteAdesao", "N/I")
-                qtd_limite_compra = detail.get("qtdLimiteInformadoCompra", "N/I")
                 aceita_adesao_raw = detail.get("aceitaAdesao")
                 if aceita_adesao_raw is True:
                     aceita_adesao = '✅ Sim'
@@ -1382,6 +1415,24 @@ if results:
 
                 # Número do item (vem da API 2)
                 numero_item = raw.get("numeroItem", "N/I")
+
+                # Saldo explicado: limite global de adesões (dobro do registrado) e máximo por órgão que aderir
+                # (50% da quantidade registrada do item — Lei 14.133/2021, art. 86, §4º)
+                qtd_registrada = raw.get("quantidadeHomologadaItem")
+                try:
+                    max_por_orgao = float(qtd_registrada) * 0.5
+                    if isinstance(saldo_adesoes, (int, float)):
+                        max_por_orgao = min(max_por_orgao, float(saldo_adesoes))
+                    max_por_orgao_txt = _qtd(max_por_orgao)
+                except (TypeError, ValueError):
+                    max_por_orgao_txt = "N/I"
+                if isinstance(saldo_adesoes, (int, float)) and isinstance(qtd_limite_adesao, (int, float)) and qtd_limite_adesao:
+                    usado_pct = (1 - float(saldo_adesoes) / float(qtd_limite_adesao)) * 100
+                    saldo_txt = f"{_qtd(saldo_adesoes)} de {_qtd(qtd_limite_adesao)} ({usado_pct:.0f}% já usado)"
+                else:
+                    saldo_txt = _qtd(saldo_adesoes) if saldo_adesoes != "N/I" else "N/I"
+                sicaf_txt = sicaf_por_cnpj.get(str(raw.get("niFornecedor") or ""), "N/I")
+                sicaf_icone = "✅" if sicaf_txt.startswith("Ativo e habilitado") else ("⚠️" if sicaf_txt != "N/I" else "❔")
 
                 # Vigência final (tentar nomes possíveis do campo na API 2)
                 vigencia_final_raw = (
@@ -1430,16 +1481,41 @@ if results:
                             <span class="ata-tag">🛒 Compra: {num_compra}</span>
                             <span class="ata-tag">🆔 ID Compra: {id_compra}</span>
                             <span class="ata-tag">📅 Vigência Final: {vigencia_final}</span>
-                            <span class="ata-tag">📦 Saldo Adesões: {saldo_adesoes}</span>
-                            <span class="ata-tag">🔄 Saldo Remanej.: {saldo_remanejamento}</span>
-                            <span class="ata-tag">📊 Lim. Adesão: {qtd_limite_adesao}</span>
-                            <span class="ata-tag">🛒 Lim. Compra: {qtd_limite_compra}</span>
+                            <span class="ata-tag">📦 Saldo para adesão: {saldo_txt}</span>
+                            <span class="ata-tag">🏛️ Máx. por órgão aderente: {max_por_orgao_txt}</span>
+                            <span class="ata-tag">📋 Qtd. registrada: {_qtd(qtd_registrada)}</span>
+                            <span class="ata-tag">🔄 Saldo Remanej.: {_qtd(saldo_remanejamento) if saldo_remanejamento != "N/I" else "N/I"}</span>
                             <span class="ata-tag">🤝 Aceita Adesão: {aceita_adesao}</span>
+                            <span class="ata-tag">{sicaf_icone} SICAF do fornecedor: {sicaf_txt}</span>
                         </div>""",
                         unsafe_allow_html=True,
                     )
 
-                    if st.button("📂 Outros Docs", key=btn_key):
+                    col_docs, col_ades = st.columns([1, 1])
+                    with col_docs:
+                        clicou_docs = st.button("📂 Outros Docs", key=btn_key)
+                    with col_ades:
+                        if st.button("📋 Adesões já aprovadas", key=f"btn_ades_{idx}_{identificador[:30]}"):
+                            st.session_state[f"ades_{identificador}_{idx}"] = adesoes_aprovadas(
+                                str(raw.get("numeroAtaRegistroPreco", "")),
+                                str(raw.get("codigoUnidadeGerenciadora", "") or uasg_code),
+                                str(numero_item),
+                            )
+                    _ades = st.session_state.get(f"ades_{identificador}_{idx}")
+                    if _ades is not None:
+                        _lista_ades, _erro_ades = _ades
+                        if _erro_ades:
+                            st.warning(f"Não foi possível consultar as adesões agora ({_erro_ades}).")
+                        elif not _lista_ades:
+                            st.caption("Nenhuma adesão aprovada para este item até agora.")
+                        else:
+                            st.dataframe(
+                                [{"Órgão que aderiu": a.get("unidadeNaoParticipante", ""),
+                                  "Quantidade aprovada": a.get("quantidadeAprovadaAdesao", ""),
+                                  "Aprovada em": str(a.get("dataAprovacaoAnalise", ""))[:10]} for a in _lista_ades],
+                                use_container_width=True, hide_index=True,
+                            )
+                    if clicou_docs:
                         with st.spinner("Buscando…"):
                             docs, erro = fetch_ata_documents(identificador)
                             st.session_state[doc_session_key] = docs

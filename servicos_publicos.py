@@ -468,3 +468,70 @@ def consultar_sancoes(cnpj: object) -> tuple[dict[str, list[dict]], dict[str, st
         resultado[sigla] = registros
         datas[sigla] = f"{dia[:4]}-{dia[4:6]}-{dia[6:]}"
     return resultado, datas, "; ".join(erros) or None
+
+
+# ── Compras.gov.br: UASG e cadastro de fornecedores (SICAF) ───────────────────────────────────────────────────
+DADOSABERTOS = "https://dadosabertos.compras.gov.br"
+
+
+def dados_uasg(codigo_uasg: object) -> tuple[dict | None, str | None]:
+    """Cadastro da UASG (órgão, CNPJ, UF, município, unidade espelho). Tenta ativa e depois inativa. (None, None) se não existir."""
+    codigo = re.sub(r"\D", "", str(codigo_uasg or ""))
+    if not codigo:
+        return None, None
+
+    def buscar() -> tuple[Any, str | None]:
+        ultimo_erro = None
+        for status in ("true", "false"):
+            dados, erro = http_get_json(f"{DADOSABERTOS}/modulo-uasg/1_consultarUasg",
+                                        {"codigoUasg": codigo, "statusUasg": status, "pagina": 1}, timeout=40, tentativas=3)
+            if erro:
+                ultimo_erro = erro
+                continue
+            resultado = (dados or {}).get("resultado") or []
+            if resultado:
+                return resultado[0], None
+        return None, ultimo_erro
+
+    return _com_cache(("uasg", codigo), 24 * 3600, buscar)
+
+
+def consultar_sicaf(cnpj: object) -> tuple[dict, str | None]:
+    """Situação do fornecedor no cadastro do Compras.gov.br (base do SICAF).
+    Retorna ({'encontrado', 'ativo', 'habilitado', 'razao_social', 'cnae', 'porte', 'natureza', 'municipio', 'uf'}, erro).
+    Mostra o cadastro (ativo e habilitado a licitar), não a validade das certidões, que exige acesso ao SICAF."""
+    digitos = limpar_cnpj(cnpj)
+    vazio = {"encontrado": False, "ativo": None, "habilitado": None}
+    if len(digitos) not in (11, 14):
+        return vazio, None
+    campo = "cnpj" if len(digitos) == 14 else "cpf"
+
+    def buscar() -> tuple[Any, str | None]:
+        for ativo in ("true", "false"):
+            dados, erro = http_get_json(f"{DADOSABERTOS}/modulo-fornecedor/1_consultarFornecedor",
+                                        {campo: digitos, "ativo": ativo, "pagina": 1, "tamanhoPagina": 10}, timeout=40, tentativas=3)
+            if erro:
+                return None, f"Compras.gov.br (fornecedor): {erro}"
+            resultado = (dados or {}).get("resultado") or []
+            if resultado:
+                r = resultado[0]
+                return {"encontrado": True, "ativo": bool(r.get("ativo")), "habilitado": bool(r.get("habilitadoLicitar")),
+                        "razao_social": r.get("nomeRazaoSocialFornecedor") or "",
+                        "cnae": f"{r.get('codigoCnae') or ''} - {r.get('nomeCnae') or ''}".strip(" -"),
+                        "porte": r.get("porteEmpresaNome") or "", "natureza": r.get("naturezaJuridicaNome") or "",
+                        "municipio": r.get("nomeMunicipio") or "", "uf": r.get("ufSigla") or ""}, None
+        return dict(vazio), None
+
+    dados, erro = _com_cache(("sicaf", digitos), 6 * 3600, buscar)
+    return (dados or dict(vazio)), erro
+
+
+def texto_sicaf(situacao: dict) -> str:
+    """Rótulo curto da situação no cadastro de fornecedores."""
+    if not situacao or situacao.get("encontrado") is False:
+        return "Não cadastrado"
+    if situacao.get("ativo") and situacao.get("habilitado"):
+        return "Ativo e habilitado a licitar"
+    if situacao.get("ativo"):
+        return "Ativo, não habilitado a licitar"
+    return "Cadastro inativo"

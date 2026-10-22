@@ -22,12 +22,12 @@ import streamlit as st
 from streamlit.runtime.scriptrunner import add_script_run_ctx, get_script_run_ctx
 
 try:
-    from servicos_publicos import gerar_excel, http_get_json, limpar_cnpj
+    from servicos_publicos import dados_uasg, gerar_excel, http_get_json, limpar_cnpj
 except ImportError:  # após uma atualização do código o servidor pode manter a versão antiga do módulo em memória
     import importlib
     import servicos_publicos
     importlib.reload(servicos_publicos)
-    from servicos_publicos import gerar_excel, http_get_json, limpar_cnpj
+    from servicos_publicos import dados_uasg, gerar_excel, http_get_json, limpar_cnpj
 
 # ── Caminhos ───────────────────────────────────────────────────────────────
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "Projeto Adesões")
@@ -578,40 +578,43 @@ def buscar_cnpj_orgao_por_uasg(codigo_uasg: str, ano: int) -> Dict[str, Any]:
 
 # ── API ComprasGov: Contratos ──────────────────────────────────────────────
 
+def _paginar_comprasgov(caminho: str, params: Dict[str, Any], max_paginas: int = 10) -> List[Dict]:
+    """Percorre as páginas (500 registros cada) de um endpoint do Dados Abertos do Compras.gov.br."""
+    registros: List[Dict] = []
+    for pagina in range(1, max_paginas + 1):
+        data = _api_get(f"{COMPRASGOV_BASE}/{caminho}?{urlencode({**params, 'pagina': pagina, 'tamanhoPagina': 500})}")
+        if not (data and isinstance(data, dict)):
+            break
+        registros.extend(data.get("resultado", []) or [])
+        if pagina >= (data.get("totalPaginas") or 1):
+            break
+    return registros
+
+
 @st.cache_data(ttl=300, show_spinner=False)
-def buscar_contratos_uasg(codigo_uasg: str, ano: int) -> List[Dict]:
-    """Busca contratos de uma UASG via modulo-contratos do ComprasGov."""
-    params = {
+def buscar_contratos_uasg(codigo_uasg: str, ano: int, versao: int = 2) -> List[Dict]:
+    """Contratos de uma UASG (modulo-contratos). A API exige o código do órgão, obtido do cadastro da UASG."""
+    uasg, _erro = dados_uasg(codigo_uasg)
+    if not uasg or not uasg.get("codigoOrgao"):
+        return []
+    return _paginar_comprasgov("modulo-contratos/1_consultarContratos", {
+        "codigoOrgao": uasg["codigoOrgao"],
         "codigoUnidadeGestora": codigo_uasg,
         "dataVigenciaInicialMin": f"{ano}-01-01",
         "dataVigenciaInicialMax": f"{ano}-12-31",
-        "pagina": 1,
-        "tamanhoPagina": 500,
-    }
-    url = f"{COMPRASGOV_BASE}/modulo-contratos/1_consultarContratos?{urlencode(params)}"
-    data = _api_get(url)
-    if data and isinstance(data, dict):
-        return data.get("resultado", [])
-    return []
+    })
 
 
 # ── API ComprasGov: ARP (SRP) ─────────────────────────────────────────────
 
 @st.cache_data(ttl=300, show_spinner=False)
-def buscar_arp_uasg(codigo_uasg: str, ano: int) -> List[Dict]:
-    """Busca Atas de Registro de Preço de uma UASG."""
-    params = {
+def buscar_arp_uasg(codigo_uasg: str, ano: int, versao: int = 2) -> List[Dict]:
+    """Atas de Registro de Preço de uma UASG (todas as páginas)."""
+    return _paginar_comprasgov("modulo-arp/1_consultarARP", {
         "codigoUnidadeGerenciadora": codigo_uasg,
         "dataVigenciaInicialMin": f"{ano}-01-01",
         "dataVigenciaInicialMax": f"{ano}-12-31",
-        "pagina": 1,
-        "tamanhoPagina": 500,
-    }
-    url = f"{COMPRASGOV_BASE}/modulo-arp/1_consultarARP?{urlencode(params)}"
-    data = _api_get(url)
-    if data and isinstance(data, dict):
-        return data.get("resultado", [])
-    return []
+    })
 
 
 # ── API PNCP ──────────────────────────────────────────────────────────────
@@ -1208,8 +1211,12 @@ with tab_busca:
             # Info da UASG
             uasg_index = load_uasg_index()
             uasg_info = uasg_index.get(uasg, {})
-            nome_uasg = uasg_info.get("nomeUasg", "Não encontrada no cadastro local")
+            nome_uasg = uasg_info.get("nomeUasg", "")
             uf = uasg_info.get("siglaUf", "")
+            if not nome_uasg:  # fora do cadastro local: consulta o cadastro oficial de UASGs
+                _oficial, _ = dados_uasg(uasg)
+                nome_uasg = (_oficial or {}).get("nomeUasg") or "UASG não encontrada no cadastro"
+                uf = uf or (_oficial or {}).get("siglaUf", "")
 
             st.markdown(
                 f'<div class="info-card"><h4>🏛️ UASG {_e(uasg)}</h4>'
