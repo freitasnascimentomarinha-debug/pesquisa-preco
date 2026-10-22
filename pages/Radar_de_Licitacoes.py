@@ -320,7 +320,7 @@ if st.button("🔎 Buscar licitações", type="primary", use_container_width=Tru
         with st.spinner("Buscando licitações no PNCP..."):
             lista, erro, total = buscar_licitacoes(objeto, codigo_uasg, SITUACOES[situacao_rotulo],
                                                    "" if uf == "Todas" else uf, data_ini, data_fim)
-        st.session_state["lic_res"] = {"lista": lista, "erro": erro, "total": total}
+        st.session_state["lic_res"] = {"lista": lista, "erro": erro, "total": total, "uasg": codigo_uasg}
         st.session_state.pop("lic_detalhe", None)
 
 res = st.session_state.get("lic_res")
@@ -329,7 +329,9 @@ if res:
     if res["erro"]:
         st.warning(f"⚠️ {res['erro']}. Tente novamente em alguns minutos.")
     if not lista and not res["erro"]:
-        st.info("Nenhuma licitação encontrada com esses filtros. Tente palavras-chave mais gerais ou outro período.")
+        st.info("Nenhuma licitação encontrada com esses filtros. Tente palavras-chave mais gerais ou outro período."
+                + (" Se escolheu a UASG pelo nome, verifique se não há outra unidade com nome parecido na lista: "
+                   "algumas UASGs antigas não publicam mais licitações." if res.get("uasg") else ""))
 
     if lista:
         abertas = sorted([l for l in lista if _encerra_no_futuro(l)], key=lambda l: l["encerramento"])
