@@ -24,7 +24,7 @@ recarregar_se_mudou('contribuidores')  # evita módulo antigo em memória após 
 from contribuidores import CONTRIBUIDORES, gerar_card_pdf, nome_do_arquivo  # noqa: E402
 
 # Link de convite do grupo do WhatsApp (https://chat.whatsapp.com/...). Pode ficar aqui ou nos Secrets do app (WHATSAPP_GRUPO_URL).
-GRUPO_WHATSAPP_URL = ""
+GRUPO_WHATSAPP_URL = "https://chat.whatsapp.com/GYIuL0fuVrV2TEItXHVVf3"
 # Endereço público do app; o link compartilhado abre direto na página "Sobre o projeto". Pode ser trocado nos Secrets (APP_URL).
 APP_URL = "https://atacotada.streamlit.app"
 
