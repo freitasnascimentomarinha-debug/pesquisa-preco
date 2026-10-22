@@ -45,6 +45,7 @@ AULAS = {  # nome do áudio -> módulo da aula
     "ipca": "tutorial_ipca",
     "detalhes_compra": "tutorial_detalhes_compra",
     "consulta_cnpj": "tutorial_consulta_cnpj",
+    "radar_licitacoes": "tutorial_radar_licitacoes",
 }
 
 # Pronúncias: siglas viram letras separadas; termos que o sintetizador lê mal ganham grafia fonética.
@@ -71,6 +72,9 @@ SUBSTITUICOES = [
     (r"\bMEI\b", "Mêi"),
     (r"ComprasNet", "Compras Net"),
     (r"ComprasGov", "Compras gov"),
+    (r"\bOutlook\b", "Autlúk"),
+    (r"\b789000\b", "sete oito nove zero zero zero"),
+    (r"\bGoogle Agenda\b", "Gúgol Agenda"),
     (r"\bIPCA\b", "Ípeca"),
     (r"\bDANFE\b", "Danfe"),
     (r"\bCEP\b", "cép"),
