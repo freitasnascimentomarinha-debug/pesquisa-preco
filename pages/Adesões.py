@@ -18,7 +18,7 @@ from streamlit_folium import st_folium
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "Projeto Adesões")
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # catmat_busca.py (raiz do projeto)
 from atualizar_modulos import recarregar_se_mudou  # noqa: E402
-recarregar_se_mudou('catmat_busca', 'servicos_publicos')  # evita módulo antigo em memória após deploy
+recarregar_se_mudou('catmat_busca', 'servicos_publicos', 'modelos_processo', 'vantajosidade')  # evita módulo antigo em memória após deploy
 from servicos_publicos import consultar_sicaf, http_get_json, texto_sicaf  # noqa: E402
 from catmat_busca import (  # noqa: E402
     CATMAT_PATH,
@@ -1087,32 +1087,128 @@ def _brl_un(valor) -> str:
         return "N/I"
 
 
+def _num(valor) -> Optional[float]:
+    try:
+        return float(str(valor).replace(",", "."))
+    except (TypeError, ValueError):
+        return None
+
+
 def _incluir_na_cesta(ata: Dict, item: Dict) -> None:
-    """Junta o item à lista do ofício de adesão. Itens de outra ata recomeçam a lista (um ofício por ata)."""
-    cesta = st.session_state.get("_cesta_adesao")
-    if not cesta or (cesta["ata"], cesta["uasg"]) != (ata["ata"], ata["uasg"]):
-        cesta = {**ata, "itens": []}
-    if all(i["Item"] != item["Item"] for i in cesta["itens"]):
-        cesta["itens"].append(item)
-    st.session_state["_cesta_adesao"] = cesta
+    """Junta o item à lista de adesão da ata. Cada ata vira um ofício (um gerenciador por ofício)."""
+    cesta = st.session_state.setdefault("_cesta_adesao", {})
+    grupo = cesta.setdefault(ata["id"], {**ata, "itens": [], "versao": 0})
+    if all(i["Item"] != item["Item"] for i in grupo["itens"]):
+        grupo["itens"].append(item)
+        grupo.pop("analise", None)
+    st.toast(f"Item {item['Item']} incluído na adesão à Ata {ata['ata']}.")
+
+
+def _aplicar_edicao_cesta(chave_ata: str, chave_editor: str) -> None:
+    """Grava na cesta as quantidades digitadas e retira os itens desmarcados."""
+    grupo = st.session_state["_cesta_adesao"][chave_ata]
+    edicoes = (st.session_state.get(chave_editor) or {}).get("edited_rows", {})
+    retirar = set()
+    for linha, campos in edicoes.items():
+        item = grupo["itens"][int(linha)]
+        if "Quantidade pretendida" in campos:
+            item["Quantidade"] = campos["Quantidade pretendida"]
+        if campos.get("Incluir") is False:
+            retirar.add(int(linha))
+    if retirar:
+        grupo["itens"] = [i for n, i in enumerate(grupo["itens"]) if n not in retirar]
+        grupo["versao"] += 1
+    grupo.pop("analise", None)
+    if not grupo["itens"]:
+        st.session_state["_cesta_adesao"].pop(chave_ata, None)
+
+
+def _enviar_ao_babilaca(chave_ata: str) -> None:
+    import vantajosidade as V
+    grupo = st.session_state["_cesta_adesao"][chave_ata]
+    itens = grupo["itens"]
+    analise = grupo.get("analise")
+    st.session_state["_ofad_prefill"] = {
+        "ata": grupo["ata"], "gerenciador": grupo["gerenciador"], "uasg": grupo["uasg"], "licitacao": grupo["licitacao"],
+        "objeto": itens[0]["Descrição"] if len(itens) == 1 else f"os {len(itens)} itens relacionados no item 3",
+        "itens": [{"Item": i["Item"], "Descrição": i["Descrição"], "Unidade": i.get("Unidade", ""),
+                   "Quantidade": "" if i.get("Quantidade") in (None, "") else str(i["Quantidade"])} for i in itens],
+        "justificativa": V.texto_justificativa(analise, grupo["ata"]) if analise else "",
+        "relatorio_vantajosidade": V.corpo_relatorio(grupo, analise) if analise else "",
+    }
 
 
 def _painel_cesta_adesao() -> None:
-    cesta = st.session_state.get("_cesta_adesao")
-    if not cesta or not cesta.get("itens"):
+    """Itens escolhidos para adesão, agrupados por ata: quantidade, vantajosidade e envio do ofício ao Babilaca."""
+    cesta = st.session_state.get("_cesta_adesao") or {}
+    if not cesta:
         return
-    with st.container(border=True):
-        st.markdown(f"**✉️ Ofício de adesão em preparo** — Ata {cesta['ata']} ({cesta['gerenciador']}, UASG {cesta['uasg']}): "
-                    f"{len(cesta['itens'])} item(ns): " + ", ".join(i["Item"] for i in cesta["itens"]))
-        _c1, _c2 = st.columns([3, 1])
-        with _c1:
-            if st.button("✉️ Gerar o ofício no Babilaca", key="btn_cesta_oficio", type="primary", use_container_width=True):
-                st.session_state["_ofad_prefill"] = dict(cesta)
-                st.switch_page("pages/O_Babilaca_(IA).py")
-        with _c2:
-            if st.button("Limpar", key="btn_cesta_limpar", use_container_width=True):
-                st.session_state.pop("_cesta_adesao", None)
-                st.rerun()
+    import vantajosidade as V
+    st.markdown("#### 🛒 Itens escolhidos para adesão")
+    st.caption("Cada ata vira um ofício ao seu órgão gerenciador. Informe a quantidade pretendida de cada item "
+               "(até o máximo por órgão), analise a vantajosidade e gere o ofício no Babilaca.")
+    for chave_ata, grupo in list(cesta.items()):
+        with st.container(border=True):
+            st.markdown(f"**Ata {grupo['ata']}** — {grupo['gerenciador']} (UASG {grupo['uasg']}) · {grupo['licitacao']}")
+            linhas = [{"Incluir": True, "Item": i["Item"], "Descrição": i["Descrição"], "Preço registrado": i.get("preco"),
+                       "Máx. por órgão": i.get("max"), "Quantidade pretendida": _num(i.get("Quantidade"))}
+                      for i in grupo["itens"]]
+            chave_editor = f"cesta_ed_{chave_ata}_{grupo['versao']}"
+            st.data_editor(
+                linhas, key=chave_editor, hide_index=True, width="stretch",
+                disabled=["Item", "Descrição", "Preço registrado", "Máx. por órgão"],
+                column_config={
+                    "Incluir": st.column_config.CheckboxColumn(width="small", help="Desmarque para retirar o item"),
+                    "Preço registrado": st.column_config.NumberColumn(format="R$ %.2f"),
+                    "Máx. por órgão": st.column_config.NumberColumn(format="%.0f"),
+                    "Quantidade pretendida": st.column_config.NumberColumn(min_value=0, step=1, required=False),
+                    "Descrição": st.column_config.TextColumn(width="large"),
+                },
+                on_change=_aplicar_edicao_cesta, args=(chave_ata, chave_editor))
+            acima = [i["Item"] for i in grupo["itens"] if _num(i.get("Quantidade")) and i.get("max")
+                     and _num(i["Quantidade"]) > i["max"]]
+            if acima:
+                st.warning(f"Quantidade acima do máximo por órgão (art. 86, §4º) no(s) item(ns): {', '.join(acima)}.")
+            sem_qtd = [i["Item"] for i in grupo["itens"] if not _num(i.get("Quantidade"))]
+            _c1, _c2, _c3 = st.columns([2, 2, 1])
+            with _c1:
+                compras = st.checkbox("Incluir compras homologadas (mais preciso, mais lento)", key=f"cesta_cmp_{chave_ata}")
+                if st.button("📊 Analisar vantajosidade", key=f"cesta_an_{chave_ata}", use_container_width=True):
+                    with st.spinner("Buscando preços do mesmo item em outras atas e compras dos últimos 12 meses..."):
+                        grupo["analise"] = V.analisar(
+                            [{**i, "Quantidade": i.get("Quantidade") or 0} for i in grupo["itens"]], chave_ata, compras)
+            with _c2:
+                if st.button("✉️ Gerar ofício no Babilaca", key=f"cesta_of_{chave_ata}", type="primary",
+                             use_container_width=True):
+                    _enviar_ao_babilaca(chave_ata)
+                    st.switch_page("pages/O_Babilaca_(IA).py")
+                if sem_qtd:
+                    st.caption(f"Sem quantidade: item(ns) {', '.join(sem_qtd)} — pode completar no Babilaca.")
+            with _c3:
+                if st.button("🗑️ Remover", key=f"cesta_rm_{chave_ata}", use_container_width=True):
+                    cesta.pop(chave_ata, None)
+                    st.rerun()
+            analise = grupo.get("analise")
+            if analise:
+                r = V.resumo(analise)
+                st.dataframe([{"Item": a["item"], "Preço da ata": MP_brl(a["preco"]), "Mediana de mercado": MP_brl(a["mediana"]),
+                               "Preços": f"{a['aceitos']}/{a['fontes']}",
+                               "Diferença": f"{a['diferenca'] * 100:+.1f}%" if a["diferenca"] is not None else "-",
+                               "Economia": MP_brl(a["economia"]), "Situação": a["situacao"],
+                               "Obs.": a.get("erro") or ""} for a in analise], hide_index=True, width="stretch")
+                if r["itens_com_referencia"] and r["valor_mercado"]:
+                    cor = st.success if r["economia"] >= 0 else st.warning
+                    cor(f"Adesão: {MP_brl(r['valor_ata'])} × mercado (mediana): {MP_brl(r['valor_mercado'])} → "
+                        f"{'economia' if r['economia'] >= 0 else 'acréscimo'} de {MP_brl(abs(r['economia']))}"
+                        f" ({abs(r['percentual']) * 100:.1f}%). O relatório e a justificativa vão junto com o ofício.".replace("$", "\\$"))
+                elif not any(_num(i.get("Quantidade")) for i in grupo["itens"]):
+                    st.info("Informe as quantidades para calcular a economia total.")
+
+
+def MP_brl(valor) -> str:
+    if valor is None:
+        return "-"
+    return "R$ " + f"{float(valor):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 
 def run_enrich(
@@ -1533,20 +1629,21 @@ if results:
                         _modalidade = str(raw.get("nomeModalidadeCompra") or "Pregão Eletrônico").strip()
                         _ano = str(raw.get("anoCompra") or "").strip()
                         st.button(
-                            "✉️ Incluir no ofício de adesão", key=f"btn_of_{idx}_{identificador[:30]}",
+                            "🛒 Incluir na adesão", key=f"btn_of_{idx}_{identificador[:30]}",
                             on_click=_incluir_na_cesta,
                             args=({
-                                "ata": str(numero), "gerenciador": str(unidade), "uasg": str(uasg_code),
+                                "id": identificador, "ata": str(numero), "gerenciador": str(unidade), "uasg": str(uasg_code),
                                 "licitacao": f"{_modalidade} nº {num_compra}" + (f"/{_ano}" if _ano and "/" not in num_compra else ""),
-                                "objeto": _desc_item,
                             }, {
                                 "Item": str(numero_item),
-                                "Descrição": f"{_desc_item or 'Item ' + str(numero_item)} (valor registrado: "
-                                             f"{_brl_un(raw.get('valorUnitario'))}; máx. por órgão: {max_por_orgao_txt})",
+                                "Descrição": _desc_item or f"Item {numero_item}",
                                 "Unidade": str(raw.get("unidadeFornecimento") or raw.get("siglaUnidadeFornecimento") or ""),
+                                "codigo": str(raw.get("codigoItem") or ""),
+                                "preco": _num(raw.get("valorUnitario")),
+                                "max": _num(max_por_orgao_txt.replace(".", "").replace(",", ".")) if max_por_orgao_txt != "N/I" else None,
                                 "Quantidade": "",
                             }),
-                            help="Junta este item ao ofício de solicitação de adesão do Babilaca (itens da mesma ata).",
+                            help="Junta este item à lista de adesão (vários itens da mesma ata vão no mesmo ofício).",
                         )
                     with col_docs:
                         clicou_docs = st.button("📂 Outros Docs", key=btn_key)

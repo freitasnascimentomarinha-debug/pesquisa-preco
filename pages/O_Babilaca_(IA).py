@@ -21,10 +21,11 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 import sys as _sys
 _sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from atualizar_modulos import recarregar_se_mudou  # noqa: E402
-recarregar_se_mudou("documento_oficial", "modelos_processo", "conferencia_processo")  # evita módulo antigo em memória após deploy
+recarregar_se_mudou("documento_oficial", "modelos_processo", "conferencia_processo", "fracionamento")  # evita módulo antigo em memória após deploy
 import documento_oficial  # noqa: E402
 import modelos_processo as MP  # noqa: E402
 import conferencia_processo as CP  # noqa: E402
+import fracionamento as FR  # noqa: E402
 
 try:
     from dotenv import load_dotenv
@@ -1083,6 +1084,13 @@ def _form_secoes(tipo: str, bloqueado: bool):
                 with _v1:
                     valor = st.number_input("Valor estimado desta contratação (R$)", min_value=0.0, step=100.0,
                                             format="%.2f", key="tjdl_valor")
+                _fr = st.session_state.get("frac_resultado")
+                if _fr and _fr["grupos"]:
+                    _opcoes_fr = {f"{x['ramo']} (art. 75, {x['inciso']}) — {MP.brl(x['total'])}": x["total"] for x in _fr["grupos"]}
+                    st.selectbox("Preencher \"já contratado\" com um ramo verificado na aba ⚖️ Limite de Dispensa",
+                                 ["—"] + list(_opcoes_fr), key="tjdl_ramo_fr",
+                                 on_change=lambda: st.session_state.__setitem__(
+                                     "tjdl_acumulado", float(_opcoes_fr.get(st.session_state["tjdl_ramo_fr"], 0.0))))
                 with _v2:
                     acumulado = st.number_input("Já contratado no exercício, mesmo ramo de atividade (R$)", min_value=0.0,
                                                 step=100.0, format="%.2f", key="tjdl_acumulado",
@@ -1350,7 +1358,8 @@ def _ck_chave(modalidade: str, texto: str) -> str:
 
 
 # ordem das peças no kit (a mesma em que costumam ser juntadas ao processo)
-ORDEM_KIT = [MP.DOC_DFD, MP.DOC_ETP, MP.DOC_RISCOS, MP.DOC_TR, MP.DOC_MAPA, MP.DOC_MEMORIA, "Cronograma Físico-Financeiro",
+ORDEM_KIT = [MP.DOC_DFD, MP.DOC_ETP, MP.DOC_RISCOS, MP.DOC_TR, MP.DOC_MAPA, MP.DOC_VANTAJOSIDADE, MP.DOC_FRACIONAMENTO,
+             MP.DOC_MEMORIA, "Cronograma Físico-Financeiro",
              "Justificativa de Contratação", MP.DOC_TJDL, MP.DOC_TJIL, MP.DOC_AVISO, MP.DOC_OF_ADESAO, MP.DOC_OF_IRP,
              "Ata de Registro de Preços", "Minuta de Contrato de Serviço / Material", "Outras justificativas",
              "Outros documentos", "Classificação de Risco Jurídico"]
@@ -2362,15 +2371,22 @@ if _pre_ofad:
     for _campo in ("ata", "gerenciador", "uasg", "objeto", "licitacao"):
         st.session_state[f"ofad_{_campo}"] = str(_pre_ofad.get(_campo) or "")
     st.session_state["_ofad_itens_ini"] = _pre_ofad.get("itens") or []
+    if _pre_ofad.get("justificativa"):
+        st.session_state["ofad_just"] = _pre_ofad["justificativa"]
+    if _pre_ofad.get("relatorio_vantajosidade"):
+        _registrar_doc(MP.DOC_VANTAJOSIDADE, "RELATÓRIO DE VANTAJOSIDADE DA ADESÃO", _pre_ofad["relatorio_vantajosidade"],
+                       "relatorio_vantajosidade_adesao")
+        st.session_state["ofad_anexos"] = "Relatório de vantajosidade da adesão"
     st.session_state["_ofad_itens_ver"] = int(st.session_state.get("_ofad_itens_ver") or 0) + 1
     st.session_state["babilaca_aba"] = ABA_DOCUMENTOS
     st.toast("✉️ Ofício de adesão preenchido com os itens escolhidos em Adesões.")
 
-tab_chat, tab_docs, tab_checklist, tab_conferencia = st.tabs([
+tab_chat, tab_docs, tab_checklist, tab_conferencia, tab_fracionamento = st.tabs([
     "💬 Chat IA",
     ABA_DOCUMENTOS,
     "📋 Checklist de Processo",
     "🔎 Conferência do Processo",
+    "⚖️ Limite de Dispensa",
 ], key="babilaca_aba", on_change="rerun")  # com key, a página pode abrir direto na aba Documentos
 
 # ============================================================
@@ -2609,6 +2625,8 @@ with tab_docs:
          "Outras justificativas",
          "Outros documentos",
          MP.DOC_MAPA,
+         MP.DOC_VANTAJOSIDADE,
+         MP.DOC_FRACIONAMENTO,
          "Cronograma Físico-Financeiro",
          MP.DOC_MEMORIA,
          "Ata de Registro de Preços",
@@ -2620,8 +2638,18 @@ with tab_docs:
         st.info("📋 Modelo aberto a partir da lista de verificação. Volte à aba **Checklist de Processo** para continuar "
                 "a conferência.")
 
+    # ---- RELATÓRIOS QUE VÊM DE OUTRAS TELAS (Adesões e aba Limite de Dispensa) ----
+    if tipo_doc in (MP.DOC_VANTAJOSIDADE, MP.DOC_FRACIONAMENTO):
+        if not st.session_state.get(f"doc_gerado_{tipo_doc}"):
+            if tipo_doc == MP.DOC_VANTAJOSIDADE:
+                st.info("Este relatório é montado na página **Adesões**: inclua os itens da ata na adesão, clique em "
+                        "**Analisar vantajosidade** e depois em **Gerar ofício no Babilaca**.")
+                st.page_link("pages/Adesões.py", label="Abrir a página Adesões", icon="🧾")
+            else:
+                st.info("Este relatório é montado na aba **⚖️ Limite de Dispensa** deste Babilaca.")
+
     # ---- MODELOS NOVOS: ETP, TJDL, TJIL, Mapa de Riscos, Aviso e ofícios (antes dos testes por trecho do nome) ----
-    if tipo_doc in (MP.DOC_ETP, MP.DOC_TJDL, MP.DOC_TJIL, MP.DOC_RISCOS, MP.DOC_AVISO, MP.DOC_OF_ADESAO, MP.DOC_OF_IRP):
+    elif tipo_doc in (MP.DOC_ETP, MP.DOC_TJDL, MP.DOC_TJIL, MP.DOC_RISCOS, MP.DOC_AVISO, MP.DOC_OF_ADESAO, MP.DOC_OF_IRP):
         _form_modelo_processo(tipo_doc, bool(_faltam_doc))
 
     # ---- DFD ----
@@ -4110,3 +4138,114 @@ with tab_conferencia:
                                "conferencia_processo.docx",
                                "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                                key="dl_conf_docx", use_container_width=True, disabled=bool(_faltam_conf))
+
+
+# ============================================================
+# TAB 5 — LIMITE DE DISPENSA (fracionamento, art. 75, §1º)
+# ============================================================
+with tab_fracionamento:
+    st.markdown("""
+    <div class="workspace-console checklist-workspace">
+        <div class="workspace-console-content">
+            <div class="workspace-console-icon">⚖️</div>
+            <div><h3>Limite de Dispensa por Ramo de Atividade</h3><p>Quanto a UASG já contratou por dispensa em razão do valor no exercício, por ramo, e quanto ainda cabe.</p></div>
+            <span class="workspace-console-badge">ART. 75, §1º</span>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    st.caption("O limite do art. 75, I e II, vale para o somatório do exercício na unidade gestora, por objetos do mesmo "
+               "ramo de atividade (art. 75, §1º). Ramo: família do item no CATMAT (PDM) para materiais e descrição do "
+               "serviço para serviços (IN SEGES/ME nº 67/2021). Fonte: dispensas publicadas no PNCP (dados abertos do "
+               "Compras.gov.br). " + MP.nota_limites())
+    _f1, _f2, _f3 = st.columns([2, 1, 2])
+    with _f1:
+        _preencher("frac_uasg", _om("uasg"))
+        frac_uasg = st.text_input("UASG da unidade gestora", key="frac_uasg", placeholder="Ex: 765000")
+    with _f2:
+        frac_ano = st.number_input("Exercício", min_value=2023, max_value=datetime.now().year,
+                                   value=datetime.now().year, step=1, key="frac_ano")
+    with _f3:
+        st.write("")
+        st.write("")
+        _verificar = st.button("⚖️ Verificar o exercício", key="frac_verificar", type="primary",
+                               use_container_width=True, disabled=not frac_uasg.strip().isdigit())
+    if _verificar:
+        _barra = st.progress(0.0, text="Buscando as dispensas da UASG no PNCP...")
+        _compras, _erro = FR.buscar_dispensas(frac_uasg.strip(), int(frac_ano),
+                                              lambda f, t: _barra.progress(min(f, 1.0), text=t))
+        _barra.empty()
+        if _erro:
+            st.error(f"Não foi possível consultar agora: {_erro}")
+        else:
+            _grupos = FR.consolidar(_compras)
+            _nome = next((c.get("unidadeOrgaoNomeUnidade") for c in _compras if c.get("unidadeOrgaoNomeUnidade")), "")
+            st.session_state["frac_resultado"] = {"uasg": frac_uasg.strip(), "ano": int(frac_ano), "nome": _nome,
+                                                  "compras": _compras, "grupos": _grupos}
+            _registrar_doc(MP.DOC_FRACIONAMENTO, "RELATÓRIO DE VERIFICAÇÃO DE FRACIONAMENTO",
+                           FR.corpo_relatorio(frac_uasg.strip(), _nome, int(frac_ano), _grupos, _compras),
+                           f"fracionamento_{frac_uasg.strip()}_{int(frac_ano)}")
+
+    _fr = st.session_state.get("frac_resultado")
+    if _fr:
+        _g = _fr["grupos"]
+        st.markdown(f"**UASG {_fr['uasg']}{' – ' + _fr['nome'] if _fr['nome'] else ''} · exercício {_fr['ano']}**")
+        _k1, _k2, _k3, _k4 = st.columns(4)
+        _k1.metric("Dispensas por valor", len(_fr["compras"]))
+        _k2.metric("Ramos de atividade", len(_g))
+        _k3.metric("🔴 Ultrapassados", sum(1 for x in _g if x["uso"] >= 1))
+        _k4.metric("🟡 Acima de 80%", sum(1 for x in _g if 0.8 <= x["uso"] < 1))
+        if not _fr["compras"]:
+            st.info("Nenhuma dispensa por valor (art. 75, I ou II) publicada no PNCP para esta UASG no exercício.")
+        else:
+            st.dataframe(
+                pd.DataFrame([{"Situação": x["situacao"], "Inciso": x["inciso"], "Ramo de atividade": x["ramo"],
+                               "Classe": x["classe"], "Base": x["base"], "Dispensas": len(x["compras"]),
+                               "Total": x["total"], "Saldo": max(x["saldo"], 0), "Uso": x["uso"] * 100,
+                               "Exemplos de itens": "; ".join(x["exemplos"]),
+                               "Valor estimado?": "sim" if x["estimado"] else ""} for x in _g]),
+                hide_index=True, width="stretch",
+                column_config={"Total": st.column_config.NumberColumn(format="R$ %.2f"),
+                               "Saldo": st.column_config.NumberColumn(format="R$ %.2f"),
+                               "Uso": st.column_config.ProgressColumn("Uso do limite", format="%.0f%%", min_value=0,
+                                                                     max_value=100)})
+            st.caption("\"Base: descrição (aproximado)\" = item sem correspondência no CATMAT (em geral serviços), "
+                       "agrupado pelas primeiras palavras da descrição: confira se o agrupamento faz sentido.")
+
+        st.markdown("##### 🧮 Simular uma nova dispensa")
+        _s1, _s2, _s3, _s4 = st.columns([3, 1.3, 1, 1])
+        with _s1:
+            _sim_desc = st.text_input("Descrição do item (como no CATMAT)", key="frac_sim_desc",
+                                      placeholder="Ex: PAPEL A4, GRAMATURA: 75 G/M2")
+        with _s2:
+            _sim_valor = st.number_input("Valor (R$)", min_value=0.0, step=100.0, format="%.2f", key="frac_sim_valor")
+        with _s3:
+            _sim_tipo = st.selectbox("Tipo", ["Material", "Serviço"], key="frac_sim_tipo")
+        with _s4:
+            _sim_inc = st.selectbox("Inciso", ["II", "I"], key="frac_sim_inc")
+        if _sim_desc.strip() and _sim_valor:
+            _sim = FR.simular(_g, _sim_desc, _sim_valor, _sim_tipo == "Material", _sim_inc)
+            _msg = (f"Ramo **{_sim['ramo']}** ({_sim['base']}): já contratado {MP.brl(_sim['ja_contratado'])} + esta "
+                    f"dispensa {MP.brl(_sim['novo'])} = **{MP.brl(_sim['total'])}** de {MP.brl(_sim['limite'])}.").replace("$", "\\$")
+            (st.success if _sim["cabe"] else st.error)(
+                _msg + (" Cabe no limite." if _sim["cabe"] else " **Ultrapassa o limite**: avalie licitar ou outra hipótese."))
+
+        _faltam_fr = _pendencias_documento()
+        _doc_fr = st.session_state.get(f"doc_gerado_{MP.DOC_FRACIONAMENTO}")
+        if _doc_fr:
+            _corpo_fr = st.session_state.get(f"doc_editado_{MP.DOC_FRACIONAMENTO}") or _doc_fr["corpo"]
+            if _faltam_fr:
+                st.warning("Para baixar o relatório, preencha na aba **📄 Documentos** os dados obrigatórios da OM. "
+                           "Falta: " + ", ".join(_faltam_fr) + ".")
+            _d1, _d2 = st.columns(2)
+            with _d1:
+                st.download_button("🖨️ Relatório em PDF", gerar_pdf_documento(_doc_fr["titulo"], _corpo_fr) if not _faltam_fr else b"",
+                                   f"{_doc_fr['nome']}.pdf", "application/pdf", key="dl_frac_pdf",
+                                   use_container_width=True, disabled=bool(_faltam_fr))
+            with _d2:
+                st.download_button("📝 Relatório em Word", gerar_docx_documento(_doc_fr["titulo"], _corpo_fr) if not _faltam_fr else b"",
+                                   f"{_doc_fr['nome']}.docx",
+                                   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                                   key="dl_frac_docx", use_container_width=True, disabled=bool(_faltam_fr))
+            st.caption("O relatório também entra no Kit do processo e pode ser editado na aba Documentos "
+                       f"(\"{MP.DOC_FRACIONAMENTO}\"). O TJDL passa a oferecer o total do ramo para preencher o campo "
+                       "\"já contratado no exercício\".")

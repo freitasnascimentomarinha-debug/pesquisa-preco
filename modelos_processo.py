@@ -40,6 +40,8 @@ DOC_AVISO = "Aviso de Contratação Direta (dispensa eletrônica)"
 DOC_OF_ADESAO = "Ofício — Solicitação de adesão a Ata de Registro de Preços"
 DOC_OF_IRP = "Ofício — Manifestação de interesse em IRP"
 DOC_MAPA = "Mapa Comparativo de Preços"
+DOC_VANTAJOSIDADE = "Relatório de vantajosidade da adesão"
+DOC_FRACIONAMENTO = "Relatório de verificação de fracionamento"
 DOC_MEMORIA = "Memória de Cálculo"
 
 # atalhos das listas de verificação: ("doc", rótulo do seletor) ou ("pag", arquivo da página, rótulo do link)
@@ -587,9 +589,10 @@ def corpo_oficio_adesao(o: dict) -> str:
         f"Militar adira, na condição de órgão não participante, à Ata de Registro de Preços nº {o.get('ata') or lacuna}, "
         f"decorrente do {o.get('licitacao') or lacuna} (UASG {o.get('uasg') or lacuna}), cujo objeto é "
         f"{o.get('objeto') or lacuna}, nos termos do art. 86, §2º, da Lei nº 14.133/2021 e do Decreto nº 11.462/2023.",
-        f"2. A adesão se justifica porque {(o.get('justificativa') or lacuna).rstrip('.')}. Os preços registrados foram "
-        "comparados com os praticados no mercado, conforme pesquisa realizada nos termos do art. 23 da Lei nº "
-        "14.133/2021, e mostraram-se vantajosos para a Administração.",
+        f"2. A adesão se justifica porque {(o.get('justificativa') or lacuna).rstrip('.')}."
+        + ("" if "foram comparados" in (o.get("justificativa") or "") else
+           " Os preços registrados foram comparados com os praticados no mercado, conforme pesquisa realizada nos "
+           "termos do art. 23 da Lei nº 14.133/2021, e mostraram-se vantajosos para a Administração."),
         "3. Os itens e as quantidades pretendidos são os seguintes, observado o limite de 50% dos quantitativos "
         "registrados por órgão aderente (art. 86, §4º, da Lei nº 14.133/2021):\n\n" + "\n".join(_tabela_itens(o.get("itens") or [])),
         f"4. {ciente} Autorizada a adesão, a contratação será efetivada no prazo regulamentar, observada a vigência da ata.",
