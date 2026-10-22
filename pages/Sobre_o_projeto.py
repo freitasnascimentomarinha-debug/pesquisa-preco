@@ -111,12 +111,12 @@ FERRAMENTAS = [
     ("📨", "Cotação Direta", "Pede orçamento por e-mail a fornecedores que venderam recentemente, com proposta em Word."),
     ("🔍", "Detalhes Compra", "Consulta os detalhes de uma compra pública."),
     ("📡", "Radar de Licitações", "Busca licitações no PNCP por objeto, UASG, período e situação: calendário de encerramentos, documentos, link de acompanhamento, itens com deságio, fornecedores, atas e participantes."),
-    ("🤝", "Adesões", "Localiza atas de registro de preços vigentes para adesão, por estado, com saldos e limites."),
+    ("🤝", "Adesões", "Localiza atas de registro de preços vigentes para adesão, por estado, com saldos e limites, e monta a adesão: itens, quantidades, análise de vantajosidade e ofício ao órgão gerenciador."),
     ("📄", "Notas Fiscais", "Pesquisa preços em notas fiscais eletrônicas dos dados abertos e relaciona as NF-e para autenticação."),
     ("🏢", "Fornecedores", "Lista fornecedores por atividade econômica (CNAE), com contatos."),
     ("💻", "Consulta CNPJ", "Consulta dados cadastrais de empresas pelo CNPJ."),
     ("🕷️", "Web Scraping", "Pesquisa de preços automatizada na internet, com endereço, data/hora e prints de evidência."),
-    ("🧠", "O Babilaca (IA)", "Assistente de IA para licitações e legislação, com respostas apoiadas em fontes verificadas."),
+    ("🧠", "O Babilaca (IA)", "Assistente de IA para licitações: tira dúvidas com fontes verificadas, gera documentos no padrão da Marinha (DFD, ETP, TR, TJDL, TJIL, aviso e ofícios), monta o kit do processo, confere o processo, calcula prazos e verifica o limite de dispensa por ramo de atividade."),
     ("📊", "Cálculo IPCA", "Correção monetária de valores pelo IPCA acumulado (série 433 do Banco Central)."),
 ]
 

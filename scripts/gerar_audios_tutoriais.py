@@ -39,6 +39,7 @@ AULAS = {  # nome do áudio -> módulo da aula
     "cotacao_direta": "tutorial_cotacao_direta",
     "cotacao_rapida": "tutorial_cotacao_rapida",
     "adesoes": "tutorial_adesoes",
+    "babilaca": "tutorial_babilaca",
     "notas_fiscais": "tutorial_notas_fiscais",
     "fornecedores": "tutorial_fornecedores",
     "web_scraping": "tutorial_web_scraping",
@@ -51,6 +52,7 @@ AULAS = {  # nome do áudio -> módulo da aula
 # Pronúncias: siglas viram letras separadas; termos que o sintetizador lê mal ganham grafia fonética.
 SUBSTITUICOES = [
     (r"IN SEGES/ME nº 65/2021", "Instrução Normativa Seges ME número 65 de 2021"),
+    (r"\bMaTDoc\b", "Mat dóc"),
     (r"\bart\. (\d+), §(\d+)º", r"artigo \1, parágrafo \2 "),
     (r"\bart\. (\d+)", r"artigo \1"),
     (r"Lei nº 14\.133/2021", "Lei número 14.133 de 2021"),
@@ -95,7 +97,7 @@ SUBSTITUICOES = [
     (r"\bDF\b", "Distrito Federal"),
     (r"\bUFs?\b", "U F"),
 ]
-SIGLAS = ["CNPJ", "UASG", "PDM", "IQR", "PDF", "HTML", "XML", "CSV", "API", "OM", "CV", "TCU", "PNCP", "BCB", "IBGE", "IA", "BRL", "ID"]
+SIGLAS = ["CNPJ", "UASG", "DFD", "ETP", "TJDL", "TJIL", "IRP", "UF", "TR", "PDM", "IQR", "PDF", "HTML", "XML", "CSV", "API", "OM", "CV", "TCU", "PNCP", "BCB", "IBGE", "IA", "BRL", "ID"]
 
 
 def numero_por_extenso_simples(m: re.Match) -> str:
