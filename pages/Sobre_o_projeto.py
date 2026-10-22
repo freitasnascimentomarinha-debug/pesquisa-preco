@@ -146,7 +146,7 @@ st.markdown(
         <h3>🎯 O propósito do projeto</h3>
         <p>O principal objetivo do <b>2°SG-PL Freitas</b> com o AtaCotada é <b>demonstrar a capacidade das novas tecnologias de aprimorar os processos de trabalho</b>,
         para que outras pessoas se inspirem, aprendam e desenvolvam sistemas e soluções criativas que facilitem a vida de quem trabalha.</p>
-        <p>Contribuir com a missão da Marinha é mais importante do que qualquer reconhecimento ou prêmio. Por isso, o sistema é de <b>código aberto</b> e <b>gratuito</b>.</p>
+        <p>Contribuir com a missão da Marinha é mais importante do que qualquer <b>reconhecimento</b>, prêmio ou <b>valor monetário</b>. Por isso, o sistema é de <b>código aberto</b> e <b>gratuito</b>.</p>
         <p class="destaque">O AtaCotada existe para mostrar que a falta de pessoal pode ser suprida com inteligência, automação e IA.</p>
     </div>
     <div class="sp-panel">
