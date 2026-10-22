@@ -103,14 +103,38 @@ def segmentos(texto: str) -> list[tuple[str, bool, bool]]:
     return [p for p in junto if p[0]]
 
 
-def _pesos_colunas(linhas: list[list[str]]) -> list[float]:
-    """Largura relativa de cada coluna: cabeçalho (palavra mais longa) e conteúdo, com mínimo e teto."""
-    pesos = []
+_MEDIDORES: dict = {}
+
+
+def _medidor(fonte_pt: float):
+    """FPDF só para medir texto na Carlito (negrito, o caso mais largo)."""
+    if fonte_pt not in _MEDIDORES:
+        from fpdf import FPDF
+        m = FPDF()
+        m.add_font("Carlito", "B", FONTES["B"])
+        m.set_font("Carlito", "B", fonte_pt)
+        _MEDIDORES[fonte_pt] = m
+    return _MEDIDORES[fonte_pt]
+
+
+def _larguras_colunas(linhas: list[list[str]], total_mm: float, fonte_pt: float) -> list[float]:
+    """Largura de cada coluna em mm: primeiro garante que a palavra mais longa da coluna (cabeçalho ou conteúdo) caiba
+    sem partir; a sobra é repartida conforme o tamanho do conteúdo, com teto menor quando há muitas colunas."""
+    medidor = _medidor(fonte_pt)
+    teto = 42 if len(linhas[0]) <= 5 else 26
+    minimos, extras = [], []
     for c in range(len(linhas[0])):
-        cab = max((len(p) for p in re.sub(r"[*_]", "", linhas[0][c]).split()), default=4) + 2
-        conteudo = max(len(re.sub(r"[*_]", "", r[c])) for r in linhas[1:]) if len(linhas) > 1 else 0
-        pesos.append(max(cab, 7, min(42, conteudo)))
-    return pesos
+        textos = [re.sub(r"[*_]", "", r[c]) for r in linhas]
+        palavras = [p for t in textos for p in t.split()] or ["___"]
+        palavra = max(len(p) for p in palavras)
+        conteudo = max((len(t) for t in textos[1:]), default=0)
+        larga = max(medidor.get_string_width(p) for p in palavras)
+        minimos.append(larga * 1.08 + 4)  # negrito do cabeçalho e margens internas da célula
+        extras.append(max(min(teto, conteudo) - palavra, 0) + 1)
+    sobra = total_mm - sum(minimos)
+    if sobra <= 0:
+        return [total_mm * m / sum(minimos) for m in minimos]
+    return [m + sobra * e / sum(extras) for m, e in zip(minimos, extras)]
 
 
 def _celulas(linha: str) -> list[str]:
@@ -133,7 +157,7 @@ def interpretar(corpo: str, titulo: str = "") -> list[dict]:
                 not any(b["tipo"] != "vazio" for b in blocos) or i >= len(linhas) - 3):
             i += 1  # conversa no início ou no fim da resposta
             continue
-        if not linha or RODAPES_DESCARTADOS.search(linha) or re.fullmatch(r"[-_*=]{3,}", linha):
+        if not linha or RODAPES_DESCARTADOS.search(linha) or re.fullmatch(r"[-*=]{3,}", linha):
             if not linha and blocos and blocos[-1]["tipo"] != "vazio":
                 blocos.append({"tipo": "vazio"})
             letra = 0
@@ -188,7 +212,10 @@ def interpretar(corpo: str, titulo: str = "") -> list[dict]:
 
 # ── PDF (fpdf2, fonte Carlito embutida) ───────────────────────────────────────────────────────────────────────
 MM = {"esq": 30, "dir": 15, "sup": 20, "inf": 20}
-RECUO_MM = {"texto": 0, "item": 0, "subitem": 0, "alinea": 10, "subalinea": 15}
+# recuo da 1ª linha: texto e subitem a 0,5 cm, alínea a 1,0 cm, subalínea a 1,5 cm (MaTDoc 1.5.3)
+RECUO_MM = {"texto": 5, "item": 0, "subitem": 5, "alinea": 10, "subalinea": 15}
+# correspondência: itens sem título a 2,5 cm; subitem 3,0, alínea 3,5 e subalínea 4,0 cm (MaTDoc 1.5.1 e cap. 16)
+RECUO_OFICIO_MM = {"texto": 25, "item": 25, "subitem": 30, "alinea": 35, "subalinea": 40}
 
 
 def _fpdf_md(texto: str) -> str:
@@ -200,7 +227,58 @@ def _fpdf_md(texto: str) -> str:
     return "".join(out)
 
 
-def _pdf(titulo: str, blocos: list[dict], d: dict, numerar: bool):
+def _paragrafo(pdf, texto: str, recuo_1a: float = 0, recuo: float = 0, alinhamento: str = "J", depois: float = 1.5,
+               negrito: bool = False):
+    """Parágrafo com recuo da primeira linha (o multi_cell não tem), negrito e itálico do Markdown."""
+    with pdf.text_columns(text_align=alinhamento, line_height=1.18, l_margin=MM["esq"] + recuo, r_margin=MM["dir"]) as tc:
+        with tc.paragraph(first_line_indent=recuo_1a, bottom_margin=depois) as par:
+            for t, b, i in segmentos(texto):
+                pdf.set_font("Carlito", ("B" if b or negrito else "") + ("I" if i else ""), 12)
+                par.write(t)
+    pdf.set_font("Carlito", "", 12)
+
+
+def _rotulado(pdf, rotulo: str, texto: str, negrito_texto: bool = False):
+    """'Assunto:' na margem e o texto alinhado a 2,5 cm, com as linhas seguintes também a 2,5 cm (MaTDoc cap. 16)."""
+    y = pdf.get_y()
+    pdf.set_font("Carlito", "", 12)
+    pdf.set_xy(MM["esq"], y)
+    pdf.cell(25, 6, rotulo)
+    pdf.set_xy(MM["esq"] + 25, y)
+    pdf.set_font("Carlito", "B" if negrito_texto else "", 12)
+    pdf.multi_cell(pdf.w - MM["esq"] - MM["dir"] - 25, 6, texto, align="J", new_x="LMARGIN", new_y="NEXT")
+    pdf.set_font("Carlito", "", 12)
+
+
+def _lista_rotulada(pdf, rotulo: str, itens: list[str]):
+    """'Referências:' / 'Anexos:' com 'A) ...;' e '... .' (MaTDoc 1.4.10 e 1.4.11)."""
+    itens = [i.strip().rstrip(";.") for i in itens if i and i.strip()]
+    if not itens:
+        return
+    linhas = [f"{chr(65 + k)}) {t}{'.' if k == len(itens) - 1 else ('; e' if k == len(itens) - 2 else ';')}"
+              for k, t in enumerate(itens)]
+    _rotulado(pdf, rotulo, linhas[0])
+    for linha in linhas[1:]:
+        pdf.set_x(MM["esq"] + 25)
+        pdf.multi_cell(pdf.w - MM["esq"] - MM["dir"] - 25, 6, linha, align="J", new_x="LMARGIN", new_y="NEXT")
+
+
+def _oficio(of: dict | None) -> dict | None:
+    if not of:
+        return None
+    of = dict(of)
+    for k in ("numero", "do", "ao", "via", "assunto", "endereco", "destinatario", "vocativo", "fecho"):
+        of[k] = (of.get(k) or "").strip()
+    for k in ("referencias", "anexos", "copias"):
+        v = of.get(k) or []
+        of[k] = [x.strip() for x in (v.splitlines() if isinstance(v, str) else v) if x and x.strip()]
+    of["externo"] = bool(of.get("externo"))
+    if of["externo"] and not of["fecho"]:
+        of["fecho"] = "Atenciosamente,"
+    return of
+
+
+def _pdf(titulo: str, blocos: list[dict], d: dict, numerar: bool, of: dict | None = None):
     from fpdf import FPDF
     from fpdf.fonts import FontFace
 
@@ -232,15 +310,51 @@ def _pdf(titulo: str, blocos: list[dict], d: dict, numerar: bool):
     pdf.ln(6)
     pdf.multi_cell(0, 6, (d["om"] or "NOME DA ORGANIZAÇÃO MILITAR").upper(), align="C", new_x="LMARGIN", new_y="NEXT")
     pdf.set_font("Carlito", "", 12)
+    if of and of["externo"] and of["endereco"]:
+        for linha in of["endereco"].splitlines():
+            pdf.multi_cell(0, 5, linha.strip(), align="C", new_x="LMARGIN", new_y="NEXT")
     pdf.ln(6)
-    pdf.cell(0, 6, local_e_data(d["cidade"], d["uf"], d["data"]), align="R", new_x="LMARGIN", new_y="NEXT")
-    pdf.ln(12)
-    pdf.set_font("Carlito", "B", 12)
-    pdf.multi_cell(0, 6, titulo.upper(), align="C", new_x="LMARGIN", new_y="NEXT")
-    if d["nup"]:
-        pdf.set_font("Carlito", "", 12)
-        pdf.cell(0, 6, f"NUP: {d['nup']}", align="C", new_x="LMARGIN", new_y="NEXT")
-    pdf.ln(10)
+    data_txt = local_e_data(d["cidade"], d["uf"], d["data"])
+    if of:
+        # Of (MaTDoc cap. 16): "Nº" e local e data; Do/Ao/Via; Assunto; Referências; Anexos. OfExt (cap. 17): número,
+        # local e data, destinatário, Assunto em negrito e vocativo. Nenhum dos dois tem título.
+        y = pdf.get_y()
+        numero = of["numero"] or "___"
+        pdf.cell(0, 6, f"Ofício nº {numero}" if of["externo"] else f"Nº {numero}", align="L")
+        pdf.set_xy(MM["esq"], y)
+        pdf.cell(0, 6, data_txt, align="R", new_x="LMARGIN", new_y="NEXT")
+        pdf.ln(12)
+        if of["externo"]:
+            for linha in (of["destinatario"] or "Ao Senhor\n__________").splitlines():
+                pdf.multi_cell(0, 6, linha.strip(), align="L", new_x="LMARGIN", new_y="NEXT")
+            pdf.ln(6)
+            _rotulado(pdf, "Assunto:", of["assunto"] or "__________", negrito_texto=True)
+            pdf.ln(6)
+            if of["vocativo"]:
+                _paragrafo(pdf, of["vocativo"], recuo_1a=25, alinhamento="L", depois=4)
+        else:
+            _rotulado(pdf, "Do:", of["do"] or "__________")
+            _rotulado(pdf, "Ao:", of["ao"] or "__________")
+            if of["via"]:
+                _rotulado(pdf, "Via:", of["via"])
+            pdf.ln(6)
+            _rotulado(pdf, "Assunto:", of["assunto"] or "__________")
+            if of["referencias"]:
+                pdf.ln(6)
+                _lista_rotulada(pdf, "Referências:" if len(of["referencias"]) > 1 else "Referência:", of["referencias"])
+            if of["anexos"]:
+                pdf.ln(6)
+                _lista_rotulada(pdf, "Anexos:" if len(of["anexos"]) > 1 else "Anexo:", of["anexos"])
+            pdf.ln(12)
+    else:
+        pdf.cell(0, 6, data_txt, align="R", new_x="LMARGIN", new_y="NEXT")
+        pdf.ln(12)
+        pdf.set_font("Carlito", "B", 12)
+        pdf.multi_cell(0, 6, titulo.upper(), align="C", new_x="LMARGIN", new_y="NEXT")
+        if d["nup"]:
+            pdf.set_font("Carlito", "", 12)
+            pdf.cell(0, 6, f"NUP: {d['nup']}", align="C", new_x="LMARGIN", new_y="NEXT")
+        pdf.ln(10)
 
     for b in blocos:
         tipo = b["tipo"]
@@ -250,9 +364,8 @@ def _pdf(titulo: str, blocos: list[dict], d: dict, numerar: bool):
         if tipo == "tabela":
             linhas = b["linhas"]
             n = len(linhas[0])
-            pesos = _pesos_colunas(linhas)
-            larguras = [largura * p / sum(pesos) for p in pesos]
-            corpo = 10 if n >= 5 else 11
+            corpo = 9 if n >= 8 else 10 if n >= 5 else 11
+            larguras = _larguras_colunas(linhas, largura, corpo)
             pdf.set_font("Carlito", "", corpo)
             pdf.ln(1)
             with pdf.table(col_widths=larguras, width=largura, line_height=5, markdown=True, text_align="LEFT",
@@ -265,7 +378,6 @@ def _pdf(titulo: str, blocos: list[dict], d: dict, numerar: bool):
             pdf.ln(3)
             pdf.set_font("Carlito", "", 12)
             continue
-        recuo = RECUO_MM.get(tipo, 0)
         if tipo == "item":
             pdf.ln(3)
             pdf.set_font("Carlito", "B", 12)
@@ -273,9 +385,12 @@ def _pdf(titulo: str, blocos: list[dict], d: dict, numerar: bool):
             pdf.set_font("Carlito", "", 12)
             pdf.ln(1)
             continue
-        pdf.set_x(MM["esq"] + recuo)
-        pdf.multi_cell(largura - recuo, 6, _fpdf_md(b["texto"]), align="J", markdown=True, new_x="LMARGIN", new_y="NEXT")
-        pdf.ln(1.5)
+        recuos = RECUO_OFICIO_MM if of else RECUO_MM
+        _paragrafo(pdf, b["texto"], recuo_1a=recuos.get(tipo, 0), depois=3 if of else 1.5)
+
+    if of and of["externo"] and of["fecho"]:
+        pdf.ln(2)
+        _paragrafo(pdf, of["fecho"], recuo_1a=25, alinhamento="L")
 
     # assinaturas (MaTDoc 1.11): três linhas em branco; uma centralizada ou duas por linha, da esquerda para a direita
     pdf.set_font("Carlito", "", 12)
@@ -296,28 +411,40 @@ def _pdf(titulo: str, blocos: list[dict], d: dict, numerar: bool):
                 pdf.multi_cell(coluna, 6, linha, align="C", new_x="LEFT", new_y="NEXT")
             fim = pdf.get_y()
         pdf.set_y(max(fim, y0 + 18))
+    if of and of["copias"]:
+        if pdf.get_y() + 8 + 6 * (len(of["copias"]) + 1) > pdf.h - pdf.b_margin:
+            pdf.add_page()
+        else:
+            pdf.ln(8)
+        pdf.cell(0, 6, "Cópias:" if len(of["copias"]) > 1 else "Cópia:", new_x="LMARGIN", new_y="NEXT")
+        for c in of["copias"]:
+            pdf.cell(0, 6, c, new_x="LMARGIN", new_y="NEXT")
     return pdf
 
 
-def gerar_pdf(titulo: str, corpo: str, dados: dict | None = None) -> bytes:
+def gerar_pdf(titulo: str, corpo: str, dados: dict | None = None, oficio: dict | None = None) -> bytes:
+    """oficio: None (peça do processo com título) ou {'externo', 'numero', 'do', 'ao', 'via', 'assunto', 'referencias',
+    'anexos', 'copias'} para o Of (MaTDoc cap. 16), mais 'endereco', 'destinatario', 'vocativo' e 'fecho' no OfExt (cap. 17)."""
     d = _dados(dados)
+    of = _oficio(oficio)
     blocos = interpretar(corpo, titulo)
-    rascunho = _pdf(titulo, blocos, d, numerar=False)
+    rascunho = _pdf(titulo, blocos, d, numerar=False, of=of)
     paginas = rascunho.page_no()
-    pdf = _pdf(titulo, blocos, d, numerar=paginas > 1) if paginas > 1 else rascunho  # 1 página: sem numeração (MaTDoc 1.14)
+    pdf = _pdf(titulo, blocos, d, numerar=paginas > 1, of=of) if paginas > 1 else rascunho  # 1 página: sem numeração (MaTDoc 1.14)
     return bytes(pdf.output())
 
 
 # ── Word (python-docx) ────────────────────────────────────────────────────────────────────────────────────────
-def gerar_docx(titulo: str, corpo: str, dados: dict | None = None) -> bytes:
+def gerar_docx(titulo: str, corpo: str, dados: dict | None = None, oficio: dict | None = None) -> bytes:
     from docx import Document
     from docx.enum.table import WD_TABLE_ALIGNMENT
-    from docx.enum.text import WD_ALIGN_PARAGRAPH
+    from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_TAB_ALIGNMENT
     from docx.oxml import OxmlElement
     from docx.oxml.ns import qn
     from docx.shared import Cm, Pt
 
     d = _dados(dados)
+    of = _oficio(oficio)
     doc = Document()
     sec = doc.sections[0]
     sec.page_width, sec.page_height = Cm(21), Cm(29.7)
@@ -357,14 +484,68 @@ def gerar_docx(titulo: str, corpo: str, dados: dict | None = None) -> bytes:
     par("MARINHA DO BRASIL", WD_ALIGN_PARAGRAPH.CENTER, negrito=True)
     par()
     par((d["om"] or "NOME DA ORGANIZAÇÃO MILITAR").upper(), WD_ALIGN_PARAGRAPH.CENTER, negrito=True)
+    if of and of["externo"] and of["endereco"]:
+        for linha in of["endereco"].splitlines():
+            par(linha.strip(), WD_ALIGN_PARAGRAPH.CENTER, tamanho=11)
     par()
-    par(local_e_data(d["cidade"], d["uf"], d["data"]), WD_ALIGN_PARAGRAPH.RIGHT)
-    par()
-    par()
-    par(titulo.upper(), WD_ALIGN_PARAGRAPH.CENTER, negrito=True)
-    if d["nup"]:
-        par(f"NUP: {d['nup']}", WD_ALIGN_PARAGRAPH.CENTER)
-    par()
+    data_txt = local_e_data(d["cidade"], d["uf"], d["data"])
+
+    def rotulado(rotulo, texto, negrito_texto=False):
+        """Rótulo na margem e texto a 2,5 cm, com as linhas seguintes também a 2,5 cm."""
+        p = par(f"{rotulo}\t", WD_ALIGN_PARAGRAPH.JUSTIFY, recuo=2.5, recuo_1a=-2.5)
+        p.paragraph_format.tab_stops.add_tab_stop(Cm(2.5))
+        for t, b, i in segmentos(texto):
+            r = p.add_run(t)
+            r.bold = negrito_texto or b
+            r.italic = i
+        return p
+
+    def lista_rotulada(rotulo, itens):
+        itens = [i.strip().rstrip(";.") for i in itens if i and i.strip()]
+        for k, t in enumerate(itens):
+            fim = "." if k == len(itens) - 1 else ("; e" if k == len(itens) - 2 else ";")
+            if k == 0:
+                rotulado(rotulo, f"{chr(65 + k)}) {t}{fim}")
+            else:
+                par(f"{chr(65 + k)}) {t}{fim}", WD_ALIGN_PARAGRAPH.JUSTIFY, recuo=2.5)
+
+    if of:
+        p = par(f"Ofício nº {of['numero'] or '___'}" if of["externo"] else f"Nº {of['numero'] or '___'}")
+        p.paragraph_format.tab_stops.add_tab_stop(Cm(16.5), WD_TAB_ALIGNMENT.RIGHT)
+        p.add_run("\t" + data_txt)
+        par()
+        par()
+        if of["externo"]:
+            for linha in (of["destinatario"] or "Ao Senhor\n__________").splitlines():
+                par(linha.strip())
+            par()
+            rotulado("Assunto:", of["assunto"] or "__________", negrito_texto=True)
+            par()
+            if of["vocativo"]:
+                par(of["vocativo"], recuo_1a=2.5, depois=6)
+        else:
+            rotulado("Do:", of["do"] or "__________")
+            rotulado("Ao:", of["ao"] or "__________")
+            if of["via"]:
+                rotulado("Via:", of["via"])
+            par()
+            rotulado("Assunto:", of["assunto"] or "__________")
+            if of["referencias"]:
+                par()
+                lista_rotulada("Referências:" if len(of["referencias"]) > 1 else "Referência:", of["referencias"])
+            if of["anexos"]:
+                par()
+                lista_rotulada("Anexos:" if len(of["anexos"]) > 1 else "Anexo:", of["anexos"])
+            par()
+            par()
+    else:
+        par(data_txt, WD_ALIGN_PARAGRAPH.RIGHT)
+        par()
+        par()
+        par(titulo.upper(), WD_ALIGN_PARAGRAPH.CENTER, negrito=True)
+        if d["nup"]:
+            par(f"NUP: {d['nup']}", WD_ALIGN_PARAGRAPH.CENTER)
+        par()
 
     justif = WD_ALIGN_PARAGRAPH.JUSTIFY
     for b in interpretar(corpo, titulo):
@@ -373,24 +554,18 @@ def gerar_docx(titulo: str, corpo: str, dados: dict | None = None) -> bytes:
             continue
         if tipo == "item":
             par(b["texto"].replace("**", ""), WD_ALIGN_PARAGRAPH.LEFT, negrito=True, antes=12, depois=4, manter=True)
-        elif tipo == "texto":
-            par(b["texto"], justif, recuo_1a=0.5, depois=6)
-        elif tipo == "subitem":
-            par(b["texto"], justif, recuo_1a=0.5, depois=6)
-        elif tipo == "alinea":
-            par(b["texto"], justif, recuo_1a=1.0, depois=3)
-        elif tipo == "subalinea":
-            par(b["texto"], justif, recuo_1a=1.5, depois=3)
+        elif tipo in ("texto", "subitem", "alinea", "subalinea"):
+            recuo_cm = (RECUO_OFICIO_MM if of else RECUO_MM)[tipo] / 10
+            par(b["texto"], justif, recuo_1a=recuo_cm, depois=6 if tipo in ("texto", "subitem") else 3)
         elif tipo == "tabela":
             linhas = b["linhas"]
             n = len(linhas[0])
-            tam = 10 if n >= 5 else 11
+            tam = 9 if n >= 8 else 10 if n >= 5 else 11
             tab = doc.add_table(rows=len(linhas), cols=n)
             tab.style = "Table Grid"
             tab.alignment = WD_TABLE_ALIGNMENT.CENTER
             tab.autofit = False
-            pesos = _pesos_colunas(linhas)
-            larguras = [Cm(16.5 * p / sum(pesos)) for p in pesos]
+            larguras = [Cm(w / 10) for w in _larguras_colunas(linhas, 165, tam)]
             for c, w in enumerate(larguras):
                 tab.columns[c].width = w                                # grade da tabela (lida pelo LibreOffice)
                 for cel in tab.columns[c].cells:
@@ -420,6 +595,9 @@ def gerar_docx(titulo: str, corpo: str, dados: dict | None = None) -> bytes:
                         cel._tc.get_or_add_tcPr().append(sombra)
             par(depois=6)
 
+    if of and of["externo"] and of["fecho"]:
+        par(of["fecho"], recuo_1a=2.5, antes=6)
+
     # assinaturas (MaTDoc 1.11): três linhas em branco; uma centralizada ou duas por linha (tabela sem bordas)
     assinantes = d["assinantes"]
     for _ in range(3):
@@ -446,6 +624,12 @@ def gerar_docx(titulo: str, corpo: str, dados: dict | None = None) -> bytes:
             trPr = tab.rows[0]._tr.get_or_add_trPr()
             nao_parte = OxmlElement("w:cantSplit")
             trPr.append(nao_parte)
+
+    if of and of["copias"]:
+        par()
+        par("Cópias:" if len(of["copias"]) > 1 else "Cópia:")
+        for c in of["copias"]:
+            par(c)
 
     # rodapé: NUP à direita e "- n de N -" centralizado, só com mais de uma página (campo IF do Word)
     rod = sec.footer
