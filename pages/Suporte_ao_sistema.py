@@ -189,11 +189,3 @@ if mostrar:
                     key=f"su_card_{pessoa['nip']}", use_container_width=True,
                 )
 
-st.markdown(
-    """
-    <div style="margin-top:2rem;padding-top:1.4rem;border-top:1px solid #0033cc;text-align:center;">
-        <p style="color:#d4af37;font-size:12px;margin:0;letter-spacing:.5px;">Idealizado e Desenvolvido pelo 2°SG-PL Freitas com o apoio do COpAb</p>
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
