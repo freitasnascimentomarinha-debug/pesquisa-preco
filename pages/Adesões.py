@@ -1097,7 +1097,11 @@ def _num(valor) -> Optional[float]:
 def _incluir_na_cesta(ata: Dict, item: Dict) -> None:
     """Junta o item à lista de adesão da ata. Cada ata vira um ofício (um gerenciador por ofício)."""
     cesta = st.session_state.setdefault("_cesta_adesao", {})
-    grupo = cesta.setdefault(ata["id"], {**ata, "itens": [], "versao": 0})
+    if ata["id"] not in cesta:
+        # versão única por sessão: uma ata removida e incluída de novo não herda a tabela (e as edições) da anterior
+        st.session_state["_cesta_seq"] = int(st.session_state.get("_cesta_seq") or 0) + 1
+        cesta[ata["id"]] = {**ata, "itens": [], "versao": st.session_state["_cesta_seq"]}
+    grupo = cesta[ata["id"]]
     if all(i["Item"] != item["Item"] for i in grupo["itens"]):
         grupo["itens"].append(item)
         grupo.pop("analise", None)
@@ -1106,10 +1110,14 @@ def _incluir_na_cesta(ata: Dict, item: Dict) -> None:
 
 def _aplicar_edicao_cesta(chave_ata: str, chave_editor: str) -> None:
     """Grava na cesta as quantidades digitadas e retira os itens desmarcados."""
-    grupo = st.session_state["_cesta_adesao"][chave_ata]
+    grupo = (st.session_state.get("_cesta_adesao") or {}).get(chave_ata)
+    if not grupo or not chave_editor.endswith(f"_{grupo['versao']}"):
+        return  # edição de uma tabela que já saiu da tela (ata removida ou lista refeita): nada a gravar
     edicoes = (st.session_state.get(chave_editor) or {}).get("edited_rows", {})
     retirar = set()
     for linha, campos in edicoes.items():
+        if not 0 <= int(linha) < len(grupo["itens"]):
+            continue
         item = grupo["itens"][int(linha)]
         if "Quantidade pretendida" in campos:
             item["Quantidade"] = campos["Quantidade pretendida"]
@@ -1117,7 +1125,8 @@ def _aplicar_edicao_cesta(chave_ata: str, chave_editor: str) -> None:
             retirar.add(int(linha))
     if retirar:
         grupo["itens"] = [i for n, i in enumerate(grupo["itens"]) if n not in retirar]
-        grupo["versao"] += 1
+        st.session_state["_cesta_seq"] = int(st.session_state.get("_cesta_seq") or 0) + 1
+        grupo["versao"] = st.session_state["_cesta_seq"]
     grupo.pop("analise", None)
     if not grupo["itens"]:
         st.session_state["_cesta_adesao"].pop(chave_ata, None)
@@ -1125,7 +1134,9 @@ def _aplicar_edicao_cesta(chave_ata: str, chave_editor: str) -> None:
 
 def _enviar_ao_babilaca(chave_ata: str) -> None:
     import vantajosidade as V
-    grupo = st.session_state["_cesta_adesao"][chave_ata]
+    grupo = (st.session_state.get("_cesta_adesao") or {}).get(chave_ata)
+    if not grupo or not grupo["itens"]:
+        return
     itens = grupo["itens"]
     analise = grupo.get("analise")
     st.session_state["_ofad_prefill"] = {
