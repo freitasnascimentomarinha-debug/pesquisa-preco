@@ -1254,13 +1254,13 @@ def _painel_cesta_adesao() -> None:
             sem_qtd = [i["Item"] for i in grupo["itens"] if not _num(i.get("Quantidade"))]
             _c1, _c2, _c3 = st.columns([2, 2, 1])
             with _c1:
-                compras = st.checkbox("Incluir compras homologadas (mais preciso, mais lento)", key=f"cesta_cmp_{chave_ata}",
+                compras = st.checkbox("Incluir compras homologadas (só para itens sem preço nas atas; mais lento)", key=f"cesta_cmp_{chave_ata}",
                                       on_change=_marcar_reanalise, args=(chave_ata,))
                 analisar = st.button("📊 Analisar vantajosidade", key=f"cesta_an_{chave_ata}", use_container_width=True)
                 if analisar or grupo.pop("reanalisar", False):
                     n_itens = len(grupo["itens"])
                     barra = st.progress(0.0, text=f"Buscando preços de mercado de {n_itens} item(ns)"
-                                        + (" — atas primeiro (segundos); compras homologadas depois, até ~75 s por item (máx. ~3 min)"
+                                        + (" — atas primeiro (segundos); compras homologadas só para itens sem preço nas atas, até ~75 s cada"
                                            if compras else "..."))
                     grupo["analise"] = V.analisar(
                         [{**i, "Quantidade": i.get("Quantidade") or 0} for i in grupo["itens"]], chave_ata, compras,
@@ -1283,7 +1283,7 @@ def _painel_cesta_adesao() -> None:
                 r = V.resumo(analise)
                 st.caption("Análise " + ("com" if grupo.get("analise_com_compras") else "sem")
                            + " compras homologadas. O preço da ata é a estimativa: entram os preços iguais ou maiores "
-                             "que ele, até 300%, e os menores só até 10% abaixo (até 10 por item, os mais próximos). Verde: vantajoso · amarelo: compatível com "
+                             "que ele, até 300%, e os menores só até 10% abaixo (de 1 a 3 por item, os mais próximos). Verde: vantajoso · amarelo: compatível com "
                              "o mercado · vermelho: acima do mercado ou sem preço de referência.")
                 tabela = pd.DataFrame([{
                     "Item": a["item"], "Preço da ata": MP_brl(a["preco"]), "Mediana de mercado": MP_brl(a["mediana"]),

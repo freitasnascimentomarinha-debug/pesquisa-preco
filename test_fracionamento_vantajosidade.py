@@ -48,7 +48,7 @@ def test_saneamento_e_analise():
     assert r["mediana"] == 100 and r["economia"] == 200 and r["situacao"].startswith("✅")
     aceitos, fora, obs = V.selecionar([539, 560, 1680, 3100, 550, 200], 600)
     assert aceitos == [550, 560, 1680] and sorted(fora) == [200, 539, 3100] and "abaixo da ata" in obs
-    assert V.selecionar(list(range(500, 520)), 500)[0] == list(range(500, 510))     # até 10, os menores
+    assert V.selecionar(list(range(500, 520)), 500)[0] == [500, 501, 502]     # até 3, os mais próximos
     compat = V.analisar_item({"Item": "2", "Descrição": "X", "preco": 108, "Quantidade": 1}, fontes)
     assert compat["classe"] == "compativel" and "compatível com os valores praticados no mercado" in V.justificativa_item(compat)
     caro = V.analisar_item({"Item": "2", "Descrição": "X", "preco": 130, "Quantidade": 1}, fontes)
