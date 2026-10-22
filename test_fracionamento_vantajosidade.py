@@ -44,7 +44,11 @@ def test_saneamento_e_analise():
     assert fora == [400, 10] and sorted(aceitos) == [90, 100, 110]
     fontes = [{"fonte": "Ata", "orgao": "X", "referencia": "1", "valor": v, "data": ""} for v in (100, 110, 90)]
     r = V.analisar_item({"Item": "1", "Descrição": "Papel", "preco": 80, "Quantidade": "10"}, fontes)
-    assert r["mediana"] == 100 and r["economia"] == 200 and r["situacao"].startswith("✅")
+    # estimativa = preço da ata (80): aceita de 40 a 104 -> 90 e 100 (110 fica fora)
+    assert r["mediana"] == 95 and r["economia"] == 150 and r["situacao"].startswith("✅")
+    aceitos, fora, _ = V.selecionar([539, 560, 1680, 3100, 550, 200], 600)
+    assert aceitos == [539, 550, 560] and sorted(fora) == [200, 1680, 3100]
+    assert V.selecionar(list(range(500, 520)), 500)[0] == list(range(500, 510))     # até 10, os menores
     compat = V.analisar_item({"Item": "2", "Descrição": "X", "preco": 105, "Quantidade": 1}, fontes)
     assert compat["classe"] == "compativel" and "compatível com os valores praticados no mercado" in V.justificativa_item(compat)
     caro = V.analisar_item({"Item": "2", "Descrição": "X", "preco": 130, "Quantidade": 1}, fontes)
@@ -60,9 +64,10 @@ def test_justificativa_e_relatorio():
     fontes = [{"fonte": "Ata", "orgao": "X", "referencia": "1", "valor": v, "data": ""} for v in (100, 110, 90)]
     res = [V.analisar_item({"Item": "1", "Descrição": "Papel", "preco": 80, "Quantidade": 10}, fontes)]
     txt = V.texto_justificativa(res, "12/2026")
-    assert "R$ 200,00" in txt and "20,0%" in txt and "foram comparados" in txt
+    assert "R$ 150,00" in txt and "15,8%" in txt and "foram comparados" in txt
     corpo = V.corpo_relatorio({"ata": "12/2026", "gerenciador": "G", "uasg": "1", "licitacao": "PE"}, res)
     assert "**R$ 800,00**" in corpo and "FONTES CONSULTADAS" in corpo and "JUSTIFICATIVA POR ITEM" in corpo
+    assert "entre 50% e 130%" in corpo
     oficio = MP.corpo_oficio_adesao({"justificativa": txt})
     assert "foram comparados" in oficio and "mostraram-se vantajosos" not in oficio
 

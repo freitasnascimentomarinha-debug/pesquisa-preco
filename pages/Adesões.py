@@ -1278,8 +1278,9 @@ def _painel_cesta_adesao() -> None:
             if analise:
                 r = V.resumo(analise)
                 st.caption("Análise " + ("com" if grupo.get("analise_com_compras") else "sem")
-                           + " compras homologadas. Verde: vantajoso · amarelo: compatível com o mercado · vermelho: "
-                             "acima do mercado ou sem preço de referência.")
+                           + " compras homologadas. O preço da ata é a estimativa: entram os preços entre 50% e 130% "
+                             "dele, priorizando os menores (até 10 por item). Verde: vantajoso · amarelo: compatível com "
+                             "o mercado · vermelho: acima do mercado ou sem preço de referência.")
                 tabela = pd.DataFrame([{
                     "Item": a["item"], "Preço da ata": MP_brl(a["preco"]), "Mediana de mercado": MP_brl(a["mediana"]),
                     "Faixa de mercado": f"{MP_brl(a['menor'])} a {MP_brl(a['maior'])}" if a["mediana"] is not None else "a pesquisar",
