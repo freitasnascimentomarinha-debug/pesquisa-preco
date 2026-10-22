@@ -43,6 +43,8 @@ AULAS = {  # nome do áudio -> módulo da aula
     "fornecedores": "tutorial_fornecedores",
     "web_scraping": "tutorial_web_scraping",
     "ipca": "tutorial_ipca",
+    "detalhes_compra": "tutorial_detalhes_compra",
+    "consulta_cnpj": "tutorial_consulta_cnpj",
 }
 
 # Pronúncias: siglas viram letras separadas; termos que o sintetizador lê mal ganham grafia fonética.
@@ -62,6 +64,13 @@ SUBSTITUICOES = [
     (r"\bCATMAT\b", "Catmat"),
     (r"\bCATSERV\b", "Catserv"),
     (r"\bCNAE\b", "Cê náe"),
+    (r"\bCEIS\b", "Céis"),
+    (r"\bCNEP\b", "Cenépe"),
+    (r"\bCEPIM\b", "Cepim"),
+    (r"\bSICAF\b", "Sicáfi"),
+    (r"\bMEI\b", "Mêi"),
+    (r"ComprasNet", "Compras Net"),
+    (r"ComprasGov", "Compras gov"),
     (r"\bIPCA\b", "Ípeca"),
     (r"\bDANFE\b", "Danfe"),
     (r"\bCEP\b", "cép"),
@@ -80,7 +89,7 @@ SUBSTITUICOES = [
     (r"\bDF\b", "Distrito Federal"),
     (r"\bUFs?\b", "U F"),
 ]
-SIGLAS = ["CNPJ", "UASG", "PDM", "IQR", "PDF", "HTML", "XML", "CSV", "API", "OM", "CV", "TCU", "PNCP", "BCB", "IBGE", "IA", "BRL"]
+SIGLAS = ["CNPJ", "UASG", "PDM", "IQR", "PDF", "HTML", "XML", "CSV", "API", "OM", "CV", "TCU", "PNCP", "BCB", "IBGE", "IA", "BRL", "ID"]
 
 
 def numero_por_extenso_simples(m: re.Match) -> str:
