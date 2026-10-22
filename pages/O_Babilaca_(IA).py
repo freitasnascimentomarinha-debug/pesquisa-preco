@@ -899,8 +899,23 @@ def _sanitize_for_pdf(text: str) -> str:
 
 def _dados_documento() -> dict:
     """Dados da OM, do processo e do signatário informados na aba Documentos (valem para todos os documentos)."""
-    chaves = ("om", "grupo", "cidade", "uf", "nup", "assinante_nome", "assinante_posto", "assinante_cargo", "data")
-    return {k: st.session_state.get(f"docom_{k}") for k in chaves}
+    dados = {k: st.session_state.get(f"docom_{k}") for k in ("om", "cidade", "uf", "nup", "data")}
+    dados["assinantes"] = [{c: st.session_state.get(f"docom_ass{i}_{c}") for c in ("nome", "posto", "cargo")}
+                           for i in range(int(st.session_state.get("docom_n_assinantes") or 1))]
+    return dados
+
+
+def _pendencias_documento() -> list[str]:
+    """Campos obrigatórios do cabeçalho e da assinatura que ainda não foram preenchidos."""
+    faltam = []
+    for chave, rotulo in (("docom_om", "nome da OM"), ("docom_cidade", "cidade"), ("docom_uf", "UF")):
+        if not (st.session_state.get(chave) or "").strip():
+            faltam.append(rotulo)
+    for i in range(int(st.session_state.get("docom_n_assinantes") or 1)):
+        for campo, rotulo in (("nome", "nome"), ("posto", "posto/graduação ou cargo efetivo"), ("cargo", "função")):
+            if not (st.session_state.get(f"docom_ass{i}_{campo}") or "").strip():
+                faltam.append(f"{rotulo} do {i + 1}º signatário")
+    return faltam
 
 
 def gerar_pdf_documento(titulo: str, corpo: str) -> bytes:
@@ -943,16 +958,17 @@ def _exibir_doc(chave: str):
     corpo = st.text_area("Texto do documento", key=f"doc_editado_{chave}", height=420, label_visibility="collapsed")
     with st.expander("👁️ Ver como fica formatado", expanded=False):
         st.markdown(corpo)
-    if not st.session_state.get("docom_om"):
-        st.warning("Preencha os **dados da OM e do signatário** no topo desta aba para o cabeçalho e a assinatura saírem completos.")
+    if _pendencias_documento():
+        st.warning("Preencha os **dados obrigatórios da OM e do(s) signatário(s)** no topo desta aba para baixar o documento.")
+    bloqueado = bool(_pendencias_documento())
     c_pdf, c_docx, c_limpar = st.columns([2, 2, 1])
     with c_pdf:
         st.download_button("⬇️ Baixar em PDF", gerar_pdf_documento(doc["titulo"], corpo), f"{doc['nome']}.pdf",
-                           "application/pdf", key=f"dl_pdf_{chave}", use_container_width=True)
+                           "application/pdf", key=f"dl_pdf_{chave}", use_container_width=True, disabled=bloqueado)
     with c_docx:
         st.download_button("📝 Baixar em Word", gerar_docx_documento(doc["titulo"], corpo), f"{doc['nome']}.docx",
                            "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                           key=f"dl_docx_{chave}", use_container_width=True)
+                           key=f"dl_docx_{chave}", use_container_width=True, disabled=bloqueado)
     with c_limpar:
         if st.button("🗑️ Descartar", key=f"descartar_{chave}", use_container_width=True):
             st.session_state.pop(f"doc_gerado_{chave}", None)
@@ -1348,58 +1364,6 @@ def gerar_mapa_comparativo_pdf(itens: list[dict], observacoes: str = "") -> byte
     pdf.set_text_color(120, 120, 120)
     pdf.cell(0, 5, _sanitize_for_pdf("Documento gerado pelo sistema O Babilaca (IA) - Ferramenta de apoio."), ln=True)
     return bytes(pdf.output())
-
-
-def gerar_docx_documento(titulo: str, corpo: str) -> bytes:
-    """Gera um documento Word (.docx) editável a partir de título e corpo markdown simples."""
-    doc = DocxDocument()
-    style = doc.styles["Normal"]
-    style.font.name = "Calibri"
-    style.font.size = Pt(11)
-    style.font.color.rgb = RGBColor(30, 30, 30)
-
-    # Título
-    p_titulo = doc.add_heading(titulo, level=1)
-    p_titulo.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    for run in p_titulo.runs:
-        run.font.color.rgb = RGBColor(0, 26, 77)
-
-    # Data
-    p_data = doc.add_paragraph()
-    p_data.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-    run_data = p_data.add_run(f"Gerado em {datetime.now().strftime('%d/%m/%Y %H:%M')}")
-    run_data.font.size = Pt(9)
-    run_data.font.color.rgb = RGBColor(100, 100, 100)
-
-    for linha in corpo.split("\n"):
-        linha_limpa = re.sub(r"\*{1,3}(.+?)\*{1,3}", r"\1", linha)
-        if linha.startswith("## "):
-            doc.add_heading(linha.replace("## ", ""), level=2)
-        elif linha.startswith("### "):
-            doc.add_heading(linha.replace("### ", ""), level=3)
-        elif linha.strip().startswith("- "):
-            texto_bullet = re.sub(r"\*{1,3}(.+?)\*{1,3}", r"\1", linha.strip()[2:])
-            doc.add_paragraph(texto_bullet, style="List Bullet")
-        elif linha.strip() == "---":
-            p = doc.add_paragraph()
-            p.add_run("_" * 60).font.color.rgb = RGBColor(180, 180, 180)
-        elif linha.strip() == "":
-            doc.add_paragraph()
-        else:
-            doc.add_paragraph(linha_limpa)
-
-    # Rodapé
-    doc.add_paragraph()
-    p_footer = doc.add_paragraph()
-    run_f = p_footer.add_run("Gerado por AtaCotada - O Babilaca (IA) - Marinha do Brasil")
-    run_f.font.size = Pt(7)
-    run_f.font.italic = True
-    run_f.font.color.rgb = RGBColor(150, 150, 150)
-    p_footer.alignment = WD_ALIGN_PARAGRAPH.CENTER
-
-    buf = io.BytesIO()
-    doc.save(buf)
-    return buf.getvalue()
 
 
 def gerar_mapa_comparativo_xlsx(itens: list[dict], observacoes: str = "") -> bytes:
@@ -2430,31 +2394,35 @@ with tab_docs:
         </div>
     </div>
     """, unsafe_allow_html=True)
-    with st.expander("🏛️ Dados da OM, do processo e do signatário (cabeçalho e assinatura dos documentos)",
-                     expanded=not st.session_state.get("docom_om")):
-        st.caption("Preencha uma vez: os dados valem para todos os documentos desta sessão. Padrão gráfico da SGM-105 (MaTDoc): "
-                   "Armas Nacionais, MARINHA DO BRASIL, nome da OM, local e data, Carlito/Calibri 12 e paginação.")
-        _o1, _o2 = st.columns([3, 2])
-        with _o1:
-            st.text_input("Nome da OM (por extenso)", key="docom_om", placeholder="Ex: Centro de Operações do Abastecimento")
-        with _o2:
-            st.text_input("Grupo indicador (opcional)", key="docom_grupo", placeholder="Ex: COpAb-20  30/080.1")
+    _faltam_doc = _pendencias_documento()
+    with st.expander("🏛️ Dados obrigatórios: OM e signatário(s) — cabeçalho e assinatura dos documentos", expanded=bool(_faltam_doc)):
+        st.caption("Preencha antes de gerar: os dados valem para todos os documentos desta sessão. Padrão gráfico da SGM-105 "
+                   "(MaTDoc): Armas Nacionais, MARINHA DO BRASIL, nome da OM, local e data, Carlito/Calibri 12 e paginação.")
+        st.text_input("Nome da OM por extenso *", key="docom_om", placeholder="Escreva o nome completo da sua Organização Militar")
         _o3, _o4, _o5, _o6 = st.columns([2, 1, 2, 2])
         with _o3:
-            st.text_input("Cidade", key="docom_cidade", placeholder="Ex: Rio de Janeiro")
+            st.text_input("Cidade *", key="docom_cidade", placeholder="Cidade da OM")
         with _o4:
-            st.text_input("UF", key="docom_uf", placeholder="RJ", max_chars=2)
+            st.text_input("UF *", key="docom_uf", placeholder="UF", max_chars=2)
         with _o5:
-            st.text_input("NUP / nº do processo (opcional)", key="docom_nup", placeholder="Ex: 63379.001234/2026-11")
+            st.text_input("NUP / nº do processo", key="docom_nup", placeholder="Opcional")
         with _o6:
             st.date_input("Data do documento", key="docom_data", format="DD/MM/YYYY")
-        _o7, _o8, _o9 = st.columns(3)
-        with _o7:
-            st.text_input("Nome do signatário", key="docom_assinante_nome", placeholder="Ex: FULANO DE TAL")
-        with _o8:
-            st.text_input("Posto / graduação", key="docom_assinante_posto", placeholder="Ex: Capitão de Fragata (IM)")
-        with _o9:
-            st.text_input("Cargo / função", key="docom_assinante_cargo", placeholder="Ex: Encarregado da Divisão de Obtenção")
+        st.number_input("Quantidade de signatários", min_value=1, max_value=4, step=1, key="docom_n_assinantes",
+                        help="Com mais de um, informe do mais antigo para o mais moderno: as assinaturas saem da esquerda "
+                             "para a direita e de cima para baixo (MaTDoc 1.11).")
+        for _i in range(int(st.session_state.get("docom_n_assinantes") or 1)):
+            _a1, _a2, _a3 = st.columns(3)
+            with _a1:
+                st.text_input(f"Nome do {_i + 1}º signatário *", key=f"docom_ass{_i}_nome", placeholder="Nome completo")
+            with _a2:
+                st.text_input("Posto/graduação ou cargo efetivo *", key=f"docom_ass{_i}_posto",
+                              placeholder="Ex: Capitão-Tenente (IM) ou Analista")
+            with _a3:
+                st.text_input("Função *", key=f"docom_ass{_i}_cargo", placeholder="Ex: Encarregado da Divisão de Obtenção")
+    _faltam_doc = _pendencias_documento()
+    if _faltam_doc:
+        st.warning("⚠️ Para gerar documentos, preencha os dados obrigatórios (*) acima. Falta: " + ", ".join(_faltam_doc) + ".")
 
     tipo_doc = st.selectbox(
         "Documento que deseja preparar",
@@ -2490,7 +2458,7 @@ with tab_docs:
                 justificativa = st.text_area("Justificativa", height=100)
                 quantidade = st.text_input("Quantidade estimada")
                 vinculacao = st.text_input("Vinculação ao PCA (se houver)")
-                submit_dfd = st.form_submit_button("📄 Gerar DFD", use_container_width=True)
+                submit_dfd = st.form_submit_button("📄 Gerar DFD", use_container_width=True, disabled=bool(_faltam_doc))
 
             if submit_dfd:
                 corpo = TEMPLATE_DFD.format(
@@ -2506,7 +2474,7 @@ with tab_docs:
                 height=120,
                 key="dfd_ia_input",
             )
-            if st.button("🤖 Gerar DFD com IA", key="btn_dfd_ia"):
+            if st.button("🤖 Gerar DFD com IA", key="btn_dfd_ia", disabled=bool(_faltam_doc)):
                 if desc_ia:
                     with st.spinner("Gerando DFD com IA..."):
                         prompt_dfd = (
@@ -2540,7 +2508,7 @@ with tab_docs:
                 pagamento = st.text_input("Condições de pagamento")
                 criterio = st.selectbox("Critério de julgamento",
                     ["Menor preço", "Melhor técnica", "Técnica e preço", "Maior desconto", "Maior retorno econômico"])
-                submit_tr = st.form_submit_button("📄 Gerar Termo de Referência", use_container_width=True)
+                submit_tr = st.form_submit_button("📄 Gerar Termo de Referência", use_container_width=True, disabled=bool(_faltam_doc))
 
             if submit_tr:
                 corpo = TEMPLATE_TR.format(
@@ -2557,7 +2525,7 @@ with tab_docs:
                 key="tr_ia_input",
             )
             arquivo_tr = st.file_uploader("Ou envie um arquivo com especificações (PDF/Excel)", type=["pdf", "xlsx"], key="tr_upload")
-            if st.button("🤖 Gerar TR com IA", key="btn_tr_ia"):
+            if st.button("🤖 Gerar TR com IA", key="btn_tr_ia", disabled=bool(_faltam_doc)):
                 ctx_extra = ""
                 if arquivo_tr:
                     if arquivo_tr.name.endswith(".pdf"):
@@ -2600,7 +2568,7 @@ with tab_docs:
                      "Inexigibilidade", "Adesão a Ata de Registro de Preços"])
                 fundamentacao = st.text_area("Fundamentação legal", height=60)
                 conclusao = st.text_area("Conclusão", height=60)
-                submit_j = st.form_submit_button("📄 Gerar Justificativa", use_container_width=True)
+                submit_j = st.form_submit_button("📄 Gerar Justificativa", use_container_width=True, disabled=bool(_faltam_doc))
 
             if submit_j:
                 corpo = TEMPLATE_JUSTIFICATIVA.format(
@@ -2615,7 +2583,7 @@ with tab_docs:
                 height=120,
                 key="just_ia_input",
             )
-            if st.button("🤖 Gerar Justificativa com IA", key="btn_just_ia"):
+            if st.button("🤖 Gerar Justificativa com IA", key="btn_just_ia", disabled=bool(_faltam_doc)):
                 if desc_just:
                     with st.spinner("Gerando justificativa..."):
                         prompt_just = (
@@ -2659,7 +2627,7 @@ with tab_docs:
         if arquivos_livres:
             st.caption(f"{len(arquivos_livres)} arquivo(s) pronto(s) para análise.")
 
-        if st.button(f"✨ Gerar {titulo_livre} com IA", key="btn_documento_livre", use_container_width=True):
+        if st.button(f"✨ Gerar {titulo_livre} com IA", key="btn_documento_livre", use_container_width=True, disabled=bool(_faltam_doc)):
             contexto_arquivos = []
             for arquivo_livre in arquivos_livres or []:
                 try:
@@ -2735,7 +2703,7 @@ with tab_docs:
                 placeholder="Ex: Preços coletados em março/2026. Frete incluso...",
             )
 
-            if st.button("📊 Gerar Mapa Comparativo", key="btn_mapa"):
+            if st.button("📊 Gerar Mapa Comparativo", key="btn_mapa", disabled=bool(_faltam_doc)):
                 pdf_bytes = gerar_mapa_comparativo_pdf(itens_mapa, observacoes=obs_mapa)
                 xlsx_bytes = gerar_mapa_comparativo_xlsx(itens_mapa, observacoes=obs_mapa)
                 _c_pdf, _c_xlsx = st.columns(2)
@@ -2791,7 +2759,7 @@ with tab_docs:
                     if not arq_mapa.name.lower().endswith(".pdf"):
                         st.dataframe(df_m, use_container_width=True)
                         st.info("Revise os dados acima. O sistema tentará identificar colunas de descrição e preços.")
-                        if st.button("📊 Gerar Mapa a partir da planilha", key="btn_mapa_arq"):
+                        if st.button("📊 Gerar Mapa a partir da planilha", key="btn_mapa_arq", disabled=bool(_faltam_doc)):
                             itens_arq = []
                             desc_col = None
                             for c in df_m.columns:
@@ -2878,7 +2846,7 @@ with tab_docs:
                     etapas.append({"descricao": et_desc, "mes_inicio": et_inicio_mes, "mes_fim": et_fim_mes, "valor": et_valor})
 
                 crono_obs = st.text_area("Observações", height=60, key="crono_obs_manual")
-                submit_crono = st.form_submit_button("📅 Gerar Cronograma", use_container_width=True)
+                submit_crono = st.form_submit_button("📅 Gerar Cronograma", use_container_width=True, disabled=bool(_faltam_doc))
 
             if submit_crono:
                 # Montar documento
@@ -2951,7 +2919,7 @@ with tab_docs:
                 ),
             )
             arquivo_crono = st.file_uploader("Ou envie projeto básico/planilha orçamentária (PDF/Excel)", type=["pdf", "xlsx"], key="crono_upload")
-            if st.button("🤖 Gerar Cronograma com IA", key="btn_crono_ia"):
+            if st.button("🤖 Gerar Cronograma com IA", key="btn_crono_ia", disabled=bool(_faltam_doc)):
                 ctx_extra = ""
                 if arquivo_crono:
                     if arquivo_crono.name.endswith(".pdf"):
@@ -3066,7 +3034,7 @@ with tab_docs:
                     })
 
                 mc_obs = st.text_area("Observações e justificativas adicionais", height=80, key="mc_obs")
-                submit_mc = st.form_submit_button("🧮 Gerar Memória de Cálculo", use_container_width=True)
+                submit_mc = st.form_submit_button("🧮 Gerar Memória de Cálculo", use_container_width=True, disabled=bool(_faltam_doc))
 
             if submit_mc:
                 import statistics
@@ -3190,7 +3158,7 @@ utilizou as seguintes fontes, priorizando a ordem estabelecida no Art. 5° da IN
                 ),
             )
             arquivo_mc = st.file_uploader("Ou envie planilha de cotações / pesquisa de preços (PDF/Excel)", type=["pdf", "xlsx"], key="mc_upload")
-            if st.button("🤖 Gerar Memória de Cálculo com IA", key="btn_mc_ia"):
+            if st.button("🤖 Gerar Memória de Cálculo com IA", key="btn_mc_ia", disabled=bool(_faltam_doc)):
                 ctx_extra = ""
                 if arquivo_mc:
                     if arquivo_mc.name.endswith(".pdf"):
@@ -3303,7 +3271,7 @@ utilizou as seguintes fontes, priorizando a ordem estabelecida no Art. 5° da IN
                 with cd2:
                     ata_prazo_pgto = st.text_input("Prazo de pagamento", value="30 (trinta) dias", key="ata_prazo_pgto")
                 ata_obs = st.text_area("Observações / Disposições Gerais", height=80, key="ata_obs")
-                submit_ata = st.form_submit_button("📜 Gerar Ata de Registro de Preços", use_container_width=True)
+                submit_ata = st.form_submit_button("📜 Gerar Ata de Registro de Preços", use_container_width=True, disabled=bool(_faltam_doc))
 
             if submit_ata:
                 tabela_itens_str = ""
@@ -3340,7 +3308,7 @@ utilizou as seguintes fontes, priorizando a ordem estabelecida no Art. 5° da IN
                 ),
             )
             arquivo_ata = st.file_uploader("Ou envie edital/resultado de licitação (PDF/Excel)", type=["pdf", "xlsx"], key="ata_upload")
-            if st.button("🤖 Gerar Ata com IA", key="btn_ata_ia"):
+            if st.button("🤖 Gerar Ata com IA", key="btn_ata_ia", disabled=bool(_faltam_doc)):
                 ctx_extra = ""
                 if arquivo_ata:
                     if arquivo_ata.name.endswith(".pdf"):
@@ -3479,7 +3447,7 @@ utilizou as seguintes fontes, priorizando a ordem estabelecida no Art. 5° da IN
                     ct_receb_def = st.text_input("Prazo receb. definitivo", value="10 (dez) dias úteis", key="ct_rec_def")
 
                 ct_obs = st.text_area("Observações / Disposições Gerais", height=80, key="ct_obs")
-                submit_ct = st.form_submit_button("📑 Gerar Minuta de Contrato", use_container_width=True)
+                submit_ct = st.form_submit_button("📑 Gerar Minuta de Contrato", use_container_width=True, disabled=bool(_faltam_doc))
 
             if submit_ct:
                 tabela_itens_ct = ""
@@ -3522,7 +3490,7 @@ utilizou as seguintes fontes, priorizando a ordem estabelecida no Art. 5° da IN
                 ),
             )
             arquivo_ct = st.file_uploader("Ou envie Termo de Referência / proposta (PDF/Excel)", type=["pdf", "xlsx"], key="ct_upload")
-            if st.button("🤖 Gerar Minuta com IA", key="btn_ct_ia"):
+            if st.button("🤖 Gerar Minuta com IA", key="btn_ct_ia", disabled=bool(_faltam_doc)):
                 ctx_extra = ""
                 if arquivo_ct:
                     if arquivo_ct.name.endswith(".pdf"):
