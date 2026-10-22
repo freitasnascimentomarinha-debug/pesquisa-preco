@@ -919,6 +919,41 @@ def _pendencias_documento() -> list[str]:
     return faltam
 
 
+CAMPOS_PERFIL_OM = ("om", "cidade", "uf", "uasg", "endereco", "contato")
+
+
+def _perfil_om_json() -> bytes:
+    """Dados da OM e dos signatários num arquivo que o usuário guarda (nada fica no servidor)."""
+    perfil = {c: st.session_state.get(f"docom_{c}", "") or "" for c in CAMPOS_PERFIL_OM}
+    n = int(st.session_state.get("docom_n_assinantes") or 1)
+    perfil["assinantes"] = [{c: st.session_state.get(f"docom_ass{i}_{c}", "") or "" for c in ("nome", "posto", "cargo")}
+                            for i in range(n)]
+    return json.dumps({"versao": 1, "perfil_om": perfil}, ensure_ascii=False, indent=2).encode("utf-8")
+
+
+def _aplicar_perfil_om(dados: dict):
+    perfil = dados.get("perfil_om") or {}
+    if not perfil.get("om"):
+        raise ValueError("o arquivo não traz o nome da OM")
+    for c in CAMPOS_PERFIL_OM:
+        st.session_state[f"docom_{c}"] = str(perfil.get(c) or "")
+    assinantes = (perfil.get("assinantes") or [])[:4] or [{}]
+    st.session_state["docom_n_assinantes"] = len(assinantes)
+    for i, a in enumerate(assinantes):
+        for c in ("nome", "posto", "cargo"):
+            st.session_state[f"docom_ass{i}_{c}"] = str(a.get(c) or "")
+
+
+def _preencher(chave: str, valor: str):
+    """Sugere um valor dos dados da OM num campo ainda vazio (o usuário pode alterar)."""
+    if valor and not str(st.session_state.get(chave) or "").strip():
+        st.session_state[chave] = valor
+
+
+def _om(campo: str) -> str:
+    return str(st.session_state.get(f"docom_{campo}") or "").strip()
+
+
 def gerar_pdf_documento(titulo: str, corpo: str, oficio: dict | None = None, nup: str = "") -> bytes:
     """PDF no padrão gráfico da Marinha (SGM-105/MaTDoc): timbre, tabelas, paginação e assinatura."""
     dados = _dados_documento()
@@ -1123,6 +1158,7 @@ def _form_aviso(bloqueado: bool):
     with _a1:
         numero = st.text_input("Nº do aviso", key="aviso_numero", placeholder="Ex: 90012/2026")
     with _a2:
+        _preencher("aviso_uasg", _om("uasg"))
         uasg = st.text_input("UASG", key="aviso_uasg")
     objeto = st.text_area("Objeto *", key="aviso_objeto", height=70)
     hip = st.selectbox("Fundamento", list(MP.HIPOTESES_DISPENSA)[:-1],
@@ -1157,6 +1193,7 @@ def _form_aviso(bloqueado: bool):
         criterio = st.selectbox("Critério de julgamento", ["menor preço", "maior desconto"], key="aviso_criterio")
         prazo_entrega = st.text_input("Prazo de entrega / execução", key="aviso_prazo",
                                       placeholder="Ex: 30 dias corridos da nota de empenho")
+        _preencher("aviso_contato", _om("contato"))
         contato = st.text_input("Contato para esclarecimentos", key="aviso_contato", placeholder="e-mail e telefone")
     with _c2:
         exclusiva = st.checkbox("Exclusiva para ME/EPP", key="aviso_me", value=True,
@@ -1192,6 +1229,7 @@ def _form_oficio(tipo: str, bloqueado: bool):
                                 value="Solicitação de adesão a Ata de Registro de Preços" if adesao else
                                 "Manifestação de interesse em Intenção de Registro de Preços")
     if externo:
+        _preencher(f"{k}_endereco", "\n".join(x for x in (_om("endereco"), _om("contato")) if x))
         endereco = st.text_area("Endereço, telefone e e-mail da OM (abaixo do nome)", key=f"{k}_endereco", height=70)
         destinatario = st.text_area("Destinatário (forma de tratamento, nome, cargo, órgão e endereço)", key=f"{k}_dest",
                                     height=110, value="Ao Senhor\nNome do destinatário\nCargo\nÓrgão\nEndereço")
@@ -1234,10 +1272,17 @@ def _form_oficio(tipo: str, bloqueado: bool):
     objeto = st.text_input("Objeto", key=f"{k}_objeto")
     justificativa = st.text_area("Justificativa (complete a frase: \"... se justifica porque ...\")", key=f"{k}_just",
                                  height=80)
-    itens = st.data_editor(pd.DataFrame([{"Item": "", "Descrição": "", "Unidade": "", "Quantidade": ""}]),
-                           key=f"{k}_itens", num_rows="dynamic", width="stretch", hide_index=True)
+    if adesao and st.session_state.get("_ofad_itens_ini"):
+        st.info("Itens trazidos da página **Adesões**. Informe a **quantidade** pretendida de cada um, respeitando o "
+                "máximo por órgão indicado na descrição.")
+    itens_ini = (st.session_state.get(f"_{k}_itens_ini") or
+                 [{"Item": "", "Descrição": "", "Unidade": "", "Quantidade": ""}])
+    itens = st.data_editor(pd.DataFrame(itens_ini, columns=["Item", "Descrição", "Unidade", "Quantidade"]),
+                           key=f"{k}_itens_{st.session_state.get(f'_{k}_itens_ver', 0)}", num_rows="dynamic",
+                           width="stretch", hide_index=True)
     _c3, _c4 = st.columns(2)
     with _c3:
+        _preencher(f"{k}_contato", ", ".join(x for x in (_om("ass0_nome"), _om("contato")) if x))
         contato = st.text_input("Ponto de contato da OM", key=f"{k}_contato", placeholder="Nome, telefone e e-mail")
     with _c4:
         if adesao:
@@ -1595,76 +1640,11 @@ def _fmt_brl(valor: float) -> str:
     return f"R$ {valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 
-def gerar_mapa_comparativo_pdf(itens: list[dict], observacoes: str = "") -> bytes:
-    """Gera PDF de mapa comparativo de preços com quantidade, totais e observações."""
-    pdf = FPDF("L")  # Paisagem
-    pdf.add_page()
-    pdf.set_font("Helvetica", "B", 14)
-    pdf.set_text_color(0, 26, 77)
-    pdf.cell(0, 10, _sanitize_for_pdf("MAPA COMPARATIVO DE PRECOS"), ln=True, align="C")
-    pdf.ln(2)
-    pdf.set_font("Helvetica", "", 9)
-    pdf.set_text_color(100, 100, 100)
-    pdf.cell(0, 6, f"Gerado em {datetime.now().strftime('%d/%m/%Y %H:%M')}", ln=True, align="R")
-    pdf.ln(4)
-
-    # Cabeçalho da tabela
-    pdf.set_fill_color(0, 26, 77)
-    pdf.set_text_color(255, 255, 255)
-    pdf.set_font("Helvetica", "B", 8)
-    colunas = ["Item", _sanitize_for_pdf("Descricao"), "Qtd", "Forn. 1", "Forn. 2", "Forn. 3", _sanitize_for_pdf("Media"), "Mediana", "Total Est."]
-    larguras = [10, 55, 14, 32, 32, 32, 30, 30, 32]
-    for col, larg in zip(colunas, larguras):
-        pdf.cell(larg, 8, col, border=1, align="C", fill=True)
-    pdf.ln()
-
-    pdf.set_text_color(30, 30, 30)
-    pdf.set_font("Helvetica", "", 8)
-    total_geral = 0.0
-    for i, item in enumerate(itens, 1):
-        precos = [item.get("preco1", 0), item.get("preco2", 0), item.get("preco3", 0)]
-        validos = [p for p in precos if p > 0]
-        media = sum(validos) / len(validos) if validos else 0
-        mediana = sorted(validos)[len(validos) // 2] if validos else 0
-        qtd = item.get("quantidade", 1) or 1
-        total_item = media * qtd
-        total_geral += total_item
-        pdf.cell(10, 7, str(i), border=1, align="C")
-        pdf.cell(55, 7, _sanitize_for_pdf(str(item.get("descricao", ""))[:38]), border=1)
-        pdf.cell(14, 7, str(int(qtd)), border=1, align="C")
-        for p in precos:
-            pdf.cell(32, 7, _fmt_brl(p), border=1, align="R")
-        pdf.cell(30, 7, _fmt_brl(media), border=1, align="R")
-        pdf.cell(30, 7, _fmt_brl(mediana), border=1, align="R")
-        pdf.cell(32, 7, _fmt_brl(total_item), border=1, align="R")
-        pdf.ln()
-
-    # Linha de total geral
-    pdf.set_font("Helvetica", "B", 9)
-    pdf.set_fill_color(240, 245, 255)
-    largura_antes = sum(larguras[:-1])
-    pdf.cell(largura_antes, 8, "TOTAL GERAL", border=1, align="R", fill=True)
-    pdf.cell(larguras[-1], 8, _fmt_brl(total_geral), border=1, align="R", fill=True)
-    pdf.ln()
-
-    # Observações
-    if observacoes and observacoes.strip():
-        pdf.ln(6)
-        pdf.set_font("Helvetica", "B", 10)
-        pdf.set_text_color(0, 26, 77)
-        pdf.cell(0, 7, _sanitize_for_pdf("OBSERVACOES"), ln=True)
-        pdf.set_draw_color(212, 175, 55)
-        pdf.line(pdf.l_margin, pdf.get_y(), pdf.w - pdf.r_margin, pdf.get_y())
-        pdf.ln(3)
-        pdf.set_font("Helvetica", "", 9)
-        pdf.set_text_color(30, 30, 30)
-        pdf.multi_cell(0, 6, _sanitize_for_pdf(observacoes.strip()))
-
-    pdf.ln(6)
-    pdf.set_font("Helvetica", "I", 8)
-    pdf.set_text_color(120, 120, 120)
-    pdf.cell(0, 5, _sanitize_for_pdf("Documento gerado pelo sistema O Babilaca (IA) - Ferramenta de apoio."), ln=True)
-    return bytes(pdf.output())
+def _registrar_mapa(itens: list[dict], observacoes: str = ""):
+    """Mapa comparativo no padrão dos documentos oficiais (PDF/Word editáveis) e planilha Excel guardada para download."""
+    _registrar_doc(MP.DOC_MAPA, "MAPA COMPARATIVO DE PREÇOS", MP.corpo_mapa_comparativo(itens, observacoes),
+                   "mapa_comparativo")
+    st.session_state["mapa_xlsx"] = gerar_mapa_comparativo_xlsx(itens, observacoes=observacoes)
 
 
 def gerar_mapa_comparativo_xlsx(itens: list[dict], observacoes: str = "") -> bytes:
@@ -1717,7 +1697,7 @@ def gerar_mapa_comparativo_xlsx(itens: list[dict], observacoes: str = "") -> byt
         precos = [item.get("preco1", 0), item.get("preco2", 0), item.get("preco3", 0)]
         validos = [p for p in precos if p > 0]
         media = sum(validos) / len(validos) if validos else 0
-        mediana = sorted(validos)[len(validos) // 2] if validos else 0
+        mediana = MP._mediana(validos)
         qtd = item.get("quantidade", 1) or 1
         total_item = media * qtd
         total_geral += total_item
@@ -2268,11 +2248,23 @@ st.markdown("""
 # ============================================================
 # ABAS PRINCIPAIS
 # ============================================================
+ABA_DOCUMENTOS = "📄 Gerar Documentos com IA"
+# itens escolhidos na página Adesões: abre o ofício de adesão já preenchido
+_pre_ofad = st.session_state.pop("_ofad_prefill", None)
+if _pre_ofad:
+    st.session_state["tipo_doc_sel"] = MP.DOC_OF_ADESAO
+    for _campo in ("ata", "gerenciador", "uasg", "objeto", "licitacao"):
+        st.session_state[f"ofad_{_campo}"] = str(_pre_ofad.get(_campo) or "")
+    st.session_state["_ofad_itens_ini"] = _pre_ofad.get("itens") or []
+    st.session_state["_ofad_itens_ver"] = int(st.session_state.get("_ofad_itens_ver") or 0) + 1
+    st.session_state["babilaca_aba"] = ABA_DOCUMENTOS
+    st.toast("✉️ Ofício de adesão preenchido com os itens escolhidos em Adesões.")
+
 tab_chat, tab_docs, tab_checklist = st.tabs([
     "💬 Chat IA",
-    "📄 Gerar Documentos com IA",
+    ABA_DOCUMENTOS,
     "📋 Checklist de Processo",
-])
+], key="babilaca_aba", on_change="rerun")  # com key, a página pode abrir direto na aba Documentos
 
 # ============================================================
 # TAB 1 — CHAT IA
@@ -2446,6 +2438,17 @@ with tab_docs:
     with st.expander("🏛️ Dados obrigatórios: OM e signatário(s) — cabeçalho e assinatura dos documentos", expanded=bool(_faltam_doc)):
         st.caption("Preencha antes de gerar: os dados valem para todos os documentos desta sessão. Padrão gráfico da SGM-105 "
                    "(MaTDoc): Armas Nacionais, MARINHA DO BRASIL, nome da OM, local e data, Carlito/Calibri 12 e paginação.")
+        _perfil_arq = st.file_uploader("📂 Carregar perfil da OM salvo (.json)", type=["json"], key="docom_perfil_arq",
+                                       help="Arquivo baixado no botão 'Salvar perfil da OM', no fim deste quadro.")
+        if _perfil_arq is not None:
+            _assin = hashlib.md5(_perfil_arq.getvalue()).hexdigest()
+            if st.session_state.get("_docom_perfil_aplicado") != _assin:
+                try:
+                    _aplicar_perfil_om(json.loads(_perfil_arq.getvalue().decode("utf-8")))
+                    st.session_state["_docom_perfil_aplicado"] = _assin
+                    st.success("Perfil da OM carregado.")
+                except Exception as _erro:
+                    st.error(f"Arquivo de perfil inválido: {_erro}")
         st.text_input("Nome da OM por extenso *", key="docom_om", placeholder="Escreva o nome completo da sua Organização Militar")
         _o3, _o4, _o5, _o6 = st.columns([2, 1, 2, 2])
         with _o3:
@@ -2468,6 +2471,18 @@ with tab_docs:
                               placeholder="Ex: Capitão-Tenente (IM) ou Analista")
             with _a3:
                 st.text_input("Função *", key=f"docom_ass{_i}_cargo", placeholder="Ex: Encarregado da Divisão de Obtenção")
+        st.markdown("**Dados complementares (opcionais)** — preenchem automaticamente os modelos (UASG do aviso, endereço "
+                    "do Ofício Externo, contato, contratante da minuta e da ata).")
+        _p1, _p2 = st.columns([1, 3])
+        with _p1:
+            st.text_input("UASG da OM", key="docom_uasg")
+        with _p2:
+            st.text_input("Endereço da OM", key="docom_endereco", placeholder="Rua, nº, bairro, cidade, UF, CEP")
+        st.text_input("Telefone e e-mail para contato", key="docom_contato", placeholder="(21) 0000-0000 – setor@marinha.mil.br")
+        st.download_button("💾 Salvar perfil da OM (.json)", _perfil_om_json(), "perfil_om.json", "application/json",
+                           key="docom_perfil_dl",
+                           help="Guarde o arquivo e carregue-o nas próximas vezes para não digitar tudo de novo. "
+                                "O sistema não guarda seus dados no servidor.")
     _faltam_doc = _pendencias_documento()
     if _faltam_doc:
         st.warning("⚠️ Para gerar documentos, preencha os dados obrigatórios (*) acima. Falta: " + ", ".join(_faltam_doc) + ".")
@@ -2495,7 +2510,8 @@ with tab_docs:
         key="tipo_doc_sel",
     )
     if st.session_state.pop("_doc_vindo_checklist", False):
-        st.info("📋 Modelo aberto a partir da lista de verificação.")
+        st.info("📋 Modelo aberto a partir da lista de verificação. Volte à aba **Checklist de Processo** para continuar "
+                "a conferência.")
 
     # ---- MODELOS NOVOS: ETP, TJDL, TJIL, Mapa de Riscos, Aviso e ofícios (antes dos testes por trecho do nome) ----
     if tipo_doc in (MP.DOC_ETP, MP.DOC_TJDL, MP.DOC_TJIL, MP.DOC_RISCOS, MP.DOC_AVISO, MP.DOC_OF_ADESAO, MP.DOC_OF_IRP):
@@ -2510,9 +2526,11 @@ with tab_docs:
             with st.form("form_dfd"):
                 c1, c2 = st.columns(2)
                 with c1:
-                    orgao = st.text_input("Órgão/Entidade")
+                    _preencher("dfd_orgao", _om("om"))
+                    _preencher("dfd_responsavel", _om("ass0_nome"))
+                    orgao = st.text_input("Órgão/Entidade", key="dfd_orgao")
                     setor = st.text_input("Setor Requisitante")
-                    responsavel = st.text_input("Responsável")
+                    responsavel = st.text_input("Responsável", key="dfd_responsavel")
                 with c2:
                     data_prevista = st.date_input("Data prevista")
                     prioridade = st.selectbox("Prioridade", ["Alta", "Média", "Baixa"])
@@ -2766,13 +2784,7 @@ with tab_docs:
             )
 
             if st.button("📊 Gerar Mapa Comparativo", key="btn_mapa", disabled=bool(_faltam_doc)):
-                pdf_bytes = gerar_mapa_comparativo_pdf(itens_mapa, observacoes=obs_mapa)
-                xlsx_bytes = gerar_mapa_comparativo_xlsx(itens_mapa, observacoes=obs_mapa)
-                _c_pdf, _c_xlsx = st.columns(2)
-                with _c_pdf:
-                    st.download_button("⬇️ Baixar Mapa em PDF", pdf_bytes, "mapa_comparativo.pdf", "application/pdf")
-                with _c_xlsx:
-                    st.download_button("📊 Baixar Mapa em Excel", xlsx_bytes, "mapa_comparativo.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                _registrar_mapa(itens_mapa, obs_mapa)
 
                 # Mostrar tabela na tela
                 rows = []
@@ -2857,15 +2869,14 @@ with tab_docs:
                                     item[f"preco{j}"] = 0
                                 itens_arq.append(item)
                             if itens_arq:
-                                pdf_bytes = gerar_mapa_comparativo_pdf(itens_arq, observacoes=obs_mapa_arq)
-                                xlsx_bytes = gerar_mapa_comparativo_xlsx(itens_arq, observacoes=obs_mapa_arq)
-                                _c_pdf, _c_xlsx = st.columns(2)
-                                with _c_pdf:
-                                    st.download_button("⬇️ Baixar Mapa em PDF", pdf_bytes, "mapa_comparativo.pdf", "application/pdf")
-                                with _c_xlsx:
-                                    st.download_button("📊 Baixar Mapa em Excel", xlsx_bytes, "mapa_comparativo.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                                _registrar_mapa(itens_arq, obs_mapa_arq)
                 except Exception as e:
                     st.error(f"Erro ao processar arquivo: {e}")
+
+        if st.session_state.get("mapa_xlsx") and st.session_state.get(f"doc_gerado_{MP.DOC_MAPA}"):
+            st.download_button("📊 Baixar o mapa em Excel", st.session_state["mapa_xlsx"],
+                               "mapa_comparativo.xlsx",
+                               "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", key="dl_mapa_xlsx")
 
     # ---- CRONOGRAMA FÍSICO-FINANCEIRO ----
     elif "Cronograma" in tipo_doc:
@@ -3278,6 +3289,8 @@ utilizou as seguintes fontes, priorizando a ordem estabelecida no Art. 5° da IN
                 st.markdown("**Dados do Órgão Gerenciador**")
                 ca1, ca2 = st.columns(2)
                 with ca1:
+                    _preencher("ata_orgao", _om("om"))
+                    _preencher("ata_end_orgao", _om("endereco"))
                     ata_orgao = st.text_input("Órgão Gerenciador", key="ata_orgao")
                     ata_cnpj_orgao = st.text_input("CNPJ do Órgão", key="ata_cnpj_orgao")
                     ata_endereco_orgao = st.text_input("Endereço do Órgão", key="ata_end_orgao")
@@ -3424,6 +3437,8 @@ utilizou as seguintes fontes, priorizando a ordem estabelecida no Art. 5° da IN
                 st.markdown("**Dados do Contratante**")
                 mc1, mc2 = st.columns(2)
                 with mc1:
+                    _preencher("ct_orgao", _om("om"))
+                    _preencher("ct_end_orgao", _om("endereco"))
                     ct_orgao = st.text_input("Órgão/Entidade", key="ct_orgao")
                     ct_cnpj_orgao = st.text_input("CNPJ do Órgão", key="ct_cnpj_orgao")
                     ct_endereco_orgao = st.text_input("Endereço do Órgão", key="ct_end_orgao")
@@ -3676,7 +3691,7 @@ def _ck_abrir_documento(rotulo: str):
     """Atalho da lista de verificação: deixa o modelo escolhido na aba Documentos."""
     st.session_state["tipo_doc_sel"] = rotulo
     st.session_state["_doc_vindo_checklist"] = True
-    st.session_state["_ck_aviso_doc"] = rotulo
+    st.session_state["babilaca_aba"] = "📄 Gerar Documentos com IA"
 
 
 def _ck_aplicar_json(dados: dict) -> str:
@@ -3753,15 +3768,13 @@ with tab_checklist:
         with _i3:
             st.text_input("NUP do processo", key="ck_id_nup", placeholder="Se vazio, usa o NUP da aba Documentos")
         with _i4:
+            _preencher("ck_id_responsavel", _om("ass0_nome"))
             st.text_input("Responsável pela conferência", key="ck_id_responsavel")
 
     itens_checklist = CHECKLIST_MODALIDADES[modalidade_sel]
     st.caption(f"{len(itens_checklist)} itens nesta modalidade. Marque cada um como **Presente**, **Pendente** ou "
                "**Não se aplica**; o fundamento legal aparece abaixo de cada item.")
     _mostrar_obs = st.toggle("Mostrar campos de observação", key="ck_mostrar_obs")
-    if st.session_state.get("_ck_aviso_doc"):
-        st.info(f"📄 **{st.session_state.pop('_ck_aviso_doc')}** já está selecionado na aba **Documentos**: abra a aba "
-                "para preencher o modelo.")
 
     situacoes, observacoes = [], []
     for _n, (_texto, _fund, _atalho) in enumerate(itens_checklist, 1):
