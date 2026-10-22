@@ -7,7 +7,7 @@ from tutorial_player import montar_player
 TITULO = "Como usar a página Adesões"
 DESCRICAO = (
     "Achar atas de registro de preços para adesão (tipo de item, família, esfera, mapa por estado, dados e documentos de "
-    "cada ata) e montar a adesão: itens, quantidades, vantajosidade (regra dos 20%) e ofício no Babilaca. Duração aproximada: 6 min, "
+    "cada ata) e montar a adesão: itens, quantidades, vantajosidade e ofício no Babilaca. Duração aproximada: 6 min, "
     "com narração."
 )
 
@@ -91,10 +91,10 @@ _STAGE_HTML = r"""
       <div class="ckl" id="a-ckc">☐ Incluir compras homologadas (mais preciso, mais lento)</div>
       <div class="row3"><div class="btn" id="a-anl">📊 Analisar vantajosidade</div><div class="btn pri" id="a-gof">✉️ Gerar ofício no Babilaca</div><div class="btn" style="flex:.5">🗑️ Remover</div></div>
       <div id="a-van">
-        <div class="cap2" id="a-leg">O preço da ata é a estimativa: entram os preços entre 50% e 120% dele, priorizando os menores (até 10 por item). Verde: vantajoso · amarelo: compatível com o mercado · vermelho: acima do mercado ou sem preço de referência.</div>
+        <div class="cap2" id="a-leg">O preço da ata é a estimativa: entram os preços iguais ou maiores que ele, até 300%, e os menores só até 10% abaixo (até 10 por item, os mais próximos). Verde: vantajoso · amarelo: compatível com o mercado · vermelho: acima do mercado ou sem preço de referência.</div>
         <table class="tb" id="a-vtab"><tr><th>Item</th><th>Preço da ata</th><th>Mediana de mercado</th><th>Faixa de mercado</th><th>Preços</th><th>Diferença</th><th>Economia</th><th>Situação</th></tr>
-          <tr class="vg"><td>1</td><td>R$ 22,50</td><td>R$ 23,40</td><td>R$ 18,00 a R$ 26,90</td><td>8/11</td><td>-3,8%</td><td>R$ 90,00</td><td>✅ vantajoso</td></tr>
-          <tr class="vy"><td>3</td><td>R$ 48,00</td><td>R$ 45,00</td><td>R$ 41,00 a R$ 52,00</td><td>5/6</td><td>+6,7%</td><td>-R$ 150,00</td><td>🟡 compatível com o mercado</td></tr>
+          <tr class="vg"><td>1</td><td>R$ 22,50</td><td>R$ 23,40</td><td>R$ 21,00 a R$ 31,00</td><td>8/11</td><td>-3,8%</td><td>R$ 90,00</td><td>✅ vantajoso</td></tr>
+          <tr class="vy"><td>3</td><td>R$ 48,00</td><td>R$ 45,00</td><td>R$ 44,00 a R$ 52,00</td><td>5/6</td><td>+6,7%</td><td>-R$ 150,00</td><td>🟡 compatível com o mercado</td></tr>
           <tr id="a-v3" class="vr"><td>7</td><td>R$ 1,95</td><td id="a-v3m">-</td><td id="a-v3f">a pesquisar</td><td id="a-v3p">0/0</td><td id="a-v3d">-</td><td id="a-v3e">-</td><td id="a-v3s">🔴 sem preço de referência — pesquisar</td></tr></table>
         <div class="erm" id="a-erm">Sem preço de referência no item 7. Confira se o código do item não está restrito demais; se não estiver, pesquise o preço e informe-o na coluna <b>Preço de referência (manual)</b>, ou complete o campo __________ no relatório do Babilaca.</div>
         <div class="okm" id="a-okm">Adesão: R$ 4.650,00 × mercado (mediana): R$ 4.590,00 → dentro da faixa de mercado. O relatório, com a justificativa de cada item, vai junto com o ofício.</div>
@@ -203,9 +203,9 @@ window.__STEPS__=[
  run:async a=>{a.unring();await a.scroll('#a-cbox',80);await a.click('#a-q1');await a.type('#a-q1','100',120);a.set(S=>S.q1='100');await a.click('#a-q2');await a.type('#a-q2','50',120);a.set(S=>S.q2='50');await a.click('#a-q3');await a.type('#a-q3','500',120);a.set(S=>S.q3='500');a.ring('#a-m1','Limite por órgão',4);await a.sleep(1800);a.unring();}},
 
 {short:'Vantajosidade',t:'Passo 11 — Analise a vantajosidade',
- b:'Clique em <b>📊 Analisar vantajosidade</b>. O sistema busca o mesmo item em <b>outras atas dos últimos 12 meses</b> e, se você marcar a caixa, em <b>compras homologadas</b>, que é mais lento. O <b>preço da ata é a estimativa</b>: entram os preços entre 50% e 120% dele, a <b>regra dos 20%</b>, priorizando os <b>menores</b>. As cores mostram o resultado: <b>verde</b>, vantajoso; <b>amarelo</b>, compatível com o mercado, com justificativa pronta; <b>vermelho</b>, acima do mercado ou sem preço.',
+ b:'Clique em <b>📊 Analisar vantajosidade</b>. O sistema busca o mesmo item em <b>outras atas dos últimos 12 meses</b> e, se você marcar a caixa, em <b>compras homologadas</b>, que é mais lento. O <b>preço da ata é a estimativa</b>: entram os preços <b>iguais ou maiores</b> que ele, até 300%, para não usar valores absurdos, e os <b>menores só até 10% abaixo</b>. As cores mostram o resultado: <b>verde</b>, vantajoso; <b>amarelo</b>, compatível com o mercado, com justificativa pronta; <b>vermelho</b>, acima do mercado ou sem preço.',
  tip:'💡 Marcar ou desmarcar a caixa de compras homologadas refaz a análise sozinho.',
- run:async a=>{a.unring();await a.scroll('#a-ckc',150);a.ring('#a-ckc','Compras homologadas (opcional)',4);await a.sleep(1500);a.unring();await a.click('#a-anl',()=>a.set(S=>S.spin=true));await a.sleep(1300);a.set(S=>{S.spin=false;S.van=true;});await a.scroll('#a-van',40);a.ring('#a-leg','Regra dos 20%',4);await a.sleep(2200);a.unring();a.ring('#a-vtab','Verde, amarelo, vermelho',4);await a.sleep(2400);a.unring();}},
+ run:async a=>{a.unring();await a.scroll('#a-ckc',150);a.ring('#a-ckc','Compras homologadas (opcional)',4);await a.sleep(1500);a.unring();await a.click('#a-anl',()=>a.set(S=>S.spin=true));await a.sleep(1300);a.set(S=>{S.spin=false;S.van=true;});await a.scroll('#a-van',40);a.ring('#a-leg','Faixa de preços',4);await a.sleep(2200);a.unring();a.ring('#a-vtab','Verde, amarelo, vermelho',4);await a.sleep(2400);a.unring();}},
 
 {short:'Sem preço',t:'Passo 12 — Item sem preço de referência',
  b:'Quando o sistema não acha preço, a linha fica <b>vermelha</b>. Primeiro confira se o código do item não está restrito demais; o sistema já tenta itens semelhantes da mesma família. Se não estiver, <b>pesquise o preço</b>, por exemplo na Cotação Rápida, e lance o valor na coluna <b>Preço de referência (manual)</b>. A análise é refeita e o item ganha a sua classificação.',

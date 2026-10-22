@@ -24,7 +24,7 @@ import modelos_processo as MP
 
 DADOSABERTOS = "https://dadosabertos.compras.gov.br"
 FAIXA_SANEAMENTO = (0.5, 2.0)    # sem preço de estimativa: fora de 50% a 200% da mediana é descartado
-FAIXA_ESTIMATIVA = (0.5, 1.2)    # com o preço da ata como estimativa: aceita de 50% a 120% dele (regra dos 20%)
+FAIXA_ESTIMATIVA = (0.9, 3.0)    # preço da ata como estimativa: aceita de 10% abaixo até o triplo dele
 MAXIMO_PRECOS = 10               # usa até 10 preços, priorizando os menores
 SEMELHANCA_MINIMA = 0.65         # descrições da mesma família consideradas comparáveis
 FAIXA_FAMILIA = FAIXA_ESTIMATIVA  # item "semelhante" com preço fora desta faixa do preço da ata é outro produto
@@ -162,27 +162,29 @@ def sanear(valores: list[float]) -> tuple[list[float], list[float]]:
 
 
 def selecionar(valores: list[float], estimativa: float) -> tuple[list[float], list[float], str]:
-    """Filtra os preços usando o preço da ata como estimativa: aceita os que estão entre 50% e 120% dele e, entre
-    esses, usa os menores (até 10). Se todos estiverem acima da faixa, usa os 3 menores e avisa.
-    Devolve (aceitos, descartados, observação)."""
+    """Filtra os preços usando o preço da ata como estimativa: aceita os iguais ou maiores que ele, até 300% (acima
+    disso é preço absurdo), e os menores só até 10% abaixo. Entre os aceitos, usa os mais próximos do preço da ata
+    (até 10). Devolve (aceitos, descartados, observação)."""
     if not estimativa:
         aceitos, fora = sanear(valores)
         return aceitos, fora, ""
     lo, hi = FAIXA_ESTIMATIVA[0] * estimativa, FAIXA_ESTIMATIVA[1] * estimativa
     dentro = sorted(v for v in valores if lo <= v <= hi)
-    if dentro:
-        aceitos = dentro[:MAXIMO_PRECOS]
-        obs = f"{len(dentro) - len(aceitos)} preço(s) da faixa não usados (priorizados os menores)" if len(dentro) > len(aceitos) else ""
-    else:
-        acima = sorted(v for v in valores if v > hi)
-        aceitos = acima[:MINIMO_PRECOS]
-        obs = (f"todos os preços encontrados estão acima de {FAIXA_ESTIMATIVA[1]:.0%} do preço da ata" if acima else
-               f"preços encontrados abaixo de {FAIXA_ESTIMATIVA[0]:.0%} do preço da ata: confira se é o mesmo item"
-               if valores else "")
+    aceitos = dentro[:MAXIMO_PRECOS]
+    abaixo = [v for v in valores if v < lo]
+    acima = [v for v in valores if v > hi]
+    avisos = []
+    if len(dentro) > len(aceitos):
+        avisos.append(f"{len(dentro) - len(aceitos)} preço(s) da faixa não usados (usados os mais próximos da ata)")
+    if abaixo:
+        avisos.append(f"{len(abaixo)} preço(s) mais de {1 - FAIXA_ESTIMATIVA[0]:.0%} abaixo da ata desconsiderados "
+                      f"(menor: {MP.brl(min(abaixo))}) — confira se é o mesmo item")
+    if acima:
+        avisos.append(f"{len(acima)} preço(s) acima de {FAIXA_ESTIMATIVA[1]:.0%} da ata desconsiderados")
     restantes = list(valores)
     for v in aceitos:
         restantes.remove(v)
-    return aceitos, restantes, obs
+    return aceitos, restantes, "; ".join(avisos)
 
 
 def _qtd(valor) -> float:
@@ -213,6 +215,13 @@ def analisar_item(item: dict, fontes: list[dict]) -> dict:
     r = {"item": item.get("Item"), "descricao": item.get("Descrição"), "preco": preco, "quantidade": qtd,
          "fontes": len(fontes), "aceitos": len(aceitos), "descartados": descartados, "detalhe_fontes": fontes,
          "familia": any("semelhante" in f["fonte"] for f in fontes), "manual": manual > 0, "obs_filtro": obs}
+    abaixo = sorted(v for v in descartados if preco and v < FAIXA_ESTIMATIVA[0] * preco)
+    if not aceitos and abaixo:
+        # todos os preços de mercado estão mais de 10% abaixo da ata: não se esconde o sobrepreço
+        med = median(abaixo[:MAXIMO_PRECOS])
+        return {**r, "mediana": med, "media": mean(abaixo[:MAXIMO_PRECOS]), "menor": min(abaixo), "maior": max(abaixo),
+                "diferenca": (preco - med) / med, "economia": (med - preco) * qtd, "classe": "acima",
+                "situacao": "🔴 acima do mercado (preços encontrados mais de 10% abaixo da ata)"}
     if not aceitos or not preco:
         return {**r, "mediana": None, "media": None, "menor": None, "maior": None, "diferenca": None,
                 "economia": None, "situacao": SEM_REFERENCIA, "classe": "sem_ref"}
@@ -336,10 +345,12 @@ def corpo_relatorio(ata: dict, resultados: list[dict]) -> str:
               "nº 65/2021, art. 5º, I e II): outras atas de registro de preços do mesmo código do catálogo, compras "
               "homologadas do mesmo código (quando consultadas) e, se houvesse menos de três preços, atas de itens "
               "semelhantes da mesma família do catálogo. O preço registrado na ata foi usado como estimativa para filtrar "
-              f"os preços: foram considerados os situados entre {FAIXA_ESTIMATIVA[0]:.0%} e {FAIXA_ESTIMATIVA[1]:.0%} "
-              f"dele, priorizando os menores (até {MAXIMO_PRECOS} por item); preços fora dessa faixa foram tidos como "
-              "inexequíveis, excessivamente elevados ou de produto diferente. Quando todos os preços encontrados "
-              "superavam a faixa, usaram-se os três menores. O preço é vantajoso quando igual ou inferior à mediana e compatível com o mercado "
+              f"os preços: foram considerados os iguais ou superiores a ele, até {FAIXA_ESTIMATIVA[1]:.0%} do seu valor, "
+              f"e os inferiores somente até {1 - FAIXA_ESTIMATIVA[0]:.0%} abaixo dele, usando-se os mais próximos do "
+              f"preço registrado (até {MAXIMO_PRECOS} por item); preços fora dessa faixa foram tidos como "
+              "inexequíveis, excessivamente elevados ou de produto diferente, e os inferiores descartados são "
+              "informados na tabela. "
+"O preço é vantajoso quando igual ou inferior à mediana e compatível com o mercado "
               "quando, acima dela, permanece dentro da faixa de preços pesquisados ou até "
               f"{MARGEM_COMPATIVEL:.0%} acima da mediana (margem adotada como critério desta análise).",
               "", "### 3. COMPARAÇÃO POR ITEM",
