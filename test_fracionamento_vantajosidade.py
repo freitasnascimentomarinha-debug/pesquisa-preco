@@ -45,19 +45,24 @@ def test_saneamento_e_analise():
     fontes = [{"fonte": "Ata", "orgao": "X", "referencia": "1", "valor": v, "data": ""} for v in (100, 110, 90)]
     r = V.analisar_item({"Item": "1", "Descrição": "Papel", "preco": 80, "Quantidade": "10"}, fontes)
     assert r["mediana"] == 100 and r["economia"] == 200 and r["situacao"].startswith("✅")
+    compat = V.analisar_item({"Item": "2", "Descrição": "X", "preco": 105, "Quantidade": 1}, fontes)
+    assert compat["classe"] == "compativel" and "compatível com os valores praticados no mercado" in V.justificativa_item(compat)
     caro = V.analisar_item({"Item": "2", "Descrição": "X", "preco": 130, "Quantidade": 1}, fontes)
-    assert caro["situacao"].startswith("🔴")
+    assert caro["classe"] == "acima" and caro["situacao"].startswith("🔴")
+    manual = V.analisar_item({"Item": "4", "Descrição": "Z", "preco": 9, "Quantidade": 1, "ref_manual": 10}, [])
+    assert manual["mediana"] == 10 and manual["manual"] and manual["classe"] == "vantajoso"
     sem = V.analisar_item({"Item": "3", "Descrição": "Y", "preco": 5, "Quantidade": 1}, [])
-    assert sem["mediana"] is None
+    assert sem["mediana"] is None and sem["classe"] == "sem_ref" and "__________" in V.justificativa_item(sem)
+    assert V.semelhanca("MESA, MATERIAL ESTRUTURA METAL, TAMPO MDF", "MESA, MATERIAL ESTRUTURA METAL, TAMPO MDP") > 0.5
 
 
 def test_justificativa_e_relatorio():
     fontes = [{"fonte": "Ata", "orgao": "X", "referencia": "1", "valor": v, "data": ""} for v in (100, 110, 90)]
     res = [V.analisar_item({"Item": "1", "Descrição": "Papel", "preco": 80, "Quantidade": 10}, fontes)]
     txt = V.texto_justificativa(res, "12/2026")
-    assert "R$ 200,00" in txt and "20.0%" in txt and "foram comparados" in txt
+    assert "R$ 200,00" in txt and "20,0%" in txt and "foram comparados" in txt
     corpo = V.corpo_relatorio({"ata": "12/2026", "gerenciador": "G", "uasg": "1", "licitacao": "PE"}, res)
-    assert "**R$ 800,00**" in corpo and "FONTES CONSULTADAS" in corpo
+    assert "**R$ 800,00**" in corpo and "FONTES CONSULTADAS" in corpo and "JUSTIFICATIVA POR ITEM" in corpo
     oficio = MP.corpo_oficio_adesao({"justificativa": txt})
     assert "foram comparados" in oficio and "mostraram-se vantajosos" not in oficio
 
