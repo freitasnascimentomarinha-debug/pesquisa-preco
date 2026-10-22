@@ -20,8 +20,9 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CATALOGO_DIR = os.path.join(BASE_DIR, "Projeto Adesões")
 sys.path.insert(0, BASE_DIR)
 from atualizar_modulos import recarregar_se_mudou  # noqa: E402
-recarregar_se_mudou('tutorial_player', 'tutorial_cotacao', 'tutorial_catmat', 'tutorial_cotacao_direta', 'tutorial_cotacao_rapida', 'tutorial_adesoes', 'tutorial_notas_fiscais', 'tutorial_fornecedores', 'tutorial_web_scraping', 'tutorial_ipca', 'tutorial_detalhes_compra', 'tutorial_consulta_cnpj', 'tutorial_radar_licitacoes')  # evita módulo antigo em memória após deploy
+recarregar_se_mudou('tutorial_player', 'tutorial_cotacao', 'tutorial_catmat', 'tutorial_cotacao_direta', 'tutorial_cotacao_rapida', 'tutorial_adesoes', 'tutorial_notas_fiscais', 'tutorial_fornecedores', 'tutorial_web_scraping', 'tutorial_ipca', 'tutorial_detalhes_compra', 'tutorial_consulta_cnpj', 'tutorial_radar_licitacoes', 'tutorial_babilaca')  # evita módulo antigo em memória após deploy
 import tutorial_adesoes  # noqa: E402
+import tutorial_babilaca  # noqa: E402
 import tutorial_catmat  # noqa: E402
 import tutorial_cotacao  # noqa: E402
 import tutorial_cotacao_direta  # noqa: E402
@@ -49,7 +50,7 @@ VIDEOS = [
     {"id": "forn", "titulo": "Fornecedores", "icone": "🏢", "resumo": "Banco de fornecedores.", "modulo": tutorial_fornecedores},
     {"id": "cnpj", "titulo": "Consulta CNPJ", "icone": "💻", "resumo": "Cadastro, sanções, contratos, adesões e notas fiscais de um fornecedor.", "modulo": tutorial_consulta_cnpj},
     {"id": "web", "titulo": "Web Scraping", "icone": "🕷️", "resumo": "Pesquisa de preços na web.", "modulo": tutorial_web_scraping},
-    {"id": "babilaca", "titulo": "O Babilaca (IA)", "icone": "🧠", "resumo": "Assistente de IA para licitações e legislação.", "modulo": None},
+    {"id": "babilaca", "titulo": "O Babilaca (IA)", "icone": "🧠", "resumo": "Chat, documentos no padrão da Marinha, checklist, conferência do processo e limite de dispensa.", "modulo": tutorial_babilaca},
     {"id": "ipca", "titulo": "Cálculo IPCA", "icone": "📊", "resumo": "Atualização monetária de valores pelo IPCA.", "modulo": tutorial_ipca},
 ]
 
