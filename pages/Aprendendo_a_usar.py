@@ -50,7 +50,7 @@ VIDEOS = [
     {"id": "forn", "titulo": "Fornecedores", "icone": "🏢", "resumo": "Banco de fornecedores.", "modulo": tutorial_fornecedores},
     {"id": "cnpj", "titulo": "Consulta CNPJ", "icone": "💻", "resumo": "Cadastro, sanções, contratos, adesões e notas fiscais de um fornecedor.", "modulo": tutorial_consulta_cnpj},
     {"id": "web", "titulo": "Web Scraping", "icone": "🕷️", "resumo": "Pesquisa de preços na web.", "modulo": tutorial_web_scraping},
-    {"id": "babilaca", "titulo": "O Babilaca (IA)", "icone": "🧠", "resumo": "Chat, documentos no padrão da Marinha, checklist, conferência do processo e limite de dispensa.", "modulo": tutorial_babilaca},
+    {"id": "babilaca", "titulo": "O Babilaca (IA)", "icone": "🧠", "resumo": "Chat, documentos no padrão da Marinha, checklist, prazos, conferência do processo e limite de dispensa por ramo e por subelemento.", "modulo": tutorial_babilaca},
     {"id": "ipca", "titulo": "Cálculo IPCA", "icone": "📊", "resumo": "Atualização monetária de valores pelo IPCA.", "modulo": tutorial_ipca},
 ]
 
