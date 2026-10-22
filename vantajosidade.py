@@ -29,6 +29,11 @@ MAXIMO_PRECOS = 10               # usa até 10 preços, priorizando os menores
 SEMELHANCA_MINIMA = 0.65         # descrições da mesma família consideradas comparáveis
 FAIXA_FAMILIA = FAIXA_ESTIMATIVA  # item "semelhante" com preço fora desta faixa do preço da ata é outro produto
 MINIMO_PRECOS = 3
+TEMPO_COMPRAS = 75               # segundos por consulta de compras homologadas (a API é lenta)
+ORCAMENTO_COMPRAS = 150          # depois de 2,5 min, as compras homologadas dos itens restantes são puladas
+TEMPO_FAMILIA = 30               # segundos para a busca de itens semelhantes da mesma família
+_FALHAS: dict[tuple, tuple[float, str]] = {}
+_FALHA_TTL = 600                 # consulta que estourou o tempo não é repetida por 10 min
 MARGEM_COMPATIVEL = 0.10         # até 10% acima da mediana: compatível (critério da análise, não da lei)
 _CACHE: dict[tuple, tuple[float, list]] = {}
 _CACHE_TTL = 6 * 3600
@@ -37,19 +42,19 @@ _UMA_CONSULTA_LENTA = threading.Semaphore(1)   # a consulta de compras homologad
 SEM_REFERENCIA = "🔴 sem preço de referência — pesquisar"
 
 
-def _get(url: str, params: dict, timeout: int = 90) -> tuple[dict | None, str | None]:
-    """GET com nova tentativa em 429 (muitas requisições) e 5xx, respeitando o Retry-After."""
+def _get(url: str, params: dict, timeout: int = 60) -> tuple[dict | None, str | None]:
+    """GET com nova tentativa só em 429 (muitas requisições) e 5xx, respeitando o Retry-After.
+    Tempo esgotado não é repetido: repetir uma consulta que já demorou o limite só multiplicaria a espera."""
     import requests
     from servicos_publicos import USER_AGENT
     erro = "sem resposta"
-    for espera in (0, 3, 8, 15):
+    for espera in (0, 2, 5):
         if espera:
             time.sleep(espera)
         try:
             r = requests.get(url, params=params, timeout=timeout, headers=USER_AGENT)
         except requests.exceptions.Timeout:
-            erro = "tempo esgotado"
-            continue
+            return None, f"tempo esgotado ({timeout} s)"
         except requests.exceptions.RequestException as exc:
             erro = f"falha de conexão ({type(exc).__name__})"
             continue
@@ -60,19 +65,24 @@ def _get(url: str, params: dict, timeout: int = 90) -> tuple[dict | None, str | 
                 return None, "resposta inválida"
         erro = "limite de consultas do Compras.gov.br (HTTP 429)" if r.status_code == 429 else f"HTTP {r.status_code}"
         if r.status_code == 429 and str(r.headers.get("Retry-After", "")).isdigit():
-            time.sleep(min(int(r.headers["Retry-After"]), 30))
+            time.sleep(min(int(r.headers["Retry-After"]), 10))
         if r.status_code != 429 and r.status_code < 500:
             break
     return None, erro
 
 
 def _cacheado(chave: tuple, buscar):
+    """Guarda sucessos por 6 h e tempo esgotado por 10 min (para não esperar de novo pela mesma consulta lenta)."""
     agora = time.time()
     if chave in _CACHE and agora - _CACHE[chave][0] < _CACHE_TTL:
         return _CACHE[chave][1], None
+    if chave in _FALHAS and agora - _FALHAS[chave][0] < _FALHA_TTL:
+        return None, _FALHAS[chave][1] + " — não repetida por alguns minutos"
     dados, erro = buscar()
     if not erro:
         _CACHE[chave] = (agora, dados)
+    elif "tempo esgotado" in erro:
+        _FALHAS[chave] = (agora, erro)
     return dados, erro
 
 
@@ -119,7 +129,7 @@ def precos_familia(codigo_pdm: str, descricao: str, codigo_item: str, ata_propri
     dados, erro = _cacheado(("pdm", codigo_pdm), lambda: _get(
         f"{DADOSABERTOS}/modulo-arp/2_consultarARPItem",
         {"pagina": 1, "tamanhoPagina": 500, "codigoPdm": codigo_pdm, "dataVigenciaInicialMin": ini,
-         "dataVigenciaInicialMax": fim}))
+         "dataVigenciaInicialMax": fim}, timeout=TEMPO_FAMILIA))
     if erro:
         return [], f"família: {erro}"
     candidatos = []
@@ -142,7 +152,7 @@ def precos_compras(codigo_item: str) -> tuple[list[dict], str | None]:
         with _UMA_CONSULTA_LENTA:
             return _get(f"{DADOSABERTOS}/modulo-contratacoes/2_consultarItensContratacoes_PNCP_14133",
                         {"pagina": 1, "tamanhoPagina": 200, "codItemCatalogo": codigo_item, "temResultado": "true",
-                         "dataInclusaoPncpInicial": ini, "dataInclusaoPncpFinal": fim}, timeout=150)
+                         "dataInclusaoPncpInicial": ini, "dataInclusaoPncpFinal": fim}, timeout=TEMPO_COMPRAS)
     dados, erro = _cacheado(("compras", codigo_item), buscar)
     if erro:
         return [], f"compras homologadas: {erro}"
@@ -239,18 +249,15 @@ def analisar_item(item: dict, fontes: list[dict]) -> dict:
             "diferenca": dif, "economia": (med - preco) * qtd, "situacao": situacao, "classe": classe}
 
 
-def coletar(item: dict, ata_propria: str, incluir_compras: bool) -> tuple[list[dict], list[str]]:
+def coletar_atas(item: dict, ata_propria: str) -> tuple[list[dict], list[str]]:
+    """Fase rápida: atas do mesmo código e, se houver poucos preços, itens semelhantes da mesma família."""
     codigo = str(item.get("codigo") or "").strip()
-    fontes, avisos = [], []
     if not codigo:
         return [], ["item sem código CATMAT/CATSER"]
+    fontes, avisos = [], []
     f, e = precos_atas(codigo, ata_propria)
     fontes += f
     avisos += [e] if e else []
-    if incluir_compras:
-        f, e = precos_compras(codigo)
-        fontes += f
-        avisos += [e] if e else []
     if len(selecionar([x["valor"] for x in fontes], float(item.get("preco") or 0))[0]) < MINIMO_PRECOS and item.get("pdm"):
         f, e = precos_familia(str(item["pdm"]), item.get("Descrição") or "", codigo, ata_propria,
                               float(item.get("preco") or 0))
@@ -261,15 +268,56 @@ def coletar(item: dict, ata_propria: str, incluir_compras: bool) -> tuple[list[d
     return fontes, avisos
 
 
-def analisar(itens: list[dict], ata_propria: str = "", incluir_compras: bool = False) -> list[dict]:
-    """Analisa vários itens (atas em paralelo; compras homologadas uma por vez, para não esbarrar no limite)."""
-    def um(item):
-        fontes, avisos = coletar(item, ata_propria, incluir_compras)
-        r = analisar_item(item, fontes)
-        return r | {"erro": "; ".join(x for x in avisos + [r["obs_filtro"]] if x)}
+def coletar(item: dict, ata_propria: str, incluir_compras: bool, prazo: float | None = None) -> tuple[list[dict], list[str]]:
+    fontes, avisos = coletar_atas(item, ata_propria)
+    codigo = str(item.get("codigo") or "").strip()
+    if incluir_compras and codigo:
+        f, e = precos_compras(codigo)
+        fontes += f
+        avisos += [e] if e else []
+    return fontes, avisos
 
-    with ThreadPoolExecutor(max_workers=2 if incluir_compras else 4) as ex:
-        return list(ex.map(um, itens))
+
+def analisar(itens: list[dict], ata_propria: str = "", incluir_compras: bool = False,
+             progresso=None) -> list[dict]:
+    """Analisa vários itens em duas fases, com progresso(fracao, texto) chamado na thread de quem chamou:
+    1) atas do mesmo código e da mesma família, em paralelo (segundos);
+    2) se pedido, compras homologadas, uma por vez (a API é lenta), parando após ~2,5 min."""
+    from concurrent.futures import as_completed
+    inicio = time.monotonic()
+    total = len(itens)
+    etapas = total * (2 if incluir_compras else 1)
+    avancar = (lambda feitos, texto: progresso(min(feitos / etapas, 1.0), texto)) if progresso else (lambda *_: None)
+    coletas: list[tuple[list[dict], list[str]]] = [([], [])] * total
+    with ThreadPoolExecutor(max_workers=4) as ex:
+        futuros = {ex.submit(coletar_atas, item, ata_propria): n for n, item in enumerate(itens)}
+        for feitos, futuro in enumerate(as_completed(futuros), 1):
+            n = futuros[futuro]
+            try:
+                coletas[n] = futuro.result()
+            except Exception as exc:   # um item com falha não derruba a análise dos outros
+                coletas[n] = ([], [f"falha na consulta das atas ({type(exc).__name__})"])
+            avancar(feitos, f"Atas de outros órgãos: {feitos} de {total} item(ns) ({time.monotonic() - inicio:.0f} s)")
+    if incluir_compras:
+        for k, item in enumerate(itens):
+            codigo = str(item.get("codigo") or "").strip()
+            fontes, avisos = coletas[k]
+            if not codigo:
+                pass
+            elif time.monotonic() - inicio > ORCAMENTO_COMPRAS and ("compras", codigo) not in _CACHE:
+                avisos = avisos + ["compras homologadas não consultadas: tempo limite da análise atingido"]
+            else:
+                avancar(total + k, f"Compras homologadas: item {item.get('Item')} ({k + 1} de {total}) — "
+                                   f"consulta lenta, até {TEMPO_COMPRAS} s ({time.monotonic() - inicio:.0f} s)")
+                f, e = precos_compras(codigo)
+                fontes, avisos = fontes + f, avisos + ([e] if e else [])
+            coletas[k] = (fontes, avisos)
+        avancar(etapas, f"Concluído ({time.monotonic() - inicio:.0f} s)")
+    resultados = []
+    for item, (fontes, avisos) in zip(itens, coletas):
+        r = analisar_item(item, fontes)
+        resultados.append(r | {"erro": "; ".join(x for x in avisos + [r["obs_filtro"]] if x)})
+    return resultados
 
 
 def resumo(resultados: list[dict]) -> dict:

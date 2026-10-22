@@ -1258,11 +1258,15 @@ def _painel_cesta_adesao() -> None:
                                       on_change=_marcar_reanalise, args=(chave_ata,))
                 analisar = st.button("📊 Analisar vantajosidade", key=f"cesta_an_{chave_ata}", use_container_width=True)
                 if analisar or grupo.pop("reanalisar", False):
-                    with st.spinner("Buscando preços de mercado dos últimos 12 meses"
-                                    + (" (compras homologadas: consulta lenta, uma por vez)..." if compras else "...")):
-                        grupo["analise"] = V.analisar(
-                            [{**i, "Quantidade": i.get("Quantidade") or 0} for i in grupo["itens"]], chave_ata, compras)
-                        grupo["analise_com_compras"] = compras
+                    n_itens = len(grupo["itens"])
+                    barra = st.progress(0.0, text=f"Buscando preços de mercado de {n_itens} item(ns)"
+                                        + (" — atas primeiro (segundos); compras homologadas depois, até ~75 s por item (máx. ~3 min)"
+                                           if compras else "..."))
+                    grupo["analise"] = V.analisar(
+                        [{**i, "Quantidade": i.get("Quantidade") or 0} for i in grupo["itens"]], chave_ata, compras,
+                        progresso=lambda fracao, texto: barra.progress(fracao, text=texto))
+                    grupo["analise_com_compras"] = compras
+                    barra.empty()
             with _c2:
                 if st.button("✉️ Gerar ofício no Babilaca", key=f"cesta_of_{chave_ata}", type="primary",
                              use_container_width=True):
