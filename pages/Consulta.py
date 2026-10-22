@@ -1,16 +1,14 @@
 import streamlit as st
-import requests
 import pandas as pd
-import json
 import os
-import re
-import io
 import base64
-import tempfile
 import datetime
-import urllib3
+from html import escape
 
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+from servicos_publicos import (
+    baixar_csv_drive, cnpj_valido, consultar_cadastro_cnpj, formatar_cnpj, itens_arp_por_fornecedor, limpar_cnpj,
+    listar_arquivos_drive, pesquisar_notas_por_cnpj, pncp_search, resumo_notas, separar_vigentes,
+)
 
 # Configuração da página
 st.set_page_config(
@@ -189,236 +187,49 @@ def formatar_moeda_br(valor):
     try:
         val = float(valor)
         return f'R$ {val:,.2f}'.replace(',', 'X').replace('.', ',').replace('X', '.')
-    except:
+    except (TypeError, ValueError):
         return "R$ 0,00"
 
-def formatar_cnpj(cnpj):
-    cnpj = str(cnpj).zfill(14)
-    return f"{cnpj[:2]}.{cnpj[2:5]}.{cnpj[5:8]}/{cnpj[8:12]}-{cnpj[12:]}"
+
+def esc(valor, padrao="N/A"):
+    """Texto vindo de API escapado para uso dentro de HTML."""
+    return escape(str(valor)) if valor not in (None, "") else padrao
 
 
-# ===================== APIs =====================
-
-@st.cache_data(ttl=3600)
-def consultar_opencnpj(cnpj_limpo):
-    """Consulta dados cadastrais via OpenCNPJ."""
-    try:
-        url = f"https://api.opencnpj.org/{cnpj_limpo}"
-        resp = requests.get(url, timeout=10)
-        if resp.status_code == 200:
-            return resp.json()
-    except Exception:
-        pass
-    return None
+@st.cache_data(show_spinner=False, ttl=600)
+def listar_arquivos_disponiveis(folder_id):
+    """Descobre os arquivos CSV disponíveis na pasta do Google Drive (None se não conseguir listar)."""
+    return listar_arquivos_drive(folder_id)
 
 
-@st.cache_data(ttl=3600)
-def consultar_brasilapi(cnpj_limpo):
-    """Fallback: consulta dados cadastrais via BrasilAPI para obter email/telefone."""
-    try:
-        url = f"https://brasilapi.com.br/api/cnpj/v1/{cnpj_limpo}"
-        resp = requests.get(url, timeout=10)
-        if resp.status_code == 200:
-            return resp.json()
-    except Exception:
-        pass
-    return None
+@st.cache_data(show_spinner=False, ttl=1800)
+def pesquisar_notas(caminho, cnpj_busca):
+    return pesquisar_notas_por_cnpj(caminho, cnpj_busca)
 
 
-@st.cache_data(ttl=3600)
-def consultar_pncp_search(cnpj_limpo, tipo_documento="contrato"):
-    """Consulta o PNCP via API de busca (Search).
-    Busca contratos ou compras associados ao CNPJ fornecido.
-    Retorna lista de resultados paginados."""
-    todos = []
-    pagina = 1
-    max_paginas = 20
-
-    while pagina <= max_paginas:
-        try:
-            url = "https://pncp.gov.br/api/search/"
-            params = {
-                'q': cnpj_limpo,
-                'tipos_documento': tipo_documento,
-                'pagina': pagina,
-                'ordenacao': '-data',
-            }
-            resp = requests.get(url, params=params, timeout=60,
-                                headers={'User-Agent': 'Mozilla/5.0'}, verify=False)
-            if resp.status_code != 200:
-                break
-
-            data = resp.json()
-            items = data.get('items', [])
-            if not items:
-                break
-
-            # Filtrar somente dicts (a API pode retornar strings em busca geral)
-            for item in items:
-                if isinstance(item, dict):
-                    todos.append(item)
-
-            total = data.get('total', 0)
-            if len(todos) >= total:
-                break
-
-            pagina += 1
-        except Exception:
-            break
-
-    return todos
-
-
-@st.cache_data(ttl=3600)
-def consultar_dadosabertos_arps(cnpj_limpo, anos_janela=3, apenas_vigentes=False):
-    """Consulta itens de ARP no dadosabertos.compras.gov.br onde este CNPJ
-    é fornecedor registrado.  Usa o endpoint 2_consultarARPItem com o
-    parâmetro ``niFornecedor`` (NI = CNPJ/CPF).
-    A API exige janelas de data <= 365 dias, então varremos ano a ano."""
-    todos = []
-    max_paginas = 20
-    hoje = datetime.date.today()
-
-    for i in range(anos_janela):
-        d_fim = (hoje - datetime.timedelta(days=360 * i)).strftime("%Y-%m-%d")
-        d_ini = (hoje - datetime.timedelta(days=360 * (i + 1))).strftime("%Y-%m-%d")
-        pagina = 1
-
-        while pagina <= max_paginas:
-            try:
-                params = {
-                    'niFornecedor': cnpj_limpo,
-                    'dataVigenciaInicialMin': d_ini,
-                    'dataVigenciaInicialMax': d_fim,
-                    'pagina': pagina,
-                    'tamanhoPagina': 100,
-                }
-
-                resp = requests.get(
-                    'https://dadosabertos.compras.gov.br/modulo-arp/2_consultarARPItem',
-                    params=params, timeout=60,
-                    headers={'User-Agent': 'Mozilla/5.0'}, verify=False
-                )
-                if resp.status_code != 200:
-                    break
-
-                data = resp.json()
-                itens = data.get('resultado', [])
-                if not itens:
-                    break
-
-                todos.extend(itens)
-
-                total = data.get('totalRegistros', 0)
-                if len(todos) >= total:
-                    break
-
-                pagina += 1
-            except Exception:
-                break
-
-    # Filtro de vigentes no lado do cliente, pois o endpoint não tem esse filtro
-    if apenas_vigentes:
-        hoje_str = hoje.strftime("%Y-%m-%d")
-        todos = [
-            a for a in todos
-            if str(a.get('dataVigenciaFinal', '9999-12-31'))[:10] >= hoje_str
-              and a.get('maximoAdesao', 0) and a.get('maximoAdesao', 0) > 0
-        ]
-
-    return todos
-
-
-@st.cache_data(ttl=3600)
-def consultar_pncp_atas(cnpj_limpo, anos_janela=3):
-    """Consulta atas de registro de preços no PNCP via Search API.
-    Busca atas associadas ao CNPJ do fornecedor."""
-    todos = []
-    pagina = 1
-    max_paginas = 20
-
-    while pagina <= max_paginas:
-        try:
-            url = "https://pncp.gov.br/api/search/"
-            params = {
-                'q': cnpj_limpo,
-                'tipos_documento': 'ata',
-                'pagina': pagina,
-                'ordenacao': '-data',
-            }
-            resp = requests.get(url, params=params, timeout=60,
-                                headers={'User-Agent': 'Mozilla/5.0'}, verify=False)
-            if resp.status_code != 200:
-                break
-
-            data = resp.json()
-            items = data.get('items', [])
-            if not items:
-                break
-
-            for item in items:
-                if isinstance(item, dict):
-                    todos.append(item)
-
-            total = data.get('total', 0)
-            if len(todos) >= total:
-                break
-
-            pagina += 1
-        except Exception:
-            break
-
-    return todos
-
-
-@st.cache_data(ttl=3600)
-def consultar_pncp_compras(cnpj_limpo):
-    """Consulta compras/licitações no PNCP via Search API.
-    Captura pregões, concorrências e outros processos licitatórios."""
-    todos = []
-    pagina = 1
-    max_paginas = 20
-
-    while pagina <= max_paginas:
-        try:
-            url = "https://pncp.gov.br/api/search/"
-            params = {
-                'q': cnpj_limpo,
-                'tipos_documento': 'compra',
-                'pagina': pagina,
-                'ordenacao': '-data',
-            }
-            resp = requests.get(url, params=params, timeout=60,
-                                headers={'User-Agent': 'Mozilla/5.0'}, verify=False)
-            if resp.status_code != 200:
-                break
-
-            data = resp.json()
-            items = data.get('items', [])
-            if not items:
-                break
-
-            for item in items:
-                if isinstance(item, dict):
-                    todos.append(item)
-
-            total = data.get('total', 0)
-            if len(todos) >= total:
-                break
-
-            pagina += 1
-        except Exception:
-            break
-
-    return todos
+def card_pncp(emoji, c, rodape_rotulo, rodape_valor, valor):
+    """Card HTML de um registro do PNCP (contrato, ata, compra ou dispensa) com os campos escapados."""
+    url_pncp = c.get('item_url', '')
+    link = (f'<div style="margin-top:0.5rem;"><a href="{escape("https://pncp.gov.br/app" + url_pncp, quote=True)}" '
+            f'target="_blank" style="color:#4da6ff;">🔗 Ver no PNCP</a></div>') if url_pncp else ''
+    st.markdown(f"""
+    <div class="contract-card">
+        <div class="contract-title">{emoji} {esc(c.get('title'))} — {esc(c.get('orgao_nome'))}</div>
+        <div style="margin-bottom:0.3rem; color:#cbd5e1;"><strong>Unidade:</strong> {esc(c.get('unidade_nome'), '')} ({esc(c.get('municipio_nome'), '')}/{esc(c.get('uf'), '')})</div>
+        <div style="margin-bottom:0.3rem; color:#cbd5e1;"><strong>Modalidade:</strong> {esc(c.get('modalidade_licitacao_nome'))} | <strong>Situação:</strong> {esc(c.get('situacao_nome'))}</div>
+        <div style="margin-bottom:0.5rem; color:#cbd5e1;"><strong>Objeto:</strong> {esc(str(c.get('description') or 'N/A')[:200])}</div>
+        <div style="display:flex; justify-content:space-between; flex-wrap:wrap; color:#cbd5e1; font-size:0.9rem;">
+            <div><strong>{rodape_rotulo}:</strong> {esc(rodape_valor)}</div>
+            <div style="color:#d4af37; font-weight:bold;">Valor: {formatar_moeda_br(valor)}</div>
+        </div>
+        {link}
+    </div>
+    """, unsafe_allow_html=True)
 
 
 # ===================== NOTAS FISCAIS =====================
 
 PASTA_ID = "1369rEJAqpprCP3dZp55eXaTcQRU9D5Ol"
-DOWNLOAD_BASE = "https://drive.usercontent.google.com/download?id={file_id}&export=download&confirm=t"
-CACHE_DIR = os.path.join(tempfile.gettempdir(), "atacotada_nf")
-os.makedirs(CACHE_DIR, exist_ok=True)
 
 ARQUIVOS_FALLBACK = {
     "1HwHmY16I7OXmhdRqhaBbLY_tuyLe3plx": "202503_NFe_NotaFiscalItem.csv",
@@ -434,118 +245,6 @@ ARQUIVOS_FALLBACK = {
     "1tSqz-nIiM_uDZW38GdWeRboNC7nwq3jH": "202601_NFe_NotaFiscalItem.csv",
     "1tgekwOo8__NZZSs2OdFMS6xT6pS3LXVn": "202602_NFe_NotaFiscalItem.csv",
 }
-
-
-@st.cache_data(ttl=600, show_spinner=False)
-def listar_arquivos_disponiveis(folder_id):
-    """Descobre os arquivos CSV disponíveis na pasta do Google Drive."""
-    url = f"https://drive.google.com/drive/folders/{folder_id}"
-    try:
-        resp = requests.get(url, timeout=30)
-        resp.raise_for_status()
-        ids_encontrados = re.findall(r'data-id="([a-zA-Z0-9_-]{20,})"', resp.text)
-        ids_encontrados = list(dict.fromkeys(ids_encontrados))
-
-        if not ids_encontrados:
-            return None
-
-        arquivos = {}
-        for fid in ids_encontrados:
-            try:
-                view_url = f"https://drive.google.com/file/d/{fid}/view"
-                view_resp = requests.get(view_url, timeout=15)
-                title_match = re.search(r"<title>([^<]+)</title>", view_resp.text)
-                if title_match:
-                    nome = title_match.group(1).replace(" - Google Drive", "").strip()
-                    if nome and nome != "Google Drive":
-                        arquivos[fid] = nome
-                    else:
-                        arquivos[fid] = f"Arquivo {fid[:10]}"
-                else:
-                    arquivos[fid] = f"Arquivo {fid[:10]}"
-            except Exception:
-                arquivos[fid] = f"Arquivo {fid[:10]}"
-
-        return arquivos if arquivos else None
-    except Exception:
-        return None
-
-
-def baixar_arquivo_csv(file_id, progress_bar=None):
-    """Baixa o arquivo CSV para cache local."""
-    cache_path = os.path.join(CACHE_DIR, f"{file_id}.csv")
-
-    if os.path.exists(cache_path):
-        if os.path.getsize(cache_path) > 10000:
-            return cache_path
-        else:
-            os.remove(cache_path)
-
-    url = DOWNLOAD_BASE.format(file_id=file_id)
-    response = requests.get(url, stream=True, timeout=600)
-    response.raise_for_status()
-
-    content_type = response.headers.get("Content-Type", "")
-    if "text/html" in content_type:
-        response.close()
-        raise Exception("O Google Drive retornou uma página de erro (quota de downloads excedida).")
-
-    total = int(response.headers.get("content-length", 0))
-    downloaded = 0
-    tmp_path = cache_path + ".tmp"
-
-    with open(tmp_path, "wb") as f:
-        for data in response.iter_content(chunk_size=131072):
-            f.write(data)
-            downloaded += len(data)
-            if progress_bar and total:
-                pct = min(downloaded / total, 1.0)
-                mb_down = downloaded / (1024 * 1024)
-                mb_total = total / (1024 * 1024)
-                progress_bar.progress(pct, text=f"Baixando... {mb_down:.0f} / {mb_total:.0f} MB ({pct*100:.0f}%)")
-
-    with open(tmp_path, "rb") as f:
-        head = f.read(200)
-    if b"<!DOCTYPE" in head or b"<html" in head.lower():
-        os.remove(tmp_path)
-        raise Exception("O arquivo baixado não é um CSV válido (quota do Google Drive excedida).")
-
-    os.rename(tmp_path, cache_path)
-    return cache_path
-
-
-@st.cache_data(show_spinner=False, ttl=1800)
-def pesquisar_notas_por_cnpj(file_path, cnpj_busca, max_resultados=1000):
-    """Pesquisa notas fiscais pelo CNPJ do emitente."""
-    resultados = []
-    total_linhas = 0
-    cnpj_limpo = ''.join(filter(str.isdigit, str(cnpj_busca)))
-
-    for chunk in pd.read_csv(
-        file_path,
-        sep=";",
-        encoding="latin-1",
-        chunksize=50000,
-        dtype=str,
-        on_bad_lines="skip",
-    ):
-        col_cnpj = "CPF/CNPJ Emitente"
-        if col_cnpj in chunk.columns:
-            cnpj_col_limpo = chunk[col_cnpj].astype(str).str.replace(r'[.\-/]', '', regex=True).str.strip()
-            mask = cnpj_col_limpo == cnpj_limpo
-            filtered = chunk[mask]
-            if len(filtered) > 0:
-                resultados.append(filtered)
-
-        total_linhas += len(chunk)
-        total_encontrados = sum(len(r) for r in resultados)
-        if total_encontrados >= max_resultados:
-            break
-
-    if resultados:
-        df = pd.concat(resultados, ignore_index=True).head(max_resultados)
-        return df, total_linhas
-    return pd.DataFrame(), total_linhas
 
 
 # ===================== SIDEBAR =====================
@@ -605,10 +304,6 @@ with st.container():
     with col2:
         anos_janela = st.number_input("Janela de Pesquisa (Anos de histórico):", min_value=1, max_value=10, value=3)
 
-        hoje = datetime.date.today()
-        data_ini = (hoje - datetime.timedelta(days=365 * anos_janela)).strftime("%Y-%m-%d")
-        data_fim = hoje.strftime("%Y-%m-%d")
-
     with col3:
         st.write("")
         st.write("")
@@ -618,71 +313,60 @@ with st.container():
 # ===================== CONSULTA =====================
 
 if btn_consultar and cnpj_input:
-    cnpj_limpo = ''.join(filter(str.isdigit, cnpj_input))
+    cnpj_limpo = limpar_cnpj(cnpj_input)
     if len(cnpj_limpo) != 14:
         st.error("CNPJ inválido. Certifique-se de preencher 14 dígitos inteiros.")
+    elif not cnpj_valido(cnpj_limpo):
+        st.error("CNPJ inválido: os dígitos verificadores não conferem. Confira o número digitado.")
     else:
-        st.session_state['cnpj_consulta'] = cnpj_limpo
-        st.session_state['anos_janela'] = anos_janela
-
-        ano_atual = hoje.year
-        anos_busca = list(range(ano_atual, ano_atual - anos_janela, -1))
+        hoje = datetime.date.today()
+        data_min = hoje - datetime.timedelta(days=365 * anos_janela)
+        # cada fonte é consultada de forma independente; a falha de uma não esconde as demais
+        status_fontes = []
 
         with st.spinner(f"Consultando bases de dados para o CNPJ {formatar_cnpj(cnpj_limpo)}..."):
-            # 1) Dados cadastrais (OpenCNPJ + BrasilAPI como fallback)
-            dados_empresa = consultar_opencnpj(cnpj_limpo)
-            dados_brasil_api = consultar_brasilapi(cnpj_limpo)
+            progresso = st.progress(0, text="Consultando dados cadastrais...")
+            cadastro = consultar_cadastro_cnpj(cnpj_limpo)
+            for fonte, erro in cadastro["erros"].items():
+                status_fontes.append(("OpenCNPJ" if fonte == "opencnpj" else "BrasilAPI", erro))
 
-            # 2) Contratos via PNCP Search API (todos os contratos onde este CNPJ é o contratado)
-            progress_contratos = st.progress(0, text="Consultando contratos no PNCP...")
-            todos_contratos = consultar_pncp_search(cnpj_limpo, "contrato")
-            progress_contratos.progress(0.20, text="Consultando compras/licitações no PNCP...")
+            progresso.progress(0.15, text="Consultando contratos no PNCP...")
+            contratos_pncp, erro = pncp_search(cnpj_limpo, "contrato", data_min)
+            if erro:
+                status_fontes.append(("PNCP — contratos", erro))
 
-            # 3) Compras/licitações (pregões, concorrências etc.)
-            compras_pncp = consultar_pncp_compras(cnpj_limpo)
-            progress_contratos.progress(0.40, text="Consultando atas de registro de preços (PNCP)...")
+            progresso.progress(0.35, text="Consultando compras/licitações no PNCP...")
+            compras_pncp, erro = pncp_search(cnpj_limpo, "compra", data_min)
+            if erro:
+                status_fontes.append(("PNCP — compras", erro))
 
-            # 4) Atas de Registro de Preços via PNCP Search API
-            atas_pncp = consultar_pncp_atas(cnpj_limpo, anos_janela)
-            progress_contratos.progress(0.60, text="Consultando atas e adesões vigentes (dadosabertos)...")
+            progresso.progress(0.55, text="Consultando atas de registro de preços (PNCP)...")
+            atas_pncp, erro = pncp_search(cnpj_limpo, "ata", data_min)
+            if erro:
+                status_fontes.append(("PNCP — atas", erro))
 
-            # 5) Itens de ARP via dadosabertos (por niFornecedor / CNPJ)
-            atas_dadosabertos = consultar_dadosabertos_arps(cnpj_limpo, anos_janela, apenas_vigentes=False)
-            # Vigentes = dataVigenciaFinal >= hoje E maximoAdesao > 0
-            hoje_str = datetime.date.today().strftime("%Y-%m-%d")
-            adesoes_vigentes = [
-                a for a in atas_dadosabertos
-                if str(a.get('dataVigenciaFinal', ''))[:10] >= hoje_str
-                   and (a.get('maximoAdesao') or 0) > 0
-            ]
-            progress_contratos.progress(0.80, text="Classificando resultados...")
+            progresso.progress(0.75, text="Consultando atas e adesões vigentes (Compras.gov.br)...")
+            atas_dadosabertos, erro = itens_arp_por_fornecedor(cnpj_limpo, anos_janela)
+            if erro:
+                status_fontes.append(("Compras.gov.br — ARP", erro))
 
-            # 6) Todos os contratos vão para a aba Contratos Governamentais (independente da modalidade)
-            #    A aba Dispensas recebe apenas as compras (processos de compra) com modalidade dispensa
-            contratos_pncp = todos_contratos  # TODOS os contratos onde este CNPJ é fornecedor
-            dispensas_pncp = []              # Contratos por dispensa ficam na aba contratos também
+            # pregões/concorrências → aba Contratos; dispensas e inexigibilidades → aba Dispensas
+            def _direta(c):
+                return str(c.get('modalidade_licitacao_nome') or '').lower() in ('dispensa', 'inexigibilidade')
 
-            # 7) Separar compras por modalidade — pregões → Contratos, dispensas → Dispensas
-            compras_pregao = [c for c in compras_pncp
-                              if c.get('modalidade_licitacao_nome', '').lower() not in ('dispensa', 'inexigibilidade')]
-            compras_dispensa = [c for c in compras_pncp
-                                if c.get('modalidade_licitacao_nome', '').lower() in ('dispensa', 'inexigibilidade')]
+            progresso.progress(1.0, text="Consulta concluída!")
+            progresso.empty()
 
-            progress_contratos.progress(1.0, text="Consulta concluída!")
-            progress_contratos.empty()
-
-        st.session_state['dados_empresa'] = dados_empresa
-        st.session_state['dados_brasil_api'] = dados_brasil_api
+        st.session_state['cnpj_consulta'] = cnpj_limpo
+        st.session_state['dados_empresa'] = cadastro["opencnpj"]
+        st.session_state['dados_brasil_api'] = cadastro["brasilapi"]
         st.session_state['contratos_pncp'] = contratos_pncp
-        st.session_state['dispensas_pncp'] = dispensas_pncp
-        st.session_state['compras_pregao'] = compras_pregao
-        st.session_state['compras_dispensa'] = compras_dispensa
+        st.session_state['compras_pregao'] = [c for c in compras_pncp if not _direta(c)]
+        st.session_state['compras_dispensa'] = [c for c in compras_pncp if _direta(c)]
         st.session_state['atas_pncp'] = atas_pncp
         st.session_state['atas_dadosabertos'] = atas_dadosabertos
-        st.session_state['adesoes_vigentes'] = adesoes_vigentes
-        st.session_state['anos_busca'] = anos_busca
-        st.session_state['data_ini'] = data_ini
-        st.session_state['data_fim'] = data_fim
+        st.session_state['status_fontes'] = status_fontes
+        st.session_state['anos_janela_consulta'] = anos_janela
 
 
 # ===================== EXIBIÇÃO POR ABAS =====================
@@ -692,17 +376,20 @@ if 'cnpj_consulta' in st.session_state:
     dados_empresa = st.session_state.get('dados_empresa')
     dados_brasil_api = st.session_state.get('dados_brasil_api')
     contratos_pncp = st.session_state.get('contratos_pncp', [])
-    dispensas_pncp = st.session_state.get('dispensas_pncp', [])
     compras_pregao = st.session_state.get('compras_pregao', [])
     compras_dispensa = st.session_state.get('compras_dispensa', [])
     atas_pncp = st.session_state.get('atas_pncp', [])
     atas_dadosabertos = st.session_state.get('atas_dadosabertos', [])
-    adesoes_vigentes = st.session_state.get('adesoes_vigentes', [])
-    anos_busca = st.session_state.get('anos_busca', [])
-    data_ini = st.session_state.get('data_ini', '')
-    data_fim = st.session_state.get('data_fim', '')
+    status_fontes = st.session_state.get('status_fontes', [])
+    anos_consulta = st.session_state.get('anos_janela_consulta', 3)
 
     st.markdown("---")
+
+    if status_fontes:
+        st.warning("⚠️ Algumas fontes não responderam e os resultados podem estar incompletos. Tente novamente em alguns minutos.")
+        for fonte, erro in status_fontes:
+            st.caption(f"• **{fonte}**: {erro}")
+    st.caption(f"Período consultado: últimos {anos_consulta} ano(s) (contratos, compras, atas e ARPs).")
 
     tab_empresa, tab_contratos, tab_atas, tab_adesoes, tab_compras, tab_nf = st.tabs([
         "🏢 Dados da Empresa",
@@ -767,12 +454,12 @@ if 'cnpj_consulta' in st.session_state:
                 st.markdown(f"""
                 <div class="info-card">
                     <div class="info-title">Identificação</div>
-                    <div class="info-item"><span class="info-label">Razão Social:</span> <span class="info-value">{dados_empresa.get('razao_social', 'N/A')}</span></div>
-                    <div class="info-item"><span class="info-label">Nome Fantasia:</span> <span class="info-value">{dados_empresa.get('nome_fantasia', 'N/A')}</span></div>
+                    <div class="info-item"><span class="info-label">Razão Social:</span> <span class="info-value">{esc(dados_empresa.get('razao_social'))}</span></div>
+                    <div class="info-item"><span class="info-label">Nome Fantasia:</span> <span class="info-value">{esc(dados_empresa.get('nome_fantasia'))}</span></div>
                     <div class="info-item"><span class="info-label">CNPJ:</span> <span class="info-value">{formatar_cnpj(cnpj_limpo)}</span></div>
-                    <div class="info-item"><span class="info-label">Situação:</span> <span class="info-value">{situacao}</span></div>
-                    <div class="info-item"><span class="info-label">Capital Social:</span> <span class="info-value">R$ {dados_empresa.get('capital_social', 'N/A')}</span></div>
-                    <div class="info-item"><span class="info-label">Porte:</span> <span class="info-value">{dados_empresa.get('porte_empresa', 'N/A')}</span></div>
+                    <div class="info-item"><span class="info-label">Situação:</span> <span class="info-value">{esc(situacao)}</span></div>
+                    <div class="info-item"><span class="info-label">Capital Social:</span> <span class="info-value">R$ {esc(dados_empresa.get('capital_social'))}</span></div>
+                    <div class="info-item"><span class="info-label">Porte:</span> <span class="info-value">{esc(dados_empresa.get('porte_empresa'))}</span></div>
                 </div>
                 """, unsafe_allow_html=True)
             with e_col2:
@@ -781,11 +468,11 @@ if 'cnpj_consulta' in st.session_state:
                 st.markdown(f"""
                 <div class="info-card">
                     <div class="info-title">Contato e Endereço</div>
-                    <div class="info-item"><span class="info-label">📧 Email:</span> <span class="info-value">{email_display}</span></div>
-                    <div class="info-item"><span class="info-label">📞 Telefone:</span> <span class="info-value">{tel_display}</span></div>
-                    <div class="info-item"><span class="info-label">📍 Endereço:</span> <span class="info-value">{ender}</span></div>
-                    <div class="info-item"><span class="info-label">🏙️ Cidade/UF:</span> <span class="info-value">{cidade_uf}</span></div>
-                    <div class="info-item"><span class="info-label">📮 CEP:</span> <span class="info-value">{dados_empresa.get('cep', 'N/A')}</span></div>
+                    <div class="info-item"><span class="info-label">📧 Email:</span> <span class="info-value">{esc(email_display)}</span></div>
+                    <div class="info-item"><span class="info-label">📞 Telefone:</span> <span class="info-value">{esc(tel_display)}</span></div>
+                    <div class="info-item"><span class="info-label">📍 Endereço:</span> <span class="info-value">{esc(ender)}</span></div>
+                    <div class="info-item"><span class="info-label">🏙️ Cidade/UF:</span> <span class="info-value">{esc(cidade_uf)}</span></div>
+                    <div class="info-item"><span class="info-label">📮 CEP:</span> <span class="info-value">{esc(dados_empresa.get('cep'))}</span></div>
                 </div>
                 """, unsafe_allow_html=True)
 
@@ -810,7 +497,7 @@ if 'cnpj_consulta' in st.session_state:
                     })
                 st.dataframe(pd.DataFrame(qsa_data), use_container_width=True, hide_index=True)
         else:
-            st.warning("Não foi possível carregar os dados cadastrais desta empresa (OpenCNPJ).")
+            st.warning("Não foi possível carregar os dados cadastrais desta empresa (OpenCNPJ). Veja o aviso de fontes acima, se houver.")
 
     # ==================== ABA 2: CONTRATOS ====================
     with tab_contratos:
@@ -824,33 +511,7 @@ if 'cnpj_consulta' in st.session_state:
                        f"({len(contratos_pncp)} contratos, {len(compras_pregao)} compras/licitações).")
 
             for c in todos_contratos_aba:
-                orgao_nome = c.get('orgao_nome', 'N/A')
-                unidade_nome = c.get('unidade_nome', '')
-                valor = c.get('valor_global', 0)
-                titulo = c.get('title', 'N/A')
-                descricao = c.get('description', 'N/A')
-                vigencia_inicio = c.get('data_inicio_vigencia', 'N/A')
-                vigencia_fim = c.get('data_fim_vigencia', 'N/A')
-                modalidade = c.get('modalidade_licitacao_nome', 'N/A')
-                situacao = c.get('situacao_nome', 'N/A')
-                uf = c.get('uf', '')
-                municipio = c.get('municipio_nome', '')
-                url_pncp = c.get('item_url', '')
-                link_pncp = f"https://pncp.gov.br/app{url_pncp}" if url_pncp else ''
-
-                st.markdown(f"""
-                <div class="contract-card">
-                    <div class="contract-title">📄 {titulo} — {orgao_nome}</div>
-                    <div style="margin-bottom:0.3rem; color:#cbd5e1;"><strong>Unidade:</strong> {unidade_nome} ({municipio}/{uf})</div>
-                    <div style="margin-bottom:0.3rem; color:#cbd5e1;"><strong>Modalidade:</strong> {modalidade} | <strong>Situação:</strong> {situacao}</div>
-                    <div style="margin-bottom:0.5rem; color:#cbd5e1;"><strong>Objeto:</strong> {str(descricao)[:200]}</div>
-                    <div style="display:flex; justify-content:space-between; flex-wrap:wrap; color:#cbd5e1; font-size:0.9rem;">
-                        <div><strong>Vigência:</strong> {vigencia_inicio} a {vigencia_fim}</div>
-                        <div style="color:#d4af37; font-weight:bold;">Valor: {formatar_moeda_br(valor)}</div>
-                    </div>
-                    {'<div style="margin-top:0.5rem;"><a href="' + link_pncp + '" target="_blank" style="color:#4da6ff;">🔗 Ver no PNCP</a></div>' if link_pncp else ''}
-                </div>
-                """, unsafe_allow_html=True)
+                card_pncp("📄", c, "Vigência", f"{c.get('data_inicio_vigencia') or 'N/A'} a {c.get('data_fim_vigencia') or 'N/A'}", c.get('valor_global', 0))
 
             # Tabela resumo
             with st.expander("📊 Ver tabela resumo dos contratos/licitações"):
@@ -877,32 +538,7 @@ if 'cnpj_consulta' in st.session_state:
             st.success(f"Encontradas **{len(atas_pncp)}** atas de registro de preços associadas a este CNPJ.")
 
             for ata in atas_pncp:
-                orgao_nome = ata.get('orgao_nome', 'N/A')
-                unidade_nome = ata.get('unidade_nome', '')
-                titulo = ata.get('title', 'N/A')
-                descricao = ata.get('description', 'N/A')
-                data_pub = str(ata.get('data_publicacao_pncp', ''))[:10]
-                situacao = ata.get('situacao_nome', 'N/A')
-                modalidade = ata.get('modalidade_licitacao_nome', 'N/A')
-                valor = ata.get('valor_global') or ata.get('valor_total_estimado', 0)
-                uf = ata.get('uf', '')
-                municipio = ata.get('municipio_nome', '')
-                url_pncp = ata.get('item_url', '')
-                link_pncp = f"https://pncp.gov.br/app{url_pncp}" if url_pncp else ''
-
-                st.markdown(f"""
-                <div class="contract-card">
-                    <div class="contract-title">📑 {titulo} — {orgao_nome}</div>
-                    <div style="margin-bottom:0.3rem; color:#cbd5e1;"><strong>Unidade:</strong> {unidade_nome} ({municipio}/{uf})</div>
-                    <div style="margin-bottom:0.3rem; color:#cbd5e1;"><strong>Modalidade:</strong> {modalidade} | <strong>Situação:</strong> {situacao}</div>
-                    <div style="margin-bottom:0.5rem; color:#cbd5e1;"><strong>Objeto:</strong> {str(descricao)[:200]}</div>
-                    <div style="display:flex; justify-content:space-between; flex-wrap:wrap; color:#cbd5e1; font-size:0.9rem;">
-                        <div><strong>Publicação:</strong> {data_pub}</div>
-                        <div style="color:#d4af37; font-weight:bold;">Valor: {formatar_moeda_br(valor)}</div>
-                    </div>
-                    {'<div style="margin-top:0.5rem;"><a href="' + link_pncp + '" target="_blank" style="color:#4da6ff;">🔗 Ver no PNCP</a></div>' if link_pncp else ''}
-                </div>
-                """, unsafe_allow_html=True)
+                card_pncp("📑", ata, "Publicação", str(ata.get('data_publicacao_pncp', ''))[:10], ata.get('valor_global') or ata.get('valor_total_estimado', 0))
 
             with st.expander("📊 Ver tabela resumo das atas"):
                 df_atas = pd.DataFrame([{
@@ -924,12 +560,9 @@ if 'cnpj_consulta' in st.session_state:
         st.write("##### Fonte: ComprasGov — Itens de ARP onde este CNPJ é fornecedor registrado")
 
         # Dados vindos de 2_consultarARPItem (niFornecedor)
-        todos_itens_arp = atas_dadosabertos if atas_dadosabertos else []
+        todos_itens_arp = atas_dadosabertos or []
         hoje_str = datetime.date.today().strftime("%Y-%m-%d")
-        vigentes = [a for a in todos_itens_arp
-                    if str(a.get('dataVigenciaFinal', ''))[:10] >= hoje_str
-                       and (a.get('maximoAdesao') or 0) > 0]
-        encerradas = [a for a in todos_itens_arp if a not in vigentes]
+        vigentes, encerradas = separar_vigentes(todos_itens_arp)
 
         if todos_itens_arp:
             st.success(f"Encontrados **{len(todos_itens_arp)}** itens de ARP associados a este CNPJ "
@@ -1018,38 +651,13 @@ if 'cnpj_consulta' in st.session_state:
         st.markdown("### Dispensas / Contratação Direta")
         st.write("##### Fonte: PNCP — Portal Nacional de Contratações Públicas")
 
-        todas_dispensas_aba = dispensas_pncp + compras_dispensa
+        todas_dispensas_aba = compras_dispensa
 
         if todas_dispensas_aba and len(todas_dispensas_aba) > 0:
             st.success(f"Encontradas **{len(todas_dispensas_aba)}** compras/contratações diretas associadas a este CNPJ.")
 
             for c in todas_dispensas_aba:
-                orgao_nome = c.get('orgao_nome', 'N/A')
-                unidade_nome = c.get('unidade_nome', '')
-                valor = c.get('valor_global') or c.get('valor_total_estimado', 0)
-                titulo = c.get('title', 'N/A')
-                descricao = c.get('description', 'N/A')
-                modalidade = c.get('modalidade_licitacao_nome', 'N/A')
-                situacao = c.get('situacao_nome', 'N/A')
-                data_pub = c.get('data_publicacao_pncp', 'N/A')
-                uf = c.get('uf', '')
-                municipio = c.get('municipio_nome', '')
-                url_pncp = c.get('item_url', '')
-                link_pncp = f"https://pncp.gov.br/app{url_pncp}" if url_pncp else ''
-
-                st.markdown(f"""
-                <div class="contract-card">
-                    <div class="contract-title">🛒 {titulo} — {orgao_nome}</div>
-                    <div style="margin-bottom:0.3rem; color:#cbd5e1;"><strong>Unidade:</strong> {unidade_nome} ({municipio}/{uf})</div>
-                    <div style="margin-bottom:0.3rem; color:#cbd5e1;"><strong>Modalidade:</strong> {modalidade} | <strong>Situação:</strong> {situacao}</div>
-                    <div style="margin-bottom:0.5rem; color:#cbd5e1;"><strong>Objeto:</strong> {str(descricao)[:200]}</div>
-                    <div style="display:flex; justify-content:space-between; flex-wrap:wrap; color:#cbd5e1; font-size:0.9rem;">
-                        <div><strong>Publicação:</strong> {str(data_pub)[:10]}</div>
-                        <div style="color:#d4af37; font-weight:bold;">Valor: {formatar_moeda_br(valor)}</div>
-                    </div>
-                    {'<div style="margin-top:0.5rem;"><a href="' + link_pncp + '" target="_blank" style="color:#4da6ff;">🔗 Ver no PNCP</a></div>' if link_pncp else ''}
-                </div>
-                """, unsafe_allow_html=True)
+                card_pncp("🛒", c, "Publicação", str(c.get('data_publicacao_pncp', ''))[:10], c.get('valor_global') or c.get('valor_total_estimado', 0))
 
             with st.expander("📊 Ver tabela resumo"):
                 df_dispensas = pd.DataFrame([{
@@ -1105,10 +713,10 @@ if 'cnpj_consulta' in st.session_state:
                 progress_nf = st.progress(0, text=f"Baixando {nome_arquivo}...")
 
                 try:
-                    caminho = baixar_arquivo_csv(file_id, progress_bar=progress_nf)
+                    caminho = baixar_csv_drive(file_id, progresso=lambda fracao, texto: progress_nf.progress(fracao, text=texto))
                     progress_nf.progress(0.5, text=f"Pesquisando CNPJ em {nome_arquivo}...")
 
-                    df_resultado, total_linhas = pesquisar_notas_por_cnpj(caminho, cnpj_limpo)
+                    df_resultado, total_linhas = pesquisar_notas(caminho, cnpj_limpo)
                     progress_nf.progress(1.0, text=f"Concluído: {nome_arquivo}")
                     progress_nf.empty()
 
@@ -1116,18 +724,24 @@ if 'cnpj_consulta' in st.session_state:
                         df_resultado = df_resultado.copy()
                         df_resultado['_arquivo_origem'] = nome_arquivo
                         resultados_nf_total.append(df_resultado)
-                        st.success(f"✅ {nome_arquivo}: **{len(df_resultado)}** notas encontradas (de {total_linhas:,} registros)")
+                        resumo_mes = resumo_notas(df_resultado)
+                        st.success(f"✅ {nome_arquivo}: **{resumo_mes['notas']}** nota(s) em {resumo_mes['itens']} linha(s) de item (de {total_linhas:,} registros)")
                     else:
                         st.info(f"📭 {nome_arquivo}: Nenhuma nota encontrada para este CNPJ.")
 
-                except Exception as e:
+                except (RuntimeError, OSError, ValueError) as e:
                     progress_nf.empty()
-                    st.error(f"❌ Erro ao processar {nome_arquivo}: {str(e)}")
+                    st.error(f"❌ Erro ao processar {nome_arquivo}: {e}")
+                except Exception as e:  # falha de rede/Drive: mostra o tipo para facilitar o diagnóstico
+                    progress_nf.empty()
+                    st.error(f"❌ Erro ao baixar/processar {nome_arquivo} ({type(e).__name__}): {e}")
 
             if resultados_nf_total:
                 df_todas_nf = pd.concat(resultados_nf_total, ignore_index=True)
                 st.markdown("---")
-                st.markdown(f"### Resultados Consolidados: {len(df_todas_nf)} notas fiscais encontradas")
+                resumo = resumo_notas(df_todas_nf)
+                st.markdown("---")
+                st.markdown(f"### Resultados Consolidados: {resumo['notas']} nota(s) fiscal(is) em {resumo['itens']} linhas de item")
 
                 colunas_prio = [
                     '_arquivo_origem',
@@ -1152,17 +766,14 @@ if 'cnpj_consulta' in st.session_state:
 
                 col_s1, col_s2, col_s3 = st.columns(3)
                 with col_s1:
-                    st.metric("Total de Notas", len(df_todas_nf))
+                    st.metric("Notas fiscais (distintas)", resumo['notas'], help=f"{resumo['itens']} linhas de item no total.")
                 with col_s2:
-                    if 'VALOR TOTAL DA NOTA' in df_todas_nf.columns:
-                        try:
-                            val_total = pd.to_numeric(
-                                df_todas_nf['VALOR TOTAL DA NOTA'].str.replace(',', '.'),
-                                errors='coerce'
-                            ).sum()
-                            st.metric("Valor Total", formatar_moeda_br(val_total))
-                        except:
-                            st.metric("Valor Total", "N/A")
+                    if resumo['valor'] is None:
+                        st.metric("Valor total", "N/A")
+                    else:
+                        st.metric("Valor total", formatar_moeda_br(resumo['valor']),
+                                  help="Soma dos itens das notas encontradas." if resumo['base'] == 'itens'
+                                  else "Valor da nota contado uma única vez por nota fiscal.")
                 with col_s3:
                     periodos = df_todas_nf['_arquivo_origem'].nunique() if '_arquivo_origem' in df_todas_nf.columns else 0
                     st.metric("Períodos com notas", periodos)

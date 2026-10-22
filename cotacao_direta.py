@@ -18,6 +18,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import requests
 
+from servicos_publicos import cnpj_valido, formatar_cnpj  # noqa: F401  (utilitários de CNPJ compartilhados; cd.cnpj_valido/cd.formatar_cnpj são usados pela página)
 from lista_itens import formatar_quantidade, interpretar_linha, interpretar_lista, itens_do_dataframe  # noqa: F401  (a lista de itens é compartilhada com as outras páginas)
 
 # ---------- parâmetros ----------
@@ -69,24 +70,6 @@ def consultar_cep(cep: str) -> dict[str, str] | None:
     except (requests.RequestException, ValueError):
         pass
     return None
-
-
-def formatar_cnpj(cnpj: object) -> str:
-    d = somente_digitos(cnpj)
-    return f"{d[:2]}.{d[2:5]}.{d[5:8]}/{d[8:12]}-{d[12:14]}" if len(d) == 14 else str(cnpj or "")
-
-
-def cnpj_valido(cnpj: object) -> bool:
-    """14 dígitos, não todos iguais e com os dois dígitos verificadores corretos."""
-    d = somente_digitos(cnpj)
-    if len(d) != 14 or len(set(d)) == 1:
-        return False
-    for tamanho in (12, 13):
-        pesos = ([5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2] if tamanho == 12 else [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2])
-        resto = sum(int(n) * p for n, p in zip(d[:tamanho], pesos)) % 11
-        if int(d[tamanho]) != (0 if resto < 2 else 11 - resto):
-            return False
-    return True
 
 
 def endereco_completo(om: dict[str, str]) -> str:
