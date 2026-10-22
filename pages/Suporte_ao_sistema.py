@@ -184,8 +184,8 @@ if mostrar:
         for coluna, pessoa in zip(colunas, CONTRIBUIDORES[inicio:inicio + por_linha]):
             with coluna:
                 st.download_button(
-                    f"**{pessoa['nome']}**  \nNIP {pessoa['nip']}  \n{pessoa.get('papel', '')}",
+                    f"**{pessoa['nome']}**  \n{pessoa.get('papel', '')}",
                     data=gerar_card_pdf(pessoa), file_name=nome_do_arquivo(pessoa), mime="application/pdf",
-                    key=f"su_card_{pessoa['nip']}", use_container_width=True,
+                    key=f"su_card_{inicio}_{pessoa['nome']}", use_container_width=True,
                 )
 
