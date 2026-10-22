@@ -63,3 +63,10 @@ def test_sancoes_vigente_e_encerrada(tmp_path, monkeypatch):
     resultado, datas, erro = sp.consultar_sancoes("00394460000141")
     assert erro is None and datas["CEIS"] == "2026-01-01"
     assert [r["vigente"] for r in resultado["CEIS"]] == [True, False]
+
+
+def test_texto_sicaf():
+    assert sp.texto_sicaf({"encontrado": False}) == "Não cadastrado"
+    assert sp.texto_sicaf({"encontrado": True, "ativo": True, "habilitado": True}) == "Ativo e habilitado a licitar"
+    assert sp.texto_sicaf({"encontrado": True, "ativo": True, "habilitado": False}) == "Ativo, não habilitado a licitar"
+    assert sp.texto_sicaf({"encontrado": True, "ativo": False, "habilitado": False}) == "Cadastro inativo"

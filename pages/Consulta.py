@@ -10,16 +10,16 @@ from fornecedores_nf import formatar_cnae
 from relatorio_fornecedor import gerar_ficha_pdf
 try:
     from servicos_publicos import (
-        baixar_csv_drive, cnpj_valido, consultar_cadastro_cnpj, consultar_sancoes, formatar_cnpj, gerar_excel, itens_arp_por_fornecedor, limpar_cnpj,
-        listar_arquivos_drive, pesquisar_notas_por_cnpj, pncp_search, resumo_notas, separar_vigentes,
+        baixar_csv_drive, cnpj_valido, consultar_cadastro_cnpj, consultar_sancoes, consultar_sicaf, formatar_cnpj, gerar_excel, itens_arp_por_fornecedor, limpar_cnpj,
+        listar_arquivos_drive, pesquisar_notas_por_cnpj, pncp_search, resumo_notas, separar_vigentes, texto_sicaf,
     )
 except ImportError:  # após uma atualização do código o servidor pode manter a versão antiga do módulo em memória
     import importlib
     import servicos_publicos
     importlib.reload(servicos_publicos)
     from servicos_publicos import (
-        baixar_csv_drive, cnpj_valido, consultar_cadastro_cnpj, consultar_sancoes, formatar_cnpj, gerar_excel, itens_arp_por_fornecedor, limpar_cnpj,
-        listar_arquivos_drive, pesquisar_notas_por_cnpj, pncp_search, resumo_notas, separar_vigentes,
+        baixar_csv_drive, cnpj_valido, consultar_cadastro_cnpj, consultar_sancoes, consultar_sicaf, formatar_cnpj, gerar_excel, itens_arp_por_fornecedor, limpar_cnpj,
+        listar_arquivos_drive, pesquisar_notas_por_cnpj, pncp_search, resumo_notas, separar_vigentes, texto_sicaf,
     )
 
 # Configuração da página
@@ -376,10 +376,11 @@ if (btn_consultar or _prefill_cnpj) and cnpj_input:
             "atas": lambda: pncp_search(cnpj_limpo, "ata", data_min),
             "arp": lambda: itens_arp_por_fornecedor(cnpj_limpo, anos_janela),
             "sancoes": lambda: consultar_sancoes(cnpj_limpo),
+            "sicaf": lambda: consultar_sicaf(cnpj_limpo),
         }
         resultados = {}
         with st.spinner(f"Consultando bases de dados para o CNPJ {formatar_cnpj(cnpj_limpo)}..."):
-            progresso = st.progress(0, text="Consultando 6 fontes em paralelo...")
+            progresso = st.progress(0, text="Consultando 7 fontes em paralelo...")
             with ThreadPoolExecutor(max_workers=len(tarefas)) as pool:
                 futuros = {pool.submit(fn): nome for nome, fn in tarefas.items()}
                 for i, futuro in enumerate(as_completed(futuros), start=1):
@@ -402,10 +403,12 @@ if (btn_consultar or _prefill_cnpj) and cnpj_input:
         atas_pncp, erro_atas = _res("atas", [])
         atas_dadosabertos, erro_arp = _res("arp", [])
         sancoes, datas_sancoes, erro_sancoes = (resultados.get("sancoes") or ({}, {}, resultados.get("sancoes_erro", "falha na consulta")))
+        sicaf, erro_sicaf = _res("sicaf", {})
         status_fontes = [
             ("OpenCNPJ", cadastro["erros"].get("opencnpj")), ("BrasilAPI", cadastro["erros"].get("brasilapi")),
             ("PNCP — contratos", erro_contratos), ("PNCP — compras", erro_compras), ("PNCP — atas", erro_atas),
             ("Compras.gov.br — ARP", erro_arp), ("Sanções (CEIS/CNEP/CEPIM)", erro_sancoes),
+            ("Cadastro de fornecedores (SICAF)", erro_sicaf),
         ]
 
         # pregões/concorrências → aba Contratos; dispensas e inexigibilidades → aba Dispensas
@@ -421,6 +424,7 @@ if (btn_consultar or _prefill_cnpj) and cnpj_input:
         st.session_state['atas_pncp'] = atas_pncp
         st.session_state['atas_dadosabertos'] = atas_dadosabertos
         st.session_state['sancoes'] = sancoes
+        st.session_state['sicaf'] = sicaf if not erro_sicaf else None
         st.session_state['datas_sancoes'] = datas_sancoes
         st.session_state['status_fontes'] = status_fontes
         st.session_state['anos_janela_consulta'] = anos_janela
@@ -438,6 +442,7 @@ if 'cnpj_consulta' in st.session_state:
     atas_pncp = st.session_state.get('atas_pncp', [])
     atas_dadosabertos = st.session_state.get('atas_dadosabertos', [])
     sancoes = st.session_state.get('sancoes', {})
+    sicaf = st.session_state.get('sicaf')
     datas_sancoes = st.session_state.get('datas_sancoes', {})
     status_fontes = st.session_state.get('status_fontes', [])
     anos_consulta = st.session_state.get('anos_janela_consulta', 3)
@@ -490,6 +495,7 @@ if 'cnpj_consulta' in st.session_state:
             ('Início da atividade', dados_empresa.get('data_inicio_atividade', '')),
             ('Simples', _situacao_simples(dados_empresa.get('opcao_simples'))), ('MEI', _situacao_simples(dados_empresa.get('opcao_mei'))),
             ('CNAE principal', formatar_cnae(dados_empresa.get('cnae_principal'))),
+            ('Cadastro de fornecedores (SICAF)', texto_sicaf(sicaf) if sicaf is not None else 'Não consultado'),
             ('E-mail', dados_empresa.get('email') or (dados_brasil_api or {}).get('email', '')),
             ('Município/UF', f"{dados_empresa.get('municipio', '')}/{dados_empresa.get('uf', '')}"),
         ], columns=['Campo', 'Valor'])
@@ -548,6 +554,18 @@ if 'cnpj_consulta' in st.session_state:
         if dados_empresa:
             nome_display = dados_empresa.get('nome_fantasia') or dados_empresa.get('razao_social', '')
             st.markdown(f"### Informações da Empresa: {nome_display}")
+
+            # ---- Cadastro de fornecedores do Compras.gov.br (SICAF) ----
+            if sicaf is None:
+                st.info("🏛️ **SICAF:** não foi possível consultar o cadastro de fornecedores agora.")
+            elif not sicaf.get("encontrado"):
+                st.warning("🏛️ **SICAF:** CNPJ não encontrado no cadastro de fornecedores do Compras.gov.br. "
+                           "Para participar de licitações federais a empresa precisa se cadastrar no SICAF.")
+            elif sicaf.get("ativo") and sicaf.get("habilitado"):
+                st.success(f"🏛️ **SICAF:** {texto_sicaf(sicaf)}" + (f" · CNAE no cadastro: {sicaf['cnae']}" if sicaf.get("cnae") else ""))
+            else:
+                st.warning(f"🏛️ **SICAF:** {texto_sicaf(sicaf)}" + (f" · CNAE no cadastro: {sicaf['cnae']}" if sicaf.get("cnae") else ""))
+            st.caption("Situação do cadastro (ativo e habilitado a licitar). A validade das certidões só é vista no próprio SICAF, com acesso do órgão.")
 
             # ---- Extrair email/telefone com fallback BrasilAPI ----
             email_raw = dados_empresa.get('email') or ''
