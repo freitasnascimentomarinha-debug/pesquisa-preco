@@ -20,9 +20,10 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 import sys as _sys
 _sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from atualizar_modulos import recarregar_se_mudou  # noqa: E402
-recarregar_se_mudou("documento_oficial", "modelos_processo")  # evita módulo antigo em memória após deploy
+recarregar_se_mudou("documento_oficial", "modelos_processo", "conferencia_processo")  # evita módulo antigo em memória após deploy
 import documento_oficial  # noqa: E402
 import modelos_processo as MP  # noqa: E402
+import conferencia_processo as CP  # noqa: E402
 
 try:
     from dotenv import load_dotenv
@@ -2260,10 +2261,11 @@ if _pre_ofad:
     st.session_state["babilaca_aba"] = ABA_DOCUMENTOS
     st.toast("✉️ Ofício de adesão preenchido com os itens escolhidos em Adesões.")
 
-tab_chat, tab_docs, tab_checklist = st.tabs([
+tab_chat, tab_docs, tab_checklist, tab_conferencia = st.tabs([
     "💬 Chat IA",
     ABA_DOCUMENTOS,
     "📋 Checklist de Processo",
+    "🔎 Conferência do Processo",
 ], key="babilaca_aba", on_change="rerun")  # com key, a página pode abrir direto na aba Documentos
 
 # ============================================================
@@ -3846,3 +3848,141 @@ with tab_checklist:
         st.download_button("💾 Salvar conferência (.json)", _json_ck.encode("utf-8"), f"{_arq_base}.json",
                            "application/json", key="dl_checklist_json", use_container_width=True,
                            help="Guarde o arquivo e carregue-o depois em 'Carregar uma conferência salva'.")
+
+
+def formatar_cnpj_conf(cnpj: str | None) -> str:
+    from servicos_publicos import formatar_cnpj
+    return formatar_cnpj(cnpj) if cnpj else ""
+
+
+def _conf_aplicar_checklist(modalidade: str, itens: list[dict]):
+    """Leva o resultado da conferência para a aba Checklist (itens encontrados ficam 'Presente')."""
+    st.session_state["checklist_modalidade"] = modalidade
+    for item in itens:
+        chave = _ck_chave(modalidade, item["texto"])
+        st.session_state[f"ck_st_{chave}"] = "Presente" if item["situacao"] == "Presente" else "Pendente"
+        st.session_state[f"ck_obs_{chave}"] = item["onde"] if item["situacao"] == "Presente" else ""
+    st.session_state["babilaca_aba"] = "📋 Checklist de Processo"
+
+
+def _conf_consultas_externas(cnpj: str) -> tuple[list[dict], list[dict]]:
+    """Sanções (CEIS/CNEP/CEPIM) e cadastro no Compras.gov.br do fornecedor identificado."""
+    from servicos_publicos import consultar_sancoes, consultar_sicaf, formatar_cnpj, texto_sicaf
+    externos, achados = [], []
+    sancoes, datas, erro = consultar_sancoes(cnpj)
+    if erro:
+        externos.append({"base": "CEIS/CNEP/CEPIM", "resultado": f"não consultado ({erro})"})
+    for base, registros in (sancoes or {}).items():
+        vigentes = [r for r in registros if r.get("vigente")]
+        externos.append({"base": f"{base} (base de {datas.get(base, '-')})",
+                         "resultado": f"{len(vigentes)} sanção(ões) vigente(s)" if vigentes else
+                         ("só sanções encerradas" if registros else "nada consta")})
+        if vigentes:
+            achados.append({"gravidade": CP.GRAVE, "titulo": f"Fornecedor com sanção vigente no {base}",
+                            "detalhe": f"{formatar_cnpj(cnpj)}: {len(vigentes)} registro(s) vigente(s). Verifique se a "
+                                       "sanção impede esta contratação (art. 156 da Lei nº 14.133/2021).", "onde": "-"})
+    sicaf, erro = consultar_sicaf(cnpj)
+    rotulo = texto_sicaf(sicaf) if not erro else f"não consultado ({erro})"
+    externos.append({"base": "Cadastro de fornecedores (SICAF)", "resultado": rotulo})
+    if not erro and rotulo != "Ativo e habilitado a licitar":
+        achados.append({"gravidade": CP.CORRIGIR, "titulo": "Fornecedor não está ativo e habilitado no SICAF",
+                        "detalhe": f"{formatar_cnpj(cnpj)}: {rotulo}. Confira o SICAF antes de contratar.", "onde": "-"})
+    return externos, achados
+
+
+# ============================================================
+# TAB 4 — CONFERÊNCIA DO PROCESSO
+# ============================================================
+with tab_conferencia:
+    st.markdown("""
+    <div class="workspace-console checklist-workspace">
+        <div class="workspace-console-content">
+            <div class="workspace-console-icon">🔎</div>
+            <div><h3>Conferência do Processo</h3><p>Envie o processo em PDF: o sistema identifica as peças, marca a lista de verificação e aponta inconsistências.</p></div>
+            <span class="workspace-console-badge">REGRAS OBJETIVAS</span>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    st.caption("O que é conferido: presença e ordem das peças; coerência de CNPJ e valores entre proposta, certidões, "
+               "crédito e empenho; validade das certidões; limite de dispensa; prazo do aviso; datas (parecer antes da "
+               "autorização, autorização antes do empenho); idade da pesquisa de preços; lacunas não preenchidas. "
+               "É uma triagem: não substitui a análise do agente de contratação nem o parecer jurídico.")
+    _cf1, _cf2 = st.columns([3, 1])
+    with _cf1:
+        conf_modalidade = st.selectbox("Modalidade ou tipo de processo", list(CHECKLIST_MODALIDADES), key="conf_modalidade")
+    with _cf2:
+        conf_ref = st.date_input("Data de referência", value=None, key="conf_ref", format="DD/MM/YYYY",
+                                 help="Data em que a validade das certidões é conferida. Em branco: data do empenho, "
+                                      "da autorização ou hoje.")
+    conf_arquivos = st.file_uploader("Arquivos do processo (PDF com texto ou Word), na ordem do processo",
+                                     type=["pdf", "docx"], accept_multiple_files=True, key="conf_arquivos")
+    conf_externas = st.checkbox("Consultar também sanções (CEIS/CNEP/CEPIM) e SICAF do fornecedor identificado",
+                                value=True, key="conf_externas")
+    if st.button("🔎 Conferir processo", key="btn_conferir", type="primary", use_container_width=True,
+                 disabled=not conf_arquivos):
+        with st.spinner("Lendo as páginas e conferindo o processo..."):
+            _pags = CP.extrair_paginas([(a.name, a.getvalue()) for a in conf_arquivos])
+            _res = CP.conferir(_pags, conf_modalidade, conf_ref)
+            _ext = []
+            if conf_externas and _res["dados"]["contratado"]:
+                _ext, _ach = _conf_consultas_externas(_res["dados"]["contratado"])
+                _res["achados"] = sorted(_res["achados"] + _ach, key=lambda a: CP.ORDEM_GRAVIDADE[a["gravidade"]])
+        st.session_state["conf_resultado"] = {"res": _res, "ext": _ext, "modalidade": conf_modalidade,
+                                              "arquivos": [a.name for a in conf_arquivos]}
+
+    _conf = st.session_state.get("conf_resultado")
+    if _conf:
+        _res = _conf["res"]
+        _cont = {g: sum(1 for a in _res["achados"] if a["gravidade"] == g) for g in (CP.GRAVE, CP.CORRIGIR, CP.SUGESTAO)}
+        _presentes = sum(1 for c in _res["checklist"] if c["situacao"] == "Presente")
+        _m1, _m2, _m3, _m4 = st.columns(4)
+        _m1.metric("🔴 Graves", _cont[CP.GRAVE])
+        _m2.metric("🟡 A corrigir", _cont[CP.CORRIGIR])
+        _m3.metric("🔵 Sugestões", _cont[CP.SUGESTAO])
+        _m4.metric("Itens encontrados", f"{_presentes}/{len(_res['checklist'])}")
+        _d = _res["dados"]
+        st.caption(f"Fornecedor identificado: **{formatar_cnpj_conf(_d['contratado']) or 'não identificado'}** · valor estimado: "
+                   f"**{CP.brl(_d['total']).replace('$', chr(92) + '$')}** · referência: **{CP.fmt(_d['referencia'])}** · "
+                   f"{len(_res['paginas'])} página(s) em {len(_conf['arquivos'])} arquivo(s).")
+        for _aviso in _res["avisos"]:
+            st.warning(_aviso)
+        if _conf["modalidade"] != conf_modalidade:
+            st.info(f"Resultado da conferência feita como **{_conf['modalidade']}**. Clique em Conferir para refazer.")
+
+        st.markdown("##### Inconsistências")
+        if not _res["achados"]:
+            st.success("Nenhuma inconsistência encontrada pelas regras automáticas.")
+        for _a in _res["achados"]:
+            with st.container(border=True):
+                st.markdown(f"{_a['gravidade']} **{_a['titulo']}**".replace("$", "\\$"))
+                st.caption((f"{_a['detalhe']}" + (f" · 📍 {_a['onde']}" if _a["onde"] != "-" else "")).replace("$", "\\$"))
+        if _conf["ext"]:
+            st.markdown("##### Consultas do fornecedor")
+            st.dataframe(pd.DataFrame(_conf["ext"]).rename(columns={"base": "Base", "resultado": "Resultado"}),
+                         hide_index=True, width="stretch")
+        with st.expander("📑 Peças identificadas", expanded=False):
+            st.dataframe(pd.DataFrame([{"Peça": CP.ROTULO[d["tipo"]], "Onde": CP.onde(_res["paginas"], d["indices"]),
+                                        "Data": CP.fmt(d["data"])} for d in _res["docs"]]),
+                         hide_index=True, width="stretch")
+        with st.expander("📋 Lista de verificação marcada", expanded=False):
+            st.dataframe(pd.DataFrame([{"Item": c["texto"], "Situação": c["situacao"], "Onde": c["onde"]}
+                                       for c in _res["checklist"]]), hide_index=True, width="stretch")
+        st.button("📋 Levar o resultado para a aba Checklist", key="btn_conf_ck", use_container_width=True,
+                  on_click=_conf_aplicar_checklist, args=(_conf["modalidade"], _res["checklist"]))
+
+        _corpo_conf = CP.corpo_relatorio(_res, _conf["modalidade"], _conf["arquivos"], _conf["ext"])
+        _titulo_conf = "RELATÓRIO DE CONFERÊNCIA DO PROCESSO"
+        _faltam_conf = _pendencias_documento()
+        if _faltam_conf:
+            st.warning("Para baixar o relatório, preencha na aba **📄 Documentos** os dados obrigatórios da OM e do(s) "
+                       "signatário(s). Falta: " + ", ".join(_faltam_conf) + ".")
+        _r1, _r2 = st.columns(2)
+        with _r1:
+            st.download_button("🖨️ Relatório em PDF", gerar_pdf_documento(_titulo_conf, _corpo_conf) if not _faltam_conf else b"",
+                               "conferencia_processo.pdf", "application/pdf", key="dl_conf_pdf",
+                               use_container_width=True, disabled=bool(_faltam_conf))
+        with _r2:
+            st.download_button("📝 Relatório em Word", gerar_docx_documento(_titulo_conf, _corpo_conf) if not _faltam_conf else b"",
+                               "conferencia_processo.docx",
+                               "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                               key="dl_conf_docx", use_container_width=True, disabled=bool(_faltam_conf))
