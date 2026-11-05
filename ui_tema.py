@@ -9,7 +9,7 @@ Uso (dentro de ``with st.sidebar:``, no lugar da imagem do acanto):
 
 A chamada injeta, uma vez por execução da página:
   * o CSS moderno (cartões em vidro, botões, campos, abas, tabelas...);
-  * o mascote "Marujo Cotado" (SVG animado) no topo da sidebar;
+  * o mascote "Ata", o balconista de preços (SVG animado) no topo da sidebar;
   * o JavaScript de interação (olhos que seguem o mouse, balão de falas,
     barra de progresso de rolagem e botão "voltar ao topo").
 """
@@ -27,110 +27,97 @@ import streamlit.components.v1 as components
 # ---------------------------------------------------------------------------
 _MASCOTE_SVG = (
     '<svg class="mc-svg" viewBox="0 0 200 190" xmlns="http://www.w3.org/2000/svg" '
-    'role="img" aria-label="Mascote Marujo Cotado">'
+    'role="img" aria-label="Mascote Ata, o balconista de preços">'
     '<defs>'
-    '<clipPath id="mcClip"><rect x="8" y="150" width="184" height="38" rx="19"/></clipPath>'
     '<linearGradient id="mcGold" x1="0" y1="0" x2="1" y2="1">'
     '<stop offset="0" stop-color="#ffe27a"/><stop offset="1" stop-color="#c99a1b"/></linearGradient>'
     '<linearGradient id="mcNavy" x1="0" y1="0" x2="0" y2="1">'
     '<stop offset="0" stop-color="#1d4ed8"/><stop offset="1" stop-color="#0b2a78"/></linearGradient>'
-    '<linearGradient id="mcWood" x1="0" y1="0" x2="0" y2="1">'
-    '<stop offset="0" stop-color="#b9743a"/><stop offset="1" stop-color="#6e3b17"/></linearGradient>'
-    '<linearGradient id="mcSea" x1="0" y1="0" x2="0" y2="1">'
-    '<stop offset="0" stop-color="#3b82f6" stop-opacity=".9"/><stop offset="1" stop-color="#0b2a78" stop-opacity=".95"/></linearGradient>'
-    '<radialGradient id="mcSkin" cx=".4" cy=".35" r=".8">'
-    '<stop offset="0" stop-color="#ffd9b0"/><stop offset="1" stop-color="#eaa371"/></radialGradient>'
+    '<linearGradient id="mcMetal" x1="0" y1="0" x2="0" y2="1">'
+    '<stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#b7cbee"/></linearGradient>'
+    '<linearGradient id="mcScreen" x1="0" y1="0" x2="0" y2="1">'
+    '<stop offset="0" stop-color="#14245c"/><stop offset="1" stop-color="#060d2b"/></linearGradient>'
     '</defs>'
-    # fumaça do cachimbo
-    '<g class="mc-smoke">'
-    '<circle class="mc-puff p1" cx="57" cy="78" r="4" fill="#e8eefc"/>'
-    '<circle class="mc-puff p2" cx="57" cy="78" r="3.4" fill="#e8eefc"/>'
-    '<circle class="mc-puff p3" cx="57" cy="78" r="3" fill="#e8eefc"/>'
-    '</g>'
-    # barco + marinheiro (balançam juntos)
+    # robô balconista (flutua de leve)
     '<g class="mc-boat">'
-    # corpo
-    '<path d="M62 120 C62 104 138 104 138 120 L144 152 H56 Z" fill="url(#mcNavy)"/>'
-    '<path d="M82 108 Q100 122 118 108 L113 116 Q100 126 87 116 Z" fill="#fff"/>'
-    '<path d="M100 119 l-6 11 l6 6 l6 -6 Z" fill="#e11d48"/>'
-    # braço direito acenando: manga, antebraço, punho e mão
-    '<g class="mc-wave">'
-    '<path d="M134 122 Q156 126 158 108" stroke="#0b2a78" stroke-width="15" stroke-linecap="round" fill="none"/>'
-    '<path d="M158 106 L160 82" stroke="#f0b182" stroke-width="15" stroke-linecap="round" fill="none"/>'
-    '<rect x="150" y="98" width="19" height="7" rx="3.5" fill="#fff"/>'
-    '<g stroke="#1d3a8a" stroke-width="1.5" fill="none" stroke-linecap="round" transform="translate(159 90)">'
-    '<circle cy="-4" r="1.6"/><path d="M0 -2.4 V6 M-3.2 1.4 H3.2 M-4.2 4 Q0 8 4.2 4"/></g>'
-    '<g transform="translate(160 70)" fill="#ffd9b0" stroke="#c98552" stroke-width="1">'
-    '<rect x="-2.3" y="-19" width="4.6" height="12" rx="2.3" transform="rotate(-20 0 0)"/>'
-    '<rect x="-2.3" y="-21" width="4.6" height="14" rx="2.3"/>'
-    '<rect x="-2.3" y="-19" width="4.6" height="12" rx="2.3" transform="rotate(20 0 0)"/>'
-    '<rect x="-2.2" y="-13" width="4.4" height="11" rx="2.2" transform="rotate(-62 -6 2) translate(-6 2)"/>'
-    '<circle r="9.5" stroke-width="1"/>'
-    '</g>'
-    '</g>'
-    # cabeça
-    '<ellipse cx="100" cy="76" rx="31" ry="28" fill="url(#mcSkin)"/>'
-    '<ellipse cx="103" cy="99" rx="17" ry="11" fill="url(#mcSkin)"/>'
-    '<circle cx="69" cy="80" r="5.5" fill="#eaa371"/><circle cx="131" cy="80" r="5.5" fill="#eaa371"/>'
-    '<ellipse cx="82" cy="90" rx="6" ry="3.6" fill="#ff8f8f" opacity=".5"/>'
-    '<ellipse cx="120" cy="90" rx="6" ry="3.6" fill="#ff8f8f" opacity=".5"/>'
-    # olhos (os dois seguem o mouse)
-    '<g transform="translate(88 74)"><g class="mc-eye">'
-    '<ellipse rx="7.5" ry="8.5" fill="#fff"/>'
-    '<circle class="mc-pupil" r="4.2" fill="#10224f"/><circle class="mc-glint" cx="-1.3" cy="-2" r="1.5" fill="#fff"/>'
+    # corpo e avental
+    '<path d="M62 150 V128 C62 114 76 108 100 108 C124 108 138 114 138 128 V150 Z" fill="url(#mcNavy)"/>'
+    '<path d="M80 112 H120 L125 150 H75 Z" fill="#fff"/>'
+    '<path d="M80 112 Q100 127 120 112" stroke="#d4af37" stroke-width="2.6" fill="none" stroke-linecap="round"/>'
+    '<rect x="102" y="129" width="16" height="10" rx="2.5" fill="#0b2a78"/>'
+    '<text x="110" y="136.6" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-size="6.2" fill="#ffe27a">AC</text>'
+    '<rect x="92" y="100" width="16" height="12" rx="4" fill="#8fa8d6"/>'
+    # orelhas e cabeça
+    '<rect x="49" y="62" width="11" height="28" rx="5.5" fill="url(#mcGold)"/>'
+    '<rect x="140" y="62" width="11" height="28" rx="5.5" fill="url(#mcGold)"/>'
+    '<rect x="56" y="38" width="88" height="68" rx="28" fill="url(#mcMetal)" stroke="#8fa8d6" stroke-width="1.5"/>'
+    # tela do rosto
+    '<rect x="67" y="50" width="66" height="46" rx="19" fill="url(#mcScreen)"/>'
+    '<path d="M77 57 Q100 51 123 57" stroke="#fff" stroke-opacity=".14" stroke-width="3" fill="none" stroke-linecap="round"/>'
+    '<g transform="translate(86 70)"><g class="mc-eye">'
+    '<ellipse class="mc-pupil" rx="6.6" ry="8.6" fill="#ffe27a"/><circle class="mc-glint" cx="-1.8" cy="-2.6" r="2" fill="#fff"/>'
     '</g></g>'
-    '<g transform="translate(113 74)"><g class="mc-eye">'
-    '<ellipse rx="7.5" ry="8.5" fill="#fff"/>'
-    '<circle class="mc-pupil" r="4.2" fill="#10224f"/><circle class="mc-glint" cx="-1.3" cy="-2" r="1.5" fill="#fff"/>'
+    '<g transform="translate(114 70)"><g class="mc-eye">'
+    '<ellipse class="mc-pupil" rx="6.6" ry="8.6" fill="#ffe27a"/><circle class="mc-glint" cx="-1.8" cy="-2.6" r="2" fill="#fff"/>'
     '</g></g>'
-    '<path d="M79 62 Q88 56 96 61" stroke="#6b3a14" stroke-width="3.4" fill="none" stroke-linecap="round"/>'
-    '<path d="M106 60 Q115 54 123 61" stroke="#6b3a14" stroke-width="3.4" fill="none" stroke-linecap="round"/>'
-    '<ellipse cx="101" cy="86" rx="4.8" ry="4" fill="#e8985f"/>'
-    # boca e cachimbo
-    '<path class="mc-mouth" d="M95 98 Q105 106 117 97" stroke="#7a3b1d" stroke-width="3" fill="none" stroke-linecap="round"/>'
-    '<path d="M93 98 Q80 100 71 95" stroke="#5a3418" stroke-width="3" fill="none" stroke-linecap="round"/>'
-    '<path d="M57 83 h12 l-1.5 12 q-4.5 3.5 -9 0 Z" fill="#7a4620" stroke="#4a2810" stroke-width="1.2"/>'
-    '<ellipse cx="63" cy="83" rx="6" ry="2" fill="#2b1608"/>'
-    # boné
-    '<g transform="rotate(-5 100 50)">'
-    '<path d="M65 52 C65 22 135 22 135 52 C135 56 65 56 65 52 Z" fill="#fff"/>'
-    '<rect x="63" y="46" width="74" height="10" rx="5" fill="url(#mcNavy)"/>'
-    '<g transform="translate(100 34) scale(.58)">'
+    '<ellipse cx="78" cy="83" rx="4.4" ry="2.6" fill="#ff8fa3" opacity=".6"/>'
+    '<ellipse cx="122" cy="83" rx="4.4" ry="2.6" fill="#ff8fa3" opacity=".6"/>'
+    '<path class="mc-mouth" d="M92 83 Q100 91 108 83" stroke="#ffe27a" stroke-width="2.8" fill="none" stroke-linecap="round"/>'
+    # luz que pisca na orelha
+    '<circle class="mc-led" cx="145.5" cy="76" r="2.6" fill="#34d399"/>'
+    # boné de marinheiro
+    '<g transform="rotate(-4 100 34)">'
+    '<path d="M64 44 C64 12 136 12 136 44 C136 48 64 48 64 44 Z" fill="#fff" stroke="#d6e0f5" stroke-width="1"/>'
+    '<rect x="62" y="38" width="76" height="9" rx="4.5" fill="url(#mcNavy)"/>'
+    '<g transform="translate(100 26) scale(.52)">'
     '<circle cy="-9" r="4.2" fill="none" stroke="url(#mcGold)" stroke-width="3"/>'
     '<path d="M0 -5 V17 M-9 4 H9 M-14 9 C-12 18 -4 19 0 17 C4 19 12 18 14 9" '
     'stroke="url(#mcGold)" stroke-width="3.2" fill="none" stroke-linecap="round"/>'
     '</g></g>'
-    # barquinho
-    '<path d="M22 140 H178 C172 164 152 176 128 176 H72 C48 176 28 164 22 140 Z" fill="url(#mcWood)"/>'
-    '<path d="M22 140 H178 L176 147 H24 Z" fill="#f4f1e8"/>'
-    '<path d="M25 154 H175 L172 160 H28 Z" fill="#c8102e"/>'
-    '<path d="M22 140 H178" stroke="url(#mcGold)" stroke-width="3" stroke-linecap="round"/>'
-    # mastro com bandeirinha
-    '<path d="M172 140 V112" stroke="#6e3b17" stroke-width="3" stroke-linecap="round"/>'
-    '<path class="mc-flag" d="M172 112 L192 118 L172 125 Z" fill="url(#mcGold)"/>'
+    # braço esquerdo: lupa (pesquisa de preços)
+    '<g class="mc-lens">'
+    '<path d="M68 122 Q52 122 49 106" stroke="#0b2a78" stroke-width="12" stroke-linecap="round" fill="none"/>'
+    '<path d="M46 98 L34 80" stroke="#7a4620" stroke-width="5" stroke-linecap="round"/>'
+    '<circle cx="49" cy="100" r="7.5" fill="#fff" stroke="#8fa8d6" stroke-width="1.4"/>'
+    '<circle cx="27" cy="68" r="15" fill="#9fdcff" fill-opacity=".30" stroke="url(#mcGold)" stroke-width="4.5"/>'
+    '<path d="M18 63 Q20 55 28 53" stroke="#fff" stroke-opacity=".85" stroke-width="2.4" fill="none" stroke-linecap="round"/>'
+    '<text x="27" y="72" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-size="11" fill="#ffe27a" fill-opacity=".95" stroke="#0b2a78" stroke-width=".5">R$</text>'
     '</g>'
+    # braço direito: segura a etiqueta de preço
+    '<path d="M132 122 Q148 122 151 106" stroke="#0b2a78" stroke-width="12" stroke-linecap="round" fill="none"/>'
+    '<circle cx="151" cy="100" r="7.5" fill="#fff" stroke="#8fa8d6" stroke-width="1.4"/>'
+    '</g>'
+    # etiqueta de preço balançando (preços que se alternam)
+    '<g class="mc-tag">'
+    '<path d="M151 104 L158 114" stroke="#c99a1b" stroke-width="1.6"/>'
+    '<path d="M148 122 L156 113 H186 Q190 113 190 117 V133 Q190 137 186 137 H152 Q148 137 148 133 Z" fill="#fff7d1" stroke="#d4af37" stroke-width="1.6"/>'
+    '<circle cx="156" cy="121" r="2" fill="#c99a1b"/>'
+    '<g font-family="Arial Black,Arial,sans-serif" font-size="9" fill="#0b2a78" text-anchor="middle">'
+    '<text class="pr p1" x="173" y="130" textLength="34" lengthAdjust="spacingAndGlyphs">R$ 12,90</text>'
+    '<text class="pr p2" x="173" y="130" textLength="30" lengthAdjust="spacingAndGlyphs">R$ 8,45</text>'
+    '<text class="pr p3" x="173" y="130" textLength="34" lengthAdjust="spacingAndGlyphs">R$ 19,00</text>'
+    '</g></g>'
+    # balcão
+    '<rect x="10" y="136" width="180" height="10" rx="5" fill="url(#mcGold)"/>'
+    '<path d="M16 146 H184 V180 Q184 185 179 185 H21 Q16 185 16 180 Z" fill="url(#mcNavy)"/>'
+    '<rect x="24" y="153" width="152" height="24" rx="7" fill="none" stroke="#d4af37" stroke-opacity=".65" stroke-width="1.3"/>'
+    '<text x="100" y="169" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-size="9" textLength="118" lengthAdjust="spacingAndGlyphs" fill="#ffe27a">BALCÃO DE PREÇOS</text>'
+    # sineta do balcão
+    '<g class="mc-bell"><path d="M26 136 C26 122 46 122 46 136 Z" fill="url(#mcGold)" stroke="#9a7410" stroke-width="1"/>'
+    '<rect x="34" y="118" width="4" height="5" rx="2" fill="#9a7410"/></g>'
     # moeda que flutua
     '<g class="mc-coin"><ellipse cx="0" cy="0" rx="11" ry="11" fill="url(#mcGold)" stroke="#9a7410" stroke-width="1.5"/>'
     '<text x="0" y="4" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-size="11" fill="#6b4c05">R$</text></g>'
-    # ondas (na frente do casco)
-    '<g clip-path="url(#mcClip)">'
-    '<g class="mc-waves">'
-    '<path class="mc-wave-a" d="M-40 166 Q-20 156 0 166 T40 166 T80 166 T120 166 T160 166 T200 166 T240 166 V200 H-40 Z" fill="url(#mcSea)"/>'
-    '</g>'
-    '<g class="mc-waves">'
-    '<path class="mc-wave-b" d="M-40 175 Q-20 167 0 175 T40 175 T80 175 T120 175 T160 175 T200 175 T240 175 V200 H-40 Z" fill="#1e40af" opacity=".95"/>'
-    '</g>'
-    '</g>'
     '</svg>'
 )
 
 _FRASES_PADRAO = [
+    "Balcão aberto! Vamos cotar?",
+    "Preço bom é preço pesquisado! 🔎",
+    "Deixa que eu procuro no Compras.gov.",
     "Ata cotada, missão cumprida! ⚓",
-    "Bora pesquisar preço?",
-    "Preço bom é preço pesquisado!",
-    "Tudo certo a bordo!",
-    "Cotação em dia, processo em paz.",
-    "Me clica! Eu pulo. 😄",
+    "Três preços na mão e a cotação sai.",
+    "Me clica! Toco a sineta. 🔔",
 ]
 
 
@@ -482,27 +469,27 @@ tbody tr:last-child td { border-bottom: none !important; }
 }
 .mc-svg { position: relative; z-index: 1; }
 @keyframes mc-halo { 0%, 100% { opacity: .55; transform: scale(.94); } 50% { opacity: 1; transform: scale(1.06); } }
-.mc-boat { animation: mc-rock 3.6s ease-in-out infinite; transform-origin: 100px 168px; }
-@keyframes mc-rock { 0%, 100% { transform: translateY(0) rotate(-3deg); } 50% { transform: translateY(-4px) rotate(3deg); } }
-.mc-flag { transform-box: fill-box; transform-origin: left center; animation: mc-flag 1.1s ease-in-out infinite; }
-@keyframes mc-flag { 0%, 100% { transform: skewY(0) scaleX(1); } 50% { transform: skewY(-8deg) scaleX(.86); } }
-.mc-puff { opacity: 0; animation: mc-smoke 3.2s ease-out infinite; }
-.mc-puff.p2 { animation-delay: 1.05s; } .mc-puff.p3 { animation-delay: 2.1s; }
-@keyframes mc-smoke { 0% { opacity: 0; transform: translate(0, 0) scale(.5); } 15% { opacity: .85; } 100% { opacity: 0; transform: translate(-6px, -34px) scale(2.1); } }
-.mc-wave { transform-box: view-box; transform-origin: 134px 116px; animation: mc-wave 2.6s ease-in-out infinite; }
-@keyframes mc-wave { 0%, 55%, 100% { transform: rotate(0); } 62% { transform: rotate(-16deg); } 70% { transform: rotate(10deg); } 78% { transform: rotate(-14deg); } 86% { transform: rotate(8deg); } 93% { transform: rotate(-4deg); } }
+.mc-boat { animation: mc-bob 3.2s ease-in-out infinite; }
+@keyframes mc-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-3px); } }
+.mc-lens { transform-box: view-box; transform-origin: 56px 112px; animation: mc-lens 4.4s ease-in-out infinite; }
+@keyframes mc-lens { 0%, 100% { transform: rotate(0); } 25% { transform: rotate(-9deg); } 55% { transform: rotate(7deg); } 80% { transform: rotate(-3deg); } }
+.mc-tag { transform-box: view-box; transform-origin: 151px 104px; animation: mc-swing 2.8s ease-in-out infinite; }
+@keyframes mc-swing { 0%, 100% { transform: rotate(-5deg); } 50% { transform: rotate(5deg); } }
+.mc-tag .pr { opacity: 0; animation: mc-price 7.5s infinite; }
+.mc-tag .pr.p1 { animation-delay: 0s; } .mc-tag .pr.p2 { animation-delay: 2.5s; } .mc-tag .pr.p3 { animation-delay: 5s; }
+@keyframes mc-price { 0% { opacity: 0; } 4%, 30% { opacity: 1; } 34%, 100% { opacity: 0; } }
+.mc-led { animation: mc-led 1.6s ease-in-out infinite; }
+@keyframes mc-led { 0%, 100% { opacity: .35; } 50% { opacity: 1; } }
+.mc-bell { transform-box: fill-box; transform-origin: 50% 100%; animation: mc-ding 6s ease-in-out infinite; }
+@keyframes mc-ding { 0%, 88%, 100% { transform: rotate(0); } 90% { transform: rotate(-9deg); } 93% { transform: rotate(8deg); } 96% { transform: rotate(-4deg); } }
 .mc-eye { animation: mc-blink 5s infinite; transform-origin: center; transform-box: fill-box; }
 @keyframes mc-blink { 0%, 93%, 100% { transform: scaleY(1); } 96% { transform: scaleY(.08); } }
 .mc-pupil, .mc-glint { transition: transform .12s ease-out; }
-.mc-coin { transform: translate(30px, 40px); animation: mc-coin 3.6s ease-in-out infinite; transform-box: view-box; }
-@keyframes mc-coin { 0%, 100% { transform: translate(30px, 40px) rotateY(0); } 50% { transform: translate(30px, 30px) rotateY(180deg); } }
-.mc-waves { overflow: hidden; }
-.mc-wave-a { animation: mc-sea 5s linear infinite; }
-.mc-wave-b { animation: mc-sea 3.4s linear infinite reverse; }
-@keyframes mc-sea { from { transform: translateX(0); } to { transform: translateX(-80px); } }
+.mc-coin { transform: translate(170px, 36px); animation: mc-coin 3.6s ease-in-out infinite; transform-box: view-box; }
+@keyframes mc-coin { 0%, 100% { transform: translate(170px, 36px) rotateY(0); } 50% { transform: translate(170px, 26px) rotateY(180deg); } }
 .mc-stage.mc-jump .mc-svg { animation: mc-jump .7s cubic-bezier(.3,1.6,.5,1); }
 @keyframes mc-jump { 0% { transform: translateY(0) scale(1, 1); } 25% { transform: translateY(0) scale(1.08, .88); } 55% { transform: translateY(-22px) scale(.94, 1.08); } 100% { transform: translateY(0) scale(1, 1); } }
-.mc-stage.mc-jump .mc-mouth { d: path("M95 97 Q105 113 117 96"); }
+.mc-stage.mc-jump .mc-mouth { d: path("M91 82 Q100 98 109 82"); }
 
 .mc-bubble {
   position: relative; display: inline-block; max-width: 92%;
