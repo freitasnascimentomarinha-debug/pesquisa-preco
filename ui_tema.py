@@ -111,6 +111,7 @@ _MASCOTE_SVG = (
 _FRASES_PADRAO = [
     "Cote agora! Vamos nessa?",
     "Trabalho de semanas em minutos!",
+    "Sou rápido, preciso e não me canso. E faço tudo de graça!",
     "Preço bom é preço pesquisado! 🔎",
     "Deixa que eu procuro no Compras.gov.",
     "Ata cotada, missão cumprida! ⚓",
