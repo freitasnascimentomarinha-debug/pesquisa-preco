@@ -129,7 +129,9 @@ _FRASES_PADRAO = [
     "Cada centavo economizado é da Marinha. ⚓",
     "Fornecedor bom a gente acha por aqui. 🏢",
     "Cotação bem feita, processo aprovado!",
-    "Proa ao menor preço, Comandante!",
+    "Adesão a ata? Eu monto itens, vantajosidade e ofício. 🤝",
+    "CATMAT ou CATSERV? Eu sugiro o código certo. 🔎",
+    "DFD, ETP, TR e ofícios já saem no modelo da Marinha! 📄",
 ]
 
 
