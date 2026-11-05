@@ -128,6 +128,7 @@ st.markdown(
         <p class="sp-lead">Ele faz a <b>pesquisa de preços por você</b>, monta o <b>mapa comparativo</b>, a <b>memória de cálculo</b> e a <b>justificativa da metodologia</b>,
         encontra e entrega o <b>arquivo de atas para adesão</b> com o material de que você precisa, identifica o <b>CATMAT ideal</b> para cada item e oferece outras funcionalidades.
         Um sistema que <b>aumenta a produtividade</b>, reduzindo <b>semanas de trabalho a minutos</b>.</p>
+        <div class="sp-chips"><span>🔓 Código aberto</span><span>🆓 Gratuito</span><span>📡 Dados públicos</span><span>⚓ Marinha do Brasil</span></div>
     </div>
     """,
     unsafe_allow_html=True,
@@ -165,7 +166,7 @@ st.markdown(
 )
 
 st.markdown('<div class="sp-panel"><h3>Ferramentas do sistema</h3><div class="sp-grid">' + "".join(
-    f'<div class="sp-card"><div class="t">{icone} {nome}</div><div class="d">{descricao}</div></div>' for icone, nome, descricao in FERRAMENTAS
+    f'<div class="sp-card"><div class="ic">{icone}</div><div class="tx"><div class="t">{nome}</div><div class="d">{descricao}</div></div></div>' for icone, nome, descricao in FERRAMENTAS
 ) + "</div></div>", unsafe_allow_html=True)
 
 st.markdown(
