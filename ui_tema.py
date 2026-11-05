@@ -29,76 +29,92 @@ _MASCOTE_SVG = (
     '<svg class="mc-svg" viewBox="0 0 200 190" xmlns="http://www.w3.org/2000/svg" '
     'role="img" aria-label="Mascote Marujo Cotado">'
     '<defs>'
-    '<clipPath id="mcClip"><rect x="14" y="152" width="172" height="36" rx="18"/></clipPath>'
+    '<clipPath id="mcClip"><rect x="8" y="150" width="184" height="38" rx="19"/></clipPath>'
     '<linearGradient id="mcGold" x1="0" y1="0" x2="1" y2="1">'
     '<stop offset="0" stop-color="#ffe27a"/><stop offset="1" stop-color="#c99a1b"/></linearGradient>'
     '<linearGradient id="mcNavy" x1="0" y1="0" x2="0" y2="1">'
     '<stop offset="0" stop-color="#1d4ed8"/><stop offset="1" stop-color="#0b2a78"/></linearGradient>'
+    '<linearGradient id="mcWood" x1="0" y1="0" x2="0" y2="1">'
+    '<stop offset="0" stop-color="#b9743a"/><stop offset="1" stop-color="#6e3b17"/></linearGradient>'
     '<linearGradient id="mcSea" x1="0" y1="0" x2="0" y2="1">'
-    '<stop offset="0" stop-color="#2563eb" stop-opacity=".85"/><stop offset="1" stop-color="#0b2a78" stop-opacity=".9"/></linearGradient>'
+    '<stop offset="0" stop-color="#3b82f6" stop-opacity=".9"/><stop offset="1" stop-color="#0b2a78" stop-opacity=".95"/></linearGradient>'
     '<radialGradient id="mcSkin" cx=".4" cy=".35" r=".8">'
-    '<stop offset="0" stop-color="#ffe3c4"/><stop offset="1" stop-color="#f4b98a"/></radialGradient>'
+    '<stop offset="0" stop-color="#ffd9b0"/><stop offset="1" stop-color="#eaa371"/></radialGradient>'
     '</defs>'
-    # sombra no chão
-    '<ellipse class="mc-shadow" cx="100" cy="170" rx="46" ry="7" fill="#000" opacity=".35"/>'
-    # personagem (flutua)
-    '<g class="mc-float">'
-    # braço esquerdo (parado)
-    '<path d="M62 118 C48 124 44 138 50 148" stroke="#0b2a78" stroke-width="13" stroke-linecap="round" fill="none"/>'
-    '<circle cx="50" cy="149" r="8" fill="url(#mcSkin)"/>'
+    # fumaça do cachimbo
+    '<g class="mc-smoke">'
+    '<circle class="mc-puff p1" cx="44" cy="66" r="4" fill="#e8eefc"/>'
+    '<circle class="mc-puff p2" cx="44" cy="66" r="3.4" fill="#e8eefc"/>'
+    '<circle class="mc-puff p3" cx="44" cy="66" r="3" fill="#e8eefc"/>'
+    '</g>'
+    # barco + marinheiro (balançam juntos)
+    '<g class="mc-boat">'
+    # braço esquerdo apoiado na borda (antebraço grosso com âncora)
+    '<path d="M64 112 C52 116 44 126 46 134" stroke="#0b2a78" stroke-width="13" stroke-linecap="round" fill="none"/>'
+    '<ellipse cx="50" cy="136" rx="11" ry="13" fill="url(#mcSkin)" transform="rotate(14 50 136)"/>'
+    '<rect x="40" y="126" width="20" height="5" rx="2.5" fill="#fff" transform="rotate(14 50 128)"/>'
+    '<path d="M50 135 v8 M46 138 h8 M45 142 q5 4 10 0" stroke="#1d3a8a" stroke-width="1.6" fill="none" stroke-linecap="round"/>'
     # corpo
-    '<path d="M60 112 C60 100 140 100 140 112 L146 158 C146 168 54 168 54 158 Z" fill="url(#mcNavy)"/>'
-    # gola marinheira
-    '<path d="M72 106 L100 142 L128 106 C118 112 82 112 72 106 Z" fill="#fff"/>'
-    '<path d="M76 108 L100 138 L124 108" stroke="#d4af37" stroke-width="2.4" fill="none" stroke-linejoin="round"/>'
-    '<path d="M100 128 L93 142 L100 150 L107 142 Z" fill="#e11d48"/>'
-    # braço direito (acena)
+    '<path d="M62 118 C62 104 138 104 138 118 L144 150 H56 Z" fill="url(#mcNavy)"/>'
+    '<path d="M84 108 Q100 120 116 108 L112 114 Q100 124 88 114 Z" fill="#fff"/>'
+    '<path d="M100 118 l-7 12 l7 6 l7 -6 Z" fill="#e11d48"/>'
+    # braço direito: acena (antebraço grosso)
     '<g class="mc-wave">'
-    '<path d="M138 118 C154 118 160 100 156 86" stroke="#0b2a78" stroke-width="13" stroke-linecap="round" fill="none"/>'
-    '<path d="M150 104 L160 100" stroke="#d4af37" stroke-width="3" stroke-linecap="round"/>'
-    '<circle cx="156" cy="82" r="8.5" fill="url(#mcSkin)"/>'
+    '<path d="M134 116 C148 118 156 106 156 94" stroke="#0b2a78" stroke-width="13" stroke-linecap="round" fill="none"/>'
+    '<rect x="148" y="90" width="17" height="6" rx="3" fill="#fff"/>'
+    '<ellipse cx="157" cy="76" rx="11" ry="16" fill="url(#mcSkin)"/>'
+    '<path d="M157 70 v9 M153 73 h8 M152 78 q5 4 10 0" stroke="#1d3a8a" stroke-width="1.6" fill="none" stroke-linecap="round"/>'
+    '<circle cx="157" cy="58" r="9.5" fill="url(#mcSkin)"/>'
+    '<path d="M151 55 q3 2 6 0 M157 55 q3 2 6 0" stroke="#b97a4a" stroke-width="1.2" fill="none"/>'
     '</g>'
-    # cabeça
-    '<circle cx="100" cy="76" r="38" fill="url(#mcSkin)"/>'
-    '<circle cx="63" cy="80" r="6" fill="#f4b98a"/><circle cx="137" cy="80" r="6" fill="#f4b98a"/>'
-    # bochechas
-    '<ellipse cx="78" cy="90" rx="7" ry="4.2" fill="#ff8f8f" opacity=".55"/>'
-    '<ellipse cx="122" cy="90" rx="7" ry="4.2" fill="#ff8f8f" opacity=".55"/>'
-    # olhos
-    '<g class="mc-eyes">'
-    '<g transform="translate(84 78)"><g class="mc-eye">'
-    '<ellipse rx="9" ry="10" fill="#fff"/>'
-    '<circle class="mc-pupil" r="5.2" fill="#10224f"/><circle class="mc-glint" cx="-1.5" cy="-2.5" r="1.7" fill="#fff"/>'
+    # cabeça: rosto com queixão
+    '<ellipse cx="100" cy="76" rx="32" ry="29" fill="url(#mcSkin)"/>'
+    '<ellipse cx="108" cy="100" rx="19" ry="13" fill="url(#mcSkin)"/>'
+    '<circle cx="68" cy="80" r="6" fill="#eaa371"/><circle cx="132" cy="80" r="6" fill="#eaa371"/>'
+    '<ellipse cx="80" cy="90" rx="6" ry="3.6" fill="#ff8f8f" opacity=".5"/>'
+    # nariz
+    '<ellipse cx="102" cy="88" rx="7" ry="6" fill="#eaa371"/><ellipse cx="100" cy="86" rx="2.6" ry="2" fill="#f7c9a1"/>'
+    # olho aberto (segue o mouse) e olho apertado (marca registrada)
+    '<g transform="translate(86 74)"><g class="mc-eye">'
+    '<ellipse rx="8.5" ry="9.5" fill="#fff"/>'
+    '<circle class="mc-pupil" r="4.8" fill="#10224f"/><circle class="mc-glint" cx="-1.4" cy="-2.2" r="1.6" fill="#fff"/>'
     '</g></g>'
-    '<g transform="translate(116 78)"><g class="mc-eye">'
-    '<ellipse rx="9" ry="10" fill="#fff"/>'
-    '<circle class="mc-pupil" r="5.2" fill="#10224f"/><circle class="mc-glint" cx="-1.5" cy="-2.5" r="1.7" fill="#fff"/>'
-    '</g></g>'
-    '</g>'
-    # sobrancelhas e sorriso
-    '<path d="M76 64 Q84 60 92 64" stroke="#8a5a2b" stroke-width="2.6" fill="none" stroke-linecap="round"/>'
-    '<path d="M108 64 Q116 60 124 64" stroke="#8a5a2b" stroke-width="2.6" fill="none" stroke-linecap="round"/>'
-    '<path class="mc-mouth" d="M88 96 Q100 108 112 96" stroke="#7a3b1d" stroke-width="3" fill="none" stroke-linecap="round"/>'
-    # boné de marinheiro
-    '<path d="M62 56 C62 24 138 24 138 56 C138 60 62 60 62 56 Z" fill="#fff"/>'
-    '<rect x="60" y="50" width="80" height="11" rx="5.5" fill="url(#mcNavy)"/>'
-    '<path d="M64 55.5 H136" stroke="#d4af37" stroke-width="1.6" stroke-dasharray="3 3"/>'
-    '<g transform="translate(100 38) scale(.62)">'
+    '<path d="M110 76 Q118 71 126 76" stroke="#5a2f12" stroke-width="3.2" fill="none" stroke-linecap="round"/>'
+    '<path d="M76 62 Q86 55 95 62" stroke="#6b3a14" stroke-width="4" fill="none" stroke-linecap="round"/>'
+    '<path d="M108 63 Q118 57 128 64" stroke="#6b3a14" stroke-width="4" fill="none" stroke-linecap="round"/>'
+    # boca e cachimbo
+    '<path class="mc-mouth" d="M96 100 Q106 106 118 98" stroke="#7a3b1d" stroke-width="3" fill="none" stroke-linecap="round"/>'
+    '<path d="M88 98 Q70 100 60 94" stroke="#5a3418" stroke-width="3.4" fill="none" stroke-linecap="round"/>'
+    '<path d="M50 84 h12 l-1 14 q-5 4 -10 0 Z" fill="#7a4620" stroke="#4a2810" stroke-width="1.2"/>'
+    '<ellipse cx="56" cy="84" rx="6" ry="2.2" fill="#2b1608"/>'
+    # boné
+    '<g transform="rotate(-6 100 50)">'
+    '<path d="M64 52 C64 22 136 22 136 52 C136 56 64 56 64 52 Z" fill="#fff"/>'
+    '<rect x="62" y="46" width="76" height="10" rx="5" fill="url(#mcNavy)"/>'
+    '<g transform="translate(100 34) scale(.58)">'
     '<circle cy="-9" r="4.2" fill="none" stroke="url(#mcGold)" stroke-width="3"/>'
     '<path d="M0 -5 V17 M-9 4 H9 M-14 9 C-12 18 -4 19 0 17 C4 19 12 18 14 9" '
     'stroke="url(#mcGold)" stroke-width="3.2" fill="none" stroke-linecap="round"/>'
-    '</g>'
+    '</g></g>'
+    # barquinho
+    '<path d="M22 140 H178 C172 164 152 176 128 176 H72 C48 176 28 164 22 140 Z" fill="url(#mcWood)"/>'
+    '<path d="M22 140 H178 L176 147 H24 Z" fill="#f4f1e8"/>'
+    '<path d="M25 154 H175 L172 160 H28 Z" fill="#c8102e"/>'
+    '<path d="M22 140 H178" stroke="url(#mcGold)" stroke-width="3" stroke-linecap="round"/>'
+    # mastro com bandeirinha
+    '<path d="M172 140 V112" stroke="#6e3b17" stroke-width="3" stroke-linecap="round"/>'
+    '<path class="mc-flag" d="M172 112 L192 118 L172 125 Z" fill="url(#mcGold)"/>'
     '</g>'
     # moeda que flutua
     '<g class="mc-coin"><ellipse cx="0" cy="0" rx="11" ry="11" fill="url(#mcGold)" stroke="#9a7410" stroke-width="1.5"/>'
     '<text x="0" y="4" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-size="11" fill="#6b4c05">R$</text></g>'
-    # ondas
+    # ondas (na frente do casco)
     '<g clip-path="url(#mcClip)">'
     '<g class="mc-waves">'
-    '<path class="mc-wave-a" d="M-40 168 Q-20 158 0 168 T40 168 T80 168 T120 168 T160 168 T200 168 T240 168 V200 H-40 Z" fill="url(#mcSea)"/>'
+    '<path class="mc-wave-a" d="M-40 166 Q-20 156 0 166 T40 166 T80 166 T120 166 T160 166 T200 166 T240 166 V200 H-40 Z" fill="url(#mcSea)"/>'
     '</g>'
     '<g class="mc-waves">'
-    '<path class="mc-wave-b" d="M-40 176 Q-20 168 0 176 T40 176 T80 176 T120 176 T160 176 T200 176 T240 176 V200 H-40 Z" fill="#1e40af" opacity=".95"/>'
+    '<path class="mc-wave-b" d="M-40 175 Q-20 167 0 175 T40 175 T80 175 T120 175 T160 175 T200 175 T240 175 V200 H-40 Z" fill="#1e40af" opacity=".95"/>'
     '</g>'
     '</g>'
     '</svg>'
@@ -274,6 +290,111 @@ h1 { font-weight: 800 !important; }
   box-shadow: 0 10px 30px rgba(0,0,0,.28);
 }
 
+/* ---------- campos de formulário (visual unificado) ---------- */
+[data-baseweb="input"], [data-baseweb="textarea"], [data-baseweb="select"] > div,
+[data-testid="stDateInput"] [data-baseweb="input"] {
+  background: rgba(255,255,255,.07) !important;
+  border: 1px solid rgba(255,255,255,.18) !important;
+  border-radius: 12px !important;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.05);
+}
+[data-baseweb="input"]:hover, [data-baseweb="textarea"]:hover, [data-baseweb="select"] > div:hover {
+  border-color: rgba(212,175,55,.6) !important;
+}
+[data-baseweb="base-input"], [data-baseweb="input"] input, [data-baseweb="textarea"] textarea,
+.stTextInput input, .stNumberInput input, .stTextArea textarea, .stDateInput input {
+  background: transparent !important; border: none !important; box-shadow: none !important;
+  color: #fff !important;
+}
+[data-baseweb="input"] input::placeholder, [data-baseweb="textarea"] textarea::placeholder { color: rgba(255,255,255,.42) !important; }
+[data-testid="stNumberInput"] button { background: rgba(255,255,255,.06) !important; border: none !important; border-radius: 8px !important; }
+[data-testid="stNumberInput"] button:hover { background: rgba(212,175,55,.25) !important; }
+[data-testid="stWidgetLabel"] p, [data-testid="stWidgetLabel"] label { font-weight: 600 !important; letter-spacing: .01em; }
+
+/* listas suspensas e tags */
+[data-baseweb="popover"] [data-baseweb="menu"], [data-baseweb="popover"] ul {
+  background: #0c1a40 !important; border: 1px solid rgba(212,175,55,.35) !important;
+  border-radius: 12px !important; box-shadow: 0 18px 40px rgba(0,0,0,.55) !important; overflow: hidden;
+}
+[data-baseweb="popover"] li { transition: background .15s; }
+[data-baseweb="popover"] li:hover, [data-baseweb="popover"] li[aria-selected="true"] { background: rgba(212,175,55,.18) !important; }
+[data-baseweb="tag"] {
+  background: linear-gradient(135deg, #ffe27a, #d4af37) !important; color: #001a4d !important;
+  border-radius: 8px !important; font-weight: 700 !important;
+}
+[data-baseweb="tag"] span, [data-baseweb="tag"] svg { color: #001a4d !important; fill: #001a4d !important; }
+
+/* envio de arquivos */
+[data-testid="stFileUploaderDropzone"] {
+  background: rgba(255,255,255,.045) !important;
+  border: 1.5px dashed rgba(212,175,55,.55) !important; border-radius: 16px !important;
+  transition: background .2s, border-color .2s, box-shadow .2s;
+}
+[data-testid="stFileUploaderDropzone"]:hover {
+  background: rgba(212,175,55,.09) !important; border-color: #ffe27a !important;
+  box-shadow: 0 0 0 4px rgba(212,175,55,.12);
+}
+
+/* grupos com borda (st.container(border=True)) */
+[data-testid="stVerticalBlockBorderWrapper"]:has(> div[data-testid="stVerticalBlock"]) {
+  border-radius: 16px !important;
+}
+[data-testid="stVerticalBlockBorderWrapper"][class*="st-"] > [data-testid="stVerticalBlock"] { gap: .9rem; }
+
+/* ---------- abas em pílula ---------- */
+[data-baseweb="tab"] { padding: .55rem 1rem !important; font-weight: 600 !important; }
+[data-baseweb="tab"][aria-selected="true"] {
+  background: rgba(212,175,55,.16) !important; color: #ffe27a !important;
+}
+
+/* ---------- métricas ---------- */
+[data-testid="stMetricLabel"] p { text-transform: uppercase; font-size: .72rem !important; letter-spacing: .08em; opacity: .85; }
+[data-testid="stMetricValue"] { color: #ffe27a !important; }
+
+/* ---------- expanders ---------- */
+[data-testid="stExpander"] summary { padding: .7rem 1rem !important; font-weight: 700; }
+[data-testid="stExpander"] summary svg { color: var(--at-gold) !important; }
+[data-testid="stExpander"][open], [data-testid="stExpander"]:has(details[open]) { border-color: rgba(212,175,55,.45) !important; }
+
+/* ---------- alertas ---------- */
+[data-testid="stAlert"], .stAlert {
+  background: rgba(255,255,255,.06) !important;
+  border: 1px solid var(--at-glass-b) !important; border-left: 4px solid var(--at-gold) !important;
+  border-radius: 14px !important; box-shadow: 0 8px 24px rgba(0,0,0,.25);
+}
+
+/* ---------- tabelas HTML (markdown, st.table, relatórios) ---------- */
+table { border-collapse: separate !important; border-spacing: 0 !important; width: 100%;
+  border: 1px solid var(--at-glass-b) !important; border-radius: 14px !important; overflow: hidden;
+  background: rgba(255,255,255,.03) !important; box-shadow: 0 10px 30px rgba(0,0,0,.28); }
+th {
+  background: #0c32a0 !important; color: #ffe27a !important;
+  text-transform: uppercase; font-size: .74rem !important; letter-spacing: .07em; font-weight: 800 !important;
+  padding: .75rem .9rem !important; border: none !important; border-bottom: 2px solid rgba(212,175,55,.55) !important;
+}
+td { background: transparent !important; padding: .65rem .9rem !important; border: none !important;
+  border-bottom: 1px solid rgba(255,255,255,.07) !important; }
+tbody tr:nth-child(even) td { background: rgba(255,255,255,.035) !important; }
+tbody tr { transition: background .15s; }
+tbody tr:hover td { background: rgba(212,175,55,.12) !important; }
+tbody tr:last-child td { border-bottom: none !important; }
+
+/* ---------- tabelas interativas (st.dataframe / data_editor) ---------- */
+[data-testid="stDataFrame"], [data-testid="stDataFrameResizable"] {
+  border: 1px solid rgba(212,175,55,.28) !important; border-radius: 14px !important;
+}
+[data-testid="stElementToolbar"] { border-radius: 10px !important; }
+
+/* ---------- progresso, código, links, divisores ---------- */
+[data-testid="stProgress"] [role="progressbar"] > div > div, [data-baseweb="progress-bar"] > div > div {
+  background: linear-gradient(90deg, #ffe27a, #d4af37) !important;
+}
+[data-testid="stCode"] pre, [data-testid="stCode"] { border-radius: 12px !important; }
+[data-testid="stMarkdownContainer"] a { color: #ffe27a; text-underline-offset: 3px; transition: color .15s; }
+[data-testid="stMarkdownContainer"] a:hover { color: #fff; }
+[data-testid="stMain"] hr { border: none !important; height: 1px !important;
+  background: linear-gradient(90deg, transparent, rgba(212,175,55,.55), transparent) !important; margin: 1.4rem 0 !important; }
+
 /* ---------- barra de rolagem ---------- */
 * { scrollbar-width: thin; scrollbar-color: rgba(212,175,55,.55) transparent; }
 ::-webkit-scrollbar { width: 9px; height: 9px; }
@@ -299,8 +420,6 @@ h1 { font-weight: 800 !important; }
   position: relative;
   justify-content: flex-start !important;
   border-radius: 12px !important;
-  border: 1px solid rgba(255,255,255,.07) !important;
-  background: rgba(255,255,255,.045) !important;
   padding: .5rem .8rem !important;
   transition: transform .22s var(--at-ease), background .22s, box-shadow .22s, border-color .22s !important;
 }
@@ -308,19 +427,39 @@ h1 { font-weight: 800 !important; }
   content: ""; position: absolute; left: 0; top: 22%; bottom: 22%; width: 3px; border-radius: 3px;
   background: var(--at-gold); transform: scaleY(0); transition: transform .22s var(--at-ease);
 }
+[data-testid="stSidebar"] a[data-testid="stPageLink-NavLink"]:not([href*="Aprendendo_a_usar"]):not([href*="Sobre_o_projeto"]):not([href*="Suporte_ao_sistema"]) {
+  border: 1px solid rgba(255,255,255,.07) !important;
+  background: rgba(255,255,255,.045) !important;
+}
 [data-testid="stSidebar"] a[data-testid="stPageLink-NavLink"]:hover {
   transform: translateX(6px) !important;
+  border-color: #d4af37 !important;
+  box-shadow: 0 6px 20px rgba(212,175,55,.22) !important;
+}
+[data-testid="stSidebar"] a[data-testid="stPageLink-NavLink"]:not([href*="Aprendendo_a_usar"]):not([href*="Sobre_o_projeto"]):not([href*="Suporte_ao_sistema"]):hover {
   background: rgba(212,175,55,.10) !important;
-  border-color: rgba(212,175,55,.55) !important;
-  box-shadow: 0 6px 20px rgba(212,175,55,.18) !important;
+  border-color: #d4af37 !important;
 }
 [data-testid="stSidebar"] a[data-testid="stPageLink-NavLink"]:hover::before { transform: scaleY(1); }
-[data-testid="stSidebar"] a[data-testid="stPageLink-NavLink"][aria-current="page"] {
+[data-testid="stSidebar"] a[data-testid="stPageLink-NavLink"][aria-current="page"]:not([href*="Aprendendo_a_usar"]):not([href*="Sobre_o_projeto"]):not([href*="Suporte_ao_sistema"]) {
   background: linear-gradient(135deg, #ffe27a 0%, #d4af37 60%, #b8901f 100%) !important;
   border-color: #ffe27a !important;
   box-shadow: 0 8px 22px rgba(212,175,55,.42) !important;
 }
 [data-testid="stSidebar"] a[data-testid="stPageLink-NavLink"] p { font-weight: 700; }
+
+/* Aprendendo a usar / Sobre / Suporte: mantêm a cor; no hover só ganham o realce dourado */
+[data-testid="stSidebar"] a[href*="Aprendendo_a_usar"][data-testid="stPageLink-NavLink"]:hover,
+[data-testid="stSidebar"] a[href*="Sobre_o_projeto"][data-testid="stPageLink-NavLink"]:hover,
+[data-testid="stSidebar"] a[href*="Suporte_ao_sistema"][data-testid="stPageLink-NavLink"]:hover {
+  border-color: #d4af37 !important;
+  box-shadow: 0 0 0 1px #d4af37, 0 6px 20px rgba(212,175,55,.28) !important;
+}
+[data-testid="stSidebar"] a[href*="Aprendendo_a_usar"][data-testid="stPageLink-NavLink"]:hover *,
+[data-testid="stSidebar"] a[href*="Sobre_o_projeto"][data-testid="stPageLink-NavLink"]:hover *,
+[data-testid="stSidebar"] a[href*="Suporte_ao_sistema"][data-testid="stPageLink-NavLink"]:hover * {
+  text-shadow: none !important;
+}
 [data-testid="stSidebar"] hr { border-color: rgba(255,255,255,.08) !important; margin: .7rem 0 !important; }
 .sidebar-footer { border-top: 1px solid rgba(255,255,255,.08) !important; color: #7b86a6 !important; }
 
@@ -339,24 +478,27 @@ h1 { font-weight: 800 !important; }
 }
 .mc-svg { position: relative; z-index: 1; }
 @keyframes mc-halo { 0%, 100% { opacity: .55; transform: scale(.94); } 50% { opacity: 1; transform: scale(1.06); } }
-.mc-float { animation: mc-bob 3.4s ease-in-out infinite; transform-origin: 100px 160px; }
-@keyframes mc-bob { 0%, 100% { transform: translateY(0) rotate(-1deg); } 50% { transform: translateY(-6px) rotate(1deg); } }
-.mc-shadow { animation: mc-sh 3.4s ease-in-out infinite; transform-origin: 100px 170px; }
-@keyframes mc-sh { 0%, 100% { transform: scaleX(1); opacity: .35; } 50% { transform: scaleX(.86); opacity: .22; } }
-.mc-wave { transform-box: view-box; transform-origin: 138px 118px; animation: mc-wave 2.6s ease-in-out infinite; }
+.mc-boat { animation: mc-rock 3.6s ease-in-out infinite; transform-origin: 100px 168px; }
+@keyframes mc-rock { 0%, 100% { transform: translateY(0) rotate(-3deg); } 50% { transform: translateY(-4px) rotate(3deg); } }
+.mc-flag { transform-box: fill-box; transform-origin: left center; animation: mc-flag 1.1s ease-in-out infinite; }
+@keyframes mc-flag { 0%, 100% { transform: skewY(0) scaleX(1); } 50% { transform: skewY(-8deg) scaleX(.86); } }
+.mc-puff { opacity: 0; animation: mc-smoke 3.2s ease-out infinite; }
+.mc-puff.p2 { animation-delay: 1.05s; } .mc-puff.p3 { animation-delay: 2.1s; }
+@keyframes mc-smoke { 0% { opacity: 0; transform: translate(0, 0) scale(.5); } 15% { opacity: .85; } 100% { opacity: 0; transform: translate(-6px, -34px) scale(2.1); } }
+.mc-wave { transform-box: view-box; transform-origin: 134px 116px; animation: mc-wave 2.6s ease-in-out infinite; }
 @keyframes mc-wave { 0%, 55%, 100% { transform: rotate(0); } 62% { transform: rotate(-16deg); } 70% { transform: rotate(10deg); } 78% { transform: rotate(-14deg); } 86% { transform: rotate(8deg); } 93% { transform: rotate(-4deg); } }
 .mc-eye { animation: mc-blink 5s infinite; transform-origin: center; transform-box: fill-box; }
 @keyframes mc-blink { 0%, 93%, 100% { transform: scaleY(1); } 96% { transform: scaleY(.08); } }
 .mc-pupil, .mc-glint { transition: transform .12s ease-out; }
-.mc-coin { transform: translate(34px, 70px); animation: mc-coin 3.6s ease-in-out infinite; transform-box: view-box; }
-@keyframes mc-coin { 0%, 100% { transform: translate(34px, 70px) rotateY(0); } 50% { transform: translate(34px, 58px) rotateY(180deg); } }
+.mc-coin { transform: translate(30px, 40px); animation: mc-coin 3.6s ease-in-out infinite; transform-box: view-box; }
+@keyframes mc-coin { 0%, 100% { transform: translate(30px, 40px) rotateY(0); } 50% { transform: translate(30px, 30px) rotateY(180deg); } }
 .mc-waves { overflow: hidden; }
 .mc-wave-a { animation: mc-sea 5s linear infinite; }
 .mc-wave-b { animation: mc-sea 3.4s linear infinite reverse; }
 @keyframes mc-sea { from { transform: translateX(0); } to { transform: translateX(-80px); } }
 .mc-stage.mc-jump .mc-svg { animation: mc-jump .7s cubic-bezier(.3,1.6,.5,1); }
 @keyframes mc-jump { 0% { transform: translateY(0) scale(1, 1); } 25% { transform: translateY(0) scale(1.08, .88); } 55% { transform: translateY(-22px) scale(.94, 1.08); } 100% { transform: translateY(0) scale(1, 1); } }
-.mc-stage.mc-jump .mc-mouth { d: path("M88 94 Q100 116 112 94"); }
+.mc-stage.mc-jump .mc-mouth { d: path("M96 98 Q106 114 118 96"); }
 
 .mc-bubble {
   position: relative; display: inline-block; max-width: 92%;
