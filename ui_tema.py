@@ -416,7 +416,7 @@ tbody tr:last-child td { border-bottom: none !important; }
 }
 [data-testid="stSidebar"] a[data-testid="stPageLink-NavLink"] {
   position: relative;
-  justify-content: flex-start !important;
+  justify-content: center !important; text-align: center;
   border-radius: 12px !important;
   padding: .5rem .8rem !important;
   transition: transform .22s var(--at-ease), background .22s, box-shadow .22s, border-color .22s !important;
@@ -646,6 +646,50 @@ a[data-testid="stBaseLinkButton-primary"] { animation: at-pulse 2.8s ease-in-out
 .tut-tag.ok { background: linear-gradient(135deg, #fde047, #eab308) !important; box-shadow: 0 4px 12px rgba(250,204,21,.35); }
 [data-testid="stIFrame"], iframe[title="st.iframe"] { border-radius: 18px; }
 
+
+/* =================== layout: mais compacto, em grade e sem esticar demais =================== */
+[data-testid="stMainBlockContainer"] {
+  max-width: 1240px !important; margin-left: auto !important; margin-right: auto !important;
+  padding-top: 2.2rem !important; padding-bottom: 3rem !important;
+}
+/* campos curtos lado a lado; o resto continua em linha inteira */
+[data-testid="stMain"] [data-testid="stVerticalBlock"]:not([data-testid="stColumn"] *):not([data-testid="stSidebar"] *) {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 290px), 1fr));
+  gap: .8rem 1.1rem !important; align-items: end;
+}
+[data-testid="stMain"] [data-testid="stVerticalBlock"]:not([data-testid="stColumn"] *):not([data-testid="stSidebar"] *) > * { grid-column: 1 / -1; min-width: 0; }
+[data-testid="stMain"] [data-testid="stVerticalBlock"]:not([data-testid="stColumn"] *):not([data-testid="stSidebar"] *) > [data-testid="stElementContainer"]:has([data-testid="stTextInput"], [data-testid="stNumberInput"], [data-testid="stSelectbox"], [data-testid="stMultiSelect"], [data-testid="stDateInput"], [data-testid="stTimeInput"], [data-testid="stCheckbox"], [data-testid="stToggle"], [data-testid="stRadio"], [data-testid="stButton"], [data-testid="stDownloadButton"], [data-testid="stLinkButton"]) {
+  grid-column: auto;
+}
+[data-testid="stMain"] [data-testid="stHeading"] { margin-top: .4rem; }
+[data-testid="stMain"] h1, [data-testid="stMain"] h2, [data-testid="stMain"] h3 { padding-top: .2rem !important; padding-bottom: .1rem !important; }
+@media (max-width: 760px) {
+  [data-testid="stMain"] [data-testid="stVerticalBlock"]:not([data-testid="stColumn"] *):not([data-testid="stSidebar"] *) { display: flex !important; }
+}
+
+/* navegador de seções (JavaScript) */
+#at-nav { position: fixed; right: 76px; bottom: 22px; z-index: 999998; display: none; }
+#at-nav-btn {
+  height: 44px; padding: 0 1rem; border-radius: 999px; cursor: pointer; font: 800 13px/1 'Inter', sans-serif; letter-spacing: .02em;
+  color: #ffe27a; background: rgba(8,20,58,.92); border: 1px solid rgba(212,175,55,.65);
+  box-shadow: 0 10px 26px rgba(0,0,0,.45); backdrop-filter: blur(8px); transition: transform .2s var(--at-ease), background .2s;
+}
+#at-nav-btn:hover { transform: translateY(-3px); background: rgba(20,40,100,.95); }
+#at-nav-list {
+  position: absolute; right: 0; bottom: 54px; width: 270px; max-height: 60vh; overflow: auto; padding: .5rem;
+  background: rgba(8,20,58,.96); border: 1px solid rgba(212,175,55,.5); border-radius: 16px; box-shadow: 0 20px 50px rgba(0,0,0,.55);
+  backdrop-filter: blur(10px);
+}
+#at-nav-list[hidden] { display: none; }
+#at-nav-list button {
+  display: block; width: 100%; text-align: left; padding: .45rem .7rem; border: 0; border-radius: 10px; cursor: pointer;
+  background: transparent; color: #dbe7f7; font: 600 12.5px/1.3 'Inter', sans-serif; transition: background .15s, color .15s;
+}
+#at-nav-list button.lvl3 { padding-left: 1.4rem; font-weight: 500; color: #a9bddb; }
+#at-nav-list button:hover { background: rgba(212,175,55,.16); color: #fff; }
+#at-nav-list button.on { background: rgba(212,175,55,.24); color: #ffe27a; }
+
 /* iframe do JavaScript (só o nosso, marcado no conteúdo): sem ocupar espaço */
 [data-testid="stElementContainer"]:has(> iframe[srcdoc*="__ata_ui__"]),
 [data-testid="stElementContainer"]:has(iframe[srcdoc*="__ata_ui__"]) {
@@ -656,6 +700,23 @@ a[data-testid="stBaseLinkButton-primary"] { animation: at-pulse 2.8s ease-in-out
 """
 
 _KEYFRAME = re.compile(r"^(from|to|\d+(\.\d+)?%(\s*,\s*\d+(\.\d+)?%)*)$")
+
+
+def _dividir_seletores(texto: str) -> list:
+    """Divide uma lista de seletores por vírgula, ignorando as que estão entre parênteses."""
+    partes, prof, atual = [], 0, []
+    for ch in texto:
+        if ch == "(":
+            prof += 1
+        elif ch == ")":
+            prof -= 1
+        if ch == "," and prof == 0:
+            partes.append("".join(atual))
+            atual = []
+        else:
+            atual.append(ch)
+    partes.append("".join(atual))
+    return partes
 
 
 def _prefixar(css: str) -> str:
@@ -673,7 +734,7 @@ def _prefixar(css: str) -> str:
             saida.append(m.group(0))
             continue
         partes = []
-        for parte in limpo.split(","):
+        for parte in _dividir_seletores(limpo):
             t = parte.strip()
             if t.startswith(("html", ":root", "*", "::", "body")):
                 partes.append(t)
@@ -714,6 +775,43 @@ _JS = r"""
         bar.style.width = max > 0 ? Math.min(100, (el.scrollTop / max) * 100) + '%' : '0';
         top.classList.toggle('show', el.scrollTop > 400);
       }, true);
+
+
+      /* navegador de seções: lista os títulos da página e leva até eles */
+      const nav = document.createElement('div'); nav.id = 'at-nav';
+      nav.innerHTML = '<button id="at-nav-btn" type="button" aria-expanded="false">☰ Seções</button><div id="at-nav-list" hidden></div>';
+      document.body.appendChild(nav);
+      const navBtn = nav.querySelector('#at-nav-btn'), navList = nav.querySelector('#at-nav-list');
+      const titulos = () => [...document.querySelectorAll('[data-testid="stMain"] h1, [data-testid="stMain"] h2, [data-testid="stMain"] h3')]
+        .filter((h) => h.textContent.trim() && h.offsetParent && !h.closest('[data-testid="stSidebar"]'));
+      function reconstruir() {
+        const hs = titulos();
+        nav.style.display = hs.length >= 3 ? 'block' : 'none';
+        navList.textContent = '';
+        hs.forEach((h) => {
+          const b = document.createElement('button'); b.type = 'button';
+          b.className = 'lvl' + h.tagName[1]; b.textContent = h.textContent.trim().slice(0, 52);
+          b.addEventListener('click', () => { h.scrollIntoView({ behavior: 'smooth', block: 'start' }); navList.hidden = true; navBtn.setAttribute('aria-expanded', 'false'); });
+          b._h = h; navList.appendChild(b);
+        });
+      }
+      function destacar() {
+        let atual = null;
+        navList.querySelectorAll('button').forEach((b) => { if (b._h && b._h.getBoundingClientRect().top < 160) atual = b; b.classList.remove('on'); });
+        if (atual) atual.classList.add('on');
+      }
+      navBtn.addEventListener('click', () => {
+        navList.hidden = !navList.hidden; navBtn.setAttribute('aria-expanded', String(!navList.hidden));
+        if (!navList.hidden) { reconstruir(); destacar(); }
+      });
+      document.addEventListener('click', (e) => { if (!nav.contains(e.target)) { navList.hidden = true; navBtn.setAttribute('aria-expanded', 'false'); } });
+      document.addEventListener('scroll', () => { if (!navList.hidden) destacar(); }, true);
+      let tmr;
+      new MutationObserver((ms) => {
+        if (ms.every((m) => m.target.closest && m.target.closest('#at-nav'))) return;
+        clearTimeout(tmr); tmr = setTimeout(reconstruir, 500);
+      }).observe(document.body, { childList: true, subtree: true });
+      setTimeout(reconstruir, 800);
 
       /* olhos do mascote seguem o mouse */
       document.addEventListener('mousemove', (e) => {
@@ -783,8 +881,92 @@ _JS = r"""
 """
 
 
+# ---------------------------------------------------------------------------
+# Tabelas: destaque automático (zebra, valores em dourado, status em cores).
+# Só apresentação: os dados e o comportamento do st.dataframe não mudam.
+# ---------------------------------------------------------------------------
+_RE_VALOR = re.compile(r"pre[cç]o|valor|total|custo|r\$|unit[aá]rio|mediana|m[eé]dia", re.I)
+_RE_BOM = re.compile(r"menor|m[ií]nim|econom|desconto|des[aá]gio|vantaj", re.I)
+_RE_ALERTA = re.compile(r"maior|m[aá]xim|outlier|discrepan|sobrepre", re.I)
+_RE_STATUS_COL = re.compile(r"status|situa[cç][aã]o|resultado|vig[eê]ncia", re.I)
+_RE_OK = re.compile(r"vigente|ativ[ao]|ok\b|conforme|aprovad|regular|encontrad|sim\b|dispon[ií]vel", re.I)
+_RE_RUIM = re.compile(r"vencid|encerrad|erro|falha|irregular|inapto|reprovad|n[aã]o encontr|sem pre[cç]o|indispon", re.I)
+
+
+def _estilo_tabela(df):
+    """Devolve um Styler com realces discretos, ou levanta exceção se não der."""
+    sty = df.style
+    sty = sty.format(lambda v: format(v, ".10g") if isinstance(v, float) and v == v else v)
+    sty = sty.apply(lambda col: ["background-color: rgba(255,255,255,0.045)" if i % 2 else "" for i in range(len(col))], axis=0)
+    cols = list(df.columns)
+    bom = [c for c in cols if _RE_BOM.search(str(c))]
+    alerta = [c for c in cols if _RE_ALERTA.search(str(c)) and c not in bom]
+    valor = [c for c in cols if _RE_VALOR.search(str(c)) and c not in bom and c not in alerta]
+    if valor:
+        sty = sty.set_properties(subset=valor, **{"color": "#ffe27a", "font-weight": "bold"})
+    if bom:
+        sty = sty.set_properties(subset=bom, **{"color": "#4ade80", "font-weight": "bold"})
+    if alerta:
+        sty = sty.set_properties(subset=alerta, **{"color": "#fda4af", "font-weight": "bold"})
+
+    def _status(col):
+        saida = []
+        for v in col:
+            t = str(v)
+            if _RE_RUIM.search(t):
+                saida.append("background-color: rgba(239,68,68,0.28); color: #fecaca; font-weight: bold")
+            elif _RE_OK.search(t):
+                saida.append("background-color: rgba(34,197,94,0.24); color: #bbf7d0; font-weight: bold")
+            else:
+                saida.append("")
+        return saida
+
+    for c in cols:
+        if _RE_STATUS_COL.search(str(c)):
+            sty = sty.apply(_status, subset=[c], axis=0)
+    return sty
+
+
+def _instalar_destaque_tabelas() -> None:
+    """Embrulha st.dataframe para dar o realce acima, sem alterar nada além da cor."""
+    try:
+        import pandas as pd
+        from streamlit.delta_generator import DeltaGenerator
+    except Exception:
+        return
+    if getattr(DeltaGenerator, "_ata_destaque", False):
+        return
+    original = DeltaGenerator.dataframe
+
+    def dataframe(self, data=None, *args, **kwargs):
+        try:
+            if (
+                isinstance(data, pd.DataFrame)
+                and "column_config" not in kwargs
+                and "on_select" not in kwargs
+                and 0 < len(data) <= 3000
+                and 0 < len(data.columns) <= 60
+                and not isinstance(data.columns, pd.MultiIndex)
+                and data.columns.is_unique
+                and data.index.is_unique
+            ):
+                estilizado = _estilo_tabela(data)
+                return original(self, estilizado, *args, **kwargs)
+        except Exception:
+            pass
+        return original(self, data, *args, **kwargs)
+
+    DeltaGenerator.dataframe = dataframe
+    DeltaGenerator._ata_destaque = True
+    try:
+        st.dataframe = st._main.dataframe
+    except Exception:
+        pass
+
+
 def aplicar_tema() -> None:
     """Injeta só o CSS moderno + o JavaScript (para páginas sem mascote)."""
+    _instalar_destaque_tabelas()
     st.markdown(_CSS, unsafe_allow_html=True)
     components.html(f"<!--__ata_ui__--><script>{_JS}</script>", height=0)
 
