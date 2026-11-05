@@ -1,6 +1,6 @@
 {
  "versao": 1,
- "atualizado": "2026-10-20T19:36:23",
+ "atualizado": "2026-11-05T22:02:02",
  "lojas": {
   "lojadomecanico.com.br": {
    "acertos": 25,
@@ -329,8 +329,8 @@
    "busca": "/busca?q={q}"
   },
   "atacadosaopaulo.com.br": {
-   "acertos": 48,
-   "ultimo": "2026-10-08",
+   "acertos": 49,
+   "ultimo": "2026-11-05",
    "itens": [
     "fita isolante",
     "calculadora de mesa 12 dígitos",
@@ -362,7 +362,7 @@
    ],
    "metodos": {
     "navegador": 7,
-    "texto": 39
+    "texto": 40
    },
    "paginas": {
     "caneta esferográfica azul": "https://www.atacadosaopaulo.com.br/ki-5-caixas-caneta-esferografica-1-0mm---3un-azul--1un-preto-e-1un-vermelho---caixa-fechada-50un/p?srsltid=AU7gw4Vyg5t9J9U2FbmQcIfvLVIMmm-1Qb4l5EoZNMZ7S025fHvaLGbp",
@@ -396,7 +396,7 @@
     "tintas e pintura": 1,
     "papelaria e escritório": 23,
     "limpeza e higiene": 13,
-    "elétrico": 5,
+    "elétrico": 6,
     "ferramentas": 2,
     "EPI e segurança": 1,
     "construção": 1
@@ -3119,17 +3119,17 @@
    }
   },
   "apotiguar.com.br": {
-   "acertos": 2,
-   "ultimo": "2026-10-08",
+   "acertos": 3,
+   "ultimo": "2026-11-05",
    "itens": [
     "fita isolante"
    ],
    "metodos": {
     "navegador": 0,
-    "texto": 2
+    "texto": 3
    },
    "naturezas": {
-    "elétrico": 2
+    "elétrico": 3
    },
    "paginas": {
     "fita isolante": "https://www.apotiguar.com.br/materiais-eletricos/acessorios-eletricos/fitas-isolantes"
@@ -4721,6 +4721,40 @@
    "paginas": {
     "graxa lubrax x68": "https://www.lubcenterloja.com.br/graxas-lubrax"
    }
+  },
+  "tumelero.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-11-05",
+   "itens": [
+    "fita isolante"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "elétrico": 1
+   },
+   "paginas": {
+    "fita isolante": "https://www.tumelero.com.br/eletrica/acessorios-eletricos/fitas-isolantes"
+   }
+  },
+  "agileatacadista.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-11-05",
+   "itens": [
+    "fita isolante"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "elétrico": 1
+   },
+   "paginas": {
+    "fita isolante": "https://www.agileatacadista.com.br/fita-isolante-19x20-33-3m-fita-isolante-de-pvc-scotch?srsltid=AYCX9vKlCUYD2SiNY0Hf3fosMIo0zutnm2NQrA-HLxI27NX8v256_sho"
+   }
   }
  },
  "falhas": {
@@ -5171,8 +5205,8 @@
   },
   "baip.com.br": {
    "navegador": 0,
-   "texto": 1,
-   "ultimo": "2026-10-06"
+   "texto": 2,
+   "ultimo": "2026-11-05"
   },
   "pitchbook.com": {
    "navegador": 2,
@@ -5428,6 +5462,11 @@
    "navegador": 1,
    "texto": 1,
    "ultimo": "2026-10-20"
+  },
+  "jackwinsafety.com": {
+   "navegador": 0,
+   "texto": 1,
+   "ultimo": "2026-11-05"
   }
  },
  "frases": {
@@ -5437,14 +5476,14 @@
    "ultimo": "2026-10-08"
   },
   "{item} preço": {
-   "usos": 19.9359,
-   "acertos": 36.504,
-   "ultimo": "2026-10-20"
+   "usos": 19.9391,
+   "acertos": 36.6788,
+   "ultimo": "2026-11-05"
   },
   "venda de {item}": {
-   "usos": 15.9217,
-   "acertos": 11.3593,
-   "ultimo": "2026-10-20"
+   "usos": 16.1256,
+   "acertos": 10.7913,
+   "ultimo": "2026-11-05"
   },
   "{item} valor": {
    "usos": 17.6802,
@@ -5452,9 +5491,9 @@
    "ultimo": "2026-10-06"
   },
   "{item} atacado": {
-   "usos": 19.945,
-   "acertos": 33.8911,
-   "ultimo": "2026-10-20"
+   "usos": 19.9477,
+   "acertos": 33.1965,
+   "ultimo": "2026-11-05"
   },
   "{item} preço brasil": {
    "usos": 11.6375,
@@ -5472,7 +5511,7 @@
    "ultimo": "2026-10-20"
   }
  },
- "buscas": 132,
+ "buscas": 133,
  "sem_busca": {
   "arxiv.org": "2026-10-05",
   "papers.ssrn.com": "2026-10-05",
@@ -5507,7 +5546,7 @@
   "melhoresdotech.com.br": "2026-10-05",
   "telerio.com.br": "2026-10-05",
   "martinsatacado.com.br": "2026-10-05",
-  "atacadosaopaulo.com.br": "2026-10-05",
+  "atacadosaopaulo.com.br": "2026-11-05",
   "soaresatacado.com.br": "2026-10-05",
   "cbinsights.com": "2026-10-05",
   "gimba.com.br": "2026-10-05",
@@ -5526,7 +5565,7 @@
   "atacadao.com.br": "2026-10-06",
   "rdkluvas.com.br": "2026-10-06",
   "lojafabercastell.com.br": "2026-10-06",
-  "atacadodolojista.com.br": "2026-10-06",
+  "atacadodolojista.com.br": "2026-11-05",
   "multiloja.com.br": "2026-10-06",
   "midea.com.br": "2026-10-06",
   "lojascacula.com.br": "2026-10-06",
@@ -5548,12 +5587,12 @@
   "lubcenterloja.com.br": "2026-10-20"
  },
  "serper": {
-  "mes": "2026-10",
-  "n": 108
+  "mes": "2026-11",
+  "n": 2
  },
  "tavily": {
-  "mes": "2026-10",
-  "n": 266
+  "mes": "2026-11",
+  "n": 3
  },
  "nomes": {
   "papel contact": {
@@ -6104,30 +6143,59 @@
       "segundos": 28.5
      }
     }
+   },
+   {
+    "data": "2026-11-05T22:02:02",
+    "item": "Fita isolante",
+    "natureza": "elétrico",
+    "segundos": 121.1,
+    "precos": 2,
+    "certos": 2,
+    "completo": false,
+    "api": 5,
+    "navegador": 0,
+    "frase": "{item} preço",
+    "origens": {
+     "parecida": {
+      "tentativas": 3,
+      "precos": 1,
+      "segundos": 23.6
+     },
+     "natureza": {
+      "tentativas": 3,
+      "precos": 0,
+      "segundos": 20.8
+     },
+     "busca": {
+      "tentativas": 8,
+      "precos": 3,
+      "segundos": 76.7
+     }
+    }
    }
   ],
   "naturezas": {
    "elétrico": {
-    "itens": 1.0,
-    "segundos": 71.243,
-    "precos": 3.0,
-    "certos": 3.0,
-    "completos": 1.0,
+    "itens": 1.95,
+    "segundos": 188.786,
+    "precos": 4.85,
+    "certos": 4.85,
+    "completos": 0.95,
     "origens": {
      "parecida": {
-      "tentativas": 3.0,
-      "precos": 1.0,
-      "segundos": 22.682
+      "tentativas": 5.85,
+      "precos": 1.95,
+      "segundos": 45.12
      },
      "natureza": {
-      "tentativas": 3.0,
+      "tentativas": 5.85,
       "precos": 0.0,
-      "segundos": 16.53
+      "segundos": 36.486
      },
      "busca": {
-      "tentativas": 6.0,
-      "precos": 3.0,
-      "segundos": 32.018
+      "tentativas": 13.7,
+      "precos": 5.85,
+      "segundos": 107.152
      }
     }
    },
