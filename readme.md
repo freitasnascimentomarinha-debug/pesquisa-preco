@@ -65,3 +65,7 @@ O sistema consome dados diretamente dos *endpoints* do Portal de Dados Abertos d
 
   * `modulo-pesquisa-preco/1_consultarMaterial`
   * `modulo-pesquisa-preco/3_consultarServico`
+
+## 🎨 Visual (ui_tema.py)
+
+O módulo `ui_tema.py` concentra o visual do sistema: mascote animado "Marujo Cotado" na sidebar (olhos que seguem o mouse, balão de falas, pula ao clicar), cartões em vidro, botões, abas, barra de progresso de rolagem e botão "voltar ao topo" em JavaScript. É só apresentação: nenhuma regra de negócio passa por ele.

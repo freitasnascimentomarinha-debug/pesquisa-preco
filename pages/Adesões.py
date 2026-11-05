@@ -13,6 +13,7 @@ import folium
 import pandas as pd
 import requests
 import streamlit as st
+from ui_tema import sidebar_mascote
 from streamlit_folium import st_folium
 
 # ── Caminhos dos dados do Projeto Adesões ──────────────────────────────────
@@ -405,7 +406,7 @@ else:
 
 with st.sidebar:
     if _acanto_b64:
-        st.markdown(f'<div style="text-align:center;padding:1rem 0 0.5rem 0;"><img src="data:image/png;base64,{_acanto_b64}" style="max-width:70%;height:auto;"></div>', unsafe_allow_html=True)
+        sidebar_mascote()
     st.markdown("## MENU")
     st.markdown("---")
     st.page_link("streamlit_app.py", label="Cotação", icon="⚓")
