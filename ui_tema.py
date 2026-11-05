@@ -43,54 +43,58 @@ _MASCOTE_SVG = (
     '</defs>'
     # fumaça do cachimbo
     '<g class="mc-smoke">'
-    '<circle class="mc-puff p1" cx="44" cy="66" r="4" fill="#e8eefc"/>'
-    '<circle class="mc-puff p2" cx="44" cy="66" r="3.4" fill="#e8eefc"/>'
-    '<circle class="mc-puff p3" cx="44" cy="66" r="3" fill="#e8eefc"/>'
+    '<circle class="mc-puff p1" cx="57" cy="78" r="4" fill="#e8eefc"/>'
+    '<circle class="mc-puff p2" cx="57" cy="78" r="3.4" fill="#e8eefc"/>'
+    '<circle class="mc-puff p3" cx="57" cy="78" r="3" fill="#e8eefc"/>'
     '</g>'
     # barco + marinheiro (balançam juntos)
     '<g class="mc-boat">'
-    # braço esquerdo apoiado na borda (antebraço grosso com âncora)
-    '<path d="M64 112 C52 116 44 126 46 134" stroke="#0b2a78" stroke-width="13" stroke-linecap="round" fill="none"/>'
-    '<ellipse cx="50" cy="136" rx="11" ry="13" fill="url(#mcSkin)" transform="rotate(14 50 136)"/>'
-    '<rect x="40" y="126" width="20" height="5" rx="2.5" fill="#fff" transform="rotate(14 50 128)"/>'
-    '<path d="M50 135 v8 M46 138 h8 M45 142 q5 4 10 0" stroke="#1d3a8a" stroke-width="1.6" fill="none" stroke-linecap="round"/>'
     # corpo
-    '<path d="M62 118 C62 104 138 104 138 118 L144 150 H56 Z" fill="url(#mcNavy)"/>'
-    '<path d="M84 108 Q100 120 116 108 L112 114 Q100 124 88 114 Z" fill="#fff"/>'
-    '<path d="M100 118 l-7 12 l7 6 l7 -6 Z" fill="#e11d48"/>'
-    # braço direito: acena (antebraço grosso)
+    '<path d="M62 120 C62 104 138 104 138 120 L144 152 H56 Z" fill="url(#mcNavy)"/>'
+    '<path d="M82 108 Q100 122 118 108 L113 116 Q100 126 87 116 Z" fill="#fff"/>'
+    '<path d="M100 119 l-6 11 l6 6 l6 -6 Z" fill="#e11d48"/>'
+    # braço direito acenando: manga, antebraço, punho e mão
     '<g class="mc-wave">'
-    '<path d="M134 116 C148 118 156 106 156 94" stroke="#0b2a78" stroke-width="13" stroke-linecap="round" fill="none"/>'
-    '<rect x="148" y="90" width="17" height="6" rx="3" fill="#fff"/>'
-    '<ellipse cx="157" cy="76" rx="11" ry="16" fill="url(#mcSkin)"/>'
-    '<path d="M157 70 v9 M153 73 h8 M152 78 q5 4 10 0" stroke="#1d3a8a" stroke-width="1.6" fill="none" stroke-linecap="round"/>'
-    '<circle cx="157" cy="58" r="9.5" fill="url(#mcSkin)"/>'
-    '<path d="M151 55 q3 2 6 0 M157 55 q3 2 6 0" stroke="#b97a4a" stroke-width="1.2" fill="none"/>'
+    '<path d="M134 122 Q156 126 158 108" stroke="#0b2a78" stroke-width="15" stroke-linecap="round" fill="none"/>'
+    '<path d="M158 106 L160 82" stroke="#f0b182" stroke-width="15" stroke-linecap="round" fill="none"/>'
+    '<rect x="150" y="98" width="19" height="7" rx="3.5" fill="#fff"/>'
+    '<g stroke="#1d3a8a" stroke-width="1.5" fill="none" stroke-linecap="round" transform="translate(159 90)">'
+    '<circle cy="-4" r="1.6"/><path d="M0 -2.4 V6 M-3.2 1.4 H3.2 M-4.2 4 Q0 8 4.2 4"/></g>'
+    '<g transform="translate(160 70)" fill="#ffd9b0" stroke="#c98552" stroke-width="1">'
+    '<rect x="-2.3" y="-19" width="4.6" height="12" rx="2.3" transform="rotate(-20 0 0)"/>'
+    '<rect x="-2.3" y="-21" width="4.6" height="14" rx="2.3"/>'
+    '<rect x="-2.3" y="-19" width="4.6" height="12" rx="2.3" transform="rotate(20 0 0)"/>'
+    '<rect x="-2.2" y="-13" width="4.4" height="11" rx="2.2" transform="rotate(-62 -6 2) translate(-6 2)"/>'
+    '<circle r="9.5" stroke-width="1"/>'
     '</g>'
-    # cabeça: rosto com queixão
-    '<ellipse cx="100" cy="76" rx="32" ry="29" fill="url(#mcSkin)"/>'
-    '<ellipse cx="108" cy="100" rx="19" ry="13" fill="url(#mcSkin)"/>'
-    '<circle cx="68" cy="80" r="6" fill="#eaa371"/><circle cx="132" cy="80" r="6" fill="#eaa371"/>'
-    '<ellipse cx="80" cy="90" rx="6" ry="3.6" fill="#ff8f8f" opacity=".5"/>'
-    # nariz
-    '<ellipse cx="102" cy="88" rx="7" ry="6" fill="#eaa371"/><ellipse cx="100" cy="86" rx="2.6" ry="2" fill="#f7c9a1"/>'
-    # olho aberto (segue o mouse) e olho apertado (marca registrada)
-    '<g transform="translate(86 74)"><g class="mc-eye">'
-    '<ellipse rx="8.5" ry="9.5" fill="#fff"/>'
-    '<circle class="mc-pupil" r="4.8" fill="#10224f"/><circle class="mc-glint" cx="-1.4" cy="-2.2" r="1.6" fill="#fff"/>'
+    '</g>'
+    # cabeça
+    '<ellipse cx="100" cy="76" rx="31" ry="28" fill="url(#mcSkin)"/>'
+    '<ellipse cx="103" cy="99" rx="17" ry="11" fill="url(#mcSkin)"/>'
+    '<circle cx="69" cy="80" r="5.5" fill="#eaa371"/><circle cx="131" cy="80" r="5.5" fill="#eaa371"/>'
+    '<ellipse cx="82" cy="90" rx="6" ry="3.6" fill="#ff8f8f" opacity=".5"/>'
+    '<ellipse cx="120" cy="90" rx="6" ry="3.6" fill="#ff8f8f" opacity=".5"/>'
+    # olhos (os dois seguem o mouse)
+    '<g transform="translate(88 74)"><g class="mc-eye">'
+    '<ellipse rx="7.5" ry="8.5" fill="#fff"/>'
+    '<circle class="mc-pupil" r="4.2" fill="#10224f"/><circle class="mc-glint" cx="-1.3" cy="-2" r="1.5" fill="#fff"/>'
     '</g></g>'
-    '<path d="M110 76 Q118 71 126 76" stroke="#5a2f12" stroke-width="3.2" fill="none" stroke-linecap="round"/>'
-    '<path d="M76 62 Q86 55 95 62" stroke="#6b3a14" stroke-width="4" fill="none" stroke-linecap="round"/>'
-    '<path d="M108 63 Q118 57 128 64" stroke="#6b3a14" stroke-width="4" fill="none" stroke-linecap="round"/>'
+    '<g transform="translate(113 74)"><g class="mc-eye">'
+    '<ellipse rx="7.5" ry="8.5" fill="#fff"/>'
+    '<circle class="mc-pupil" r="4.2" fill="#10224f"/><circle class="mc-glint" cx="-1.3" cy="-2" r="1.5" fill="#fff"/>'
+    '</g></g>'
+    '<path d="M79 62 Q88 56 96 61" stroke="#6b3a14" stroke-width="3.4" fill="none" stroke-linecap="round"/>'
+    '<path d="M106 60 Q115 54 123 61" stroke="#6b3a14" stroke-width="3.4" fill="none" stroke-linecap="round"/>'
+    '<ellipse cx="101" cy="86" rx="4.8" ry="4" fill="#e8985f"/>'
     # boca e cachimbo
-    '<path class="mc-mouth" d="M96 100 Q106 106 118 98" stroke="#7a3b1d" stroke-width="3" fill="none" stroke-linecap="round"/>'
-    '<path d="M88 98 Q70 100 60 94" stroke="#5a3418" stroke-width="3.4" fill="none" stroke-linecap="round"/>'
-    '<path d="M50 84 h12 l-1 14 q-5 4 -10 0 Z" fill="#7a4620" stroke="#4a2810" stroke-width="1.2"/>'
-    '<ellipse cx="56" cy="84" rx="6" ry="2.2" fill="#2b1608"/>'
+    '<path class="mc-mouth" d="M95 98 Q105 106 117 97" stroke="#7a3b1d" stroke-width="3" fill="none" stroke-linecap="round"/>'
+    '<path d="M93 98 Q80 100 71 95" stroke="#5a3418" stroke-width="3" fill="none" stroke-linecap="round"/>'
+    '<path d="M57 83 h12 l-1.5 12 q-4.5 3.5 -9 0 Z" fill="#7a4620" stroke="#4a2810" stroke-width="1.2"/>'
+    '<ellipse cx="63" cy="83" rx="6" ry="2" fill="#2b1608"/>'
     # boné
-    '<g transform="rotate(-6 100 50)">'
-    '<path d="M64 52 C64 22 136 22 136 52 C136 56 64 56 64 52 Z" fill="#fff"/>'
-    '<rect x="62" y="46" width="76" height="10" rx="5" fill="url(#mcNavy)"/>'
+    '<g transform="rotate(-5 100 50)">'
+    '<path d="M65 52 C65 22 135 22 135 52 C135 56 65 56 65 52 Z" fill="#fff"/>'
+    '<rect x="63" y="46" width="74" height="10" rx="5" fill="url(#mcNavy)"/>'
     '<g transform="translate(100 34) scale(.58)">'
     '<circle cy="-9" r="4.2" fill="none" stroke="url(#mcGold)" stroke-width="3"/>'
     '<path d="M0 -5 V17 M-9 4 H9 M-14 9 C-12 18 -4 19 0 17 C4 19 12 18 14 9" '
@@ -498,7 +502,7 @@ tbody tr:last-child td { border-bottom: none !important; }
 @keyframes mc-sea { from { transform: translateX(0); } to { transform: translateX(-80px); } }
 .mc-stage.mc-jump .mc-svg { animation: mc-jump .7s cubic-bezier(.3,1.6,.5,1); }
 @keyframes mc-jump { 0% { transform: translateY(0) scale(1, 1); } 25% { transform: translateY(0) scale(1.08, .88); } 55% { transform: translateY(-22px) scale(.94, 1.08); } 100% { transform: translateY(0) scale(1, 1); } }
-.mc-stage.mc-jump .mc-mouth { d: path("M96 98 Q106 114 118 96"); }
+.mc-stage.mc-jump .mc-mouth { d: path("M95 97 Q105 113 117 96"); }
 
 .mc-bubble {
   position: relative; display: inline-block; max-width: 92%;
@@ -537,9 +541,118 @@ tbody tr:last-child td { border-bottom: none !important; }
 #at-top.show { opacity: 1; transform: none; pointer-events: auto; }
 #at-top:hover { transform: translateY(-3px) scale(1.06); }
 
-/* iframe do JavaScript: sem ocupar espaço */
-[data-testid="stElementContainer"]:has(> iframe[height="0"]),
-[data-testid="stElementContainer"]:has(iframe[height="0"]) {
+
+/* =================== páginas informativas: Sobre / Suporte / Aprendendo =================== */
+.sp-header, .su-header, .tut-header {
+  position: relative; overflow: hidden; isolation: isolate;
+  border-radius: 24px !important; padding: 2rem 2.2rem !important; margin-bottom: 1.6rem !important;
+  border: 1px solid rgba(255,255,255,.22) !important;
+  box-shadow: 0 24px 60px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.3) !important;
+}
+.sp-header::before, .su-header::before, .tut-header::before {
+  content: ""; position: absolute; z-index: -1; right: -70px; top: -90px; width: 320px; height: 320px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(255,255,255,.30), rgba(255,255,255,0) 68%);
+  animation: at-float 9s ease-in-out infinite;
+}
+.sp-header::after, .su-header::after, .tut-header::after {
+  content: ""; position: absolute; z-index: -1; left: -60px; bottom: -120px; width: 380px; height: 260px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(0,0,0,.28), rgba(0,0,0,0) 70%);
+}
+@keyframes at-float { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(-24px, 18px); } }
+.sp-header h1, .su-header h1, .tut-header h1 {
+  font-size: 2.1rem !important; font-weight: 900 !important; letter-spacing: -.02em; text-shadow: 0 3px 14px rgba(0,0,0,.28);
+}
+.sp-header p, .su-header p, .tut-header p { max-width: 62rem; }
+.sp-header p.sp-lead { font-size: 1.05rem !important; border-top: 1px solid rgba(255,255,255,.4) !important; }
+.sp-chips { display: flex; flex-wrap: wrap; gap: .55rem; margin-top: 1.1rem; }
+.sp-chips span {
+  background: rgba(255,255,255,.18); border: 1px solid rgba(255,255,255,.38); border-radius: 999px;
+  padding: .3rem .85rem; font-size: .8rem; font-weight: 700; color: #fff; backdrop-filter: blur(6px);
+}
+
+.sp-panel, .su-panel, .sp-prop {
+  position: relative; border-radius: 20px !important; padding: 1.35rem 1.6rem !important; margin: 1rem 0 1.3rem !important;
+  background: linear-gradient(160deg, rgba(255,255,255,.075), rgba(255,255,255,.025)) !important;
+  border: 1px solid var(--at-glass-b) !important; border-left: 1px solid var(--at-glass-b) !important;
+  box-shadow: 0 14px 40px rgba(0,0,0,.32);
+  transition: transform .25s var(--at-ease), box-shadow .25s var(--at-ease), border-color .25s;
+}
+.sp-panel:hover, .su-panel:hover { transform: translateY(-2px); border-color: rgba(212,175,55,.4) !important; box-shadow: 0 20px 48px rgba(0,0,0,.4); }
+.sp-panel::before, .su-panel::before {
+  content: ""; position: absolute; left: 1.6rem; top: 0; width: 56px; height: 4px; border-radius: 0 0 6px 6px;
+  background: linear-gradient(90deg, #ffe27a, #d4af37);
+}
+.sp-prop { border-color: rgba(212,175,55,.55) !important;
+  background: radial-gradient(500px 200px at 100% 0%, rgba(212,175,55,.22), transparent 70%), linear-gradient(160deg, rgba(255,255,255,.07), rgba(255,255,255,.02)) !important; }
+.sp-panel h3, .su-panel h3, .sp-prop h3 { font-size: 1.2rem !important; font-weight: 800 !important; letter-spacing: -.01em; margin: .5rem 0 .7rem !important; text-shadow: none !important; }
+.sp-panel p, .su-panel p, .sp-panel li, .su-panel li { font-size: .95rem !important; line-height: 1.7 !important; color: #e3ecfb !important; }
+.sp-panel ul, .su-panel ul { list-style: none !important; margin: .5rem 0 0 !important; padding: 0 !important; }
+.sp-panel li, .su-panel li { position: relative; padding-left: 1.6rem; margin: .45rem 0; }
+.sp-panel li::before, .su-panel li::before {
+  content: "⚓"; position: absolute; left: 0; top: .05rem; font-size: .8rem; color: var(--at-gold);
+}
+.sp-prop .destaque { border-left: 4px solid var(--at-gold) !important; background: rgba(212,175,55,.1); border-radius: 0 12px 12px 0; padding: .7rem 1rem !important; }
+
+/* cartões de ferramentas / ações */
+.sp-grid, .su-grid { gap: .9rem !important; margin-top: .9rem !important; }
+.sp-card, .su-card {
+  display: flex; gap: .9rem; align-items: flex-start;
+  background: linear-gradient(160deg, rgba(255,255,255,.08), rgba(255,255,255,.025)) !important;
+  border: 1px solid var(--at-glass-b) !important; border-radius: 16px !important; padding: 1rem 1.05rem !important;
+  transition: transform .22s var(--at-ease), border-color .22s, box-shadow .22s, background .22s;
+}
+.sp-card:hover, .su-card:hover {
+  transform: translateY(-4px); border-color: rgba(212,175,55,.65) !important;
+  box-shadow: 0 16px 34px rgba(0,0,0,.4), 0 0 0 1px rgba(212,175,55,.25);
+  background: linear-gradient(160deg, rgba(212,175,55,.14), rgba(255,255,255,.03)) !important;
+}
+.sp-card .ic, .su-card .ic {
+  flex: none; width: 46px; height: 46px; border-radius: 14px; display: grid; place-items: center; font-size: 1.45rem;
+  background: linear-gradient(135deg, rgba(255,226,122,.28), rgba(212,175,55,.10)); border: 1px solid rgba(212,175,55,.45);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.25); transition: transform .3s var(--at-ease);
+}
+.sp-card:hover .ic, .su-card:hover .ic { transform: rotate(-8deg) scale(1.1); }
+.sp-card .t, .su-card .t { font-size: 1rem !important; letter-spacing: -.01em; }
+.sp-card .d, .su-card .d { font-size: .84rem !important; line-height: 1.5 !important; color: #b9cbe6 !important; }
+.sp-aviso { border-radius: 18px !important; padding: 1.1rem 1.4rem !important; border-left: 5px solid #ef4444 !important;
+  background: linear-gradient(160deg, rgba(239,68,68,.16), rgba(239,68,68,.05)) !important; }
+.su-msg { border-radius: 14px !important; }
+
+/* botões de link (WhatsApp / compartilhar) */
+[data-testid="stLinkButton"] a, a[data-testid="stBaseLinkButton-primary"], a[data-testid="stBaseLinkButton-secondary"] {
+  border-radius: 16px !important; padding: .95rem 1.2rem !important; font-size: 1.05rem !important; font-weight: 800 !important;
+  transition: transform .2s var(--at-ease), box-shadow .2s !important;
+}
+[data-testid="stLinkButton"] a:hover { transform: translateY(-3px); box-shadow: 0 14px 30px rgba(37,211,102,.35) !important; }
+a[data-testid="stBaseLinkButton-primary"] { animation: at-pulse 2.8s ease-in-out infinite; }
+@keyframes at-pulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(37,211,102,.45); } 60% { box-shadow: 0 0 0 14px rgba(37,211,102,0); } }
+
+/* cartões de contribuidores (botões de download com PDF) */
+[data-testid="stDownloadButton"] button {
+  border-radius: 18px !important; min-height: 120px;
+  background: linear-gradient(160deg, rgba(255,255,255,.09), rgba(255,255,255,.03)) !important;
+  border: 1px solid rgba(212,175,55,.5) !important;
+}
+[data-testid="stDownloadButton"] button:hover { transform: translateY(-4px); border-color: #ffe27a !important; }
+
+/* Aprendendo a usar */
+.tut-card {
+  border-radius: 18px !important; padding: 1rem 1.2rem !important; margin: .6rem 0 !important; gap: 1rem !important;
+  background: linear-gradient(160deg, rgba(255,255,255,.08), rgba(255,255,255,.025)) !important;
+  border: 1px solid var(--at-glass-b) !important;
+  transition: transform .22s var(--at-ease), border-color .22s, box-shadow .22s;
+}
+.tut-card:hover { transform: translateX(6px); border-color: rgba(250,204,21,.7) !important; box-shadow: 0 12px 30px rgba(0,0,0,.38); }
+.tut-card.on { border-color: rgba(250,204,21,.6) !important; box-shadow: 0 0 0 1px rgba(250,204,21,.25), 0 10px 28px rgba(0,0,0,.3) !important; }
+.tut-card .ic { width: 50px; height: 50px; border-radius: 15px; display: grid; place-items: center; font-size: 1.6rem;
+  background: linear-gradient(135deg, rgba(250,204,21,.3), rgba(250,204,21,.08)); border: 1px solid rgba(250,204,21,.5); }
+.tut-tag { padding: .25rem .75rem !important; letter-spacing: .06em; }
+.tut-tag.ok { background: linear-gradient(135deg, #fde047, #eab308) !important; box-shadow: 0 4px 12px rgba(250,204,21,.35); }
+[data-testid="stIFrame"], iframe[title="st.iframe"] { border-radius: 18px; }
+
+/* iframe do JavaScript (só o nosso, marcado no conteúdo): sem ocupar espaço */
+[data-testid="stElementContainer"]:has(> iframe[srcdoc*="__ata_ui__"]),
+[data-testid="stElementContainer"]:has(iframe[srcdoc*="__ata_ui__"]) {
   position: absolute !important; width: 0 !important; height: 0 !important;
   margin: 0 !important; padding: 0 !important; overflow: hidden !important;
 }
@@ -647,7 +760,7 @@ _JS = r"""
 def aplicar_tema() -> None:
     """Injeta só o CSS moderno + o JavaScript (para páginas sem mascote)."""
     st.markdown(_CSS, unsafe_allow_html=True)
-    components.html(f"<script>{_JS}</script>", height=0)
+    components.html(f"<!--__ata_ui__--><script>{_JS}</script>", height=0)
 
 
 def sidebar_mascote() -> None:

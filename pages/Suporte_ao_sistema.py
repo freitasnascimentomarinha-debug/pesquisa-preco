@@ -144,11 +144,11 @@ st.markdown(
     <div class="su-panel">
         <h3>O que você pode fazer no grupo</h3>
         <div class="su-grid">
-            <div class="su-card"><div class="t">💡 Sugerir melhorias</div><div class="d">Teve uma ideia que facilitaria o seu trabalho? Conte para a gente.</div></div>
-            <div class="su-card"><div class="t">🛠️ Avisar um problema</div><div class="d">Uma funcionalidade parou de funcionar? Avise: quanto antes soubermos, mais rápido corrigimos.</div></div>
-            <div class="su-card"><div class="t">🆕 Pedir atualização ou nova versão</div><div class="d">Precisa de uma ferramenta nova ou de um ajuste numa que já existe? Solicite.</div></div>
-            <div class="su-card"><div class="t">🗣️ Críticas construtivas</div><div class="d">Sua opinião honesta é bem-vinda e ajuda a melhorar o sistema.</div></div>
-            <div class="su-card"><div class="t">🎓 Debater e aprender</div><div class="d">Troque experiências sobre <b>obtenção</b>, <b>logística</b> e <b>soluções administrativas</b>, com fluxos de trabalho, sistemas, automação e IA.</div></div>
+            <div class="su-card"><div class="ic">💡</div><div class="tx"><div class="t">Sugerir melhorias</div><div class="d">Teve uma ideia que facilitaria o seu trabalho? Conte para a gente.</div></div></div>
+            <div class="su-card"><div class="ic">🛠️</div><div class="tx"><div class="t">Avisar um problema</div><div class="d">Uma funcionalidade parou de funcionar? Avise: quanto antes soubermos, mais rápido corrigimos.</div></div></div>
+            <div class="su-card"><div class="ic">🆕</div><div class="tx"><div class="t">Pedir atualização ou nova versão</div><div class="d">Precisa de uma ferramenta nova ou de um ajuste numa que já existe? Solicite.</div></div></div>
+            <div class="su-card"><div class="ic">🗣️</div><div class="tx"><div class="t">Críticas construtivas</div><div class="d">Sua opinião honesta é bem-vinda e ajuda a melhorar o sistema.</div></div></div>
+            <div class="su-card"><div class="ic">🎓</div><div class="tx"><div class="t">Debater e aprender</div><div class="d">Troque experiências sobre <b>obtenção</b>, <b>logística</b> e <b>soluções administrativas</b>, com fluxos de trabalho, sistemas, automação e IA.</div></div></div>
         </div>
     </div>
     """,
