@@ -8,7 +8,7 @@ import sys
 from urllib.parse import quote
 
 import streamlit as st
-
+from ui_tema import sidebar_mascote
 st.set_page_config(
     page_title="Suporte ao sistema",
     page_icon="💬",
@@ -104,7 +104,7 @@ else:
 
 with st.sidebar:
     if acanto_b64:
-        st.markdown(f'<div style="text-align:center;padding:1rem 0 0.5rem 0;"><img src="data:image/png;base64,{acanto_b64}" style="max-width:70%;height:auto;"></div>', unsafe_allow_html=True)
+        sidebar_mascote()
     st.markdown("## MENU")
     st.markdown("---")
     st.page_link("streamlit_app.py", label="Cotação", icon="⚓")
