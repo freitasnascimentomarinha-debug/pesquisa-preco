@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import datetime, timedelta, timezone
 
 import streamlit as st
 import streamlit.components.v1 as components
@@ -99,7 +98,7 @@ _MASCOTE_SVG = (
     '<rect x="10" y="136" width="180" height="10" rx="5" fill="url(#mcGold)"/>'
     '<path d="M16 146 H184 V180 Q184 185 179 185 H21 Q16 185 16 180 Z" fill="url(#mcNavy)"/>'
     '<rect x="24" y="153" width="152" height="24" rx="7" fill="none" stroke="#d4af37" stroke-opacity=".65" stroke-width="1.3"/>'
-    '<text x="100" y="170" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-size="11" textLength="82" lengthAdjust="spacingAndGlyphs" fill="#ffe27a">COTE AGORA</text>'
+    '<text x="100" y="170" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-size="11" textLength="92" lengthAdjust="spacingAndGlyphs" fill="#ffe27a">ATACOTADA</text>'
     # sineta do balcão
     '<g class="mc-bell"><path d="M26 136 C26 122 46 122 46 136 Z" fill="url(#mcGold)" stroke="#9a7410" stroke-width="1"/>'
     '<rect x="34" y="118" width="4" height="5" rx="2" fill="#9a7410"/></g>'
@@ -111,6 +110,7 @@ _MASCOTE_SVG = (
 
 _FRASES_PADRAO = [
     "Cote agora! Vamos nessa?",
+    "Trabalho de semanas em minutos!",
     "Preço bom é preço pesquisado! 🔎",
     "Deixa que eu procuro no Compras.gov.",
     "Ata cotada, missão cumprida! ⚓",
@@ -134,16 +134,8 @@ _FRASES_PADRAO = [
 
 
 def _saudacao() -> str:
-    """Saudação conforme a hora de Brasília (o servidor costuma estar em UTC)."""
-    agora = datetime.now(timezone.utc) + timedelta(hours=-3)
-    h = agora.hour
-    if h < 5:
-        return "Boa madrugada, Comandante!"
-    if h < 12:
-        return "Bom dia, Comandante! ☀️"
-    if h < 18:
-        return "Boa tarde, Comandante! ⚓"
-    return "Boa noite, Comandante! 🌙"
+    """Saudação do mascote (sempre "Bom dia", em qualquer horário)."""
+    return "Bom dia, Comandante! ☀️"
 
 
 # ---------------------------------------------------------------------------
