@@ -80,8 +80,6 @@ _MASCOTE_SVG = (
     '<path d="M46 98 L34 80" stroke="#7a4620" stroke-width="5" stroke-linecap="round"/>'
     '<circle cx="49" cy="100" r="7.5" fill="#fff" stroke="#8fa8d6" stroke-width="1.4"/>'
     '<circle cx="27" cy="68" r="15" fill="#9fdcff" fill-opacity=".30" stroke="url(#mcGold)" stroke-width="4.5"/>'
-    '<path d="M18 63 Q20 55 28 53" stroke="#fff" stroke-opacity=".85" stroke-width="2.4" fill="none" stroke-linecap="round"/>'
-    '<text x="27" y="72" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-size="11" fill="#ffe27a" fill-opacity=".95" stroke="#0b2a78" stroke-width=".5">R$</text>'
     '</g>'
     # braço direito: segura a etiqueta de preço
     '<path d="M132 122 Q148 122 151 106" stroke="#0b2a78" stroke-width="12" stroke-linecap="round" fill="none"/>'
@@ -93,15 +91,15 @@ _MASCOTE_SVG = (
     '<path d="M148 122 L156 113 H186 Q190 113 190 117 V133 Q190 137 186 137 H152 Q148 137 148 133 Z" fill="#fff7d1" stroke="#d4af37" stroke-width="1.6"/>'
     '<circle cx="156" cy="121" r="2" fill="#c99a1b"/>'
     '<g font-family="Arial Black,Arial,sans-serif" font-size="9" fill="#0b2a78" text-anchor="middle">'
-    '<text class="pr p1" x="173" y="130" textLength="34" lengthAdjust="spacingAndGlyphs">R$ 12,90</text>'
-    '<text class="pr p2" x="173" y="130" textLength="30" lengthAdjust="spacingAndGlyphs">R$ 8,45</text>'
-    '<text class="pr p3" x="173" y="130" textLength="34" lengthAdjust="spacingAndGlyphs">R$ 19,00</text>'
+    '<text class="pr p1" x="173" y="130" textLength="30" lengthAdjust="spacingAndGlyphs">R$ 12,90</text>'
+    '<text class="pr p2" x="173" y="130" textLength="26" lengthAdjust="spacingAndGlyphs">R$ 8,45</text>'
+    '<text class="pr p3" x="173" y="130" textLength="30" lengthAdjust="spacingAndGlyphs">R$ 19,00</text>'
     '</g></g>'
     # balcão
     '<rect x="10" y="136" width="180" height="10" rx="5" fill="url(#mcGold)"/>'
     '<path d="M16 146 H184 V180 Q184 185 179 185 H21 Q16 185 16 180 Z" fill="url(#mcNavy)"/>'
     '<rect x="24" y="153" width="152" height="24" rx="7" fill="none" stroke="#d4af37" stroke-opacity=".65" stroke-width="1.3"/>'
-    '<text x="100" y="169" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-size="9" textLength="118" lengthAdjust="spacingAndGlyphs" fill="#ffe27a">BALCÃO DE PREÇOS</text>'
+    '<text x="100" y="170" text-anchor="middle" font-family="Arial Black,Arial,sans-serif" font-size="11" textLength="82" lengthAdjust="spacingAndGlyphs" fill="#ffe27a">COTE AGORA</text>'
     # sineta do balcão
     '<g class="mc-bell"><path d="M26 136 C26 122 46 122 46 136 Z" fill="url(#mcGold)" stroke="#9a7410" stroke-width="1"/>'
     '<rect x="34" y="118" width="4" height="5" rx="2" fill="#9a7410"/></g>'
@@ -112,12 +110,26 @@ _MASCOTE_SVG = (
 )
 
 _FRASES_PADRAO = [
-    "Balcão aberto! Vamos cotar?",
+    "Cote agora! Vamos nessa?",
     "Preço bom é preço pesquisado! 🔎",
     "Deixa que eu procuro no Compras.gov.",
     "Ata cotada, missão cumprida! ⚓",
     "Três preços na mão e a cotação sai.",
-    "Me clica! Toco a sineta. 🔔",
+    "Me clica! Eu falo e toco a sineta. 🔔",
+    "Já conferiu o CATMAT do seu item?",
+    "Sem pesquisa de preços, sem processo!",
+    "Média ou mediana? Eu calculo as duas.",
+    "Preço fora da curva? Eu te aviso. 📈",
+    "Com pressa? Tem a Cotação Rápida! ⚡",
+    "Atas vigentes esperando por você. 🤝",
+    "Dúvida de licitação? Pergunte ao Babilaca! 🧠",
+    "Tem vídeo-aula em Aprendendo a usar. 🎓",
+    "Nota fiscal também é fonte de preço. 📄",
+    "Corrija pelo IPCA e fique tranquilo. 📊",
+    "Cada centavo economizado é da Marinha. ⚓",
+    "Fornecedor bom a gente acha por aqui. 🏢",
+    "Cotação bem feita, processo aprovado!",
+    "Proa ao menor preço, Comandante!",
 ]
 
 
@@ -487,6 +499,8 @@ tbody tr:last-child td { border-bottom: none !important; }
 .mc-pupil, .mc-glint { transition: transform .12s ease-out; }
 .mc-coin { transform: translate(170px, 36px); animation: mc-coin 3.6s ease-in-out infinite; transform-box: view-box; }
 @keyframes mc-coin { 0%, 100% { transform: translate(170px, 36px) rotateY(0); } 50% { transform: translate(170px, 26px) rotateY(180deg); } }
+.mc-stage.mc-jump .mc-bell { animation: mc-ding-fast .7s ease-in-out; }
+@keyframes mc-ding-fast { 0%, 100% { transform: rotate(0); } 15% { transform: rotate(-16deg); } 35% { transform: rotate(14deg); } 55% { transform: rotate(-9deg); } 75% { transform: rotate(5deg); } }
 .mc-stage.mc-jump .mc-svg { animation: mc-jump .7s cubic-bezier(.3,1.6,.5,1); }
 @keyframes mc-jump { 0% { transform: translateY(0) scale(1, 1); } 25% { transform: translateY(0) scale(1.08, .88); } 55% { transform: translateY(-22px) scale(.94, 1.08); } 100% { transform: translateY(0) scale(1, 1); } }
 .mc-stage.mc-jump .mc-mouth { d: path("M91 82 Q100 98 109 82"); }
@@ -717,6 +731,36 @@ _JS = r"""
         st.querySelectorAll('.mc-glint').forEach((p) => p.style.transform = 'translate(' + x * .6 + 'px,' + y * .6 + 'px)');
       }, { passive: true });
 
+      /* som da sineta (Web Audio) e voz "Vamos cotar!" (síntese de fala do navegador) */
+      function ding() {
+        try {
+          const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+          const c = window.__ataAC = window.__ataAC || new AC();
+          if (c.state === 'suspended') c.resume();
+          const t = c.currentTime;
+          [[1318.5, .30], [1976, .16], [2637, .07]].forEach((n) => {
+            const o = c.createOscillator(), g = c.createGain();
+            o.type = 'sine'; o.frequency.value = n[0];
+            g.gain.setValueAtTime(.0001, t);
+            g.gain.exponentialRampToValueAtTime(n[1], t + .01);
+            g.gain.exponentialRampToValueAtTime(.0001, t + 1.1);
+            o.connect(g); g.connect(c.destination); o.start(t); o.stop(t + 1.15);
+          });
+        } catch (_) {}
+      }
+      function dizer(texto) {
+        try {
+          const ss = window.speechSynthesis; if (!ss) return;
+          ss.cancel();
+          const u = new SpeechSynthesisUtterance(texto);
+          u.lang = 'pt-BR'; u.rate = 1.05; u.pitch = 1.3;
+          const vozes = ss.getVoices();
+          const v = vozes.find((x) => /pt[-_]BR/i.test(x.lang)) || vozes.find((x) => /^pt/i.test(x.lang));
+          if (v) u.voice = v;
+          setTimeout(() => ss.speak(u), 380);
+        } catch (_) {}
+      }
+
       /* balão de falas */
       let idx = 0;
       const frases = () => { try { return JSON.parse($('.mc-root').dataset.frases); } catch (_) { return []; } };
@@ -735,7 +779,7 @@ _JS = r"""
         const st = e.target.closest && e.target.closest('.mc-stage'); if (!st) return;
         st.classList.remove('mc-jump'); void st.offsetWidth; st.classList.add('mc-jump');
         setTimeout(() => st.classList.remove('mc-jump'), 800);
-        const f = frases(); if (f.length) { idx = (idx + 1) % f.length; falar(f[idx]); }
+        falar('Vamos cotar! 🔔'); ding(); dizer('Vamos cotar!');
       });
     }.toString() + ')();';
     D.head.appendChild(s);
