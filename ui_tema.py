@@ -15,8 +15,11 @@ A chamada injeta, uma vez por execução da página:
 """
 from __future__ import annotations
 
+import base64
 import json
+import os
 import re
+from functools import lru_cache
 
 import streamlit as st
 import streamlit.components.v1 as components
@@ -116,7 +119,7 @@ _FRASES_PADRAO = [
     "Deixa que eu procuro no Compras.gov.",
     "Ata cotada, missão cumprida! ⚓",
     "Três preços na mão e a cotação sai.",
-    "Me clica! Eu falo e toco a sineta. 🔔",
+    "Me clica! Eu tenho voz. 🔔",
     "Já conferiu o CATMAT do seu item?",
     "Sem pesquisa de preços, sem processo!",
     "Média ou mediana? Eu calculo as duas.",
@@ -134,6 +137,17 @@ _FRASES_PADRAO = [
     "CATMAT ou CATSERV? Eu sugiro o código certo. 🔎",
     "DFD, ETP, TR e ofícios já saem no modelo da Marinha! 📄",
 ]
+
+
+@lru_cache(maxsize=1)
+def _audio_clique() -> str:
+    """Áudio tocado ao clicar no mascote, como data URI (vazio se o arquivo não existir)."""
+    caminho = os.path.join(os.path.dirname(os.path.abspath(__file__)), "audio_mascote", "clique.mp3")
+    try:
+        with open(caminho, "rb") as f:
+            return "data:audio/mpeg;base64," + base64.b64encode(f.read()).decode()
+    except OSError:
+        return ""
 
 
 def _saudacao() -> str:
@@ -854,6 +868,17 @@ _JS = r"""
         } catch (_) {}
       }
 
+      /* áudio do mascote: toca o arquivo; se falhar, cai na sineta sintética */
+      function tocar() {
+        try {
+          const src = $('.mc-root') && $('.mc-root').dataset.audio;
+          if (!src) { ding(); return; }
+          if (!window.__ataAudio || window.__ataAudio.__src !== src) { window.__ataAudio = new Audio(src); window.__ataAudio.__src = src; }
+          const a = window.__ataAudio; a.currentTime = 0;
+          const p = a.play(); if (p && p.catch) p.catch(() => ding());
+        } catch (_) { ding(); }
+      }
+
       /* balão de falas */
       let idx = 0;
       const frases = () => { try { return JSON.parse($('.mc-root').dataset.frases); } catch (_) { return []; } };
@@ -872,7 +897,8 @@ _JS = r"""
         const st = e.target.closest && e.target.closest('.mc-stage'); if (!st) return;
         st.classList.remove('mc-jump'); void st.offsetWidth; st.classList.add('mc-jump');
         setTimeout(() => st.classList.remove('mc-jump'), 800);
-        falar('Vamos cotar! 🔔'); ding(); dizer('Vamos cotar!');
+        const f = frases(); if (f.length) { idx = (idx + 1) % f.length; falar(f[idx]); }
+        tocar();
       });
     }.toString() + ')();';
     D.head.appendChild(s);
@@ -979,7 +1005,7 @@ def sidebar_mascote() -> None:
     aplicar_tema()
     frases = [_saudacao()] + _FRASES_PADRAO
     st.markdown(
-        '<div class="mc-root" data-frases=\'' + json.dumps(frases, ensure_ascii=False).replace("'", "&#39;") + "'>"
+        '<div class="mc-root" data-audio="' + _audio_clique() + '" data-frases=\'' + json.dumps(frases, ensure_ascii=False).replace("'", "&#39;") + "'>"
         '<div class="mc-stage" title="Clique em mim!">' + _MASCOTE_SVG + "</div>"
         '<div class="mc-bubble">' + frases[0] + "</div>"
         "</div>",
