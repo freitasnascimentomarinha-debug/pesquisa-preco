@@ -415,9 +415,9 @@ if resultado:
 
     # ---------- 6. envio ----------
     passo(5, "Enviar", "Uma mensagem para você (destinatário visível, com a proposta anexada) e os fornecedores em cópia oculta: um não vê o outro.")
-    chave_api, remetente, senha_esperada = segredo("RESEND_API_KEY"), segredo("RESEND_FROM"), segredo("COTACAO_DIRETA_SENHA")
+    senha_esperada = segredo("COTACAO_DIRETA_SENHA")
     gmail_secrets, gmail_senha_secrets = segredo("GMAIL_USER"), segredo("GMAIL_APP_PASSWORD")
-    conta_nos_secrets = bool((gmail_secrets and gmail_senha_secrets) or (chave_api and remetente))
+    conta_nos_secrets = bool(gmail_secrets and gmail_senha_secrets)
 
     with st.expander("📧 Enviar pela sua conta do Gmail (recomendado)" if conta_nos_secrets else "📧 Enviar pela sua conta do Gmail", expanded=not conta_nos_secrets):
         st.caption("O e-mail sai do seu próprio Gmail e usa a sua cota diária (cerca de 500 por dia). A senha **não fica salva**: vale só nesta sessão do navegador. "
@@ -436,23 +436,19 @@ if resultado:
         canal, quem_envia = "gmail", f"seu Gmail ({usuario_pessoal})"
     elif gmail_secrets and gmail_senha_secrets:
         canal, quem_envia = "gmail_secrets", f"a conta do sistema ({gmail_secrets})"
-    elif chave_api and remetente:
-        canal, quem_envia = "resend", "a conta do sistema (Resend)"
     else:
         canal, quem_envia = "", ""
 
     if not canal:
         st.info("O envio ainda não está ligado. Informe o seu Gmail e a senha de app acima, ou peça a quem cuida do sistema para configurar nos Secrets: "
-                "GMAIL_USER e GMAIL_APP_PASSWORD (ou RESEND_API_KEY e RESEND_FROM). Enquanto isso, baixe o Word e a lista e envie por conta própria.")
+                "GMAIL_USER e GMAIL_APP_PASSWORD. Enquanto isso, baixe o Word e a lista e envie por conta própria.")
     else:
         def enviar_mensagem(bcc: list[str], assunto_msg: str, corpo_texto: str, corpo_html: str, anexos_msg: list[tuple[str, bytes]]) -> dict[str, object]:
-            """Envia uma mensagem pelo canal escolhido (as três opções devolvem o mesmo formato)."""
-            if canal == "resend":
-                return cd.enviar_resend(chave_api, origem, om["emails"], bcc, om["emails"], assunto_msg, corpo_texto, corpo_html, anexos_msg)
+            """Envia uma mensagem pelo Gmail escolhido (o da pessoa ou o dos Secrets)."""
             usuario, chave = (usuario_pessoal, chave_pessoal) if canal == "gmail" else (gmail_secrets, gmail_senha_secrets)
             return cd.enviar_gmail(usuario, chave, origem, om["emails"], bcc, om["emails"], assunto_msg, corpo_texto, corpo_html, anexos_msg)
 
-        remetente_exibido = {"gmail": usuario_pessoal, "gmail_secrets": gmail_secrets}.get(canal, remetente)
+        remetente_exibido = usuario_pessoal if canal == "gmail" else gmail_secrets
         origem = cd.remetente_com_nome(remetente_exibido, om["nome"])
         com_mais = ""
         if len(lotes) > 1:

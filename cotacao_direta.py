@@ -1,13 +1,12 @@
 """Cotação Direta: pedido de cotação por e-mail aos fornecedores que venderam recentemente à Administração.
 
 Fluxo: lista de itens -> CATMAT sugerido (automático) -> fornecedores recentes por item (Compras.gov, sem repetir fornecedor entre itens)
--> proposta em Word + e-mail padrão -> envio único com os fornecedores em cópia oculta (Resend).
+-> proposta em Word + e-mail padrão -> envio único com os fornecedores em cópia oculta (Gmail, por SMTP com senha de app).
 Este módulo só tem contas e chamadas de rede; a tela fica em pages/Cotação_Direta.py.
 """
 
 from __future__ import annotations
 
-import base64
 import datetime as dt
 import hmac
 import html
@@ -33,10 +32,9 @@ LIMIAR_CATMAT = 70.0  # % mínimo de combinação para sugerir um CATMAT
 MAX_CATMAT_SUGERIDOS = 3
 JANELA_DIAS = 365
 MAX_CONSULTAS_CONTATO_POR_ITEM = 40  # CNPJs consultados (OpenCNPJ) por item até achar fornecedores com e-mail
-LOTE_BCC = 45  # destinatários ocultos por mensagem (o Resend aceita até 50 por envio, contando o destinatário visível)
+LOTE_BCC = 45  # destinatários ocultos por mensagem (o Gmail aceita até cerca de 100 destinatários por mensagem via SMTP; ficamos bem abaixo)
 PRAZO_PADRAO_DIAS_UTEIS = 5
 VALIDADE_PADRAO_DIAS = 60
-API_RESEND = "https://api.resend.com/emails"
 SITUACOES_INATIVAS = ("baix", "inapt", "suspens", "nul")
 EMAIL_VALIDO = re.compile(r"^[A-Za-z0-9._%+\-']+@[A-Za-z0-9\-]+(\.[A-Za-z0-9\-]+)+$")
 
@@ -651,7 +649,7 @@ def gerar_comprovante_xlsx(om: dict[str, str], protocolo: str, itens: list[dict[
     return saida.getvalue()
 
 
-# ---------- envio (Resend) ----------
+# ---------- envio: apoio ----------
 
 def remetente_com_nome(remetente: str, nome_om: str) -> str:
     """'Nome <a@b.com>' ou 'a@b.com' -> 'Cotação – NOME DA OM <a@b.com>'."""
@@ -693,42 +691,6 @@ def separar_destinatarios(emails_om: list[str] | str, fornecedores: list[str], l
     return [unicos[i:i + lote] for i in range(0, len(unicos), lote)]
 
 
-def enviar_resend(chave_api: str, remetente: str, para: list[str] | str, bcc: list[str], responder_para: list[str] | str, assunto: str, texto: str, html_corpo: str,
-                  anexos: list[tuple[str, bytes]], sessao=None) -> dict[str, object]:
-    """Uma mensagem pela API do Resend (`para` e `responder_para` aceitam vários e-mails). Devolve {'ok', 'id', 'erro'}. Nunca levanta exceção."""
-    corpo: dict[str, object] = {"from": remetente, "to": [para] if isinstance(para, str) else list(para), "subject": assunto, "text": texto, "html": html_corpo,
-                                "reply_to": responder_para if isinstance(responder_para, str) else list(responder_para)}
-    if bcc:
-        corpo["bcc"] = bcc
-    if anexos:
-        corpo["attachments"] = [{"filename": nome, "content": base64.b64encode(conteudo).decode("ascii")} for nome, conteudo in anexos]
-    try:
-        resposta = (sessao or requests).post(API_RESEND, json=corpo, headers={"Authorization": f"Bearer {chave_api}", "Content-Type": "application/json"}, timeout=60)
-    except requests.RequestException as erro:
-        return {"ok": False, "id": "", "erro": f"falha de rede ({type(erro).__name__})"}
-    if resposta.status_code in (200, 201):
-        try:
-            return {"ok": True, "id": resposta.json().get("id", ""), "erro": ""}
-        except ValueError:
-            return {"ok": True, "id": "", "erro": ""}
-    return {"ok": False, "id": "", "erro": explicar_erro_resend(resposta.status_code, resposta.text)}
-
-
-def explicar_erro_resend(status: int, texto: str) -> str:
-    """Erros comuns do Resend em português, com o que fazer; senão, o código e o começo da resposta."""
-    minusculo = texto.lower()
-    if status == 403 and "only send testing emails" in minusculo:
-        return ("O remetente de teste do Resend (onboarding@resend.dev) só envia para o e-mail da conta do Resend. Para enviar a outros destinatários, "
-                "verifique um domínio no Resend (Domains) e use um endereço dele em RESEND_FROM nos Secrets. Para só testar, ponha o e-mail da conta do Resend no campo 'Seu e-mail institucional'.")
-    if status == 403 and "domain is not verified" in minusculo:
-        return "O domínio do remetente (RESEND_FROM) ainda não está verificado no Resend. Conclua a verificação em Domains e tente de novo."
-    if status in (401, 403) and ("api key" in minusculo or "unauthorized" in minusculo):
-        return "A chave do Resend (RESEND_API_KEY) não foi aceita. Confira se foi copiada inteira nos Secrets, sem espaços."
-    if status == 429:
-        return "O Resend limitou os envios (limite por segundo ou por dia do plano). Aguarde um pouco e tente de novo."
-    return f"HTTP {status}: {texto[:160]}"
-
-
 # ---------- envio (Gmail, por SMTP com senha de app) ----------
 SMTP_GMAIL = "smtp.gmail.com"
 PORTA_GMAIL = 465
@@ -761,7 +723,7 @@ def explicar_erro_gmail(erro: BaseException) -> str:
 
 def enviar_gmail(usuario: str, senha_app: str, remetente: str, para: list[str] | str, bcc: list[str], responder_para: list[str] | str, assunto: str, texto: str,
                  html_corpo: str, anexos: list[tuple[str, bytes]], servidor: str = SMTP_GMAIL, porta: int = PORTA_GMAIL) -> dict[str, object]:
-    """Uma mensagem pelo SMTP do Gmail (login com a senha de app). Mesmo retorno de `enviar_resend`: {'ok', 'id', 'erro'}. Nunca levanta exceção."""
+    """Uma mensagem pelo SMTP do Gmail (login com a senha de app). Devolve {'ok', 'id', 'erro'}. Nunca levanta exceção."""
     destinos = [para] if isinstance(para, str) else list(para)
     respostas = [responder_para] if isinstance(responder_para, str) else list(responder_para)
     usuario = str(usuario or "").strip()
