@@ -1185,6 +1185,7 @@ def _enviar_ao_babilaca(chave_ata: str) -> None:
                    "Quantidade": "" if i.get("Quantidade") in (None, "") else str(i["Quantidade"])} for i in itens],
         "justificativa": V.texto_justificativa(analise, grupo["ata"]) if analise else "",
         "relatorio_vantajosidade": V.corpo_relatorio(grupo, analise) if analise else "",
+        "comparativo": V.linhas_comparativo(analise) if analise else [],
     }
 
 
@@ -1763,7 +1764,9 @@ if results:
                     with col_docs:
                         clicou_docs = st.button("📂 Outros Docs", key=btn_key)
                     with col_ades:
-                        if st.button("📋 Adesões já aprovadas", key=f"btn_ades_{idx}_{identificador[:30]}"):
+                        if st.button("📋 Adesões já aprovadas", key=f"btn_ades_{idx}_{identificador[:30]}",
+                                     help="Mostra quais órgãos que NÃO participaram da licitação já tiveram a adesão (carona) a este item aprovada pelo "
+                                          "órgão gerenciador, em que quantidade e quando. Serve para saber quanto do saldo da ata já foi usado por adesões."):
                             st.session_state[f"ades_{identificador}_{idx}"] = adesoes_aprovadas(
                                 str(raw.get("numeroAtaRegistroPreco", "")),
                                 str(raw.get("codigoUnidadeGerenciadora", "") or uasg_code),
@@ -1775,8 +1778,11 @@ if results:
                         if _erro_ades:
                             st.warning(f"Não foi possível consultar as adesões agora ({_erro_ades}).")
                         elif not _lista_ades:
-                            st.caption("Nenhuma adesão aprovada para este item até agora.")
+                            st.caption("Nenhuma adesão aprovada para este item até agora: o saldo para adesão ainda não foi usado por outros órgãos.")
                         else:
+                            _total_ades = sum(_num(a.get("quantidadeAprovadaAdesao")) or 0 for a in _lista_ades)
+                            st.caption(f"{len(_lista_ades)} adesão(ões) já aprovada(s) para este item, somando {_total_ades:,.0f} unidade(s) "
+                                       "(órgãos que não participaram da licitação).".replace(",", "."))
                             st.dataframe(
                                 [{"Órgão que aderiu": a.get("unidadeNaoParticipante", ""),
                                   "Quantidade aprovada": a.get("quantidadeAprovadaAdesao", ""),

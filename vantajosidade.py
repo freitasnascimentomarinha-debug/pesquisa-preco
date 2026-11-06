@@ -346,6 +346,20 @@ def _pct(fracao: float) -> str:
     return f"{fracao * 100:.1f}%".replace(".", ",")
 
 
+def linhas_comparativo(resultados: list[dict]) -> list[dict]:
+    """Resumo da pesquisa de preços por item, para a tabela do ofício: preço da ata, mediana e faixa de mercado, diferença."""
+    brl = lambda v: MP.brl(v) if v is not None else "-"
+    linhas = []
+    for r in resultados:
+        com_ref = r["mediana"] is not None
+        linhas.append({"Item": r["item"], "Preço da ata": brl(r["preco"]),
+                       "Mediana de mercado": brl(r["mediana"]),
+                       "Faixa de mercado": f"{brl(r['menor'])} a {brl(r['maior'])}" if com_ref else "a pesquisar",
+                       "Preços usados": f"{r['aceitos']}",
+                       "Diferença": _pct(r["diferenca"]) if r["diferenca"] is not None else "-"})
+    return linhas
+
+
 def justificativa_item(r: dict) -> str:
     """Frase que justifica (ou aponta a pendência de) cada item."""
     brl = MP.brl
