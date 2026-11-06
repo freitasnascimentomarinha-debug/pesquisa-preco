@@ -994,7 +994,14 @@ def aplicar_tema() -> None:
     """Injeta só o CSS moderno + o JavaScript (para páginas sem mascote)."""
     _instalar_destaque_tabelas()
     st.markdown(_CSS, unsafe_allow_html=True)
-    components.html(f"<!--__ata_ui__--><script>{_JS}</script>", height=0)
+    html_js = f"<!--__ata_ui__--><script>{_JS}</script>"
+    try:  # st.components.v1.html está sendo descontinuado nas versões novas do Streamlit
+        if hasattr(st, "iframe"):
+            st.iframe(html_js, height=1)  # (st.iframe não aceita altura 0; o CSS esconde o contêiner)
+        else:
+            components.html(html_js, height=0)
+    except Exception:
+        pass  # sem o JavaScript o visual continua funcionando (só perde as interações)
 
 
 def sidebar_mascote() -> None:

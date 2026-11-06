@@ -12,9 +12,14 @@ import datetime as dt
 import hmac
 import html
 import io
+import mimetypes
 import re
+import smtplib
+import ssl
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from email.message import EmailMessage
+from email.utils import formataddr, parseaddr
 
 import requests
 
@@ -722,3 +727,64 @@ def explicar_erro_resend(status: int, texto: str) -> str:
     if status == 429:
         return "O Resend limitou os envios (limite por segundo ou por dia do plano). Aguarde um pouco e tente de novo."
     return f"HTTP {status}: {texto[:160]}"
+
+
+# ---------- envio (Gmail, por SMTP com senha de app) ----------
+SMTP_GMAIL = "smtp.gmail.com"
+PORTA_GMAIL = 465
+
+
+def limpar_senha_app(senha: str) -> str:
+    """O Google mostra a senha de app em 4 grupos de 4 letras, com espaços: tira os espaços."""
+    return re.sub(r"\s+", "", str(senha or ""))
+
+
+def explicar_erro_gmail(erro: BaseException) -> str:
+    """Erros comuns do Gmail em português, com o que fazer."""
+    texto = str(getattr(erro, "smtp_error", b"") or erro)
+    if isinstance(texto, bytes):
+        texto = texto.decode("utf-8", "replace")
+    minusculo = texto.lower()
+    if isinstance(erro, smtplib.SMTPAuthenticationError):
+        return ("O Gmail não aceitou o login. Use a SENHA DE APP (16 letras gerada em Conta Google > Segurança > Verificação em duas etapas > Senhas de app), "
+                "não a senha normal do e-mail, e confira se o endereço está certo. Em conta de Workspace, o administrador pode ter desligado as senhas de app.")
+    if "daily user sending limit" in minusculo or "5.4.5" in minusculo or "quota" in minusculo or "rate limit" in minusculo:
+        return "O Gmail atingiu o limite de envios desta conta (cerca de 500 por dia em conta pessoal). Aguarde algumas horas ou use outra conta."
+    if isinstance(erro, smtplib.SMTPRecipientsRefused):
+        return "O Gmail recusou os destinatários: confira se os e-mails estão corretos."
+    if isinstance(erro, smtplib.SMTPSenderRefused):
+        return "O Gmail recusou o remetente. Use o mesmo endereço da conta que fez o login."
+    if isinstance(erro, (smtplib.SMTPServerDisconnected, TimeoutError, OSError)):
+        return f"Falha de conexão com o Gmail ({type(erro).__name__}). Tente de novo em instantes."
+    return f"{type(erro).__name__}: {texto[:160]}"
+
+
+def enviar_gmail(usuario: str, senha_app: str, remetente: str, para: list[str] | str, bcc: list[str], responder_para: list[str] | str, assunto: str, texto: str,
+                 html_corpo: str, anexos: list[tuple[str, bytes]], servidor: str = SMTP_GMAIL, porta: int = PORTA_GMAIL) -> dict[str, object]:
+    """Uma mensagem pelo SMTP do Gmail (login com a senha de app). Mesmo retorno de `enviar_resend`: {'ok', 'id', 'erro'}. Nunca levanta exceção."""
+    destinos = [para] if isinstance(para, str) else list(para)
+    respostas = [responder_para] if isinstance(responder_para, str) else list(responder_para)
+    usuario = str(usuario or "").strip()
+    if not EMAIL_VALIDO.match(usuario):
+        return {"ok": False, "id": "", "erro": "O e-mail do Gmail está vazio ou inválido."}
+    # o Gmail só aceita como remetente o próprio endereço do login: mantém o nome de exibição e troca o endereço
+    nome_exibicao = parseaddr(remetente)[0]
+    mensagem = EmailMessage()
+    mensagem["From"] = formataddr((nome_exibicao, usuario)) if nome_exibicao else usuario
+    mensagem["To"] = ", ".join(destinos)
+    if respostas:
+        mensagem["Reply-To"] = ", ".join(respostas)
+    mensagem["Subject"] = assunto
+    mensagem.set_content(texto)
+    mensagem.add_alternative(html_corpo, subtype="html")
+    for nome, conteudo in anexos:
+        tipo, _ = mimetypes.guess_type(nome)
+        principal, _, secundario = (tipo or "application/octet-stream").partition("/")
+        mensagem.add_attachment(conteudo, maintype=principal, subtype=secundario or "octet-stream", filename=nome)
+    try:
+        with smtplib.SMTP_SSL(servidor, porta, context=ssl.create_default_context(), timeout=60) as conexao:
+            conexao.login(usuario, limpar_senha_app(senha_app))
+            conexao.send_message(mensagem, from_addr=usuario, to_addrs=destinos + list(bcc))  # o Bcc vai só no envelope, nunca no cabeçalho
+        return {"ok": True, "id": "Gmail", "erro": ""}
+    except Exception as erro:  # noqa: BLE001 (qualquer falha vira mensagem para a tela)
+        return {"ok": False, "id": "", "erro": explicar_erro_gmail(erro)}
