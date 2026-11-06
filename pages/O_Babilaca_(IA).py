@@ -1327,7 +1327,9 @@ def _form_oficio(tipo: str, bloqueado: bool):
     if adesao:
         corpo = MP.corpo_oficio_adesao({"gerenciador": gerenciador, "ata": ata, "licitacao": licitacao, "uasg": uasg,
                                         "objeto": objeto, "justificativa": justificativa, "fornecedor_ciente": ciente,
-                                        "contato": contato, "itens": lista})
+                                        "contato": contato, "itens": lista,
+                                        "comparativo": st.session_state.get("_ofad_comparativo") or [],
+                                        "relatorio_anexo": bool(st.session_state.get(f"doc_gerado_{MP.DOC_VANTAJOSIDADE}"))})
     else:
         corpo = MP.corpo_oficio_irp({"gerenciador": gerenciador, "irp": irp, "uasg": uasg, "objeto": objeto,
                                      "prazo": prazo, "justificativa": justificativa, "local_entrega": local,
@@ -1337,6 +1339,9 @@ def _form_oficio(tipo: str, bloqueado: bool):
               "copias": [c.strip() for c in copias.split(",") if c.strip()],
               "endereco": endereco, "destinatario": destinatario, "vocativo": vocativo, "fecho": fecho}
     nome_base = "oficio_adesao" if adesao else "oficio_irp"
+    if adesao and st.session_state.get(f"doc_gerado_{MP.DOC_VANTAJOSIDADE}"):
+        st.success("📊 O **relatório de vantajosidade** (pesquisa de preços e justificativa por item) já está pronto e vai citado como "
+                   "anexo no texto do ofício. Baixe-o logo abaixo, em **Relatório de vantajosidade (anexo do ofício)**, para juntar ao ofício.")
     _b1, _b2 = st.columns(2)
     with _b1:
         if st.button("📄 Gerar ofício", key=f"{k}_gerar", use_container_width=True, disabled=bloqueado):
@@ -1346,6 +1351,9 @@ def _form_oficio(tipo: str, bloqueado: bool):
             _gerar_com_ia(tipo, "OFÍCIO", MP.prompt_revisar(corpo, contexto, "oficio_externo" if externo else "oficio"),
                           "adesão ata registro de preços art 86" if adesao else "intenção de registro de preços art 86",
                           f"{nome_base}_ia", oficio)
+    if adesao and st.session_state.get(f"doc_gerado_{MP.DOC_VANTAJOSIDADE}"):
+        with st.expander("📊 Relatório de vantajosidade (anexo do ofício): pesquisa de preços e justificativa por item", expanded=False):
+            _exibir_doc(MP.DOC_VANTAJOSIDADE)
 
 
 def _form_modelo_processo(tipo: str, bloqueado: bool):
@@ -2380,6 +2388,7 @@ if _pre_ofad:
     st.session_state["_ofad_itens_ini"] = _pre_ofad.get("itens") or []
     if _pre_ofad.get("justificativa"):
         st.session_state["ofad_just"] = _pre_ofad["justificativa"]
+    st.session_state["_ofad_comparativo"] = _pre_ofad.get("comparativo") or []
     if _pre_ofad.get("relatorio_vantajosidade"):
         _registrar_doc(MP.DOC_VANTAJOSIDADE, "RELATÓRIO DE VANTAJOSIDADE DA ADESÃO", _pre_ofad["relatorio_vantajosidade"],
                        "relatorio_vantajosidade_adesao")

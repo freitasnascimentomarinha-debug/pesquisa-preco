@@ -577,8 +577,25 @@ def _tabela_itens(itens: list[dict]) -> list[str]:
     return linhas
 
 
+def _pesquisa_precos_oficio(comparativo: list[dict], com_anexo: bool) -> str:
+    """Resumo da pesquisa de preços (tabela por item) e a referência ao relatório de vantajosidade em anexo."""
+    if not comparativo and not com_anexo:
+        return ""
+    texto = ""
+    if comparativo:
+        colunas = ["Item", "Preço da ata", "Mediana de mercado", "Faixa de mercado", "Preços usados", "Diferença"]
+        linhas = ["| " + " | ".join(colunas) + " |", "|" + "---|" * len(colunas)]
+        for c in comparativo:
+            linhas.append("| " + " | ".join(_celula(str(c.get(col, ""))) for col in colunas) + " |")
+        texto += (" O resultado da pesquisa de preços, por item, é o seguinte:\n\n" + "\n".join(linhas))
+    if com_anexo:
+        texto += ("\n\nO relatório de vantajosidade, com a metodologia, os preços pesquisados e a justificativa de cada item, "
+                  "segue anexo a este ofício.")
+    return texto
+
+
 def corpo_oficio_adesao(o: dict) -> str:
-    """o: gerenciador, ata, licitacao, uasg, objeto, justificativa, fornecedor_ciente, contato, itens."""
+    """o: gerenciador, ata, licitacao, uasg, objeto, justificativa, fornecedor_ciente, contato, itens (e, se houver, comparativo e relatorio_anexo)."""
     lacuna = "__________"
     ciente = ("O fornecedor beneficiário já manifestou concordância com o fornecimento, conforme documento anexo."
               if o.get("fornecedor_ciente") else
@@ -592,7 +609,8 @@ def corpo_oficio_adesao(o: dict) -> str:
         f"2. A adesão se justifica porque {(o.get('justificativa') or lacuna).rstrip('.')}."
         + ("" if "foram comparados" in (o.get("justificativa") or "") else
            " Os preços registrados foram comparados com os praticados no mercado, conforme pesquisa realizada nos "
-           "termos do art. 23 da Lei nº 14.133/2021, e mostraram-se vantajosos para a Administração."),
+           "termos do art. 23 da Lei nº 14.133/2021, e mostraram-se vantajosos para a Administração.")
+        + _pesquisa_precos_oficio(o.get("comparativo") or [], bool(o.get("relatorio_anexo"))),
         "3. Os itens e as quantidades pretendidos são os seguintes, observado o limite de 50% dos quantitativos "
         "registrados por órgão aderente (art. 86, §4º, da Lei nº 14.133/2021):\n\n" + "\n".join(_tabela_itens(o.get("itens") or [])),
         f"4. {ciente} Autorizada a adesão, a contratação será efetivada no prazo regulamentar, observada a vigência da ata.",
