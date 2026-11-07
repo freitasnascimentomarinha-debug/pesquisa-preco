@@ -1075,11 +1075,23 @@ def situacao_sicaf_fornecedores(cnpjs: List[str]) -> Dict[str, str]:
 
 
 @st.cache_data(ttl=1800, show_spinner=False)
-def adesoes_aprovadas(numero_ata: str, unidade_gerenciadora: str, numero_item: str) -> Tuple[List[Dict], Optional[str]]:
-    """Adesões (caronas) já aprovadas para o item da ata: unidade não participante, quantidade e data."""
+def _adesoes_aprovadas_ok(numero_ata: str, unidade_gerenciadora: str, numero_item: str) -> List[Dict]:
+    """Consulta as adesões do item. Levanta RuntimeError em caso de falha, para que o erro NÃO fique guardado no cache."""
     dados, erro = http_get_json(API_URL_ADESOES, {"numeroAta": numero_ata, "unidadeGerenciadora": unidade_gerenciadora,
-                                                  "numeroItem": numero_item, "pagina": 1, "tamanhoPagina": 100}, timeout=60, tentativas=3)
-    return (dados or {}).get("resultado", []) or [], erro
+                                                  "numeroItem": numero_item, "pagina": 1, "tamanhoPagina": 100},
+                                timeout=25, tentativas=2, ok_404=True)
+    if erro:
+        raise RuntimeError(erro)
+    return (dados or {}).get("resultado", []) or []
+
+
+def adesoes_aprovadas(numero_ata: str, unidade_gerenciadora: str, numero_item: str) -> Tuple[List[Dict], Optional[str]]:
+    """Adesões (caronas) já aprovadas para o item da ata: unidade não participante, quantidade e data.
+    Devolve (lista, erro). Só sucessos ficam no cache; falhas podem ser tentadas de novo."""
+    try:
+        return _adesoes_aprovadas_ok(numero_ata, unidade_gerenciadora, numero_item), None
+    except RuntimeError as exc:
+        return [], str(exc)
 
 
 def _brl_un(valor) -> str:
@@ -1626,17 +1638,28 @@ if results:
                 """,
                 unsafe_allow_html=True,
             )
-            # Enriquecer resultados com dados do endpoint 3_consultarUnidadesItem
-            enrich_status_placeholder = st.empty()
-            enrich_progress_bar = st.progress(0, text="Preparando detalhes das atas…")
-            with st.spinner("Buscando detalhes de saldo e adesão…"):
-                enriched = run_enrich(
-                    display_results,
-                    enrich_status_placeholder,
-                    enrich_progress_bar,
-                )
-            with st.spinner("Consultando a situação dos fornecedores no SICAF…"):
-                sicaf_por_cnpj = situacao_sicaf_fornecedores([str(r.get("niFornecedor") or "") for r in display_results])
+            # Enriquecer resultados com dados do endpoint 3_consultarUnidadesItem.
+            # Guarda o resultado na sessão: qualquer clique numa ata (incluir na adesão, adesões já aprovadas, outros docs…)
+            # reexecuta a página inteira, e sem isso todas as consultas de saldo e de SICAF eram refeitas a cada clique.
+            _chave_enr = tuple((str(r.get("numeroControlePncpAta", "")), str(r.get("numeroItem", ""))) for r in display_results)
+            _cache_enr = st.session_state.setdefault("_cache_enriquecimento", {})
+            if _chave_enr in _cache_enr:
+                enriched, sicaf_por_cnpj = _cache_enr[_chave_enr]
+            else:
+                enrich_status_placeholder = st.empty()
+                enrich_progress_bar = st.progress(0, text="Preparando detalhes das atas…")
+                with st.spinner("Buscando detalhes de saldo e adesão…"):
+                    enriched = run_enrich(
+                        display_results,
+                        enrich_status_placeholder,
+                        enrich_progress_bar,
+                    )
+                with st.spinner("Consultando a situação dos fornecedores no SICAF…"):
+                    sicaf_por_cnpj = situacao_sicaf_fornecedores([str(r.get("niFornecedor") or "") for r in display_results])
+                if enriched:  # resultado vazio (falha geral) não é guardado: a próxima ação tenta de novo
+                    if len(_cache_enr) >= 3:
+                        _cache_enr.pop(next(iter(_cache_enr)))
+                    _cache_enr[_chave_enr] = (enriched, sicaf_por_cnpj)
 
             _painel_cesta_adesao()
             for idx, raw in enumerate(display_results):
@@ -1767,22 +1790,24 @@ if results:
                         if st.button("📋 Adesões já aprovadas", key=f"btn_ades_{idx}_{identificador[:30]}",
                                      help="Mostra quais órgãos que NÃO participaram da licitação já tiveram a adesão (carona) a este item aprovada pelo "
                                           "órgão gerenciador, em que quantidade e quando. Serve para saber quanto do saldo da ata já foi usado por adesões."):
-                            st.session_state[f"ades_{identificador}_{idx}"] = adesoes_aprovadas(
-                                str(raw.get("numeroAtaRegistroPreco", "")),
-                                str(raw.get("codigoUnidadeGerenciadora", "") or uasg_code),
-                                str(numero_item),
-                            )
+                            with st.spinner("Consultando as adesões aprovadas…"):
+                                st.session_state[f"ades_{identificador}_{idx}"] = adesoes_aprovadas(
+                                    str(raw.get("numeroAtaRegistroPreco", "")),
+                                    str(raw.get("codigoUnidadeGerenciadora", "") or uasg_code),
+                                    str(numero_item),
+                                )
                     _ades = st.session_state.get(f"ades_{identificador}_{idx}")
                     if _ades is not None:
                         _lista_ades, _erro_ades = _ades
                         if _erro_ades:
-                            st.warning(f"Não foi possível consultar as adesões agora ({_erro_ades}).")
+                            st.warning(f"Não foi possível consultar as adesões agora ({_erro_ades}). Clique em “Adesões já aprovadas” para tentar de novo.")
                         elif not _lista_ades:
                             st.caption("Nenhuma adesão aprovada para este item até agora: o saldo para adesão ainda não foi usado por outros órgãos.")
                         else:
                             _total_ades = sum(_num(a.get("quantidadeAprovadaAdesao")) or 0 for a in _lista_ades)
-                            st.caption(f"{len(_lista_ades)} adesão(ões) já aprovada(s) para este item, somando {_total_ades:,.0f} unidade(s) "
-                                       "(órgãos que não participaram da licitação).".replace(",", "."))
+                            _total_txt = f"{_total_ades:,.0f}".replace(",", ".")
+                            st.caption(f"{len(_lista_ades)} adesão(ões) já aprovada(s) para este item, somando {_total_txt} unidade(s) "
+                                       "(órgãos que não participaram da licitação).")
                             st.dataframe(
                                 [{"Órgão que aderiu": a.get("unidadeNaoParticipante", ""),
                                   "Quantidade aprovada": a.get("quantidadeAprovadaAdesao", ""),
