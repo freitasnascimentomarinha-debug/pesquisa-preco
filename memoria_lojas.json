@@ -1,6 +1,6 @@
 {
  "versao": 1,
- "atualizado": "2026-11-05T22:02:02",
+ "atualizado": "2026-11-09T15:41:07",
  "lojas": {
   "lojadomecanico.com.br": {
    "acertos": 25,
@@ -4755,6 +4755,298 @@
    "paginas": {
     "fita isolante": "https://www.agileatacadista.com.br/fita-isolante-19x20-33-3m-fita-isolante-de-pvc-scotch?srsltid=AYCX9vKlCUYD2SiNY0Hf3fosMIo0zutnm2NQrA-HLxI27NX8v256_sho"
    }
+  },
+  "casadotiro.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-11-09",
+   "itens": [
+    "munição 30 x 173 mm ex-telado"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "paginas": {
+    "munição 30 x 173 mm ex-telado": "https://www.casadotiro.com.br/produtos-ver/municao-cbc-30-carbine-expo-110gr-50-unidades/4649"
+   }
+  },
+  "warzonebrazil.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-11-09",
+   "itens": [
+    "munição 30 x 173 mm ex-telado"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "paginas": {
+    "munição 30 x 173 mm ex-telado": "http://www.warzonebrazil.com.br/"
+   }
+  },
+  "prohunters.com.br": {
+   "acertos": 4,
+   "ultimo": "2026-11-09",
+   "itens": [
+    "munição 20 x 128 mm ae-i-t-ad",
+    "munição 20 x 128 mm gex-t",
+    "munição 20 x 128 mm gex",
+    "munição 30 x 173 mm ex-telado"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 4
+   },
+   "paginas": {
+    "munição 30 x 173 mm ex-telado": "https://prohunters.com.br/",
+    "munição 20 x 128 mm gex": "https://prohunters.com.br",
+    "munição 20 x 128 mm gex-t": "https://prohunters.com.br",
+    "munição 20 x 128 mm ae-i-t-ad": "https://prohunters.com.br"
+   }
+  },
+  "mtsarmas.com.br": {
+   "acertos": 2,
+   "ultimo": "2026-11-09",
+   "itens": [
+    "munição 5,56x45mm c ss-109 elada",
+    "munição 30 x 173 mm ex-telado"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 2
+   },
+   "paginas": {
+    "munição 30 x 173 mm ex-telado": "https://mtsarmas.com.br/municoes/",
+    "munição 5,56x45mm c ss-109 elada": "https://mtsarmas.com.br/produtos/municao-cbc-556x45mm-comum-ss109/"
+   }
+  },
+  "radarcac.com.br": {
+   "acertos": 3,
+   "ultimo": "2026-11-09",
+   "itens": [
+    "munição 20 x 128 mm ae-i-t-ad",
+    "munição 20 x 128 mm gex-t",
+    "munição 20 x 128 mm gex"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 3
+   },
+   "paginas": {
+    "munição 20 x 128 mm gex": "https://radarcac.com.br/buscar?calibre=20+GA",
+    "munição 20 x 128 mm gex-t": "https://radarcac.com.br/buscar?calibre=20+GA",
+    "munição 20 x 128 mm ae-i-t-ad": "https://radarcac.com.br/?s=MUNI%C3%87%C3%83O+20+X+128MM+AE-I-T-AD&post_type=product"
+   },
+   "busca": "/?s={q}&post_type=product"
+  },
+  "primeguns.com.br": {
+   "acertos": 5,
+   "ultimo": "2026-11-09",
+   "itens": [
+    "munição 12,7 x 99 mm tm17",
+    "munição 12,7 x 99 mm c m33",
+    "munição 20 x 128 mm ae-i-t-ad",
+    "munição 20 x 128 mm gex-t",
+    "munição 20 x 128 mm gex"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 5
+   },
+   "paginas": {
+    "munição 20 x 128 mm gex": "https://www.primeguns.com.br/armas-de-fogo/municoes?srsltid=AYCX9vLOz51eWrFOzCXNzHizMBAmG4nuVfF2HO9nsYxuFh2UoKI-CpV_",
+    "munição 20 x 128 mm gex-t": "https://www.primeguns.com.br/armas-de-fogo/municoes?srsltid=AYCX9vIb8XQnuZkwetAja2KCP-mVX5d5k-OW6KV0tU0Gh6ceY1DJasDc",
+    "munição 20 x 128 mm ae-i-t-ad": "https://www.primeguns.com.br/armas-de-fogo/municoes",
+    "munição 12,7 x 99 mm c m33": "https://www.primeguns.com.br/armas-de-fogo/municoes",
+    "munição 12,7 x 99 mm tm17": "https://www.primeguns.com.br/armas-de-fogo/municoes"
+   }
+  },
+  "usinadapesca.com.br": {
+   "acertos": 2,
+   "ultimo": "2026-11-09",
+   "itens": [
+    "munição 20 x 128 mm gex-t",
+    "munição 20 x 128 mm gex"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 2
+   },
+   "paginas": {
+    "munição 20 x 128 mm gex": "https://www.usinadapesca.com.br/municao-cbc-20-70-ch-7---28g---un",
+    "munição 20 x 128 mm gex-t": "https://www.usinadapesca.com.br/municao-cbc-556-nato-otm-77gr-un"
+   }
+  },
+  "lojaruva.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-11-09",
+   "itens": [
+    "munição 20 x 128 mm gex"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "paginas": {
+    "munição 20 x 128 mm gex": "https://lojaruva.com.br/categoria-produto/municoes/para-espingarda/municao-calibre-20"
+   }
+  },
+  "armasqapbrasil.com.br": {
+   "acertos": 3,
+   "ultimo": "2026-11-09",
+   "itens": [
+    "munição 12,7 x 99 mm c m33",
+    "munição 20 x 128 mm gex-t",
+    "munição 20 x 128 mm gex"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 3
+   },
+   "paginas": {
+    "munição 20 x 128 mm gex": "https://www.armasqapbrasil.com.br/cat/municoes?srsltid=AYCX9vKmCgMZUp6kT-zgwi9QpHO77d4CVXtKH5jXSx72TEzFp7BGhFCO",
+    "munição 20 x 128 mm gex-t": "https://www.armasqapbrasil.com.br/cat/municoes",
+    "munição 12,7 x 99 mm c m33": "https://www.armasqapbrasil.com.br/cat/municoes?srsltid=AYCX9vJ_PL8CKudSSgyIvViYRA9SH-CMWnUBxnjIPg-NjdoUoth5eXLF"
+   }
+  },
+  "armastore.com.br": {
+   "acertos": 2,
+   "ultimo": "2026-11-09",
+   "itens": [
+    "munição 12,7 x 99 mm tm17",
+    "munição 20 x 128 mm gex-t"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 2
+   },
+   "paginas": {
+    "munição 20 x 128 mm gex-t": "https://armastore.com.br/produto/municao-cbc-calibre-20-chumbo-3t-cartucho-de-metal-25un/",
+    "munição 12,7 x 99 mm tm17": "https://armastore.com.br/?s=MUNI%C3%87%C3%83O+12%2C7+X+99MM+TM17&post_type=product"
+   },
+   "busca": "/?s={q}&post_type=product"
+  },
+  "armas.beartac.com.br": {
+   "acertos": 3,
+   "ultimo": "2026-11-09",
+   "itens": [
+    "munição 12,7 x 99 mm tm17",
+    "munição 12,7 x 99 mm c m33",
+    "munição 20 x 128 mm gex-t"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 3
+   },
+   "paginas": {
+    "munição 20 x 128 mm gex-t": "https://armas.beartac.com.br/c/municao/",
+    "munição 12,7 x 99 mm c m33": "https://armas.beartac.com.br/c/municao/municao-calibre-12",
+    "munição 12,7 x 99 mm tm17": "https://armas.beartac.com.br/c/municao/municao-calibre-12"
+   }
+  },
+  "brasiltatica.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-11-09",
+   "itens": [
+    "munição 20 x 128 mm ae-i-t-ad"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "paginas": {
+    "munição 20 x 128 mm ae-i-t-ad": "https://www.brasiltatica.com.br/"
+   }
+  },
+  "falconarmas.com.br": {
+   "acertos": 3,
+   "ultimo": "2026-11-09",
+   "itens": [
+    "munição 5,56x45mm c ss-109 elada",
+    "munição 12,7 x 99 mm tm17",
+    "munição 12,7 x 99 mm c m33"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 3
+   },
+   "paginas": {
+    "munição 12,7 x 99 mm c m33": "https://falconarmas.com.br/categoria-armas-de-fogo/municoes/calibre-12/?srsltid=AYCX9vKZEldcd8H7wKlPc7okrJXsP7BPA-WdZysB7rr6wguKHHrtCuTk",
+    "munição 12,7 x 99 mm tm17": "https://falconarmas.com.br/categoria-armas-de-fogo/municoes/calibre-12/?srsltid=AYCX9vKDlMXzycp3V6Z74yJBQDhZWKVxMyWx3PTeqTwe_xYwmMcTvQ13",
+    "munição 5,56x45mm c ss-109 elada": "https://falconarmas.com.br/produtos/caixa-municao-cbc-calibre-556x45mm-comum-ss109-cx-50-unid"
+   }
+  },
+  "m4tatica.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-11-09",
+   "itens": [
+    "munição 12,7 x 99 mm c m33"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "paginas": {
+    "munição 12,7 x 99 mm c m33": "https://www.m4tatica.com.br/municao-cal-.12"
+   }
+  },
+  "lojaskclube.com": {
+   "acertos": 1,
+   "ultimo": "2026-11-09",
+   "itens": [
+    "munição 7,62 x 51 mm t"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "paginas": {
+    "munição 7,62 x 51 mm t": "https://www.lojaskclube.com/municao-cbc-calibre-7-62x51mm-nato-comum-treina-caixa-50un-p1036112"
+   }
+  },
+  "armasriopreto.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-11-09",
+   "itens": [
+    "munição 7,62 x 51 mm t"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "paginas": {
+    "munição 7,62 x 51 mm t": "https://www.armasriopreto.com.br/produto/municoes/municao-cbc-762x51mm-comum-treina"
+   }
+  },
+  "pescaeciaarmas.com.br": {
+   "acertos": 2,
+   "ultimo": "2026-11-09",
+   "itens": [
+    "munição 5,56x45mm c ss-109 elada",
+    "munição 7,62 x 51 mm t"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 2
+   },
+   "paginas": {
+    "munição 7,62 x 51 mm t": "https://www.pescaeciaarmas.com.br/armas-de-fogo/municoes/municoes-para-fuzis-e-rifles/municao-762x51mm/municao-para-fuzil-cbc-cal-762x51mm-comum-m80-caixa-c-50-und",
+    "munição 5,56x45mm c ss-109 elada": "https://www.pescaeciaarmas.com.br/armas-de-fogo/municoes/municoes-para-fuzis-e-rifles/556nato/municao-para-fuzil-cbc-cal-556x45mm-comum-ss109-62gr-caixa-com-50unid"
+   }
+  },
+  "lojatatical.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-11-09",
+   "itens": [
+    "munição 5,56x45mm c ss-109 elada"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "paginas": {
+    "munição 5,56x45mm c ss-109 elada": "https://www.lojatatical.com.br/municao-cbc-5-56x45mm-comum-ss109-cx-c-50.html"
+   }
   }
  },
  "falhas": {
@@ -5467,23 +5759,68 @@
    "navegador": 0,
    "texto": 1,
    "ultimo": "2026-11-05"
+  },
+  "pt.ebay.com": {
+   "navegador": 3,
+   "texto": 3,
+   "ultimo": "2026-11-09"
+  },
+  "revistaoperacional.com.br": {
+   "navegador": 0,
+   "texto": 1,
+   "ultimo": "2026-11-09"
+  },
+  "armaspy.com": {
+   "navegador": 0,
+   "texto": 3,
+   "ultimo": "2026-11-09"
+  },
+  "sentinela.ind.br": {
+   "navegador": 3,
+   "texto": 3,
+   "ultimo": "2026-11-09"
+  },
+  "krcsports.com.br": {
+   "navegador": 2,
+   "texto": 2,
+   "ultimo": "2026-11-09"
+  },
+  "deluxarmas.com": {
+   "navegador": 0,
+   "texto": 1,
+   "ultimo": "2026-11-09"
+  },
+  "gunssport.com": {
+   "navegador": 2,
+   "texto": 2,
+   "ultimo": "2026-11-09"
+  },
+  "tavily.com": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-11-09"
+  },
+  "pt.vidabytes.com": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-11-09"
   }
  },
  "frases": {
   "{item} comprar": {
-   "usos": 14.1602,
-   "acertos": 6.189,
-   "ultimo": "2026-10-08"
+   "usos": 14.9931,
+   "acertos": 8.1563,
+   "ultimo": "2026-11-09"
   },
   "{item} preço": {
-   "usos": 19.9391,
-   "acertos": 36.6788,
-   "ultimo": "2026-11-05"
+   "usos": 19.9595,
+   "acertos": 29.12,
+   "ultimo": "2026-11-09"
   },
   "venda de {item}": {
-   "usos": 16.1256,
-   "acertos": 10.7913,
-   "ultimo": "2026-11-05"
+   "usos": 17.002,
+   "acertos": 10.8815,
+   "ultimo": "2026-11-09"
   },
   "{item} valor": {
    "usos": 17.6802,
@@ -5491,9 +5828,9 @@
    "ultimo": "2026-10-06"
   },
   "{item} atacado": {
-   "usos": 19.9477,
-   "acertos": 33.1965,
-   "ultimo": "2026-11-05"
+   "usos": 19.9652,
+   "acertos": 27.6862,
+   "ultimo": "2026-11-09"
   },
   "{item} preço brasil": {
    "usos": 11.6375,
@@ -5501,17 +5838,17 @@
    "ultimo": "2026-10-06"
   },
   "{item} comprar brasil": {
-   "usos": 16.5033,
-   "acertos": 8.4969,
-   "ultimo": "2026-10-20"
+   "usos": 16.6781,
+   "acertos": 9.0721,
+   "ultimo": "2026-11-09"
   },
   "comprar {item} online brasil": {
-   "usos": 16.1256,
-   "acertos": 9.3182,
-   "ultimo": "2026-10-20"
+   "usos": 17.2943,
+   "acertos": 17.2121,
+   "ultimo": "2026-11-09"
   }
  },
- "buscas": 133,
+ "buscas": 142,
  "sem_busca": {
   "arxiv.org": "2026-10-05",
   "papers.ssrn.com": "2026-10-05",
@@ -5584,15 +5921,20 @@
   "dnac.com.br": "2026-10-06",
   "fg.com.br": "2026-10-06",
   "lojamor.com.br": "2026-10-07",
-  "lubcenterloja.com.br": "2026-10-20"
+  "lubcenterloja.com.br": "2026-10-20",
+  "prohunters.com.br": "2026-11-09",
+  "usinadapesca.com.br": "2026-11-09",
+  "primeguns.com.br": "2026-11-09",
+  "armas.beartac.com.br": "2026-11-09",
+  "armasriopreto.com.br": "2026-11-09"
  },
  "serper": {
   "mes": "2026-11",
-  "n": 2
+  "n": 26
  },
  "tavily": {
   "mes": "2026-11",
-  "n": 3
+  "n": 42
  },
  "nomes": {
   "papel contact": {
@@ -6068,6 +6410,68 @@
     "Sem título"
    ],
    "origem": ""
+  },
+  "municao 30": {
+   "busca": "",
+   "aceitar": [],
+   "excluir": {},
+   "recusados": [
+    "30x173mm EX-T Exercício Traçante (TP-T) – Forças Armadas CBC",
+    "Sem título",
+    "MUNIÇÕES FUZIS E RIFLES – CBC, Líder Mundial em Munições"
+   ],
+   "origem": ""
+  },
+  "municao 20": {
+   "busca": "",
+   "aceitar": [],
+   "excluir": {},
+   "recusados": [
+    "Calibre .20 na Pesca & Cia Armas - Pesca & Cia Armas",
+    "CARTUCHOS DE CAÇA VELOX – CBC, Líder Mundial em Munições",
+    "20x128mm AEIT-AD Altoexplosivo Incendiár – Forças Armadas CBC"
+   ],
+   "origem": ""
+  },
+  "municao 12": {
+   "busca": "",
+   "aceitar": [],
+   "excluir": {},
+   "recusados": [
+    "12,7 x 99mm (.50) – CBC, Líder Mundial em Munições",
+    "12,7 x 99 mm (.50) Perfurante (NATO AP) – Forças Armadas CBC",
+    "Calibre .12GA na Pesca & Cia Armas - Pesca & Cia Armas",
+    "Sem título"
+   ],
+   "origem": ""
+  },
+  "municao 7": {
+   "busca": "",
+   "aceitar": [],
+   "excluir": {},
+   "recusados": [
+    "7,62x51mm Comum (NATO Ball) – CBC, Líder Mundial em Munições",
+    "Caixa militar original de muniÃ§Ã£o calibre 7,62x51mm festim, modelo 2000 CAR, ...",
+    "7,62x51mm Festim – Segurança Pública CBC",
+    "Cunhete – Cerne Embalagens",
+    "Catálogo: Armas, Munições, Airsoft e Acessórios | Arma Store",
+    "7.62x51mm NATO",
+    "Sem título",
+    "Corrente Militar com 6 MuniÃ§Ãµes de Festim Cal. 762 - 7cm x 10cm."
+   ],
+   "origem": ""
+  },
+  "municao 5": {
+   "busca": "",
+   "aceitar": [],
+   "excluir": {},
+   "recusados": [
+    "5,56x45mm Comum SS109 – CBC, Líder Mundial em Munições",
+    "5,56x45mm Comum SS109 – Segurança Pública CBC",
+    "CBC",
+    "Munições - Nacional Armas"
+   ],
+   "origem": ""
   }
  },
  "desempenho": {
@@ -6172,6 +6576,197 @@
       "segundos": 76.7
      }
     }
+   },
+   {
+    "data": "2026-11-09T15:33:39",
+    "item": "MUNIÇÃO 30 X 173 MM EX-TELADO",
+    "natureza": "(sem natureza)",
+    "segundos": 27.9,
+    "precos": 3,
+    "certos": 1,
+    "completo": true,
+    "api": 5,
+    "navegador": 1,
+    "frase": "{item} atacado",
+    "origens": {
+     "busca": {
+      "tentativas": 9,
+      "precos": 4,
+      "segundos": 27.9
+     }
+    }
+   },
+   {
+    "data": "2026-11-09T15:34:24",
+    "item": "MUNIÇÃO 20 X 128 MM GEX",
+    "natureza": "(sem natureza)",
+    "segundos": 43.7,
+    "precos": 3,
+    "certos": 0,
+    "completo": true,
+    "api": 10,
+    "navegador": 3,
+    "frase": "{item} preço",
+    "origens": {
+     "busca": {
+      "tentativas": 14,
+      "precos": 6,
+      "segundos": 43.7
+     }
+    }
+   },
+   {
+    "data": "2026-11-09T15:36:08",
+    "item": "MUNIÇÃO 20 X 128 MM GEX-T",
+    "natureza": "(sem natureza)",
+    "segundos": 102.8,
+    "precos": 3,
+    "certos": 2,
+    "completo": true,
+    "api": 9,
+    "navegador": 3,
+    "frase": "{item} preço",
+    "origens": {
+     "parecida": {
+      "tentativas": 2,
+      "precos": 1,
+      "segundos": 48.5
+     },
+     "busca": {
+      "tentativas": 18,
+      "precos": 6,
+      "segundos": 54.2
+     }
+    }
+   },
+   {
+    "data": "2026-11-09T15:37:04",
+    "item": "MUNIÇÃO 20 X 128 MM AE-I-T-AD",
+    "natureza": "(sem natureza)",
+    "segundos": 55.2,
+    "precos": 3,
+    "certos": 0,
+    "completo": true,
+    "api": 7,
+    "navegador": 1,
+    "frase": "comprar {item} online brasil",
+    "origens": {
+     "parecida": {
+      "tentativas": 3,
+      "precos": 1,
+      "segundos": 18.2
+     },
+     "busca": {
+      "tentativas": 10,
+      "precos": 3,
+      "segundos": 37.0
+     }
+    }
+   },
+   {
+    "data": "2026-11-09T15:37:47",
+    "item": "MUNIÇÃO 12,7 X 99 MM C M33",
+    "natureza": "(sem natureza)",
+    "segundos": 42.7,
+    "precos": 2,
+    "certos": 0,
+    "completo": false,
+    "api": 9,
+    "navegador": 1,
+    "frase": "{item} preço",
+    "origens": {
+     "busca": {
+      "tentativas": 14,
+      "precos": 5,
+      "segundos": 42.6
+     }
+    }
+   },
+   {
+    "data": "2026-11-09T15:38:54",
+    "item": "MUNIÇÃO 12,7 X 99 MM TM17",
+    "natureza": "(sem natureza)",
+    "segundos": 66.0,
+    "precos": 3,
+    "certos": 0,
+    "completo": true,
+    "api": 7,
+    "navegador": 1,
+    "frase": "comprar {item} online brasil",
+    "origens": {
+     "parecida": {
+      "tentativas": 3,
+      "precos": 2,
+      "segundos": 20.7
+     },
+     "busca": {
+      "tentativas": 8,
+      "precos": 2,
+      "segundos": 45.2
+     }
+    }
+   },
+   {
+    "data": "2026-11-09T15:39:13",
+    "item": "MUNIÇÃO 7,62 X 51 MM T",
+    "natureza": "(sem natureza)",
+    "segundos": 17.5,
+    "precos": 3,
+    "certos": 3,
+    "completo": true,
+    "api": 1,
+    "navegador": 0,
+    "frase": "{item} comprar",
+    "origens": {
+     "busca": {
+      "tentativas": 5,
+      "precos": 3,
+      "segundos": 17.5
+     }
+    }
+   },
+   {
+    "data": "2026-11-09T15:39:43",
+    "item": "MUNIÇÃO 5,56X45MM C SS-109 ELADA",
+    "natureza": "(sem natureza)",
+    "segundos": 29.1,
+    "precos": 3,
+    "certos": 3,
+    "completo": true,
+    "api": 5,
+    "navegador": 1,
+    "frase": "{item} preço",
+    "origens": {
+     "busca": {
+      "tentativas": 11,
+      "precos": 4,
+      "segundos": 29.1
+     }
+    }
+   },
+   {
+    "data": "2026-11-09T15:41:07",
+    "item": "MUNIÇÃO 7.62 X51 MM FESTIM, NÃO ELADA, CUNHETE DE MADEIRA",
+    "natureza": "(sem natureza)",
+    "segundos": 83.1,
+    "precos": 0,
+    "certos": 0,
+    "completo": false,
+    "api": 10,
+    "navegador": 1,
+    "frase": "",
+    "origens": {
+     "parecida": {
+      "tentativas": 3,
+      "precos": 0,
+      "segundos": 45.3
+     },
+     "busca": {
+      "tentativas": 11,
+      "precos": 0,
+      "segundos": 37.8
+     }
+    }
    }
   ],
   "naturezas": {
@@ -6215,6 +6810,25 @@
       "tentativas": 1.0,
       "precos": 1.0,
       "segundos": 35.511
+     }
+    }
+   },
+   "(sem natureza)": {
+    "itens": 7.394,
+    "segundos": 385.145,
+    "precos": 18.37,
+    "certos": 7.691,
+    "completos": 5.58,
+    "origens": {
+     "busca": {
+      "tentativas": 80.941,
+      "precos": 25.87,
+      "segundos": 272.247
+     },
+     "parecida": {
+      "tentativas": 10.272,
+      "precos": 3.66,
+      "segundos": 122.935
      }
     }
    }
