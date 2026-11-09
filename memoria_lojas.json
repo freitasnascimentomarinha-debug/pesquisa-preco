@@ -1,6 +1,6 @@
 {
  "versao": 1,
- "atualizado": "2026-11-09T16:21:54",
+ "atualizado": "2026-11-09T21:15:16",
  "lojas": {
   "lojadomecanico.com.br": {
    "acertos": 25,
@@ -329,9 +329,10 @@
    "busca": "/busca?q={q}"
   },
   "atacadosaopaulo.com.br": {
-   "acertos": 49,
-   "ultimo": "2026-11-05",
+   "acertos": 50,
+   "ultimo": "2026-11-09",
    "itens": [
+    "caneta esferográfica azul",
     "fita isolante",
     "calculadora de mesa 12 dígitos",
     "máscara descartável tripla c/ 50",
@@ -346,7 +347,6 @@
     "detergente",
     "grampeador",
     "chave de fenda",
-    "caneta esferográfica azul",
     "lápis preto",
     "caneta piloto azul",
     "régua de tomada 5 tomadas",
@@ -362,7 +362,7 @@
    ],
    "metodos": {
     "navegador": 7,
-    "texto": 40
+    "texto": 41
    },
    "paginas": {
     "caneta esferográfica azul": "https://www.atacadosaopaulo.com.br/ki-5-caixas-caneta-esferografica-1-0mm---3un-azul--1un-preto-e-1un-vermelho---caixa-fechada-50un/p?srsltid=AU7gw4Vyg5t9J9U2FbmQcIfvLVIMmm-1Qb4l5EoZNMZ7S025fHvaLGbp",
@@ -394,7 +394,7 @@
    },
    "naturezas": {
     "tintas e pintura": 1,
-    "papelaria e escritório": 23,
+    "papelaria e escritório": 24,
     "limpeza e higiene": 13,
     "elétrico": 6,
     "ferramentas": 2,
@@ -1325,24 +1325,24 @@
    }
   },
   "lepok.com.br": {
-   "acertos": 3,
-   "ultimo": "2026-10-06",
+   "acertos": 4,
+   "ultimo": "2026-11-09",
    "itens": [
+    "caneta esferográfica azul",
     "caneta marca texto amarelo",
-    "bombril pacote c/ 8",
-    "caneta esferográfica azul"
+    "bombril pacote c/ 8"
    ],
    "metodos": {
     "navegador": 1,
-    "texto": 2
+    "texto": 3
    },
    "paginas": {
-    "caneta esferográfica azul": "https://www.lepok.com.br/produto/Caneta-Esferografica-Cristal-1.0mm-Azul-Cx-50-Und.-Bic/5000127?srsltid=AU7gw4US1iv_nEzQ_HNDVLmv5TYV1tR3XsBHnQs_URcvLSe9KZL8J4lQ",
+    "caneta esferográfica azul": "https://www.lepok.com.br/produto/Caneta-Esferografica-Cristal-Fina-Azul-Caixa-C-100-Unidade/5000168",
     "bombril pacote c/ 8": "https://www.lepok.com.br/produto/Esponja-De-Aco-60g-8-Unidades-Bombril/16529",
     "caneta marca texto amarelo": "https://www.lepok.com.br/produto/Pincel-Marca-Texto-Amarelo-Sm-mtamzf-Faber-castell/93356?srsltid=AU7gw4WArnMxv2Fzitvs6gVVSmYfbS5iah3bzs0wnjElD-eJ-V4NM7Cs"
    },
    "naturezas": {
-    "papelaria e escritório": 2
+    "papelaria e escritório": 3
    }
   },
   "gimba.com.br": {
@@ -1674,23 +1674,23 @@
    }
   },
   "oceanob2b.com": {
-   "acertos": 5,
-   "ultimo": "2026-10-06",
+   "acertos": 6,
+   "ultimo": "2026-11-09",
    "itens": [
-    "pasta az lombo largo",
     "caneta esferográfica azul",
+    "pasta az lombo largo",
     "arquivo morto caixa de papelão",
     "fita dupla face 12mm x 30m"
    ],
    "metodos": {
     "navegador": 0,
-    "texto": 5
+    "texto": 6
    },
    "naturezas": {
-    "papelaria e escritório": 4
+    "papelaria e escritório": 5
    },
    "paginas": {
-    "caneta esferográfica azul": "https://www.oceanob2b.com/caneta-esferografica-bic-cristal-azul-caixa-50-unidades-p996738",
+    "caneta esferográfica azul": "https://www.oceanob2b.com/caneta-esferografica-bic-cristal-unidade-azul-p999866",
     "fita dupla face 12mm x 30m": "https://www.oceanob2b.com/fita-adesiva-dupla-face-4873-12mm-x-30m-scotch-3m-p996948",
     "arquivo morto caixa de papelão": "https://www.oceanob2b.com/escritorio-e-papelaria/caixa-e-arquivos",
     "pasta az lombo largo": "https://www.oceanob2b.com/pasta-az-oficio-staples-folhas-bem-organizadas-oceano-b2b-p994862"
@@ -5061,6 +5061,40 @@
    "paginas": {
     "munição 5,56x45mm c ss-109 elada": "https://www.lojatatical.com.br/municao-cbc-5-56x45mm-comum-ss109-cx-c-50.html"
    }
+  },
+  "casadoroadie.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-11-09",
+   "itens": [
+    "caneta esferográfica azul"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "papelaria e escritório": 1
+   },
+   "paginas": {
+    "caneta esferográfica azul": "https://www.casadoroadie.com.br/produto/caneta-esferografica-cristal-1-0mm-bic-azul-1244"
+   }
+  },
+  "fenixinsumos.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-11-09",
+   "itens": [
+    "caneta esferográfica azul"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "naturezas": {
+    "papelaria e escritório": 1
+   },
+   "paginas": {
+    "caneta esferográfica azul": "https://fenixinsumos.com.br/produtos/caneta-esferografica-azul-1-0mm-cristal-bic"
+   }
   }
  },
  "falhas": {
@@ -5877,8 +5911,8 @@
    "ultimo": "2026-11-09"
   },
   "{item} preço": {
-   "usos": 19.9731,
-   "acertos": 21.7302,
+   "usos": 19.9744,
+   "acertos": 22.6437,
    "ultimo": "2026-11-09"
   },
   "venda de {item}": {
@@ -5907,12 +5941,12 @@
    "ultimo": "2026-11-09"
   },
   "comprar {item} online brasil": {
-   "usos": 18.1105,
-   "acertos": 19.2929,
+   "usos": 18.205,
+   "acertos": 20.3283,
    "ultimo": "2026-11-09"
   }
  },
- "buscas": 151,
+ "buscas": 152,
  "sem_busca": {
   "arxiv.org": "2026-10-05",
   "papers.ssrn.com": "2026-10-05",
@@ -5950,7 +5984,7 @@
   "atacadosaopaulo.com.br": "2026-11-05",
   "soaresatacado.com.br": "2026-10-05",
   "cbinsights.com": "2026-10-05",
-  "gimba.com.br": "2026-10-05",
+  "gimba.com.br": "2026-11-09",
   "m.casadopapel.com.br": "2026-10-05",
   "metdata.com.br": "2026-10-05",
   "pt.accio.com": "2026-10-05",
@@ -5969,7 +6003,7 @@
   "atacadodolojista.com.br": "2026-11-05",
   "multiloja.com.br": "2026-10-06",
   "midea.com.br": "2026-10-06",
-  "lojascacula.com.br": "2026-10-06",
+  "lojascacula.com.br": "2026-11-09",
   "jofepar.com.br": "2026-10-06",
   "fermaquinas.com.br": "2026-10-06",
   "barzel.com.br": "2026-10-06",
@@ -5994,11 +6028,11 @@
  },
  "serper": {
   "mes": "2026-11",
-  "n": 50
+  "n": 51
  },
  "tavily": {
   "mes": "2026-11",
-  "n": 79
+  "n": 81
  },
  "nomes": {
   "papel contact": {
@@ -7052,6 +7086,35 @@
       "segundos": 41.8
      }
     }
+   },
+   {
+    "data": "2026-11-09T21:15:16",
+    "item": "Caneta esferográfica azul",
+    "natureza": "papelaria e escritório",
+    "segundos": 46.8,
+    "precos": 3,
+    "certos": 3,
+    "completo": true,
+    "api": 3,
+    "navegador": 0,
+    "frase": "{item} preço",
+    "origens": {
+     "parecida": {
+      "tentativas": 3,
+      "precos": 1,
+      "segundos": 15.8
+     },
+     "natureza": {
+      "tentativas": 3,
+      "precos": 0,
+      "segundos": 14.1
+     },
+     "busca": {
+      "tentativas": 4,
+      "precos": 4,
+      "segundos": 16.9
+     }
+    }
    }
   ],
   "naturezas": {
@@ -7114,6 +7177,30 @@
       "tentativas": 31.331,
       "precos": 15.837,
       "segundos": 237.781
+     }
+    }
+   },
+   "papelaria e escritório": {
+    "itens": 1.0,
+    "segundos": 46.786,
+    "precos": 3.0,
+    "certos": 3.0,
+    "completos": 1.0,
+    "origens": {
+     "parecida": {
+      "tentativas": 3.0,
+      "precos": 1.0,
+      "segundos": 15.791
+     },
+     "natureza": {
+      "tentativas": 3.0,
+      "precos": 0.0,
+      "segundos": 14.097
+     },
+     "busca": {
+      "tentativas": 4.0,
+      "precos": 4.0,
+      "segundos": 16.879
      }
     }
    }
