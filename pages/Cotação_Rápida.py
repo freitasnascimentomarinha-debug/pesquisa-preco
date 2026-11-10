@@ -23,7 +23,7 @@ sys.path.insert(0, BASE_DIR)  # permite importar catmat_busca.py (raiz do projet
 from atualizar_modulos import recarregar_se_mudou  # noqa: E402
 recarregar_se_mudou('catmat_busca', 'cotacao_rapida', 'lista_itens', 'relatorio_cotacao_rapida', 'lista_itens_ui')  # evita módulo antigo em memória após deploy
 from catmat_busca import CATMAT_PATH, CATSERV_PATH, carregar_catalogo, carregar_indice_catmat  # noqa: E402
-from cotacao_rapida import LIMIAR_CORRESPONDENCIA as LIMIAR_PADRAO, aceitar_como_correto, desfazer_decisao, marcar_nao_encontrado, TOLERANCIA_ESTIMATIVA, aplicar_estimativa, JANELA_DIAS, LIMIAR_CORRESPONDENCIA, LIMIAR_SERVICO, MAX_CATMAT, MAX_PRECOS, MIN_PRECOS, TOLERANCIA, cotar_item, resultado_vazio  # noqa: E402
+from cotacao_rapida import LIMIAR_CORRESPONDENCIA as LIMIAR_PADRAO, chaves_usadas, aceitar_como_correto, desfazer_decisao, marcar_nao_encontrado, TOLERANCIA_ESTIMATIVA, aplicar_estimativa, JANELA_DIAS, LIMIAR_CORRESPONDENCIA, LIMIAR_SERVICO, MAX_CATMAT, MAX_PRECOS, MIN_PRECOS, TOLERANCIA, cotar_item, resultado_vazio  # noqa: E402
 from relatorio_cotacao_rapida import STATUS_TEXTO, gerar_excel, gerar_pdf, tabela_mapa  # noqa: E402
 from lista_itens import anexar_pedido, tem_quantidades, valor_total_orcamento  # noqa: E402
 from lista_itens_ui import entrada_itens_com_catmat  # noqa: E402
@@ -206,7 +206,7 @@ if cotar_clicado:
             barra.progress((posicao - 1) / len(itens), text=f"Cotando {posicao}/{len(itens)}: {item[:60]}")
             try:
                 resultados.append(anexar_pedido(cotar_item(item, catmat, catalogo_servico, "Material" if pedido.get("catmat_fixo") else tipo_busca, estimativa=pedido.get("estimativa"),
-                                                        forcar=[pedido["catmat_fixo"]] if pedido.get("catmat_fixo") else None, priorizar=priorizar_estimativa, limiar_minimo=limiar_minimo), pedido))
+                                                        forcar=[pedido["catmat_fixo"]] if pedido.get("catmat_fixo") else None, priorizar=priorizar_estimativa, limiar_minimo=limiar_minimo, evitar=chaves_usadas(resultados)), pedido))
             except Exception as erro:  # um item com problema não derruba a cotação inteira
                 vazio = resultado_vazio(item, tipo_busca if tipo_busca != "Automático" else "Material")
                 vazio["falha_api"] = True
@@ -273,7 +273,7 @@ if resultados:
                     if coluna_botao.button(f"Usar o CATMAT {alternativa['codigo']} ({alternativa['correspondencia']:.0f}%)", key=f"cr_usar_{st.session_state.get('cotacao_rapida_geracao', 0)}_{indice}_{alternativa['codigo']}",
                                            help=f"Cota de novo só este item, com este código. {alternativa['perto']} de {alternativa['registros']} compras perto da estimativa (mediana {moeda(alternativa['mediana'])}). {alternativa['descricao'][:160]}".replace("$", "\\$")):
                         with st.spinner("Cotando com o CATMAT escolhido…"):
-                            novo = cotar_item(r["descricao"], catmat, catalogo_servico, "Material", estimativa=r["estimativa"], forcar=[alternativa["codigo"]], priorizar=False)
+                            novo = cotar_item(r["descricao"], catmat, catalogo_servico, "Material", estimativa=r["estimativa"], forcar=[alternativa["codigo"]], priorizar=False, evitar=chaves_usadas(resultados, exceto=indice))
                             resultados[indice] = anexar_pedido(novo, {"quantidade": r.get("quantidade_pedida") or 1.0, "quantidade_informada": r.get("quantidade_pedida") is not None,
                                                                       "unidade": r.get("unidade_pedida") or "UN"})
                         st.rerun()
@@ -311,6 +311,8 @@ if resultados:
                     pd.DataFrame([{"Data": str(p["data"])[:10], "Valor unitário": p["preco"], "Quantidade": p["quantidade"], "Fornecedor": p["fornecedor"], "CNPJ": p["cnpj"], "Órgão": p["nome_uasg"], "UF": p["uf"], "UASG": p["uasg"], "Código": p["catmat"], "ID Compra": p["id_compra"]} for p in r["precos"]]),
                     hide_index=True, use_container_width=True, column_config={"Valor unitário": formato_moeda},
                 )
+                if r.get("precos_repetidos"):
+                    st.caption(f"{r['precos_repetidos']} dos preços acima também aparecem em outro item parecido da lista: não havia mais compras livres nesses CATMAT para cada item ter preços só seus.")
                 if r["status"] == "insuficiente":
                     st.warning(f"Menos de {MIN_PRECOS} preços: complemente com outras fontes (IN SEGES/ME nº 65/2021).")
             elif r.get("decisao") == "nao_encontrado":
