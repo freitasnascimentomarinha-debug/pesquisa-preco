@@ -166,9 +166,19 @@ def remover_outliers(registros: list[dict]) -> tuple[list[dict], tuple[float, fl
     return sobra, ((min(precos), max(precos)) if precos else None)
 
 
-def selecionar_precos(registros: list[dict], limite: int = MAX_PRECOS, tolerancia: float = TOLERANCIA) -> list[dict]:
+def _chave_registro(registro: dict) -> tuple[object, object]:
+    return registro["id_compra"], registro["id_item"]
+
+
+def chaves_usadas(resultados: list[dict], exceto: int | None = None) -> set[tuple[object, object]]:
+    """Compras (id_compra, id_item) que já aparecem nos preços listados dos itens da cotação (menos o de posição `exceto`)."""
+    return {_chave_registro(p) for posicao, r in enumerate(resultados) if posicao != exceto for p in r.get("precos", [])}
+
+
+def selecionar_precos(registros: list[dict], limite: int = MAX_PRECOS, tolerancia: float = TOLERANCIA, evitar: set | None = None) -> list[dict]:
     """Até `limite` preços, dos mais próximos da mediana para fora, de modo que todos fiquem a até `tolerancia`
-    da média do conjunto escolhido. Prefere fornecedores diferentes e, no empate, compras mais recentes."""
+    da média do conjunto escolhido. Prefere fornecedores diferentes e, no empate, compras mais recentes.
+    `evitar`: compras que outros itens da cotação já usaram; só entram (por último) se faltarem preços livres para chegar a `limite`."""
     if not registros:
         return []
     mediana = statistics.median(r["preco"] for r in registros)
@@ -181,11 +191,15 @@ def selecionar_precos(registros: list[dict], limite: int = MAX_PRECOS, toleranci
         media = sum(precos) / len(precos)
         return all(abs(preco - media) <= tolerancia * media for preco in precos)
 
-    for exigir_novo_fornecedor in (True, False):
+    evitar = evitar or set()
+    etapas = [(livres, novo) for livres in ((True, False) if evitar else (False,)) for novo in (True, False)]  # primeiro só compras livres; depois, as já usadas
+    for so_livres, exigir_novo_fornecedor in etapas:
         for candidato in ordenados:
             if len(escolhidos) >= limite:
                 break
             if any(candidato is escolhido for escolhido in escolhidos):
+                continue
+            if so_livres and _chave_registro(candidato) in evitar:
                 continue
             if exigir_novo_fornecedor and (candidato["cnpj"] or candidato["fornecedor"]) in fornecedores:
                 continue
@@ -226,7 +240,7 @@ def resultado_vazio(descricao: str, tipo: str = "Material", limiar: float | None
 
 
 def _concluir(resultado: dict, escolhidos: list[tuple[float, int, object, str]], por_item: dict[object, list[dict]],
-              estimativa: float | None = None, priorizar: bool = True) -> dict:
+              estimativa: float | None = None, priorizar: bool = True, evitar: set | None = None) -> dict:
     """Parte comum a material e serviço: junta os registros dos códigos escolhidos, limpa e seleciona os preços."""
     resultado["catmats"] = [
         {"codigo": codigo, "correspondencia": nota, "registros": quantidade, "descricao": descricao}
@@ -253,7 +267,8 @@ def _concluir(resultado: dict, escolhidos: list[tuple[float, int, object, str]],
         na_faixa = [r for r in mesma_unidade if faixa[0] <= r["preco"] <= faixa[1]]
         if len(na_faixa) >= MIN_PRECOS:
             amostra, resultado["faixa_estimativa"] = na_faixa, faixa
-    resultado["precos"] = selecionar_precos(amostra)
+    resultado["precos"] = selecionar_precos(amostra, evitar=evitar)
+    resultado["precos_repetidos"] = sum(1 for r in resultado["precos"] if evitar and _chave_registro(r) in evitar)  # sobraram poucas compras livres: reaproveitou as de outro item
     resultado["status"] = "sem_precos"
     if resultado["precos"]:
         resultado["stats"] = estatisticas([r["preco"] for r in resultado["precos"]])
@@ -284,7 +299,7 @@ def _compras_perto(registros: list[dict], estimativa: float) -> tuple[int, int]:
 
 
 def _cotar_material(descricao: str, catmat: IndiceCatmat, inicio: str, fim: str, estimativa: float | None = None,
-                    forcar: list[str] | None = None, priorizar: bool = True, limiar_minimo: float | None = None) -> dict:
+                    forcar: list[str] | None = None, priorizar: bool = True, limiar_minimo: float | None = None, evitar: set | None = None) -> dict:
     resultado = resultado_vazio(descricao, "Material", limiar_minimo)
     limiar = resultado["limiar"]
     corte_familia = min(LIMIAR_FAMILIA, limiar - 10) if not estimativa else LIMIAR_FAMILIA_COM_ESTIMATIVA
@@ -349,10 +364,10 @@ def _cotar_material(descricao: str, catmat: IndiceCatmat, inicio: str, fim: str,
                 resultado["alternativas_preco"].append({"codigo": codigo, "correspondencia": nota, "descricao": descricao_catalogo, "mediana": mediana,
                                                         "registros": registros, "perto": perto, "unidade": unidade_curta})
     resultado["abaixo_padrao"] = any(c[0] < LIMIAR_CORRESPONDENCIA for c in escolhidos) and resultado["escolha"] == "parecido"
-    return _concluir(resultado, escolhidos, por_item, estimativa, priorizar) if escolhidos else resultado
+    return _concluir(resultado, escolhidos, por_item, estimativa, priorizar, evitar) if escolhidos else resultado
 
 
-def _cotar_servico(descricao: str, catalogo_servico: list[dict], inicio: str, fim: str, limiar_minimo: float | None = None) -> dict:
+def _cotar_servico(descricao: str, catalogo_servico: list[dict], inicio: str, fim: str, limiar_minimo: float | None = None, evitar: set | None = None) -> dict:
     resultado = resultado_vazio(descricao, "Serviço", limiar_minimo)
     limiar = resultado["limiar"]
     opcoes = sorted(_opcoes_servico(descricao, catalogo_servico), key=lambda o: o["bruta"], reverse=True)
@@ -381,7 +396,7 @@ def _cotar_servico(descricao: str, catalogo_servico: list[dict], inicio: str, fi
             por_item[opcao["codigo"]] = validos
             escolhidos.append((opcao["similaridade"], len(validos), opcao["codigo"], opcao["descricao_catalogo"]))
     resultado["abaixo_padrao"] = any(c[0] < LIMIAR_SERVICO for c in escolhidos)
-    return _concluir(resultado, escolhidos, por_item) if escolhidos else resultado
+    return _concluir(resultado, escolhidos, por_item, evitar=evitar) if escolhidos else resultado
 
 
 _INICIO_SERVICOS: dict[int, dict[str, int]] = {}
@@ -490,24 +505,25 @@ def aplicar_estimativa(resultado: dict, estimativa: float | None) -> dict:
 
 
 def cotar_item(descricao: str, catmat: IndiceCatmat, catalogo_servico: list[dict] | None = None, tipo: str = "Material", hoje: dt.date | None = None,
-               estimativa: float | None = None, forcar: list[str] | None = None, priorizar: bool = True, limiar_minimo: float | None = None) -> dict:
+               estimativa: float | None = None, forcar: list[str] | None = None, priorizar: bool = True, limiar_minimo: float | None = None, evitar: set | None = None) -> dict:
     """Cotação de uma descrição (ver _cotar_item_base). Com `estimativa` (R$ por unidade, opcional), valida preço e CATMAT contra ela (aplicar_estimativa) e,
     se `priorizar`, deixa os CATMAT bem parecidos de preço compatível passarem na frente. `forcar`: códigos CATMAT escolhidos pelo usuário (material).
-    `limiar_minimo`: % de correspondência mínima no lugar do padrão (75% material, 65% serviço); resultado["abaixo_padrao"] avisa quando algum código escolhido ficou abaixo do padrão."""
-    return aplicar_estimativa(_cotar_item_base(descricao, catmat, catalogo_servico, tipo, hoje, estimativa, forcar, priorizar, limiar_minimo), estimativa)
+    `limiar_minimo`: % de correspondência mínima no lugar do padrão (75% material, 65% serviço); resultado["abaixo_padrao"] avisa quando algum código escolhido ficou abaixo do padrão.
+    `evitar`: compras (id_compra, id_item) já usadas por outros itens da lista (ver chaves_usadas): itens parecidos não repetem os mesmos preços, a não ser que faltem compras livres."""
+    return aplicar_estimativa(_cotar_item_base(descricao, catmat, catalogo_servico, tipo, hoje, estimativa, forcar, priorizar, limiar_minimo, evitar), estimativa)
 
 
 def _cotar_item_base(descricao: str, catmat: IndiceCatmat, catalogo_servico: list[dict] | None = None, tipo: str = "Material", hoje: dt.date | None = None,
-                     estimativa: float | None = None, forcar: list[str] | None = None, priorizar: bool = True, limiar_minimo: float | None = None) -> dict:
+                     estimativa: float | None = None, forcar: list[str] | None = None, priorizar: bool = True, limiar_minimo: float | None = None, evitar: set | None = None) -> dict:
     """Cotação de uma descrição. `tipo`: "Material" (mín. 75%), "Serviço" (mín. 65%) ou "Automático" (escolhe pelo que combina melhor).
     Chaves principais do resultado: tipo, status, catmats (códigos CATMAT/CATSERV), precos, stats."""
     hoje = hoje or dt.date.today()
     inicio, fim = (hoje - dt.timedelta(days=JANELA_DIAS)).isoformat(), hoje.isoformat()
     catalogo_servico = catalogo_servico or []
     if tipo == "Material":
-        return _cotar_material(descricao, catmat, inicio, fim, estimativa, forcar, priorizar, limiar_minimo)
+        return _cotar_material(descricao, catmat, inicio, fim, estimativa, forcar, priorizar, limiar_minimo, evitar)
     if tipo == "Serviço":
-        return _cotar_servico(descricao, catalogo_servico, inicio, fim, limiar_minimo)
+        return _cotar_servico(descricao, catalogo_servico, inicio, fim, limiar_minimo, evitar)
 
     # Automático: decide o tipo antes de gastar consultas de preço.
     nota_material = max((f["nota"] for f in buscar_familias(descricao, catmat, limite=1)), default=0.0)
@@ -530,5 +546,5 @@ def _cotar_item_base(descricao: str, catmat: IndiceCatmat, catalogo_servico: lis
     else:
         tipos = [t for t, ok in (("Material", material_ok), ("Serviço", servico_ok)) if ok]
         tipos = tipos or [("Material", "Serviço")[nota_servico - limiar_servico > nota_material - limiar_material]]
-    resultados = [_cotar_material(descricao, catmat, inicio, fim, estimativa, forcar, priorizar, limiar_minimo) if t == "Material" else _cotar_servico(descricao, catalogo_servico, inicio, fim, limiar_minimo) for t in tipos]
+    resultados = [_cotar_material(descricao, catmat, inicio, fim, estimativa, forcar, priorizar, limiar_minimo, evitar) if t == "Material" else _cotar_servico(descricao, catalogo_servico, inicio, fim, limiar_minimo, evitar) for t in tipos]
     return max(resultados, key=lambda r: (_ORDEM_STATUS[r["status"]], len(r["precos"]), max((k["correspondencia"] for k in r["catmats"]), default=0), (r["melhor_proximo"] or {}).get("correspondencia", 0)))
