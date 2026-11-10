@@ -406,11 +406,44 @@ def _comeca_pelo_objeto(nome: str, objeto: str) -> bool:
     return primeira == objeto
 
 
-_ORDEM_STATUS = {"ok": 3, "insuficiente": 2, "sem_precos": 1, "sem_catmat": 0}
+_ORDEM_STATUS = {"ok": 3, "insuficiente": 2, "sem_precos": 1, "sem_catmat": 0, "nao_encontrado": 0}
 
 
 def _brl(valor: float) -> str:
     return "R$ " + f"{valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+def marcar_nao_encontrado(resultado: dict) -> dict:
+    """Decisão do usuário: nenhum preço serviu para o item. Ele sai do mapa e do relatório como "não encontrado" (sem preços), mas a cotação
+    original fica guardada em `original` para `desfazer_decisao`. Mantém estimativa, quantidade e unidade pedidas."""
+    original = {chave: valor for chave, valor in resultado.items() if chave != "original"}
+    novo = resultado_vazio(resultado["descricao"], resultado.get("tipo", "Material"), resultado.get("limiar"))
+    novo.update({
+        "status": "nao_encontrado", "decisao": "nao_encontrado", "original": original, "estimativa": resultado.get("estimativa"), "validacao": "sem_precos", "compativeis": [],
+        "quantidade_pedida": resultado.get("quantidade_pedida"), "unidade_pedida": resultado.get("unidade_pedida", "UN"), "falha_api": resultado.get("falha_api", False),
+        "proximos": resultado.get("proximos", []), "melhor_proximo": resultado.get("melhor_proximo"),
+        "texto_validacao": "🚫 Retirado do relatório por decisão do usuário: nenhum preço compatível com a estimativa; o item consta como não encontrado.",
+    })
+    return novo
+
+
+def aceitar_como_correto(resultado: dict) -> dict:
+    """Decisão do usuário: os preços encontrados valem, mesmo longe da estimativa. O aviso deixa de ser pendência e o relatório registra a decisão."""
+    if resultado.get("decisao"):
+        return resultado
+    resultado["texto_original"] = resultado.get("texto_validacao", "")
+    resultado["decisao"] = "aceito"
+    resultado["texto_validacao"] = (resultado["texto_original"] + " ✔ Aceito pelo usuário como correto, apesar da diferença em relação à estimativa.").strip()
+    return resultado
+
+
+def desfazer_decisao(resultado: dict) -> dict:
+    if resultado.get("decisao") == "nao_encontrado" and resultado.get("original"):
+        return resultado["original"]
+    if resultado.get("decisao") == "aceito":
+        resultado["texto_validacao"] = resultado.pop("texto_original", resultado.get("texto_validacao", ""))
+        resultado.pop("decisao", None)
+    return resultado
 
 
 def aplicar_estimativa(resultado: dict, estimativa: float | None) -> dict:
@@ -418,6 +451,7 @@ def aplicar_estimativa(resultado: dict, estimativa: float | None) -> dict:
     de fora (parecido, mas abaixo do mínimo) pratica preço mais próximo dela? Só avisa: nunca troca o CATMAT sozinho.
     Preenche `estimativa`, `validacao` ('coerente', 'divergente', 'sem_precos' ou None sem estimativa), `compativeis` e `texto_validacao`."""
     resultado.update({"estimativa": None, "validacao": None, "compativeis": [], "texto_validacao": ""})
+    resultado.pop("decisao", None)
     if not estimativa or estimativa <= 0:
         return resultado
     resultado["estimativa"] = float(estimativa)
