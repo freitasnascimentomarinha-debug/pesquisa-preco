@@ -50,7 +50,7 @@ STATUS_TEXTO = {
     "insuficiente": f"Menos de {MIN_PRECOS} preços",
     "sem_precos": "Sem preços válidos",
     "sem_catmat": "Sem CATMAT/CATSERV com preços",
-    "nao_encontrado": "Não encontrado (retirado pelo usuário)",
+    "nao_encontrado": "Sem CATMAT/CATSERV com preços",  # item retirado pelo usuário: aparece como os itens sem código com preços
 }
 
 
@@ -345,7 +345,7 @@ def _pagina_item(pdf: FPDF, numero: int, r: dict) -> None:
         pdf.set_font("Helvetica", "", 9)
         pdf.set_text_color(150, 30, 30)
         if r["status"] == "nao_encontrado":
-            texto = "Item considerado NAO ENCONTRADO por decisao do usuario: os precos localizados nao foram compativeis com a estimativa informada e foram retirados do relatorio."
+            texto = f"Nenhum item CATMAT/CATSERV com precos compativeis com a estimativa informada nos ultimos {JANELA_DIAS} dias (item retirado do relatorio por decisao do usuário)."
         elif r["status"] == "sem_catmat":
             texto = f"Nenhum item CATMAT/CATSERV com {r.get('limiar', LIMIAR_CORRESPONDENCIA):.0f}% ou mais de correspondencia e precos praticados nos ultimos {JANELA_DIAS} dias."
             if r.get("proximos"):
