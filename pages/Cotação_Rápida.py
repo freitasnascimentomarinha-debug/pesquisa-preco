@@ -23,7 +23,7 @@ sys.path.insert(0, BASE_DIR)  # permite importar catmat_busca.py (raiz do projet
 from atualizar_modulos import recarregar_se_mudou  # noqa: E402
 recarregar_se_mudou('catmat_busca', 'cotacao_rapida', 'lista_itens', 'relatorio_cotacao_rapida', 'lista_itens_ui')  # evita módulo antigo em memória após deploy
 from catmat_busca import CATMAT_PATH, CATSERV_PATH, carregar_catalogo, carregar_indice_catmat  # noqa: E402
-from cotacao_rapida import TOLERANCIA_ESTIMATIVA, aplicar_estimativa, JANELA_DIAS, LIMIAR_CORRESPONDENCIA, LIMIAR_SERVICO, MAX_CATMAT, MAX_PRECOS, MIN_PRECOS, TOLERANCIA, cotar_item, resultado_vazio  # noqa: E402
+from cotacao_rapida import LIMIAR_CORRESPONDENCIA as LIMIAR_PADRAO, TOLERANCIA_ESTIMATIVA, aplicar_estimativa, JANELA_DIAS, LIMIAR_CORRESPONDENCIA, LIMIAR_SERVICO, MAX_CATMAT, MAX_PRECOS, MIN_PRECOS, TOLERANCIA, cotar_item, resultado_vazio  # noqa: E402
 from relatorio_cotacao_rapida import STATUS_TEXTO, gerar_excel, gerar_pdf, tabela_mapa  # noqa: E402
 from lista_itens import anexar_pedido, tem_quantidades, valor_total_orcamento  # noqa: E402
 from lista_itens_ui import entrada_itens_com_catmat  # noqa: E402
@@ -162,7 +162,7 @@ itens_pedidos, lista_carregada = entrada_itens_com_catmat(
     "cr", catmat, rotulo="Descrições dos itens", altura=170, com_estimativa=True,
     placeholder="Ex:\nResma de papel A4 75 g/m² - 50\n10 notebook 15 polegadas 16 GB\nDetergente líquido neutro 5 litros; 30 un",
 )
-tipo_busca, priorizar_estimativa, cotar_clicado = "Automático", True, False
+tipo_busca, priorizar_estimativa, cotar_clicado, limiar_minimo = "Automático", True, False, None
 if lista_carregada:  # só depois de "Carregar" (que apenas monta a tabela com o CATMAT) aparecem as opções e o botão de cotar
     tipo_busca = st.selectbox(
         "Tipo de item",
@@ -176,6 +176,15 @@ if lista_carregada:  # só depois de "Carregar" (que apenas monta a tabela com o
         help=f"Só vale para os itens com “Estimativa do preço”. Entre os CATMAT bem parecidos (60% ou mais), passam na frente os que praticam preço compatível (até {TOLERANCIA_ESTIMATIVA:.0%} de diferença) com a sua estimativa. "
              "Se nenhum pratica, o sistema mantém o mais parecido e avisa. Desmarque para usar só a semelhança do texto (a estimativa vira apenas um aviso).",
     )
+
+    aceitar_baixa = st.checkbox(
+        "Aceitar CATMAT/CATSERV com correspondência menor que o padrão",
+        help=f"Por padrão só entram códigos com {LIMIAR_PADRAO:.0f}%+ de correspondência (serviços: 65%+). Marque quando poucos itens casam mas o código certo pode estar entre os parecidos: "
+             "os códigos abaixo do padrão passam a ser usados e os itens ficam sinalizados para você conferir se o CATMAT é mesmo o item pedido.",
+    )
+    if aceitar_baixa:
+        limiar_minimo = float(st.slider("Correspondência mínima (%)", min_value=30, max_value=int(LIMIAR_PADRAO) - 1, value=50, step=5,
+                                         help="Quanto menor, mais códigos entram, mas maior o risco de cotar um item diferente do pedido. Confira sempre os códigos escolhidos."))
 
     cotar_clicado = st.button("⚡ Cotar itens", type="primary", use_container_width=True)
 
@@ -196,7 +205,7 @@ if cotar_clicado:
             barra.progress((posicao - 1) / len(itens), text=f"Cotando {posicao}/{len(itens)}: {item[:60]}")
             try:
                 resultados.append(anexar_pedido(cotar_item(item, catmat, catalogo_servico, "Material" if pedido.get("catmat_fixo") else tipo_busca, estimativa=pedido.get("estimativa"),
-                                                        forcar=[pedido["catmat_fixo"]] if pedido.get("catmat_fixo") else None, priorizar=priorizar_estimativa), pedido))
+                                                        forcar=[pedido["catmat_fixo"]] if pedido.get("catmat_fixo") else None, priorizar=priorizar_estimativa, limiar_minimo=limiar_minimo), pedido))
             except Exception as erro:  # um item com problema não derruba a cotação inteira
                 vazio = resultado_vazio(item, tipo_busca if tipo_busca != "Automático" else "Material")
                 vazio["falha_api"] = True
@@ -216,6 +225,10 @@ if resultados:
     metricas[1].markdown(f'<span class="status-chip status-good">{ok} com {MIN_PRECOS}+ preços</span>', unsafe_allow_html=True)
     metricas[2].markdown(f'<span class="status-chip status-review">{insuficientes} com menos de {MIN_PRECOS}</span>', unsafe_allow_html=True)
     metricas[3].markdown(f'<span class="status-chip status-low">{sem} sem preço</span>', unsafe_allow_html=True)
+    abaixo = [r["descricao"] for r in resultados if r.get("abaixo_padrao")]
+    if abaixo:
+        st.warning(f"{len(abaixo)} item(ns) foram cotados com CATMAT/CATSERV de correspondência abaixo do padrão. Confira se o código é mesmo o item pedido antes de usar os preços: "
+                   + "; ".join(f"“{d[:50]}”" for d in abaixo[:8]) + ("…" if len(abaixo) > 8 else "") + ".")
     if any(r["falha_api"] for r in resultados):
         st.warning("Parte das consultas ao Compras.gov falhou (instabilidade ou limite de acesso). Alguns itens podem estar incompletos; cote novamente para conferir.")
 
