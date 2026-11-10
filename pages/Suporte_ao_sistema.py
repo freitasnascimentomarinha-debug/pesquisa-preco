@@ -8,7 +8,7 @@ import sys
 from urllib.parse import quote
 
 import streamlit as st
-
+from ui_tema import sidebar_mascote
 st.set_page_config(
     page_title="Suporte ao sistema",
     page_icon="💬",
@@ -104,7 +104,7 @@ else:
 
 with st.sidebar:
     if acanto_b64:
-        st.markdown(f'<div style="text-align:center;padding:1rem 0 0.5rem 0;"><img src="data:image/png;base64,{acanto_b64}" style="max-width:70%;height:auto;"></div>', unsafe_allow_html=True)
+        sidebar_mascote()
     st.markdown("## MENU")
     st.markdown("---")
     st.page_link("streamlit_app.py", label="Cotação", icon="⚓")
@@ -112,6 +112,7 @@ with st.sidebar:
     st.page_link("pages/Cotação_Rápida.py", label="Cotação Rápida", icon="⚡")
     st.page_link("pages/Cotação_Direta.py", label="Cotação Direta", icon="📨")
     st.page_link("pages/Detalhes_Compra.py", label="Detalhes Compra", icon="🔍")
+    st.page_link("pages/Radar_de_Licitacoes.py", label="Radar de Licitações", icon="📡")
     st.page_link("pages/Adesões.py", label="Adesões", icon="🤝")
     st.page_link("pages/Notas_Fiscais.py", label="Notas Fiscais", icon="📄")
     st.page_link("pages/Banco_de_Fornecedores.py", label="Fornecedores", icon="🏢")
@@ -143,11 +144,11 @@ st.markdown(
     <div class="su-panel">
         <h3>O que você pode fazer no grupo</h3>
         <div class="su-grid">
-            <div class="su-card"><div class="t">💡 Sugerir melhorias</div><div class="d">Teve uma ideia que facilitaria o seu trabalho? Conte para a gente.</div></div>
-            <div class="su-card"><div class="t">🛠️ Avisar um problema</div><div class="d">Uma funcionalidade parou de funcionar? Avise: quanto antes soubermos, mais rápido corrigimos.</div></div>
-            <div class="su-card"><div class="t">🆕 Pedir atualização ou nova versão</div><div class="d">Precisa de uma ferramenta nova ou de um ajuste numa que já existe? Solicite.</div></div>
-            <div class="su-card"><div class="t">🗣️ Críticas construtivas</div><div class="d">Sua opinião honesta é bem-vinda e ajuda a melhorar o sistema.</div></div>
-            <div class="su-card"><div class="t">🎓 Debater e aprender</div><div class="d">Troque experiências sobre <b>obtenção</b>, <b>logística</b> e <b>soluções administrativas</b>, com fluxos de trabalho, sistemas, automação e IA.</div></div>
+            <div class="su-card"><div class="ic">💡</div><div class="tx"><div class="t">Sugerir melhorias</div><div class="d">Teve uma ideia que facilitaria o seu trabalho? Conte para a gente.</div></div></div>
+            <div class="su-card"><div class="ic">🛠️</div><div class="tx"><div class="t">Avisar um problema</div><div class="d">Uma funcionalidade parou de funcionar? Avise: quanto antes soubermos, mais rápido corrigimos.</div></div></div>
+            <div class="su-card"><div class="ic">🆕</div><div class="tx"><div class="t">Pedir atualização ou nova versão</div><div class="d">Precisa de uma ferramenta nova ou de um ajuste numa que já existe? Solicite.</div></div></div>
+            <div class="su-card"><div class="ic">🗣️</div><div class="tx"><div class="t">Críticas construtivas</div><div class="d">Sua opinião honesta é bem-vinda e ajuda a melhorar o sistema.</div></div></div>
+            <div class="su-card"><div class="ic">🎓</div><div class="tx"><div class="t">Debater e aprender</div><div class="d">Troque experiências sobre <b>obtenção</b>, <b>logística</b> e <b>soluções administrativas</b>, com fluxos de trabalho, sistemas, automação e IA.</div></div></div>
         </div>
     </div>
     """,
@@ -169,7 +170,6 @@ st.markdown(
 )
 
 st.markdown('<div class="su-panel"><h3>Divulgue o AtaCotada</h3><p>Compartilhe com colegas pelo WhatsApp. O link já abre na página <b>Sobre o projeto</b>, que apresenta o sistema.</p></div>', unsafe_allow_html=True)
-st.markdown(f'<div class="su-msg">{mensagem}</div>', unsafe_allow_html=True)
 st.link_button("📲 Compartilhar o AtaCotada no WhatsApp", link_compartilhar, use_container_width=True)
 
 st.markdown('<div class="su-panel"><h3>Contribuidores</h3><p>Conheça quem ajudou a criar e a aperfeiçoar o sistema. Toque em um card para baixar o PDF.</p></div>', unsafe_allow_html=True)
@@ -184,8 +184,8 @@ if mostrar:
         for coluna, pessoa in zip(colunas, CONTRIBUIDORES[inicio:inicio + por_linha]):
             with coluna:
                 st.download_button(
-                    f"**{pessoa['nome']}**  \nNIP {pessoa['nip']}  \n{pessoa.get('papel', '')}",
+                    f"**{pessoa['nome']}**  \n{pessoa.get('papel', '')}",
                     data=gerar_card_pdf(pessoa), file_name=nome_do_arquivo(pessoa), mime="application/pdf",
-                    key=f"su_card_{pessoa['nip']}", use_container_width=True,
+                    key=f"su_card_{inicio}_{pessoa['nome']}", use_container_width=True,
                 )
 

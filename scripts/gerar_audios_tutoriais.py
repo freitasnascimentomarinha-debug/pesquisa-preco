@@ -39,15 +39,22 @@ AULAS = {  # nome do áudio -> módulo da aula
     "cotacao_direta": "tutorial_cotacao_direta",
     "cotacao_rapida": "tutorial_cotacao_rapida",
     "adesoes": "tutorial_adesoes",
+    "babilaca": "tutorial_babilaca",
     "notas_fiscais": "tutorial_notas_fiscais",
     "fornecedores": "tutorial_fornecedores",
     "web_scraping": "tutorial_web_scraping",
     "ipca": "tutorial_ipca",
+    "detalhes_compra": "tutorial_detalhes_compra",
+    "consulta_cnpj": "tutorial_consulta_cnpj",
+    "radar_licitacoes": "tutorial_radar_licitacoes",
 }
 
 # Pronúncias: siglas viram letras separadas; termos que o sintetizador lê mal ganham grafia fonética.
 SUBSTITUICOES = [
     (r"IN SEGES/ME nº 65/2021", "Instrução Normativa Seges ME número 65 de 2021"),
+    (r"\bMaTDoc\b", "Mat dóc"),
+    (r"\bart\. (\d+), §(\d+)º", r"artigo \1, parágrafo \2 "),
+    (r"\bart\. (\d+)", r"artigo \1"),
     (r"Lei nº 14\.133/2021", "Lei número 14.133 de 2021"),
     (r"Compras\.gov\.br", "Compras ponto gov ponto bê érre"),
     (r"Compras\.gov", "Compras ponto gov"),
@@ -62,6 +69,19 @@ SUBSTITUICOES = [
     (r"\bCATMAT\b", "Catmat"),
     (r"\bCATSERV\b", "Catserv"),
     (r"\bCNAE\b", "Cê náe"),
+    (r"\bCEIS\b", "Céis"),
+    (r"\bCNEP\b", "Cenépe"),
+    (r"\bCEPIM\b", "Cepim"),
+    (r"\bSICAF\b", "Sicáfi"),
+    (r"\bMEI\b", "Mêi"),
+    (r"ComprasNet", "Compras Net"),
+    (r"ComprasGov", "Compras gov"),
+    (r"\bOutlook\b", "Autlúk"),
+    (r"\b789000\b", "sete oito nove zero zero zero"),
+    (r"\bGoogle Agenda\b", "Gúgol Agenda"),
+    (r"\bGmail\b", "Gimeiu"),
+    (r"\bGoogle\b", "Gúgol"),
+    (r"\bapp\b", "épe"),
     (r"\bIPCA\b", "Ípeca"),
     (r"\bDANFE\b", "Danfe"),
     (r"\bCEP\b", "cép"),
@@ -80,7 +100,7 @@ SUBSTITUICOES = [
     (r"\bDF\b", "Distrito Federal"),
     (r"\bUFs?\b", "U F"),
 ]
-SIGLAS = ["CNPJ", "UASG", "PDM", "IQR", "PDF", "HTML", "XML", "CSV", "API", "OM", "CV", "TCU", "PNCP", "BCB", "IBGE", "IA", "BRL"]
+SIGLAS = ["CNPJ", "UASG", "DFD", "ETP", "TJDL", "TJIL", "IRP", "UF", "TR", "PDM", "IQR", "PDF", "HTML", "XML", "CSV", "API", "OM", "CV", "TCU", "PNCP", "BCB", "IBGE", "IA", "BRL", "ID"]
 
 
 def numero_por_extenso_simples(m: re.Match) -> str:

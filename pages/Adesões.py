@@ -10,15 +10,18 @@ from typing import Dict, List, Optional, Tuple
 
 import aiohttp
 import folium
+import pandas as pd
 import requests
 import streamlit as st
+from ui_tema import sidebar_mascote
 from streamlit_folium import st_folium
 
 # ── Caminhos dos dados do Projeto Adesões ──────────────────────────────────
 DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "Projeto Adesões")
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # catmat_busca.py (raiz do projeto)
 from atualizar_modulos import recarregar_se_mudou  # noqa: E402
-recarregar_se_mudou('catmat_busca')  # evita módulo antigo em memória após deploy
+recarregar_se_mudou('catmat_busca', 'servicos_publicos', 'modelos_processo', 'vantajosidade')  # evita módulo antigo em memória após deploy
+from servicos_publicos import consultar_sicaf, http_get_json, texto_sicaf  # noqa: E402
 from catmat_busca import (  # noqa: E402
     CATMAT_PATH,
     CATSERV_PATH,
@@ -32,6 +35,7 @@ from catmat_busca import (  # noqa: E402
 # ── Constantes da API ──────────────────────────────────────────────────────
 API_URL = "https://dadosabertos.compras.gov.br/modulo-arp/2_consultarARPItem"
 API_URL_UNIDADES = "https://dadosabertos.compras.gov.br/modulo-arp/3_consultarUnidadesItem"
+API_URL_ADESOES = "https://dadosabertos.compras.gov.br/modulo-arp/5_consultarAdesoesItem"
 MAX_CONCURRENCY = 4
 DATE_RANGE_DAYS = 360
 PAGE_SIZE = {"Material": 100, "Serviço": 100}
@@ -402,7 +406,7 @@ else:
 
 with st.sidebar:
     if _acanto_b64:
-        st.markdown(f'<div style="text-align:center;padding:1rem 0 0.5rem 0;"><img src="data:image/png;base64,{_acanto_b64}" style="max-width:70%;height:auto;"></div>', unsafe_allow_html=True)
+        sidebar_mascote()
     st.markdown("## MENU")
     st.markdown("---")
     st.page_link("streamlit_app.py", label="Cotação", icon="⚓")
@@ -410,6 +414,7 @@ with st.sidebar:
     st.page_link("pages/Cotação_Rápida.py", label="Cotação Rápida", icon="⚡")
     st.page_link("pages/Cotação_Direta.py", label="Cotação Direta", icon="📨")
     st.page_link("pages/Detalhes_Compra.py", label="Detalhes Compra", icon="🔍")
+    st.page_link("pages/Radar_de_Licitacoes.py", label="Radar de Licitações", icon="📡")
     st.page_link("pages/Adesões.py", label="Adesões", icon="🤝")
     st.page_link("pages/Notas_Fiscais.py", label="Notas Fiscais", icon="📄")
     st.page_link("pages/Banco_de_Fornecedores.py", label="Fornecedores", icon="🏢")
@@ -949,8 +954,10 @@ async def fetch_unit_detail(
                     response.raise_for_status()
                     data = await response.json()
                     results = data.get("resultado", [])
-                    if results:
-                        return results[0]
+                    # o saldo de adesões do item vem na linha da unidade GERENCIADORA (as demais são participantes)
+                    gerenciadora = [r for r in results if str(r.get("tipoUnidade", "")).upper() == "GERENCIADORA"]
+                    if gerenciadora or results:
+                        return (gerenciadora or results)[0]
                     return None
             except Exception:
                 if attempt == retries - 1:
@@ -984,7 +991,7 @@ async def enrich_results_async(
             numero_ata = raw.get("numeroAtaRegistroPreco", "")
             unidade = raw.get("codigoUnidadeGerenciadora", "") or str(raw.get("codigoUasg", ""))
             numero_item = raw.get("numeroItem", "")
-            identificador = raw.get("numeroControlePncpAta", "")
+            identificador = f'{raw.get("numeroControlePncpAta", "")}|{numero_item}'  # saldo é por item, não por ata
             if not (numero_ata and unidade and numero_item):
                 continue
 
@@ -1045,6 +1052,290 @@ async def enrich_results_async(
             f"Detalhes concluídos. {len(details)} atas enriquecidas."
         )
     return details
+
+
+def _qtd(valor) -> str:
+    """Quantidade sem casas decimais desnecessárias, no formato brasileiro."""
+    try:
+        numero = float(valor)
+    except (TypeError, ValueError):
+        return "N/I"
+    texto = f"{numero:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    return texto[:-3] if texto.endswith(",00") else texto
+
+
+def situacao_sicaf_fornecedores(cnpjs: List[str]) -> Dict[str, str]:
+    """Situação no cadastro de fornecedores (SICAF) de cada CNPJ, consultada em paralelo (com cache)."""
+    unicos = sorted({c for c in cnpjs if c})
+    if not unicos:
+        return {}
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        resultados = list(pool.map(consultar_sicaf, unicos))
+    return {c: (texto_sicaf(sit) if not erro else "N/I") for c, (sit, erro) in zip(unicos, resultados)}
+
+
+@st.cache_data(ttl=1800, show_spinner=False)
+def _adesoes_aprovadas_ok(numero_ata: str, unidade_gerenciadora: str, numero_item: str) -> List[Dict]:
+    """Consulta as adesões do item. Levanta RuntimeError em caso de falha, para que o erro NÃO fique guardado no cache."""
+    dados, erro = http_get_json(API_URL_ADESOES, {"numeroAta": numero_ata, "unidadeGerenciadora": unidade_gerenciadora,
+                                                  "numeroItem": numero_item, "pagina": 1, "tamanhoPagina": 100},
+                                timeout=25, tentativas=2, ok_404=True)
+    if erro:
+        raise RuntimeError(erro)
+    return (dados or {}).get("resultado", []) or []
+
+
+def adesoes_aprovadas(numero_ata: str, unidade_gerenciadora: str, numero_item: str) -> Tuple[List[Dict], Optional[str]]:
+    """Adesões (caronas) já aprovadas para o item da ata: unidade não participante, quantidade e data.
+    Devolve (lista, erro). Só sucessos ficam no cache; falhas podem ser tentadas de novo."""
+    try:
+        return _adesoes_aprovadas_ok(numero_ata, unidade_gerenciadora, numero_item), None
+    except RuntimeError as exc:
+        return [], str(exc)
+
+
+def _brl_un(valor) -> str:
+    try:
+        return "R$ " + f"{float(valor):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+    except (TypeError, ValueError):
+        return "N/I"
+
+
+def _num(valor) -> Optional[float]:
+    try:
+        return float(str(valor).replace(",", "."))
+    except (TypeError, ValueError):
+        return None
+
+
+def _incluir_na_cesta(ata: Dict, item: Dict) -> None:
+    """Junta o item à lista de adesão da ata. Cada ata vira um ofício (um gerenciador por ofício)."""
+    cesta = st.session_state.setdefault("_cesta_adesao", {})
+    if ata["id"] not in cesta:
+        # versão única por sessão: uma ata removida e incluída de novo não herda a tabela (e as edições) da anterior
+        st.session_state["_cesta_seq"] = int(st.session_state.get("_cesta_seq") or 0) + 1
+        cesta[ata["id"]] = {**ata, "itens": [], "versao": st.session_state["_cesta_seq"]}
+    grupo = cesta[ata["id"]]
+    if all(i["Item"] != item["Item"] for i in grupo["itens"]):
+        grupo["itens"].append(item)
+        grupo.pop("analise", None)
+    st.toast(f"Item {item['Item']} incluído na adesão à Ata {ata['ata']}.")
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def itens_da_ata(numero_controle_ata: str) -> Tuple[List[Dict], Optional[str]]:
+    """Todos os itens de uma ata (do mesmo fornecedor), para incluir outros itens além do pesquisado."""
+    dados, erro = http_get_json("https://dadosabertos.compras.gov.br/modulo-arp/2.1_consultarARPItem_Id",
+                                {"numeroControlePncpAta": numero_controle_ata}, timeout=60)
+    if erro:
+        return [], erro
+    return (dados or {}).get("resultado") or [], None
+
+
+def _incluir_outros_itens(chave_ata: str, chave_sel: str) -> None:
+    grupo = (st.session_state.get("_cesta_adesao") or {}).get(chave_ata)
+    escolhidos = st.session_state.get(chave_sel) or []
+    if not grupo or not escolhidos:
+        return
+    por_rotulo = {o["rotulo"]: o for o in grupo.get("outros") or []}
+    ja = {i["Item"] for i in grupo["itens"]}
+    for rotulo in escolhidos:
+        o = por_rotulo.get(rotulo)
+        if o and o["item"]["Item"] not in ja:
+            grupo["itens"].append(dict(o["item"]))
+    st.session_state["_cesta_seq"] = int(st.session_state.get("_cesta_seq") or 0) + 1
+    grupo["versao"] = st.session_state["_cesta_seq"]
+    grupo.pop("analise", None)
+    st.session_state[chave_sel] = []
+
+
+def _marcar_reanalise(chave_ata: str) -> None:
+    """Ao marcar/desmarcar 'compras homologadas', a análise já exibida é refeita no novo modo."""
+    grupo = (st.session_state.get("_cesta_adesao") or {}).get(chave_ata)
+    if grupo and grupo.get("analise") is not None:
+        grupo["reanalisar"] = True
+
+
+def _aplicar_edicao_cesta(chave_ata: str, chave_editor: str) -> None:
+    """Grava na cesta as quantidades digitadas e retira os itens desmarcados."""
+    grupo = (st.session_state.get("_cesta_adesao") or {}).get(chave_ata)
+    if not grupo or not chave_editor.endswith(f"_{grupo['versao']}"):
+        return  # edição de uma tabela que já saiu da tela (ata removida ou lista refeita): nada a gravar
+    edicoes = (st.session_state.get(chave_editor) or {}).get("edited_rows", {})
+    retirar = set()
+    for linha, campos in edicoes.items():
+        if not 0 <= int(linha) < len(grupo["itens"]):
+            continue
+        item = grupo["itens"][int(linha)]
+        if "Quantidade pretendida" in campos:
+            item["Quantidade"] = campos["Quantidade pretendida"]
+        if "Preço de referência (manual)" in campos:
+            item["ref_manual"] = campos["Preço de referência (manual)"]
+        if campos.get("Incluir") is False:
+            retirar.add(int(linha))
+    if retirar:
+        grupo["itens"] = [i for n, i in enumerate(grupo["itens"]) if n not in retirar]
+        st.session_state["_cesta_seq"] = int(st.session_state.get("_cesta_seq") or 0) + 1
+        grupo["versao"] = st.session_state["_cesta_seq"]
+    if grupo.pop("analise", None) is not None:
+        grupo["reanalisar"] = True   # a análise já feita é refeita com as quantidades e preços novos
+    if not grupo["itens"]:
+        st.session_state["_cesta_adesao"].pop(chave_ata, None)
+
+
+def _enviar_ao_babilaca(chave_ata: str) -> None:
+    import vantajosidade as V
+    grupo = (st.session_state.get("_cesta_adesao") or {}).get(chave_ata)
+    if not grupo or not grupo["itens"]:
+        return
+    itens = grupo["itens"]
+    analise = grupo.get("analise")
+    st.session_state["_ofad_prefill"] = {
+        "ata": grupo["ata"], "gerenciador": grupo["gerenciador"], "uasg": grupo["uasg"], "licitacao": grupo["licitacao"],
+        "objeto": itens[0]["Descrição"] if len(itens) == 1 else f"os {len(itens)} itens relacionados no item 3",
+        "itens": [{"Item": i["Item"], "Descrição": i["Descrição"], "Unidade": i.get("Unidade", ""),
+                   "Quantidade": "" if i.get("Quantidade") in (None, "") else str(i["Quantidade"])} for i in itens],
+        "justificativa": V.texto_justificativa(analise, grupo["ata"]) if analise else "",
+        "relatorio_vantajosidade": V.corpo_relatorio(grupo, analise) if analise else "",
+        "comparativo": V.linhas_comparativo(analise) if analise else [],
+    }
+
+
+def _painel_cesta_adesao() -> None:
+    """Itens escolhidos para adesão, agrupados por ata: quantidade, vantajosidade e envio do ofício ao Babilaca."""
+    cesta = st.session_state.get("_cesta_adesao") or {}
+    if not cesta:
+        return
+    import vantajosidade as V
+    st.markdown("#### 🛒 Itens escolhidos para adesão")
+    st.caption("Cada ata vira um ofício ao seu órgão gerenciador. Informe a quantidade pretendida de cada item "
+               "(até o máximo por órgão), analise a vantajosidade e gere o ofício no Babilaca.")
+    for chave_ata, grupo in list(cesta.items()):
+        with st.container(border=True):
+            st.markdown(f"**Ata {grupo['ata']}** — {grupo['gerenciador']} (UASG {grupo['uasg']}) · {grupo['licitacao']}")
+            linhas = [{"Incluir": True, "Item": i["Item"], "Descrição": i["Descrição"], "Preço registrado": i.get("preco"),
+                       "Máx. por órgão": i.get("max"), "Quantidade pretendida": _num(i.get("Quantidade")),
+                       "Preço de referência (manual)": _num(i.get("ref_manual"))}
+                      for i in grupo["itens"]]
+            chave_editor = f"cesta_ed_{chave_ata}_{grupo['versao']}"
+            st.data_editor(
+                linhas, key=chave_editor, hide_index=True, width="stretch",
+                disabled=["Item", "Descrição", "Preço registrado", "Máx. por órgão"],
+                column_config={
+                    "Incluir": st.column_config.CheckboxColumn(width="small", help="Desmarque para retirar o item"),
+                    "Preço registrado": st.column_config.NumberColumn(format="R$ %.2f"),
+                    "Máx. por órgão": st.column_config.NumberColumn(format="%.0f"),
+                    "Quantidade pretendida": st.column_config.NumberColumn(min_value=0, step=1, required=False),
+                    "Preço de referência (manual)": st.column_config.NumberColumn(
+                        min_value=0.0, format="R$ %.2f", required=False,
+                        help="Use quando o sistema não achar preço de mercado: informe o valor obtido na sua pesquisa "
+                             "(ex.: Cotação Rápida) e analise de novo."),
+                    "Descrição": st.column_config.TextColumn(width="large"),
+                },
+                on_change=_aplicar_edicao_cesta, args=(chave_ata, chave_editor))
+            with st.expander("➕ Outros itens desta ata", expanded=False):
+                st.caption("A busca mostra só os itens da família pesquisada. Aqui aparecem todos os itens desta ata "
+                           "(mesmo fornecedor) para você incluir no mesmo ofício.")
+                if st.button("Carregar os itens da ata", key=f"cesta_out_{chave_ata}"):
+                    with st.spinner("Buscando os itens da ata..."):
+                        lista, erro = itens_da_ata(chave_ata)
+                    if erro:
+                        st.warning(f"Não foi possível carregar os itens agora ({erro}).")
+                    grupo["outros"] = [{
+                        "rotulo": f"Item {r.get('numeroItem')} — {str(r.get('descricaoItem') or '')[:90]} — "
+                                  f"{MP_brl(r.get('valorUnitario'))}",
+                        "item": {"Item": str(r.get("numeroItem")), "Descrição": str(r.get("descricaoItem") or ""),
+                                 "Unidade": "", "codigo": str(r.get("codigoItem") or ""), "pdm": str(r.get("codigoPdm") or ""),
+                                 "preco": _num(r.get("valorUnitario")),
+                                 "max": (_num(r.get("quantidadeHomologadaItem")) or 0) * 0.5 or None, "Quantidade": ""},
+                    } for r in lista if r.get("maximoAdesao")]
+                ja = {i["Item"] for i in grupo["itens"]}
+                disponiveis = [o["rotulo"] for o in grupo.get("outros") or [] if o["item"]["Item"] not in ja]
+                if grupo.get("outros") is not None:
+                    if disponiveis:
+                        chave_sel = f"cesta_sel_{chave_ata}"
+                        st.multiselect("Itens da ata que aceitam adesão", disponiveis, key=chave_sel)
+                        st.button("Incluir os itens marcados", key=f"cesta_inc_{chave_ata}",
+                                  on_click=_incluir_outros_itens, args=(chave_ata, chave_sel))
+                        st.caption("Máximo por órgão destes itens = 50% da quantidade registrada. O saldo de adesão já "
+                                   "consumido por outros órgãos só aparece nos itens vindos da busca: confira no card.")
+                    else:
+                        st.caption("Todos os itens da ata que aceitam adesão já estão na lista.")
+            acima = [i["Item"] for i in grupo["itens"] if _num(i.get("Quantidade")) and i.get("max")
+                     and _num(i["Quantidade"]) > i["max"]]
+            if acima:
+                st.warning(f"Quantidade acima do máximo por órgão (art. 86, §4º) no(s) item(ns): {', '.join(acima)}.")
+            sem_qtd = [i["Item"] for i in grupo["itens"] if not _num(i.get("Quantidade"))]
+            _c1, _c2, _c3 = st.columns([2, 2, 1])
+            with _c1:
+                compras = st.checkbox("Incluir compras homologadas (só para itens sem preço nas atas; mais lento)", key=f"cesta_cmp_{chave_ata}",
+                                      on_change=_marcar_reanalise, args=(chave_ata,))
+                analisar = st.button("📊 Analisar vantajosidade", key=f"cesta_an_{chave_ata}", use_container_width=True)
+                if analisar or grupo.pop("reanalisar", False):
+                    n_itens = len(grupo["itens"])
+                    barra = st.progress(0.0, text=f"Buscando preços de mercado de {n_itens} item(ns)"
+                                        + (" — atas primeiro (segundos); compras homologadas só para itens sem preço nas atas, até ~75 s cada"
+                                           if compras else "..."))
+                    grupo["analise"] = V.analisar(
+                        [{**i, "Quantidade": i.get("Quantidade") or 0} for i in grupo["itens"]], chave_ata, compras,
+                        progresso=lambda fracao, texto: barra.progress(fracao, text=texto))
+                    grupo["analise_com_compras"] = compras
+                    barra.empty()
+            with _c2:
+                if st.button("✉️ Gerar ofício no Babilaca", key=f"cesta_of_{chave_ata}", type="primary",
+                             use_container_width=True):
+                    _enviar_ao_babilaca(chave_ata)
+                    st.switch_page("pages/O_Babilaca_(IA).py")
+                if sem_qtd:
+                    st.caption(f"Sem quantidade: item(ns) {', '.join(sem_qtd)} — pode completar no Babilaca.")
+            with _c3:
+                if st.button("🗑️ Remover", key=f"cesta_rm_{chave_ata}", use_container_width=True):
+                    cesta.pop(chave_ata, None)
+                    st.rerun()
+            analise = grupo.get("analise")
+            if analise:
+                r = V.resumo(analise)
+                st.caption("Análise " + ("com" if grupo.get("analise_com_compras") else "sem")
+                           + " compras homologadas. O preço da ata é a estimativa: entram os preços iguais ou maiores "
+                             "que ele, até 300%, e os menores só até 10% abaixo (de 1 a 3 por item, os mais próximos). Verde: vantajoso · amarelo: compatível com "
+                             "o mercado · vermelho: acima do mercado ou sem preço de referência.")
+                tabela = pd.DataFrame([{
+                    "Item": a["item"], "Preço da ata": MP_brl(a["preco"]), "Mediana de mercado": MP_brl(a["mediana"]),
+                    "Faixa de mercado": f"{MP_brl(a['menor'])} a {MP_brl(a['maior'])}" if a["mediana"] is not None else "a pesquisar",
+                    "Preços": f"{a['aceitos']}/{a['fontes']}",
+                    "Diferença": f"{a['diferenca'] * 100:+.1f}%".replace(".", ",") if a["diferenca"] is not None else "-",
+                    "Economia": MP_brl(a["economia"]), "Situação": a["situacao"], "Obs.": a.get("erro") or "",
+                    "_classe": a["classe"]} for a in analise])
+                cores = {"vantajoso": "#14532d", "compativel": "#713f12", "acima": "#7f1d1d", "sem_ref": "#7f1d1d"}
+                st.dataframe(tabela.style.apply(lambda linha: [f"background-color: {cores.get(linha['_classe'], '')}"] * len(linha),
+                                                axis=1), hide_index=True, width="stretch",
+                             column_order=[c for c in tabela.columns if c != "_classe"])
+                if r["sem_referencia"]:
+                    st.error("Sem preço de referência no(s) item(ns) " + ", ".join(str(a["item"]) for a in r["sem_referencia"])
+                             + ". Confira se o código do item não está restrito demais (o sistema já tentou itens "
+                               "semelhantes da mesma família). Se não estiver, pesquise o preço (ex.: Cotação Rápida) e "
+                               "informe-o na coluna **Preço de referência (manual)** acima, ou complete o campo marcado "
+                               "com __________ no relatório editável do Babilaca.")
+                if r["desvantajosos"]:
+                    st.warning("Acima de todos os preços de mercado encontrados: item(ns) "
+                               + ", ".join(str(a["item"]) for a in r["desvantajosos"])
+                               + ". Retire da adesão ou justifique no relatório.")
+                with st.expander("Justificativa por item (vai no relatório)"):
+                    for a in analise:
+                        st.markdown("- " + V.justificativa_item(a).replace("$", "\\$"))
+                if r["itens_com_referencia"] and r["valor_mercado"]:
+                    cor = st.success if r["economia"] >= 0 else st.warning
+                    cor(f"Adesão: {MP_brl(r['valor_ata'])} × mercado (mediana): {MP_brl(r['valor_mercado'])} → "
+                        f"{'economia' if r['economia'] >= 0 else 'acréscimo'} de {MP_brl(abs(r['economia']))}"
+                        f" ({abs(r['percentual']) * 100:.1f}%). O relatório e a justificativa vão junto com o ofício.".replace("$", "\\$"))
+                elif not any(_num(i.get("Quantidade")) for i in grupo["itens"]):
+                    st.info("Informe as quantidades para calcular a economia total.")
+
+
+def MP_brl(valor) -> str:
+    if valor is None:
+        return "-"
+    return "R$ " + f"{float(valor):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 
 def run_enrich(
@@ -1347,16 +1638,30 @@ if results:
                 """,
                 unsafe_allow_html=True,
             )
-            # Enriquecer resultados com dados do endpoint 3_consultarUnidadesItem
-            enrich_status_placeholder = st.empty()
-            enrich_progress_bar = st.progress(0, text="Preparando detalhes das atas…")
-            with st.spinner("Buscando detalhes de saldo e adesão…"):
-                enriched = run_enrich(
-                    display_results,
-                    enrich_status_placeholder,
-                    enrich_progress_bar,
-                )
+            # Enriquecer resultados com dados do endpoint 3_consultarUnidadesItem.
+            # Guarda o resultado na sessão: qualquer clique numa ata (incluir na adesão, adesões já aprovadas, outros docs…)
+            # reexecuta a página inteira, e sem isso todas as consultas de saldo e de SICAF eram refeitas a cada clique.
+            _chave_enr = tuple((str(r.get("numeroControlePncpAta", "")), str(r.get("numeroItem", ""))) for r in display_results)
+            _cache_enr = st.session_state.setdefault("_cache_enriquecimento", {})
+            if _chave_enr in _cache_enr:
+                enriched, sicaf_por_cnpj = _cache_enr[_chave_enr]
+            else:
+                enrich_status_placeholder = st.empty()
+                enrich_progress_bar = st.progress(0, text="Preparando detalhes das atas…")
+                with st.spinner("Buscando detalhes de saldo e adesão…"):
+                    enriched = run_enrich(
+                        display_results,
+                        enrich_status_placeholder,
+                        enrich_progress_bar,
+                    )
+                with st.spinner("Consultando a situação dos fornecedores no SICAF…"):
+                    sicaf_por_cnpj = situacao_sicaf_fornecedores([str(r.get("niFornecedor") or "") for r in display_results])
+                if enriched:  # resultado vazio (falha geral) não é guardado: a próxima ação tenta de novo
+                    if len(_cache_enr) >= 3:
+                        _cache_enr.pop(next(iter(_cache_enr)))
+                    _cache_enr[_chave_enr] = (enriched, sicaf_por_cnpj)
 
+            _painel_cesta_adesao()
             for idx, raw in enumerate(display_results):
                 normalized = normalize_item(raw)
                 if not normalized:
@@ -1366,11 +1671,10 @@ if results:
                 # Código UASG do órgão
                 uasg_code = extract_uasg(raw) or "N/I"
 
-                detail = enriched.get(identificador, {})
+                detail = enriched.get(f"{identificador}|{raw.get('numeroItem', '')}", {})
                 saldo_adesoes = detail.get("saldoAdesoes", "N/I")
                 saldo_remanejamento = detail.get("saldoRemanejamentoEmpenho", "N/I")
                 qtd_limite_adesao = detail.get("qtdLimiteAdesao", "N/I")
-                qtd_limite_compra = detail.get("qtdLimiteInformadoCompra", "N/I")
                 aceita_adesao_raw = detail.get("aceitaAdesao")
                 if aceita_adesao_raw is True:
                     aceita_adesao = '✅ Sim'
@@ -1381,6 +1685,24 @@ if results:
 
                 # Número do item (vem da API 2)
                 numero_item = raw.get("numeroItem", "N/I")
+
+                # Saldo explicado: limite global de adesões (dobro do registrado) e máximo por órgão que aderir
+                # (50% da quantidade registrada do item — Lei 14.133/2021, art. 86, §4º)
+                qtd_registrada = raw.get("quantidadeHomologadaItem")
+                try:
+                    max_por_orgao = float(qtd_registrada) * 0.5
+                    if isinstance(saldo_adesoes, (int, float)):
+                        max_por_orgao = min(max_por_orgao, float(saldo_adesoes))
+                    max_por_orgao_txt = _qtd(max_por_orgao)
+                except (TypeError, ValueError):
+                    max_por_orgao_txt = "N/I"
+                if isinstance(saldo_adesoes, (int, float)) and isinstance(qtd_limite_adesao, (int, float)) and qtd_limite_adesao:
+                    usado_pct = (1 - float(saldo_adesoes) / float(qtd_limite_adesao)) * 100
+                    saldo_txt = f"{_qtd(saldo_adesoes)} de {_qtd(qtd_limite_adesao)} ({usado_pct:.0f}% já usado)"
+                else:
+                    saldo_txt = _qtd(saldo_adesoes) if saldo_adesoes != "N/I" else "N/I"
+                sicaf_txt = sicaf_por_cnpj.get(str(raw.get("niFornecedor") or ""), "N/I")
+                sicaf_icone = "✅" if sicaf_txt.startswith("Ativo e habilitado") else ("⚠️" if sicaf_txt != "N/I" else "❔")
 
                 # Vigência final (tentar nomes possíveis do campo na API 2)
                 vigencia_final_raw = (
@@ -1429,16 +1751,70 @@ if results:
                             <span class="ata-tag">🛒 Compra: {num_compra}</span>
                             <span class="ata-tag">🆔 ID Compra: {id_compra}</span>
                             <span class="ata-tag">📅 Vigência Final: {vigencia_final}</span>
-                            <span class="ata-tag">📦 Saldo Adesões: {saldo_adesoes}</span>
-                            <span class="ata-tag">🔄 Saldo Remanej.: {saldo_remanejamento}</span>
-                            <span class="ata-tag">📊 Lim. Adesão: {qtd_limite_adesao}</span>
-                            <span class="ata-tag">🛒 Lim. Compra: {qtd_limite_compra}</span>
+                            <span class="ata-tag">📦 Saldo para adesão: {saldo_txt}</span>
+                            <span class="ata-tag">🏛️ Máx. por órgão aderente: {max_por_orgao_txt}</span>
+                            <span class="ata-tag">📋 Qtd. registrada: {_qtd(qtd_registrada)}</span>
+                            <span class="ata-tag">🔄 Saldo Remanej.: {_qtd(saldo_remanejamento) if saldo_remanejamento != "N/I" else "N/I"}</span>
                             <span class="ata-tag">🤝 Aceita Adesão: {aceita_adesao}</span>
+                            <span class="ata-tag">{sicaf_icone} SICAF do fornecedor: {sicaf_txt}</span>
                         </div>""",
                         unsafe_allow_html=True,
                     )
 
-                    if st.button("📂 Outros Docs", key=btn_key):
+                    col_docs, col_ades, col_of = st.columns([1, 1, 1])
+                    with col_of:
+                        _desc_item = str(raw.get("descricaoItem") or raw.get("descricao") or "").strip()
+                        _modalidade = str(raw.get("nomeModalidadeCompra") or "Pregão Eletrônico").strip()
+                        _ano = str(raw.get("anoCompra") or "").strip()
+                        st.button(
+                            "🛒 Incluir na adesão", key=f"btn_of_{idx}_{identificador[:30]}",
+                            on_click=_incluir_na_cesta,
+                            args=({
+                                "id": identificador, "ata": str(numero), "gerenciador": str(unidade), "uasg": str(uasg_code),
+                                "licitacao": f"{_modalidade} nº {num_compra}" + (f"/{_ano}" if _ano and "/" not in num_compra else ""),
+                            }, {
+                                "Item": str(numero_item),
+                                "Descrição": _desc_item or f"Item {numero_item}",
+                                "Unidade": str(raw.get("unidadeFornecimento") or raw.get("siglaUnidadeFornecimento") or ""),
+                                "codigo": str(raw.get("codigoItem") or ""),
+                                "pdm": str(raw.get("codigoPdm") or ""),
+                                "preco": _num(raw.get("valorUnitario")),
+                                "max": _num(max_por_orgao_txt.replace(".", "").replace(",", ".")) if max_por_orgao_txt != "N/I" else None,
+                                "Quantidade": "",
+                            }),
+                            help="Junta este item à lista de adesão (vários itens da mesma ata vão no mesmo ofício).",
+                        )
+                    with col_docs:
+                        clicou_docs = st.button("📂 Outros Docs", key=btn_key)
+                    with col_ades:
+                        if st.button("📋 Adesões já aprovadas", key=f"btn_ades_{idx}_{identificador[:30]}",
+                                     help="Mostra quais órgãos que NÃO participaram da licitação já tiveram a adesão (carona) a este item aprovada pelo "
+                                          "órgão gerenciador, em que quantidade e quando. Serve para saber quanto do saldo da ata já foi usado por adesões."):
+                            with st.spinner("Consultando as adesões aprovadas…"):
+                                st.session_state[f"ades_{identificador}_{idx}"] = adesoes_aprovadas(
+                                    str(raw.get("numeroAtaRegistroPreco", "")),
+                                    str(raw.get("codigoUnidadeGerenciadora", "") or uasg_code),
+                                    str(numero_item),
+                                )
+                    _ades = st.session_state.get(f"ades_{identificador}_{idx}")
+                    if _ades is not None:
+                        _lista_ades, _erro_ades = _ades
+                        if _erro_ades:
+                            st.warning(f"Não foi possível consultar as adesões agora ({_erro_ades}). Clique em “Adesões já aprovadas” para tentar de novo.")
+                        elif not _lista_ades:
+                            st.caption("Nenhuma adesão aprovada para este item até agora: o saldo para adesão ainda não foi usado por outros órgãos.")
+                        else:
+                            _total_ades = sum(_num(a.get("quantidadeAprovadaAdesao")) or 0 for a in _lista_ades)
+                            _total_txt = f"{_total_ades:,.0f}".replace(",", ".")
+                            st.caption(f"{len(_lista_ades)} adesão(ões) já aprovada(s) para este item, somando {_total_txt} unidade(s) "
+                                       "(órgãos que não participaram da licitação).")
+                            st.dataframe(
+                                [{"Órgão que aderiu": a.get("unidadeNaoParticipante", ""),
+                                  "Quantidade aprovada": a.get("quantidadeAprovadaAdesao", ""),
+                                  "Aprovada em": str(a.get("dataAprovacaoAnalise", ""))[:10]} for a in _lista_ades],
+                                use_container_width=True, hide_index=True,
+                            )
+                    if clicou_docs:
                         with st.spinner("Buscando…"):
                             docs, erro = fetch_ata_documents(identificador)
                             st.session_state[doc_session_key] = docs

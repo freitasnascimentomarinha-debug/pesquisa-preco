@@ -7,6 +7,7 @@ import os
 import sys
 
 import streamlit as st
+from ui_tema import sidebar_mascote
 import streamlit.components.v1 as components
 
 st.set_page_config(
@@ -20,15 +21,19 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CATALOGO_DIR = os.path.join(BASE_DIR, "Projeto Adesões")
 sys.path.insert(0, BASE_DIR)
 from atualizar_modulos import recarregar_se_mudou  # noqa: E402
-recarregar_se_mudou('tutorial_player', 'tutorial_cotacao', 'tutorial_catmat', 'tutorial_cotacao_direta', 'tutorial_cotacao_rapida', 'tutorial_adesoes', 'tutorial_notas_fiscais', 'tutorial_fornecedores', 'tutorial_web_scraping', 'tutorial_ipca')  # evita módulo antigo em memória após deploy
+recarregar_se_mudou('tutorial_player', 'tutorial_cotacao', 'tutorial_catmat', 'tutorial_cotacao_direta', 'tutorial_cotacao_rapida', 'tutorial_adesoes', 'tutorial_notas_fiscais', 'tutorial_fornecedores', 'tutorial_web_scraping', 'tutorial_ipca', 'tutorial_detalhes_compra', 'tutorial_consulta_cnpj', 'tutorial_radar_licitacoes', 'tutorial_babilaca')  # evita módulo antigo em memória após deploy
 import tutorial_adesoes  # noqa: E402
+import tutorial_babilaca  # noqa: E402
 import tutorial_catmat  # noqa: E402
 import tutorial_cotacao  # noqa: E402
 import tutorial_cotacao_direta  # noqa: E402
+import tutorial_consulta_cnpj  # noqa: E402
 import tutorial_cotacao_rapida  # noqa: E402
+import tutorial_detalhes_compra  # noqa: E402
 import tutorial_fornecedores  # noqa: E402
 import tutorial_ipca  # noqa: E402
 import tutorial_notas_fiscais  # noqa: E402
+import tutorial_radar_licitacoes  # noqa: E402
 import tutorial_web_scraping  # noqa: E402
 from tutorial_player import ALTURA_IFRAME  # noqa: E402
 
@@ -39,13 +44,14 @@ VIDEOS = [
     {"id": "catmat", "titulo": "CATMAT/CATSERV", "icone": "🔎", "resumo": "Como achar o código de material ou serviço.", "modulo": tutorial_catmat},
     {"id": "rapida", "titulo": "Cotação Rápida", "icone": "⚡", "resumo": "Cotar vários itens de uma vez e gerar o mapa comparativo.", "modulo": tutorial_cotacao_rapida},
     {"id": "direta", "titulo": "Cotação Direta", "icone": "📨", "resumo": "Pedidos de cotação direta a fornecedores.", "modulo": tutorial_cotacao_direta},
-    {"id": "detalhes", "titulo": "Detalhes Compra", "icone": "🔍", "resumo": "Consultar os detalhes de uma compra.", "modulo": None},
-    {"id": "adesoes", "titulo": "Adesões", "icone": "🤝", "resumo": "Atas de registro de preços e adesões.", "modulo": tutorial_adesoes},
+    {"id": "detalhes", "titulo": "Detalhes Compra", "icone": "🔍", "resumo": "Contratos, atas, itens, documentos e deságio de uma UASG.", "modulo": tutorial_detalhes_compra},
+    {"id": "radar", "titulo": "Radar de Licitações", "icone": "📡", "resumo": "Licitações do PNCP: calendário, documentos, deságio, fornecedores e atas.", "modulo": tutorial_radar_licitacoes},
+    {"id": "adesoes", "titulo": "Adesões", "icone": "🤝", "resumo": "Atas para adesão, vantajosidade e ofício.", "modulo": tutorial_adesoes},
     {"id": "nf", "titulo": "Notas Fiscais", "icone": "📄", "resumo": "Consulta de notas fiscais em lote.", "modulo": tutorial_notas_fiscais},
     {"id": "forn", "titulo": "Fornecedores", "icone": "🏢", "resumo": "Banco de fornecedores.", "modulo": tutorial_fornecedores},
-    {"id": "cnpj", "titulo": "Consulta CNPJ", "icone": "💻", "resumo": "Consulta de empresas pelo CNPJ.", "modulo": None},
+    {"id": "cnpj", "titulo": "Consulta CNPJ", "icone": "💻", "resumo": "Cadastro, sanções, contratos, adesões e notas fiscais de um fornecedor.", "modulo": tutorial_consulta_cnpj},
     {"id": "web", "titulo": "Web Scraping", "icone": "🕷️", "resumo": "Pesquisa de preços na web.", "modulo": tutorial_web_scraping},
-    {"id": "babilaca", "titulo": "O Babilaca (IA)", "icone": "🧠", "resumo": "Assistente de IA para licitações e legislação.", "modulo": None},
+    {"id": "babilaca", "titulo": "O Babilaca (IA)", "icone": "🧠", "resumo": "Chat, documentos no padrão da Marinha, checklist, prazos, conferência do processo e limite de dispensa por ramo e por subelemento.", "modulo": tutorial_babilaca},
     {"id": "ipca", "titulo": "Cálculo IPCA", "icone": "📊", "resumo": "Atualização monetária de valores pelo IPCA.", "modulo": tutorial_ipca},
 ]
 
@@ -103,7 +109,7 @@ else:
 
 with st.sidebar:
     if acanto_b64:
-        st.markdown(f'<div style="text-align:center;padding:1rem 0 0.5rem 0;"><img src="data:image/png;base64,{acanto_b64}" style="max-width:70%;height:auto;"></div>', unsafe_allow_html=True)
+        sidebar_mascote()
     st.markdown("## MENU")
     st.markdown("---")
     st.page_link("streamlit_app.py", label="Cotação", icon="⚓")
@@ -111,6 +117,7 @@ with st.sidebar:
     st.page_link("pages/Cotação_Rápida.py", label="Cotação Rápida", icon="⚡")
     st.page_link("pages/Cotação_Direta.py", label="Cotação Direta", icon="📨")
     st.page_link("pages/Detalhes_Compra.py", label="Detalhes Compra", icon="🔍")
+    st.page_link("pages/Radar_de_Licitacoes.py", label="Radar de Licitações", icon="📡")
     st.page_link("pages/Adesões.py", label="Adesões", icon="🤝")
     st.page_link("pages/Notas_Fiscais.py", label="Notas Fiscais", icon="📄")
     st.page_link("pages/Banco_de_Fornecedores.py", label="Fornecedores", icon="🏢")

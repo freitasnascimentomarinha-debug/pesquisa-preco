@@ -7,7 +7,7 @@ from tutorial_player import montar_player
 TITULO = "Como usar a Cotação Direta"
 DESCRICAO = (
     "Pedir orçamento por e-mail a quem vendeu recentemente à Administração: dados da OM, itens e CATMAT, "
-    "fornecedores, proposta em Word e envio. Duração aproximada: 4 min, com narração."
+    "fornecedores, proposta em Word e envio pelo Gmail. Duração aproximada: 5 min, com narração."
 )
 
 _MOCK_CSS = r"""
@@ -26,6 +26,9 @@ _MOCK_CSS = r"""
 .sub{background:rgba(7,20,42,.8);border:1px solid #2b6cb0;border-radius:7px;padding:7px 10px;font-size:12px;color:#9fb6d8}
 .frow2{display:flex;gap:10px;margin-top:10px}.frow2 .btn{flex:1}
 .hdrm{font-size:22px}
+.expd{border:1px solid #1e5b9f;border-radius:10px;padding:10px 12px;margin:8px 0;background:rgba(8,26,57,.5)}
+.gmh{font-weight:800;font-size:12px;margin-bottom:4px}
+.g2x{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px}
 """
 
 _STAGE_HTML = r"""
@@ -89,7 +92,15 @@ Atenciosamente,
   <div class="frow2"><div class="btn" id="d-docx">⬇️ Baixar a proposta em Word</div><div class="btn" id="d-comp">⬇️ Baixar a lista de fornecedores (comprovante, Excel)</div></div>
 
   <div class="passo"><h3>5. Enviar</h3><p>Uma mensagem para você (destinatário visível, com a proposta anexada) e os fornecedores em cópia oculta: um não vê o outro.</p></div>
-  <div class="cap2">Remetente: Centro de Operações do Abastecimento &lt;cotacao@exemplo.example&gt; • Para e respostas: seu e-mail institucional.</div>
+  <div class="expd" id="d-gm"><div class="gmh">📧 Enviar pela sua conta do Gmail</div>
+    <div class="cap2">O e-mail sai do seu próprio Gmail e usa a sua cota diária (cerca de 500 por dia). A senha <b>não fica salva</b>: vale só nesta sessão do navegador.</div>
+    <div class="g2x">
+      <div><div class="lbl">Seu Gmail</div><div class="fld" id="d-gmu"><span id="d-gmu-v"></span><span class="ph" id="d-gmu-ph">seunome@gmail.com</span></div></div>
+      <div><div class="lbl">Senha de app do Gmail</div><div class="fld" id="d-gmp"><span id="d-gmp-v"></span><span class="ph" id="d-gmp-ph">16 letras da senha de app</span></div></div>
+    </div>
+    <div class="cap2"><b>Como gerar a senha de app (uma vez):</b> 1) ative a Verificação em duas etapas; 2) procure por Senhas de app; 3) crie uma chamada AtaCotada e copie as 16 letras.</div>
+  </div>
+  <div class="cap2" id="d-via"></div>
   <div class="frow2"><div class="btn" id="d-teste">🧪 Enviar teste só para mim</div><div class="btn pri" id="d-envia" style="opacity:.5">📨 Enviar para os fornecedores</div></div>
   <div class="okb" id="d-testeok" style="display:none">Teste enviado: confira a sua caixa de entrada (e o spam).</div>
   <div class="ck" id="d-conf" style="margin-top:10px"><span class="box" id="d-conf-b"></span><span>Revisei o texto, a proposta e a lista: enviar para 6 fornecedor(es).</span></div>
@@ -108,14 +119,14 @@ const FORN=[
  {i:3,n:'ELÉTRICA EXEMPLO LTDA',e:'vendas@eletrica-exemplo.example',c:'Duque de Caxias/RJ',m:'Vendeu item igual (CATMAT 150310) em 08/2026 — mesmo estado'},
  {i:3,n:'MATERIAIS EXEMPLO DF ME',e:'atendimento@materiais-df.example',c:'Brasília/DF',m:'Vendeu item semelhante em 05/2026'}];
 let S;
-function resetS(){S={nome:'',cep:'',cepok:false,cnpj:'',tel:'',mail:'',resp:'',txt:'',spin1:false,itens:false,edit:false,prep:0,done:false,desm:false,teste:false,conf:false,enviado:false};}
+function resetS(){S={nome:'',cep:'',cepok:false,cnpj:'',tel:'',mail:'',resp:'',txt:'',spin1:false,itens:false,edit:false,prep:0,done:false,desm:false,teste:false,conf:false,enviado:false,gmu:'',gmp:''};}
 const IT=()=>[
  {d:'Caneta esferográfica azul',q:100,u:'UN',c:'150001',p:92,dc:'Caneta esferográfica, tinta azul, ponta média'},
  {d:S.edit?'Resma de papel A4 75 g/m²':'50 resmas de papel A4',q:50,u:'UN',c:'123456',p:S.edit?96:94,dc:'Papel A4, 75 g/m², branco, resma com 500 folhas'},
  {d:'Fita isolante 20m',q:30,u:'UN',c:'150310',p:88,dc:'Fita isolante, 20 m, PVC, preta'}];
 function render(){
   const T=(id,t)=>{const e=document.getElementById(id);if(e)e.textContent=t;};
-  [['nome',S.nome],['cep',S.cep],['cnpj',S.cnpj],['tel',S.tel],['mail',S.mail],['resp',S.resp],['ta',S.txt]].forEach(([k,v])=>{T('d-'+k+'-v',v);const p=document.getElementById('d-'+k+'-ph');if(p)p.style.display=v?'none':'inline';});
+  [['nome',S.nome],['cep',S.cep],['cnpj',S.cnpj],['tel',S.tel],['mail',S.mail],['resp',S.resp],['ta',S.txt],['gmu',S.gmu],['gmp',S.gmp]].forEach(([k,v])=>{T('d-'+k+'-v',v);const p=document.getElementById('d-'+k+'-ph');if(p)p.style.display=v?'none':'inline';});
   T('d-cepok',S.cepok?'✅ Endereço encontrado pelo CEP.':'');T('d-end',S.cepok?'Rua Exemplo, 100 — Centro':'');T('d-cid',S.cepok?'Rio de Janeiro / RJ':'');
   $('#d-spin1').classList.toggle('on',S.spin1);$('#d-itens').classList.toggle('on',S.itens);
   $('#d-ittab tbody').innerHTML=IT().map((x,i)=>'<tr id="ir'+(i+1)+'"><td><span class="box on" style="background:#ef4444;border-color:#ef4444;width:13px;height:13px;font-size:9px">✓</span></td><td class="ed" id="idesc'+(i+1)+'">'+x.d+'</td><td>'+x.q+'</td><td>'+x.u+'</td><td><b>'+x.c+'</b></td><td class="good">'+x.p+'%</td><td>'+x.dc+'</td></tr>').join('');
@@ -130,6 +141,7 @@ function render(){
   const F=FORN.filter((f,i)=>!(S.desm&&i===5));
   $('#d-ftab tbody').innerHTML=FORN.map((f,i)=>{const on=!(S.desm&&i===5);return '<tr id="fr'+i+'"><td><span class="box'+(on?' on':'')+'" id="fenv'+i+'" style="'+(on?'background:#ef4444;border-color:#ef4444;':'')+'width:13px;height:13px;font-size:9px">'+(on?'✓':'')+'</span></td><td>'+f.i+'</td><td>'+f.n+'</td><td>'+f.e+'</td><td>'+f.c+'</td><td>'+f.m+'</td></tr>';}).join('');
   $('#d-mets').innerHTML='<div class="met"><div class="k">Fornecedores selecionados</div><div class="v">'+F.length+'</div></div><div class="met"><div class="k">Itens</div><div class="v">3</div></div><div class="met"><div class="k">Mensagens a enviar</div><div class="v">1</div></div>';
+  T('d-via','Enviando por: '+(S.gmu?'seu Gmail ('+S.gmu+')':'a conta do sistema')+'  •  Remetente: Cotação – Centro de Operações do Abastecimento <'+(S.gmu||'conta-do-sistema@gmail.com')+'>  •  Para e respostas: seu e-mail institucional.');
   $('#d-testeok').style.display=S.teste?'block':'none';
   $('#d-conf-b').className='box'+(S.conf?' on':'');$('#d-conf-b').style.cssText=S.conf?'background:#ef4444;border-color:#ef4444':'';$('#d-conf-b').textContent=S.conf?'✓':'';
   $('#d-envia').style.opacity=S.conf?1:.5;$('#d-enviado').style.display=S.enviado?'block':'none';
@@ -181,13 +193,19 @@ window.__STEPS__=[
  tip:'💡 O protocolo identifica o pedido nas respostas dos fornecedores. Guarde o comprovante no processo.',
  run:async a=>{a.unring();await a.scroll('#d-mailtxt',80);a.ring('#d-mailtxt','Texto editável',4);await a.sleep(2400);a.unring();a.ring('#d-docx','Word',4);await a.click('#d-docx',()=>a.toast('✔ Proposta_CD-20261021-A1B2.docx'));a.unring();a.ring('#d-comp','Excel',4);await a.click('#d-comp',()=>a.toast('✔ Comprovante_CD-20261021-A1B2.xlsx'));await a.sleep(700);a.unring();}},
 
-{short:'Enviar',t:'Passo 7 — Teste e envie',
+{short:'Gmail',t:'Passo 7 — Informe o seu Gmail',
+ b:'Na etapa <b>Enviar</b>, abra <b>📧 Enviar pela sua conta do Gmail</b> e informe o seu <b>Gmail</b> e a <b>senha de app</b>. Não é a senha normal do e-mail: você gera uma vez, ativando a <b>verificação em duas etapas</b> e criando uma <b>senha de app</b> na sua Conta Google. O e-mail sai do seu endereço e usa a <b>sua cota diária</b>, de cerca de <b>500 envios</b>. A senha <b>não fica salva</b>. Se deixar em branco, o sistema envia pela <b>conta do próprio sistema</b>, quando houver uma configurada.',
+ tip:'💡 Cada pessoa usa a própria conta e a própria cota. Se o pedido for muito grande, divida em dois dias.',
+ run:async a=>{a.unring();await a.scroll('#d-gm',90);a.ring('#d-gm','Enviar pela sua conta do Gmail',4);await a.sleep(1800);a.unring();await a.click('#d-gmu');await a.type('#d-gmu-v','fulano.detal@gmail.com',55);a.set(S=>S.gmu='fulano.detal@gmail.com');
+  await a.click('#d-gmp');await a.type('#d-gmp-v','••••••••••••••••',45);a.set(S=>S.gmp='••••••••••••••••');a.ring('#d-via','Enviando pelo seu Gmail',4);await a.sleep(2600);a.unring();}},
+
+{short:'Enviar',t:'Passo 8 — Teste e envie',
  b:'<b>🧪 Enviar teste só para mim</b> manda a mensagem apenas para o seu e-mail — confira a caixa de entrada (e o spam). Depois, marque <b>“Revisei o texto, a proposta e a lista”</b> e clique em <b>📨 Enviar para os fornecedores</b>: é <b>uma mensagem</b> para você, com a proposta anexada, e os fornecedores em <b>cópia oculta</b> (um não vê o outro).',
- tip:'💡 Se o envio automático não estiver configurado, a página avisa: baixe o Word e a lista e envie por conta própria.',
+ tip:'💡 Se você não informar o Gmail e o sistema não tiver conta configurada, a página avisa: baixe o Word e a lista e envie por conta própria.',
  run:async a=>{a.unring();await a.scroll('#d-teste',150);await a.click('#d-teste',()=>a.set(S=>S.teste=true));await a.sleep(1200);await a.click('#d-conf',()=>a.set(S=>S.conf=true));await a.click('#d-envia',()=>a.set(S=>S.enviado=true));a.ring('#d-enviado','Enviado',4);await a.sleep(3000);a.unring();}},
 
 {short:'Resumo',t:'Resumo — o caminho completo',
- b:'<b>1)</b> dados da OM; <b>2)</b> itens e quantidades; <b>3)</b> conferir o CATMAT; <b>4)</b> Preparar cotação; <b>5)</b> revisar os fornecedores; <b>6)</b> revisar o e-mail e baixar Word e comprovante; <b>7)</b> testar e enviar. Depois, acompanhe as respostas no e-mail institucional e <b>junte as propostas</b> à pesquisa de preços do processo.',
+ b:'<b>1)</b> dados da OM; <b>2)</b> itens e quantidades; <b>3)</b> conferir o CATMAT; <b>4)</b> Preparar cotação; <b>5)</b> revisar os fornecedores; <b>6)</b> revisar o e-mail e baixar Word e comprovante; <b>7)</b> informar o seu Gmail e a senha de app; <b>8)</b> testar e enviar. Depois, acompanhe as respostas no e-mail institucional e <b>junte as propostas</b> à pesquisa de preços do processo.',
  tip:'🎉 Fim da aula! Os dados desta aula são fictícios. Para pesquisar preços sem pedir orçamento, use a Cotação ou a Cotação Rápida.',
  run:async a=>{a.unring();await a.top();a.ring('#d-head','Cotação Direta');await a.sleep(2600);a.unring();}}
 ];

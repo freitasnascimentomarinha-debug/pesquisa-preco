@@ -4,6 +4,7 @@ Sistema integrado com IA, APIs públicas e geração de documentos (Lei 14.133/2
 """
 
 import streamlit as st
+from ui_tema import sidebar_mascote
 import requests
 import pandas as pd
 import json
@@ -11,12 +12,22 @@ import os
 import re
 import io
 import hashlib
+import zipfile
 import base64
 from datetime import datetime, timedelta
 from fpdf import FPDF
 from docx import Document as DocxDocument
 from docx.shared import Pt, Inches, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
+import sys as _sys
+_sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from atualizar_modulos import recarregar_se_mudou  # noqa: E402
+recarregar_se_mudou("documento_oficial", "modelos_processo", "conferencia_processo", "natureza_despesa", "fracionamento")  # evita módulo antigo em memória após deploy
+import documento_oficial  # noqa: E402
+import modelos_processo as MP  # noqa: E402
+import conferencia_processo as CP  # noqa: E402
+import fracionamento as FR  # noqa: E402
+import natureza_despesa as ND  # noqa: E402
 
 try:
     from dotenv import load_dotenv
@@ -892,73 +903,552 @@ def _sanitize_for_pdf(text: str) -> str:
     return "".join(cleaned)
 
 
-def gerar_pdf_documento(titulo: str, corpo: str) -> bytes:
-    """Gera um PDF simples com título e corpo."""
-    titulo = _sanitize_for_pdf(titulo)
-    corpo = _sanitize_for_pdf(corpo)
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_auto_page_break(auto=True, margin=20)
-    # Título
-    pdf.set_font("Helvetica", "B", 16)
-    pdf.set_text_color(0, 26, 77)
-    pdf.cell(0, 12, titulo, ln=True, align="C")
-    pdf.ln(4)
-    pdf.set_draw_color(212, 175, 55)
-    pdf.line(20, pdf.get_y(), 190, pdf.get_y())
-    pdf.ln(8)
-    # Data
-    pdf.set_font("Helvetica", "", 9)
-    pdf.set_text_color(100, 100, 100)
-    pdf.cell(0, 6, f"Gerado em {datetime.now().strftime('%d/%m/%Y %H:%M')}", ln=True, align="R")
-    pdf.ln(4)
-    # Corpo
-    pdf.set_font("Helvetica", "", 11)
-    pdf.set_text_color(30, 30, 30)
-    for linha in corpo.split("\n"):
-        # Garante que X está na margem esquerda antes de cada renderização
-        pdf.x = pdf.l_margin
-        # Remove markdown bold/italic markers para o PDF
-        linha_limpa = re.sub(r"\*{1,3}(.+?)\*{1,3}", r"\1", linha)
-        linha_limpa = _sanitize_for_pdf(linha_limpa)
-        if linha.startswith("## "):
-            pdf.ln(4)
-            pdf.set_font("Helvetica", "B", 13)
-            pdf.x = pdf.l_margin
-            pdf.multi_cell(0, 7, _sanitize_for_pdf(linha.replace("## ", "")))
-            pdf.set_font("Helvetica", "", 11)
-        elif linha.startswith("### "):
-            pdf.ln(2)
-            pdf.set_font("Helvetica", "B", 11)
-            pdf.x = pdf.l_margin
-            pdf.multi_cell(0, 6, _sanitize_for_pdf(linha.replace("### ", "")))
-            pdf.set_font("Helvetica", "", 11)
-        elif linha.strip().startswith("- "):
-            texto_bullet = re.sub(r"\*{1,3}(.+?)\*{1,3}", r"\1", linha.strip()[2:])
-            pdf.x = pdf.l_margin
-            pdf.multi_cell(0, 6, _sanitize_for_pdf(f"  - {texto_bullet}"))
-        elif linha.strip() == "---":
-            pdf.ln(3)
-            pdf.set_draw_color(180, 180, 180)
-            pdf.line(20, pdf.get_y(), 190, pdf.get_y())
-            pdf.ln(3)
-        elif linha.strip() == "":
-            pdf.ln(3)
+def _dados_documento() -> dict:
+    """Dados da OM, do processo e do signatário informados na aba Documentos (valem para todos os documentos)."""
+    dados = {k: st.session_state.get(f"docom_{k}") for k in ("om", "cidade", "uf", "nup", "data")}
+    dados["assinantes"] = [{c: st.session_state.get(f"docom_ass{i}_{c}") for c in ("nome", "posto", "cargo")}
+                           for i in range(int(st.session_state.get("docom_n_assinantes") or 1))]
+    return dados
+
+
+def _pendencias_documento() -> list[str]:
+    """Campos obrigatórios do cabeçalho e da assinatura que ainda não foram preenchidos."""
+    faltam = []
+    for chave, rotulo in (("docom_om", "nome da OM"), ("docom_cidade", "cidade"), ("docom_uf", "UF")):
+        if not (st.session_state.get(chave) or "").strip():
+            faltam.append(rotulo)
+    for i in range(int(st.session_state.get("docom_n_assinantes") or 1)):
+        for campo, rotulo in (("nome", "nome"), ("posto", "posto/graduação ou cargo efetivo"), ("cargo", "função")):
+            if not (st.session_state.get(f"docom_ass{i}_{campo}") or "").strip():
+                faltam.append(f"{rotulo} do {i + 1}º signatário")
+    return faltam
+
+
+CAMPOS_PERFIL_OM = ("om", "cidade", "uf", "uasg", "endereco", "contato")
+
+
+def _perfil_om_json() -> bytes:
+    """Dados da OM e dos signatários num arquivo que o usuário guarda (nada fica no servidor)."""
+    perfil = {c: st.session_state.get(f"docom_{c}", "") or "" for c in CAMPOS_PERFIL_OM}
+    n = int(st.session_state.get("docom_n_assinantes") or 1)
+    perfil["assinantes"] = [{c: st.session_state.get(f"docom_ass{i}_{c}", "") or "" for c in ("nome", "posto", "cargo")}
+                            for i in range(n)]
+    return json.dumps({"versao": 1, "perfil_om": perfil}, ensure_ascii=False, indent=2).encode("utf-8")
+
+
+def _aplicar_perfil_om(dados: dict):
+    perfil = dados.get("perfil_om") or {}
+    if not perfil.get("om"):
+        raise ValueError("o arquivo não traz o nome da OM")
+    for c in CAMPOS_PERFIL_OM:
+        st.session_state[f"docom_{c}"] = str(perfil.get(c) or "")
+    assinantes = (perfil.get("assinantes") or [])[:4] or [{}]
+    st.session_state["docom_n_assinantes"] = len(assinantes)
+    for i, a in enumerate(assinantes):
+        for c in ("nome", "posto", "cargo"):
+            st.session_state[f"docom_ass{i}_{c}"] = str(a.get(c) or "")
+
+
+def _preencher(chave: str, valor: str):
+    """Sugere um valor dos dados da OM num campo ainda vazio (o usuário pode alterar)."""
+    if valor and not str(st.session_state.get(chave) or "").strip():
+        st.session_state[chave] = valor
+
+
+def _om(campo: str) -> str:
+    return str(st.session_state.get(f"docom_{campo}") or "").strip()
+
+
+def gerar_pdf_documento(titulo: str, corpo: str, oficio: dict | None = None, nup: str = "") -> bytes:
+    """PDF no padrão gráfico da Marinha (SGM-105/MaTDoc): timbre, tabelas, paginação e assinatura."""
+    dados = _dados_documento()
+    if nup:
+        dados["nup"] = nup
+    return documento_oficial.gerar_pdf(titulo, corpo, dados, oficio)
+
+
+def gerar_docx_documento(titulo: str, corpo: str, oficio: dict | None = None, nup: str = "") -> bytes:
+    """Word editável no mesmo padrão do PDF."""
+    dados = _dados_documento()
+    if nup:
+        dados["nup"] = nup
+    return documento_oficial.gerar_docx(titulo, corpo, dados, oficio)
+
+
+INSTRUCOES_DOCUMENTO = """
+
+INSTRUÇÕES PARA DOCUMENTO (prevalecem sobre as instruções de conversa):
+- Responda SOMENTE com o texto do documento: sem saudação, sem introdução ("Claro", "Segue") e sem comentários finais.
+- Não repita o título do documento na primeira linha; o sistema já monta cabeçalho, título, local e data e assinatura.
+- Use "### 1. TÍTULO DO ITEM" para cada item numerado; subitens como "1.1.", alíneas como "a)" e subalíneas como "I)".
+- Tabelas sempre em Markdown com barras verticais (| Coluna | Coluna |) e linha separadora (|---|---|).
+- Linguagem impessoal, culta, clara e concisa (padrão da redação oficial); valores em R$ com o extenso entre parênteses.
+- Campos que dependem de dado não informado ficam como lacuna "__________", sem inventar números, nomes ou datas.
+"""
+
+
+def _registrar_doc(chave: str, titulo: str, corpo: str, nome_base: str, oficio: dict | None = None):
+    """Guarda o documento gerado: ele continua na tela depois de baixar um dos formatos e pode ser editado.
+    oficio: cabeçalho do Of/OfExt (Do, Ao, Assunto...), quando o documento for um ofício."""
+    st.session_state[f"doc_gerado_{chave}"] = {"titulo": titulo, "corpo": corpo, "nome": nome_base, "oficio": oficio}
+    st.session_state[f"doc_editado_{chave}"] = corpo
+
+
+def _exibir_doc(chave: str):
+    """Pré-visualização editável e downloads em PDF e Word do último documento gerado para este tipo."""
+    doc = st.session_state.get(f"doc_gerado_{chave}")
+    if not doc:
+        return
+    st.markdown("---")
+    st.markdown(f"##### 📄 {doc['titulo'].title()} — pré-visualização")
+    st.caption("Revise e edite o texto abaixo antes de baixar. As alterações valem para o PDF e para o Word. "
+               "Use ### para itens, a) para alíneas e tabelas com | Coluna | Coluna |.")
+    corpo = st.text_area("Texto do documento", key=f"doc_editado_{chave}", height=420, label_visibility="collapsed")
+    with st.expander("👁️ Ver como fica formatado", expanded=False):
+        st.markdown(corpo)
+    if _pendencias_documento():
+        st.warning("Preencha os **dados obrigatórios da OM e do(s) signatário(s)** no topo desta aba para baixar o documento.")
+    bloqueado = bool(_pendencias_documento())
+    c_pdf, c_docx, c_limpar = st.columns([2, 2, 1])
+    with c_pdf:
+        st.download_button("⬇️ Baixar em PDF", gerar_pdf_documento(doc["titulo"], corpo, doc.get("oficio")), f"{doc['nome']}.pdf",
+                           "application/pdf", key=f"dl_pdf_{chave}", use_container_width=True, disabled=bloqueado)
+    with c_docx:
+        st.download_button("📝 Baixar em Word", gerar_docx_documento(doc["titulo"], corpo, doc.get("oficio")), f"{doc['nome']}.docx",
+                           "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                           key=f"dl_docx_{chave}", use_container_width=True, disabled=bloqueado)
+    with c_limpar:
+        if st.button("🗑️ Descartar", key=f"descartar_{chave}", use_container_width=True):
+            st.session_state.pop(f"doc_gerado_{chave}", None)
+            st.session_state.pop(f"doc_editado_{chave}", None)
+            st.rerun()
+
+
+def _texto_anexos(arquivos) -> str:
+    """Texto dos anexos enviados (PDF, planilha, CSV ou Word), para servir de contexto à IA."""
+    partes = []
+    for arq in arquivos or []:
+        try:
+            nome = arq.name.lower()
+            if nome.endswith(".pdf"):
+                texto = extrair_texto_pdf(arq)
+            elif nome.endswith((".xlsx", ".xls")):
+                texto, _ = extrair_dados_excel(arq)
+            elif nome.endswith(".csv"):
+                texto = pd.read_csv(arq).head(100).to_string(index=False)
+            else:
+                texto = "\n".join(p.text for p in DocxDocument(arq).paragraphs)
+            if texto:
+                partes.append(f"[ARQUIVO: {arq.name}]\n{texto[:4000]}")
+        except Exception as erro:
+            st.warning(f"Não foi possível ler o arquivo {arq.name}: {erro}")
+    return "\n\n".join(partes)
+
+
+def _gerar_com_ia(chave: str, titulo: str, prompt: str, consulta: str, nome_base: str, oficio: dict | None = None):
+    with st.spinner("O Babilaca está redigindo o documento..."):
+        system = _build_system_prompt(buscar_base_juridica(consulta)) + INSTRUCOES_DOCUMENTO
+        resultado = chamar_ia([{"role": "user", "content": prompt}], system)
+    if not resultado or resultado.lstrip().startswith(("⚠️", "❌")):
+        st.error(resultado or "A IA não retornou texto. Tente de novo.")
+        return
+    _registrar_doc(chave, titulo, resultado, nome_base, oficio)
+
+
+def _definir_enquadramento(chave_hip: str, chave_texto: str, tabela: dict):
+    """Ao trocar a hipótese, escreve o enquadramento legal correspondente (o usuário pode completar o texto)."""
+    texto = MP.texto_hipotese(st.session_state.get(chave_hip), tabela)
+    st.session_state[chave_texto] = f"A contratação fundamenta-se no {texto}." if texto else ""
+
+
+def _form_secoes(tipo: str, bloqueado: bool):
+    """ETP, TJDL e TJIL: um campo por seção do modelo, montagem direta ou completada pela IA."""
+    modelo = MP.MODELOS[tipo]
+    arq = modelo["arquivo"]
+    st.markdown(f"#### 📑 {tipo}")
+    st.caption(f"Base: {modelo['base']} Seções com * são obrigatórias; deixe em branco o que não souber e use a IA para "
+               "completar.")
+    secoes = modelo["secoes"]
+    idx_enq = next((i for i, s in enumerate(secoes) if s[0] == "ENQUADRAMENTO LEGAL"), None)
+    if tipo in (MP.DOC_TJDL, MP.DOC_TJIL):
+        tabela = MP.HIPOTESES_DISPENSA if tipo == MP.DOC_TJDL else MP.HIPOTESES_INEXIGIBILIDADE
+        chave_hip, chave_enq = f"{arq}_hipotese", f"mdl_{arq}_{idx_enq}"
+        st.selectbox("Hipótese legal", list(tabela), key=chave_hip, on_change=_definir_enquadramento,
+                     args=(chave_hip, chave_enq, tabela))
+        if chave_enq not in st.session_state:
+            _definir_enquadramento(chave_hip, chave_enq, tabela)
+        if tipo == MP.DOC_TJDL:
+            hip = st.session_state.get(chave_hip, "")
+            limite = (MP.LIMITES_DISPENSA["inciso_II"] if hip.startswith("Art. 75, II") else
+                      MP.LIMITES_DISPENSA["inciso_I"] if hip.startswith("Art. 75, I ") else None)
+            if limite:
+                _v1, _v2 = st.columns(2)
+                with _v1:
+                    valor = st.number_input("Valor estimado desta contratação (R$)", min_value=0.0, step=100.0,
+                                            format="%.2f", key="tjdl_valor")
+                _fr = st.session_state.get("frac_resultado")
+                if _fr and _fr["grupos"]:
+                    _opcoes_fr = {f"Ramo: {x['ramo']} (art. 75, {x['inciso']}) — {MP.brl(x['total'])}": x["total"]
+                                  for x in _fr["grupos"]}
+                    _opcoes_fr.update({f"Subelemento: {x['rotulo']} (art. 75, {x['inciso']}) — {MP.brl(x['total'])}": x["total"]
+                                       for x in FR.por_subelemento(_fr["grupos"], st.session_state.get("frac_ajustes"))
+                                       if x["subelemento"]})
+                    st.selectbox("Preencher \"já contratado\" com um ramo ou subelemento verificado na aba ⚖️ Limite de Dispensa",
+                                 ["—"] + list(_opcoes_fr), key="tjdl_ramo_fr",
+                                 on_change=lambda: st.session_state.__setitem__(
+                                     "tjdl_acumulado", float(_opcoes_fr.get(st.session_state["tjdl_ramo_fr"], 0.0))))
+                with _v2:
+                    acumulado = st.number_input("Já contratado no exercício, mesmo ramo de atividade (R$)", min_value=0.0,
+                                                step=100.0, format="%.2f", key="tjdl_acumulado",
+                                                help="Art. 75, §1º: o limite considera o somatório da unidade gestora no "
+                                                     "exercício para objetos de mesma natureza.")
+                total = valor + acumulado
+                if total > limite:
+                    st.error(f"Somatório de {MP.brl(total)} ultrapassa o limite de {MP.brl(limite)}: a dispensa por valor "
+                             "não cabe (risco de fracionamento). Avalie licitar ou outra hipótese.")
+                elif total:
+                    st.success(f"Somatório de {MP.brl(total)} dentro do limite de {MP.brl(limite)} "
+                               f"({total * 100 / limite:.0f}% usado).")
+                st.caption(MP.nota_limites())
+    textos = []
+    for i, (titulo, ajuda, obrigatoria) in enumerate(secoes):
+        textos.append(st.text_area(f"{i + 1}. {titulo.capitalize()}{' *' if obrigatoria else ''}", key=f"mdl_{arq}_{i}",
+                                   height=90, placeholder=ajuda, help=ajuda))
+    with st.expander("🤖 Contexto e anexos para a IA (opcional)"):
+        contexto = st.text_area("Informe o que a IA deve saber (objeto, histórico, números já conhecidos)",
+                                key=f"mdl_{arq}_contexto", height=100)
+        anexos = st.file_uploader("Anexos de apoio", type=["pdf", "xlsx", "xls", "csv", "docx"], accept_multiple_files=True,
+                                  key=f"mdl_{arq}_anexos")
+    _b1, _b2 = st.columns(2)
+    with _b1:
+        if st.button("📄 Montar com o que preenchi", key=f"mdl_{arq}_montar", use_container_width=True, disabled=bloqueado):
+            _registrar_doc(tipo, modelo["titulo"], MP.corpo_secoes(modelo, textos), arq)
+    with _b2:
+        if st.button("🤖 Completar e revisar com IA", key=f"mdl_{arq}_ia", use_container_width=True, disabled=bloqueado):
+            if any(t.strip() for t in textos) or contexto.strip() or anexos:
+                extra = _texto_anexos(anexos)
+                prompt = MP.prompt_secoes(modelo, textos, contexto + ("\n\nANEXOS:\n" + extra if extra else ""))
+                _gerar_com_ia(tipo, modelo["titulo"], prompt, modelo["consulta"], f"{arq}_ia")
+            else:
+                st.warning("Preencha ao menos uma seção, o contexto ou um anexo.")
+
+
+def _form_mapa_riscos(bloqueado: bool):
+    st.markdown("#### ⚠️ Mapa de Riscos")
+    st.caption("Lei nº 14.133/2021, art. 18, X. A tabela já traz riscos comuns de aquisição: edite, apague ou acrescente "
+               "linhas. O nível sai da probabilidade × impacto.")
+    objeto = st.text_area("Objeto da contratação *", key="riscos_objeto", height=70)
+    riscos = st.data_editor(
+        pd.DataFrame(MP.RISCOS_PADRAO, columns=MP.COLUNAS_RISCO), key="riscos_editor", num_rows="dynamic",
+        width="stretch", hide_index=True,
+        column_config={
+            "Fase": st.column_config.SelectboxColumn(options=["Planejamento", "Seleção do fornecedor", "Gestão do contrato"]),
+            "Probabilidade": st.column_config.SelectboxColumn(options=["Baixa", "Média", "Alta"]),
+            "Impacto": st.column_config.SelectboxColumn(options=["Baixo", "Médio", "Alto"]),
+            "Risco": st.column_config.TextColumn(width="large"),
+        })
+    lista = riscos.fillna("").to_dict("records")
+    _b1, _b2 = st.columns(2)
+    with _b1:
+        if st.button("📄 Montar mapa de riscos", key="riscos_montar", use_container_width=True, disabled=bloqueado):
+            _registrar_doc(MP.DOC_RISCOS, "MAPA DE RISCOS", MP.corpo_mapa_riscos(objeto, lista), "mapa_de_riscos")
+    with _b2:
+        if st.button("🤖 Revisar e completar riscos com IA", key="riscos_ia", use_container_width=True, disabled=bloqueado):
+            if objeto.strip():
+                prompt = (
+                    "Revise e complete o mapa de riscos abaixo para a contratação descrita, acrescentando riscos "
+                    "específicos do objeto. Mantenha EXATAMENTE as seções e o formato do texto-base, inclusive a tabela "
+                    "com as mesmas colunas; o nível segue a regra da metodologia.\n\nTEXTO-BASE:\n"
+                    + MP.corpo_mapa_riscos(objeto, lista))
+                _gerar_com_ia(MP.DOC_RISCOS, "MAPA DE RISCOS", prompt, "análise de riscos art 18 matriz de riscos",
+                              "mapa_de_riscos_ia")
+            else:
+                st.warning("Descreva o objeto.")
+
+
+def _form_aviso(bloqueado: bool):
+    st.markdown("#### 📢 Aviso de Contratação Direta (dispensa eletrônica)")
+    st.caption("Lei nº 14.133/2021, art. 75, §3º, e IN SEGES/ME nº 67/2021: aviso no sítio oficial por no mínimo 3 dias "
+               "úteis, com o objeto e a manifestação de interesse em obter propostas adicionais.")
+    _a1, _a2 = st.columns(2)
+    with _a1:
+        numero = st.text_input("Nº do aviso", key="aviso_numero", placeholder="Ex: 90012/2026")
+    with _a2:
+        _preencher("aviso_uasg", _om("uasg"))
+        uasg = st.text_input("UASG", key="aviso_uasg")
+    objeto = st.text_area("Objeto *", key="aviso_objeto", height=70)
+    hip = st.selectbox("Fundamento", list(MP.HIPOTESES_DISPENSA)[:-1],
+                       key="aviso_hipotese")
+    _v1, _v2 = st.columns([2, 1])
+    with _v1:
+        valor = st.number_input("Valor estimado (R$)", min_value=0.0, step=100.0, format="%.2f", key="aviso_valor")
+    with _v2:
+        sigiloso = st.checkbox("Orçamento sigiloso (art. 24)", key="aviso_sigiloso")
+    limite = (MP.LIMITES_DISPENSA["inciso_II"] if hip.startswith("Art. 75, II") else
+              MP.LIMITES_DISPENSA["inciso_I"] if hip.startswith("Art. 75, I ") else None)
+    if limite and valor > limite:
+        st.error(f"O valor ultrapassa o limite de {MP.brl(limite)} ({MP.LIMITES_DISPENSA['decreto']}).")
+    hoje = datetime.now().date()
+    _d1, _d2, _d3, _d4 = st.columns(4)
+    with _d1:
+        d_ini = st.date_input("Abertura das propostas", value=hoje, key="aviso_d_ini", format="DD/MM/YYYY")
+    with _d2:
+        h_ini = st.time_input("Hora", value=datetime.strptime("08:00", "%H:%M").time(), key="aviso_h_ini")
+    with _d3:
+        d_fim = st.date_input("Encerramento", value=hoje + timedelta(days=5), key="aviso_d_fim", format="DD/MM/YYYY")
+    with _d4:
+        h_fim = st.time_input("Hora ", value=datetime.strptime("10:00", "%H:%M").time(), key="aviso_h_fim")
+    uteis = MP.dias_uteis(d_ini, d_fim)
+    if uteis < 3:
+        st.error(f"Prazo de {uteis} dia(s) útil(eis): o mínimo é 3 dias úteis (art. 75, §3º). Contagem do art. 183: "
+                 "exclui o dia de início e inclui o do vencimento; feriados nacionais descontados.")
+    else:
+        st.success(f"Prazo de {uteis} dias úteis (mínimo de 3). Feriados estaduais e municipais não são descontados.")
+    _c1, _c2 = st.columns(2)
+    with _c1:
+        criterio = st.selectbox("Critério de julgamento", ["menor preço", "maior desconto"], key="aviso_criterio")
+        prazo_entrega = st.text_input("Prazo de entrega / execução", key="aviso_prazo",
+                                      placeholder="Ex: 30 dias corridos da nota de empenho")
+        _preencher("aviso_contato", _om("contato"))
+        contato = st.text_input("Contato para esclarecimentos", key="aviso_contato", placeholder="e-mail e telefone")
+    with _c2:
+        exclusiva = st.checkbox("Exclusiva para ME/EPP", key="aviso_me", value=True,
+                                help="LC nº 123/2006, art. 48, I: itens de até R$ 80.000,00.")
+        local = st.text_input("Local de entrega", key="aviso_local")
+        pagamento = st.text_input("Condição de pagamento (opcional)", key="aviso_pagamento")
+    habilitacao = st.text_area("Habilitação exigida (opcional; em branco usa o texto padrão)", key="aviso_habilitacao",
+                               height=70)
+    contexto = st.text_area("🤖 Contexto para a IA (opcional): detalhes do objeto, exigências, condições especiais",
+                            key="aviso_contexto", height=70)
+    corpo = MP.corpo_aviso({
+        "numero": numero, "uasg": uasg, "objeto": objeto, "hipotese_txt": MP.texto_hipotese(hip, MP.HIPOTESES_DISPENSA),
+        "valor": valor, "sigiloso": sigiloso, "criterio": criterio, "exclusiva_me": exclusiva,
+        "inicio": datetime.combine(d_ini, h_ini), "fim": datetime.combine(d_fim, h_fim),
+        "prazo_entrega": prazo_entrega, "local_entrega": local, "pagamento": pagamento,
+        "habilitacao": habilitacao, "contato": contato})
+    titulo = f"AVISO DE CONTRATAÇÃO DIRETA Nº {numero.strip()}" if numero.strip() else "AVISO DE CONTRATAÇÃO DIRETA"
+    _b1, _b2 = st.columns(2)
+    with _b1:
+        if st.button("📄 Gerar aviso", key="aviso_gerar", use_container_width=True, disabled=bloqueado):
+            _registrar_doc(MP.DOC_AVISO, titulo, corpo, "aviso_contratacao_direta")
+    with _b2:
+        if st.button("🤖 Completar e revisar com IA", key="aviso_ia", use_container_width=True, disabled=bloqueado):
+            if objeto.strip():
+                _gerar_com_ia(MP.DOC_AVISO, titulo, MP.prompt_revisar(corpo, contexto, "aviso"),
+                              "dispensa eletrônica aviso art 75 IN 67/2021", "aviso_contratacao_direta_ia")
+            else:
+                st.warning("Descreva o objeto.")
+
+
+def _form_oficio(tipo: str, bloqueado: bool):
+    adesao = tipo == MP.DOC_OF_ADESAO
+    k = "ofad" if adesao else "ofirp"
+    st.markdown(f"#### ✉️ {tipo}")
+    st.caption("Forma gráfica do MaTDoc: Ofício (cap. 16) para OM da Marinha — Do/Ao/Assunto, itens numerados sem título "
+               "e sem fecho; Ofício Externo (cap. 17) para órgão fora da MB — destinatário, vocativo e fecho.")
+    externo = st.radio("Destinatário", ["OM da Marinha (Ofício)", "Órgão fora da Marinha (Ofício Externo)"],
+                       horizontal=True, key=f"{k}_tipo") != "OM da Marinha (Ofício)"
+    _h1, _h2 = st.columns([1, 3])
+    with _h1:
+        numero = st.text_input("Nº do ofício", key=f"{k}_numero", placeholder="12/COpAb-MB" if externo else "12")
+    with _h2:
+        assunto = st.text_input("Assunto", key=f"{k}_assunto",
+                                value="Solicitação de adesão a Ata de Registro de Preços" if adesao else
+                                "Manifestação de interesse em Intenção de Registro de Preços")
+    if externo:
+        _preencher(f"{k}_endereco", "\n".join(x for x in (_om("endereco"), _om("contato")) if x))
+        endereco = st.text_area("Endereço, telefone e e-mail da OM (abaixo do nome)", key=f"{k}_endereco", height=70)
+        destinatario = st.text_area("Destinatário (forma de tratamento, nome, cargo, órgão e endereço)", key=f"{k}_dest",
+                                    height=110, value="Ao Senhor\nNome do destinatário\nCargo\nÓrgão\nEndereço")
+        _x1, _x2 = st.columns(2)
+        with _x1:
+            vocativo = st.text_input("Vocativo", key=f"{k}_vocativo", value="Senhor Diretor,")
+        with _x2:
+            fecho = st.selectbox("Fecho", ["Atenciosamente,", "Respeitosamente,"], key=f"{k}_fecho",
+                                 help="Respeitosamente para autoridade de hierarquia superior; Atenciosamente nos demais casos.")
+        do = ao = via = ""
+        referencias, anexos = [], []
+    else:
+        _h3, _h4 = st.columns(2)
+        with _h3:
+            do = st.text_input("Do:", key=f"{k}_do", placeholder="Ex: Diretor do Centro de ...")
+        with _h4:
+            ao = st.text_input("Ao:", key=f"{k}_ao", placeholder="Ex: Diretor do ... (órgão gerenciador)")
+        via = st.text_input("Via: (opcional)", key=f"{k}_via")
+        _h5, _h6 = st.columns(2)
+        with _h5:
+            referencias = st.text_area("Referências (uma por linha)", key=f"{k}_refs", height=80,
+                                       value="Lei nº 14.133/2021\nDecreto nº 11.462/2023").splitlines()
+        with _h6:
+            anexos = st.text_area("Anexos (um por linha)", key=f"{k}_anexos", height=80).splitlines()
+        endereco = destinatario = vocativo = fecho = ""
+    copias = st.text_input("Cópias (separe por vírgula; opcional)", key=f"{k}_copias")
+
+    st.markdown("**Conteúdo**")
+    _c1, _c2 = st.columns(2)
+    with _c1:
+        gerenciador = st.text_input("Órgão gerenciador", key=f"{k}_gerenciador")
+        uasg = st.text_input("UASG gerenciadora", key=f"{k}_uasg")
+    with _c2:
+        if adesao:
+            ata = st.text_input("Nº da Ata de Registro de Preços", key=f"{k}_ata")
+            licitacao = st.text_input("Licitação de origem", key=f"{k}_licitacao", placeholder="Ex: Pregão Eletrônico nº 90010/2026")
         else:
-            pdf.x = pdf.l_margin
-            pdf.multi_cell(0, 6, linha_limpa)
+            irp = st.text_input("Nº da IRP", key=f"{k}_irp")
+            prazo = st.text_input("Prazo final da IRP", key=f"{k}_prazo", placeholder="dd/mm/aaaa")
+    objeto = st.text_input("Objeto", key=f"{k}_objeto")
+    justificativa = st.text_area("Justificativa (complete a frase: \"... se justifica porque ...\")", key=f"{k}_just",
+                                 height=80)
+    if adesao and st.session_state.get("_ofad_itens_ini"):
+        st.info("Itens trazidos da página **Adesões**. Informe a **quantidade** pretendida de cada um, respeitando o "
+                "máximo por órgão indicado na descrição.")
+    itens_ini = (st.session_state.get(f"_{k}_itens_ini") or
+                 [{"Item": "", "Descrição": "", "Unidade": "", "Quantidade": ""}])
+    itens = st.data_editor(pd.DataFrame(itens_ini, columns=["Item", "Descrição", "Unidade", "Quantidade"]),
+                           key=f"{k}_itens_{st.session_state.get(f'_{k}_itens_ver', 0)}", num_rows="dynamic",
+                           width="stretch", hide_index=True)
+    _c3, _c4 = st.columns(2)
+    with _c3:
+        _preencher(f"{k}_contato", ", ".join(x for x in (_om("ass0_nome"), _om("contato")) if x))
+        contato = st.text_input("Ponto de contato da OM", key=f"{k}_contato", placeholder="Nome, telefone e e-mail")
+    with _c4:
+        if adesao:
+            ciente = st.checkbox("Fornecedor já concordou com o fornecimento", key=f"{k}_ciente")
+        else:
+            local = st.text_input("Local de entrega", key=f"{k}_local")
+    if adesao:
+        st.page_link("pages/Adesões.py", label="Conferir saldo para adesão e limite por órgão na página Adesões", icon="🧾")
+    else:
+        st.page_link("pages/Radar_de_Licitacoes.py", label="Procurar IRPs abertas no Radar de Licitações", icon="📡")
 
-    # Rodape
-    pdf.ln(8)
-    pdf.set_draw_color(212, 175, 55)
-    pdf.set_line_width(0.5)
-    pdf.line(20, pdf.get_y(), 190, pdf.get_y())
-    pdf.ln(3)
-    pdf.set_font("Helvetica", "I", 7)
-    pdf.set_text_color(150, 150, 150)
-    pdf.cell(0, 5, _sanitize_for_pdf("Gerado por AtaCotada - O Babilaca (IA) - Marinha do Brasil"), ln=True, align="C")
+    contexto = st.text_area("🤖 Contexto para a IA (opcional): histórico, urgência, situação da OM",
+                            key=f"{k}_contexto", height=70)
+    lista = itens.fillna("").to_dict("records")
+    if adesao:
+        corpo = MP.corpo_oficio_adesao({"gerenciador": gerenciador, "ata": ata, "licitacao": licitacao, "uasg": uasg,
+                                        "objeto": objeto, "justificativa": justificativa, "fornecedor_ciente": ciente,
+                                        "contato": contato, "itens": lista,
+                                        "comparativo": st.session_state.get("_ofad_comparativo") or [],
+                                        "relatorio_anexo": bool(st.session_state.get(f"doc_gerado_{MP.DOC_VANTAJOSIDADE}"))})
+    else:
+        corpo = MP.corpo_oficio_irp({"gerenciador": gerenciador, "irp": irp, "uasg": uasg, "objeto": objeto,
+                                     "prazo": prazo, "justificativa": justificativa, "local_entrega": local,
+                                     "contato": contato, "itens": lista})
+    oficio = {"externo": externo, "numero": numero, "do": do, "ao": ao, "via": via, "assunto": assunto,
+              "referencias": referencias, "anexos": anexos,
+              "copias": [c.strip() for c in copias.split(",") if c.strip()],
+              "endereco": endereco, "destinatario": destinatario, "vocativo": vocativo, "fecho": fecho}
+    nome_base = "oficio_adesao" if adesao else "oficio_irp"
+    if adesao and st.session_state.get(f"doc_gerado_{MP.DOC_VANTAJOSIDADE}"):
+        st.success("📊 O **relatório de vantajosidade** (pesquisa de preços e justificativa por item) já está pronto e vai citado como "
+                   "anexo no texto do ofício. Baixe-o logo abaixo, em **Relatório de vantajosidade (anexo do ofício)**, para juntar ao ofício.")
+    _b1, _b2 = st.columns(2)
+    with _b1:
+        if st.button("📄 Gerar ofício", key=f"{k}_gerar", use_container_width=True, disabled=bloqueado):
+            _registrar_doc(tipo, "OFÍCIO", corpo, nome_base, oficio)
+    with _b2:
+        if st.button("🤖 Melhorar a redação com IA", key=f"{k}_ia", use_container_width=True, disabled=bloqueado):
+            _gerar_com_ia(tipo, "OFÍCIO", MP.prompt_revisar(corpo, contexto, "oficio_externo" if externo else "oficio"),
+                          "adesão ata registro de preços art 86" if adesao else "intenção de registro de preços art 86",
+                          f"{nome_base}_ia", oficio)
+    if adesao and st.session_state.get(f"doc_gerado_{MP.DOC_VANTAJOSIDADE}"):
+        with st.expander("📊 Relatório de vantajosidade (anexo do ofício): pesquisa de preços e justificativa por item", expanded=False):
+            _exibir_doc(MP.DOC_VANTAJOSIDADE)
 
-    return bytes(pdf.output())
+
+def _form_modelo_processo(tipo: str, bloqueado: bool):
+    if tipo in MP.MODELOS:
+        _form_secoes(tipo, bloqueado)
+    elif tipo == MP.DOC_RISCOS:
+        _form_mapa_riscos(bloqueado)
+    elif tipo == MP.DOC_AVISO:
+        _form_aviso(bloqueado)
+    else:
+        _form_oficio(tipo, bloqueado)
+
+
+def _ck_chave(modalidade: str, texto: str) -> str:
+    return hashlib.md5((modalidade + texto).encode()).hexdigest()[:10]
+
+
+# ordem das peças no kit (a mesma em que costumam ser juntadas ao processo)
+ORDEM_KIT = [MP.DOC_DFD, MP.DOC_ETP, MP.DOC_RISCOS, MP.DOC_TR, MP.DOC_MAPA, MP.DOC_VANTAJOSIDADE, MP.DOC_FRACIONAMENTO,
+             MP.DOC_MEMORIA, "Cronograma Físico-Financeiro",
+             "Justificativa de Contratação", MP.DOC_TJDL, MP.DOC_TJIL, MP.DOC_AVISO, MP.DOC_OF_ADESAO, MP.DOC_OF_IRP,
+             "Ata de Registro de Preços", "Minuta de Contrato de Serviço / Material", "Outras justificativas",
+             "Outros documentos", "Classificação de Risco Jurídico"]
+
+
+def _documentos_gerados() -> list[tuple[str, dict]]:
+    """[(chave, documento)] dos documentos gerados nesta sessão, na ordem do processo."""
+    chaves = [k[len("doc_gerado_"):] for k in st.session_state.keys() if str(k).startswith("doc_gerado_")]
+    chaves = [c for c in chaves if st.session_state.get(f"doc_gerado_{c}")]
+    chaves.sort(key=lambda c: (ORDEM_KIT.index(c) if c in ORDEM_KIT else len(ORDEM_KIT), c))
+    return [(c, st.session_state[f"doc_gerado_{c}"]) for c in chaves]
+
+
+def _montar_kit(formatos: list[str]) -> tuple[bytes, list[str]]:
+    """ZIP com os documentos gerados (texto já editado), o checklist, o relatório de conferência e o índice."""
+    buf, nomes, n = io.BytesIO(), [], 0
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+        def gravar(nome, dados):
+            z.writestr(nome, dados)
+            nomes.append(nome)
+
+        for chave, doc in _documentos_gerados():
+            n += 1
+            corpo = st.session_state.get(f"doc_editado_{chave}") or doc["corpo"]
+            base = f"{n:02d}_{doc['nome']}"
+            if "PDF" in formatos:
+                gravar(f"{base}.pdf", gerar_pdf_documento(doc["titulo"], corpo, doc.get("oficio")))
+            if "Word" in formatos:
+                gravar(f"{base}.docx", gerar_docx_documento(doc["titulo"], corpo, doc.get("oficio")))
+            if chave == MP.DOC_MAPA and st.session_state.get("mapa_xlsx"):
+                gravar(f"{base}.xlsx", st.session_state["mapa_xlsx"])
+        modalidade = st.session_state.get("checklist_modalidade")
+        if modalidade in CHECKLIST_MODALIDADES:
+            itens = CHECKLIST_MODALIDADES[modalidade]
+            chaves = [_ck_chave(modalidade, t) for t, _f, _a in itens]
+            if any(f"ck_st_{c}" in st.session_state for c in chaves):
+                situacoes = [st.session_state.get(f"ck_st_{c}") or "Pendente" for c in chaves]
+                observacoes = [st.session_state.get(f"ck_obs_{c}", "") for c in chaves]
+                ident = {c: st.session_state.get(f"ck_id_{c}", "") for c in ("objeto", "valor", "responsavel", "nup")}
+                corpo = MP.corpo_checklist(modalidade, itens, situacoes, observacoes, ident)
+                gravar("90_lista_de_verificacao.pdf",
+                       gerar_pdf_documento(f"LISTA DE VERIFICAÇÃO — {modalidade}", corpo, nup=ident["nup"]))
+        conf = st.session_state.get("conf_resultado")
+        if conf:
+            gravar("91_relatorio_conferencia.pdf", gerar_pdf_documento(
+                "RELATÓRIO DE CONFERÊNCIA DO PROCESSO",
+                CP.corpo_relatorio(conf["res"], conf["modalidade"], conf["arquivos"], conf["ext"])))
+        indice = ["KIT DO PROCESSO", f"OM: {_om('om')}", f"NUP: {_om('nup') or '-'}",
+                  f"Montado em {datetime.now().strftime('%d/%m/%Y %H:%M')}", "", "Arquivos:"] + [f"- {x}" for x in nomes]
+        indice += ["", "Documentos gerados com apoio do AtaCotada / Babilaca. Revise e assine cada peça antes de juntar ao "
+                   "processo."]
+        z.writestr("00_indice.txt", "\n".join(indice))
+    return buf.getvalue(), nomes
+
+
+def _painel_kit(bloqueado: bool):
+    docs = _documentos_gerados()
+    with st.expander(f"📦 Kit do processo (ZIP) — {len(docs)} documento(s) gerado(s) nesta sessão", expanded=False):
+        if not docs and not st.session_state.get("conf_resultado"):
+            st.caption("Gere ao menos um documento para montar o kit.")
+            return
+        st.caption("Reúne num ZIP os documentos gerados nesta sessão (com as edições feitas), numerados na ordem do "
+                   "processo, mais a lista de verificação e o relatório de conferência, se houver.")
+        st.markdown("\n".join(f"- {d['titulo'].title()}" for _c, d in docs) or "- (nenhum documento)")
+        formatos = st.multiselect("Formatos", ["PDF", "Word"], default=["PDF", "Word"], key="kit_formatos")
+        if st.button("📦 Montar kit", key="kit_montar", use_container_width=True, disabled=bloqueado or not formatos):
+            with st.spinner("Montando o kit..."):
+                st.session_state["kit_zip"], _ = _montar_kit(formatos)
+        if st.session_state.get("kit_zip"):
+            st.download_button("⬇️ Baixar kit do processo (.zip)", st.session_state["kit_zip"],
+                               f"kit_processo_{datetime.now().strftime('%Y%m%d')}.zip", "application/zip",
+                               key="kit_baixar", use_container_width=True)
+        if bloqueado:
+            st.caption("Preencha os dados obrigatórios da OM e do(s) signatário(s) para montar o kit.")
+
 
 
 TEMPLATE_DFD = """## DOCUMENTO DE FORMALIZAÇÃO DE DEMANDA (DFD)
@@ -990,8 +1480,6 @@ TEMPLATE_DFD = """## DOCUMENTO DE FORMALIZAÇÃO DE DEMANDA (DFD)
 - Lei 14.133/2021, Art. 72, §1°
 - IN SEGES/ME nº 58/2022
 
----
-Documento gerado pelo sistema O Babilaca (IA) — Ferramenta de apoio.
 """
 
 TEMPLATE_TR = """## TERMO DE REFERÊNCIA
@@ -1030,8 +1518,6 @@ Conforme previsto na Lei 14.133/2021, Arts. 155 a 163.
 - Lei 14.133/2021
 - IN SEGES/ME nº 65/2021
 
----
-Documento gerado pelo sistema O Babilaca (IA) — Ferramenta de apoio.
 """
 
 TEMPLATE_JUSTIFICATIVA = """## JUSTIFICATIVA DE CONTRATAÇÃO
@@ -1057,8 +1543,6 @@ TEMPLATE_JUSTIFICATIVA = """## JUSTIFICATIVA DE CONTRATAÇÃO
 ### 7. Conclusão
 {conclusao}
 
----
-Documento gerado pelo sistema O Babilaca (IA) — Ferramenta de apoio.
 """
 
 TEMPLATE_ATA_RP = """## ATA DE REGISTRO DE PREÇOS
@@ -1145,8 +1629,6 @@ Fica eleito o foro da Justiça Federal — Seção Judiciária de __________ par
 ### 14. DAS DISPOSIÇÕES GERAIS
 {observacoes}
 
----
-Documento gerado pelo sistema O Babilaca (IA) — Ferramenta de apoio.
 """
 
 TEMPLATE_MINUTA_CONTRATO = """## MINUTA DE CONTRATO DE {tipo_contrato}
@@ -1277,8 +1759,6 @@ Nome: {representante_empresa}
 1. Nome: _________________ CPF: _________________
 2. Nome: _________________ CPF: _________________
 
----
-Documento gerado pelo sistema O Babilaca (IA) — Ferramenta de apoio.
 """
 
 
@@ -1289,128 +1769,11 @@ def _fmt_brl(valor: float) -> str:
     return f"R$ {valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 
-def gerar_mapa_comparativo_pdf(itens: list[dict], observacoes: str = "") -> bytes:
-    """Gera PDF de mapa comparativo de preços com quantidade, totais e observações."""
-    pdf = FPDF("L")  # Paisagem
-    pdf.add_page()
-    pdf.set_font("Helvetica", "B", 14)
-    pdf.set_text_color(0, 26, 77)
-    pdf.cell(0, 10, _sanitize_for_pdf("MAPA COMPARATIVO DE PRECOS"), ln=True, align="C")
-    pdf.ln(2)
-    pdf.set_font("Helvetica", "", 9)
-    pdf.set_text_color(100, 100, 100)
-    pdf.cell(0, 6, f"Gerado em {datetime.now().strftime('%d/%m/%Y %H:%M')}", ln=True, align="R")
-    pdf.ln(4)
-
-    # Cabeçalho da tabela
-    pdf.set_fill_color(0, 26, 77)
-    pdf.set_text_color(255, 255, 255)
-    pdf.set_font("Helvetica", "B", 8)
-    colunas = ["Item", _sanitize_for_pdf("Descricao"), "Qtd", "Forn. 1", "Forn. 2", "Forn. 3", _sanitize_for_pdf("Media"), "Mediana", "Total Est."]
-    larguras = [10, 55, 14, 32, 32, 32, 30, 30, 32]
-    for col, larg in zip(colunas, larguras):
-        pdf.cell(larg, 8, col, border=1, align="C", fill=True)
-    pdf.ln()
-
-    pdf.set_text_color(30, 30, 30)
-    pdf.set_font("Helvetica", "", 8)
-    total_geral = 0.0
-    for i, item in enumerate(itens, 1):
-        precos = [item.get("preco1", 0), item.get("preco2", 0), item.get("preco3", 0)]
-        validos = [p for p in precos if p > 0]
-        media = sum(validos) / len(validos) if validos else 0
-        mediana = sorted(validos)[len(validos) // 2] if validos else 0
-        qtd = item.get("quantidade", 1) or 1
-        total_item = media * qtd
-        total_geral += total_item
-        pdf.cell(10, 7, str(i), border=1, align="C")
-        pdf.cell(55, 7, _sanitize_for_pdf(str(item.get("descricao", ""))[:38]), border=1)
-        pdf.cell(14, 7, str(int(qtd)), border=1, align="C")
-        for p in precos:
-            pdf.cell(32, 7, _fmt_brl(p), border=1, align="R")
-        pdf.cell(30, 7, _fmt_brl(media), border=1, align="R")
-        pdf.cell(30, 7, _fmt_brl(mediana), border=1, align="R")
-        pdf.cell(32, 7, _fmt_brl(total_item), border=1, align="R")
-        pdf.ln()
-
-    # Linha de total geral
-    pdf.set_font("Helvetica", "B", 9)
-    pdf.set_fill_color(240, 245, 255)
-    largura_antes = sum(larguras[:-1])
-    pdf.cell(largura_antes, 8, "TOTAL GERAL", border=1, align="R", fill=True)
-    pdf.cell(larguras[-1], 8, _fmt_brl(total_geral), border=1, align="R", fill=True)
-    pdf.ln()
-
-    # Observações
-    if observacoes and observacoes.strip():
-        pdf.ln(6)
-        pdf.set_font("Helvetica", "B", 10)
-        pdf.set_text_color(0, 26, 77)
-        pdf.cell(0, 7, _sanitize_for_pdf("OBSERVACOES"), ln=True)
-        pdf.set_draw_color(212, 175, 55)
-        pdf.line(pdf.l_margin, pdf.get_y(), pdf.w - pdf.r_margin, pdf.get_y())
-        pdf.ln(3)
-        pdf.set_font("Helvetica", "", 9)
-        pdf.set_text_color(30, 30, 30)
-        pdf.multi_cell(0, 6, _sanitize_for_pdf(observacoes.strip()))
-
-    pdf.ln(6)
-    pdf.set_font("Helvetica", "I", 8)
-    pdf.set_text_color(120, 120, 120)
-    pdf.cell(0, 5, _sanitize_for_pdf("Documento gerado pelo sistema O Babilaca (IA) - Ferramenta de apoio."), ln=True)
-    return bytes(pdf.output())
-
-
-def gerar_docx_documento(titulo: str, corpo: str) -> bytes:
-    """Gera um documento Word (.docx) editável a partir de título e corpo markdown simples."""
-    doc = DocxDocument()
-    style = doc.styles["Normal"]
-    style.font.name = "Calibri"
-    style.font.size = Pt(11)
-    style.font.color.rgb = RGBColor(30, 30, 30)
-
-    # Título
-    p_titulo = doc.add_heading(titulo, level=1)
-    p_titulo.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    for run in p_titulo.runs:
-        run.font.color.rgb = RGBColor(0, 26, 77)
-
-    # Data
-    p_data = doc.add_paragraph()
-    p_data.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-    run_data = p_data.add_run(f"Gerado em {datetime.now().strftime('%d/%m/%Y %H:%M')}")
-    run_data.font.size = Pt(9)
-    run_data.font.color.rgb = RGBColor(100, 100, 100)
-
-    for linha in corpo.split("\n"):
-        linha_limpa = re.sub(r"\*{1,3}(.+?)\*{1,3}", r"\1", linha)
-        if linha.startswith("## "):
-            doc.add_heading(linha.replace("## ", ""), level=2)
-        elif linha.startswith("### "):
-            doc.add_heading(linha.replace("### ", ""), level=3)
-        elif linha.strip().startswith("- "):
-            texto_bullet = re.sub(r"\*{1,3}(.+?)\*{1,3}", r"\1", linha.strip()[2:])
-            doc.add_paragraph(texto_bullet, style="List Bullet")
-        elif linha.strip() == "---":
-            p = doc.add_paragraph()
-            p.add_run("_" * 60).font.color.rgb = RGBColor(180, 180, 180)
-        elif linha.strip() == "":
-            doc.add_paragraph()
-        else:
-            doc.add_paragraph(linha_limpa)
-
-    # Rodapé
-    doc.add_paragraph()
-    p_footer = doc.add_paragraph()
-    run_f = p_footer.add_run("Gerado por AtaCotada - O Babilaca (IA) - Marinha do Brasil")
-    run_f.font.size = Pt(7)
-    run_f.font.italic = True
-    run_f.font.color.rgb = RGBColor(150, 150, 150)
-    p_footer.alignment = WD_ALIGN_PARAGRAPH.CENTER
-
-    buf = io.BytesIO()
-    doc.save(buf)
-    return buf.getvalue()
+def _registrar_mapa(itens: list[dict], observacoes: str = ""):
+    """Mapa comparativo no padrão dos documentos oficiais (PDF/Word editáveis) e planilha Excel guardada para download."""
+    _registrar_doc(MP.DOC_MAPA, "MAPA COMPARATIVO DE PREÇOS", MP.corpo_mapa_comparativo(itens, observacoes),
+                   "mapa_comparativo")
+    st.session_state["mapa_xlsx"] = gerar_mapa_comparativo_xlsx(itens, observacoes=observacoes)
 
 
 def gerar_mapa_comparativo_xlsx(itens: list[dict], observacoes: str = "") -> bytes:
@@ -1463,7 +1826,7 @@ def gerar_mapa_comparativo_xlsx(itens: list[dict], observacoes: str = "") -> byt
         precos = [item.get("preco1", 0), item.get("preco2", 0), item.get("preco3", 0)]
         validos = [p for p in precos if p > 0]
         media = sum(validos) / len(validos) if validos else 0
-        mediana = sorted(validos)[len(validos) // 2] if validos else 0
+        mediana = MP._mediana(validos)
         qtd = item.get("quantidade", 1) or 1
         total_item = media * qtd
         total_geral += total_item
@@ -1568,174 +1931,29 @@ def classificar_risco_juridico(descricao_cenario: str) -> str:
 # ============================================================
 # CHECKLIST POR MODALIDADE
 # ============================================================
-CHECKLIST_MODALIDADES = {
-    "Dispensa por Cotação Eletrônica": [
-        "Documento de Formalização de Demanda (DFD)",
-        "Estudo Técnico Preliminar (ETP) — quando aplicável",
-        "Termo de Referência (TR)",
-        "Enquadramento legal da dispensa (Art. 75, I ou II, Lei 14.133/2021)",
-        "Pesquisa de Preços (mínimo 3 fontes — IN 65/2021)",
-        "Mapa Comparativo de Preços",
-        "Justificativa para contratação direta",
-        "Aviso de Dispensa Eletrônica publicado no PNCP (Art. 75, §3°)",
-        "Comprovante de abertura no sistema de cotação eletrônica (ComprasGov)",
-        "Propostas recebidas no sistema eletrônico",
-        "Ata / Relatório da sessão de dispensa eletrônica",
-        "Razão da escolha do fornecedor vencedor",
-        "Justificativa do preço",
-        "Documentação de habilitação do fornecedor",
-        "Comprovante de regularidade fiscal e trabalhista",
-        "Parecer jurídico (Art. 72, Lei 14.133/2021)",
-        "Autorização da autoridade competente",
-        "Nota de Empenho",
-        "Publicação do resultado no PNCP",
-    ],
-    "Pregão Eletrônico (PE)": [
-        "Documento de Formalização de Demanda (DFD)",
-        "Estudo Técnico Preliminar (ETP)",
-        "Mapa de Riscos",
-        "Termo de Referência (TR)",
-        "Pesquisa de Preços (mínimo 3 fontes — IN 65/2021)",
-        "Mapa Comparativo de Preços",
-        "Justificativa da modalidade (pregão)",
-        "Minuta do Edital",
-        "Parecer jurídico sobre o Edital (Art. 53, §4°)",
-        "Designação do pregoeiro e equipe de apoio",
-        "Autorização da autoridade competente",
-        "Publicação do Edital no PNCP e DOU",
-        "Ata da sessão pública",
-        "Relatório de adjudicação e homologação",
-        "Comprovante de publicação do resultado no PNCP",
-    ],
-    "TJDL — Dispensa de Licitação": [
-        "Documento de Formalização de Demanda (DFD)",
-        "Termo de Justificativa de Dispensa de Licitação (TJDL)",
-        "Enquadramento legal da dispensa (Art. 75, Lei 14.133/2021)",
-        "Razão da escolha do fornecedor (Art. 72, III)",
-        "Justificativa do preço (Art. 72, IV)",
-        "Pesquisa de Preços (mínimo 3 fontes — IN 65/2021)",
-        "Mapa Comparativo de Preços",
-        "Proposta formal do fornecedor",
-        "Documentação de habilitação do fornecedor",
-        "Comprovante de regularidade fiscal e trabalhista",
-        "Parecer jurídico (Art. 72, III, Lei 14.133/2021)",
-        "Autorização da autoridade competente",
-        "Nota de Empenho",
-        "Publicação no PNCP (Art. 94, §1°)",
-    ],
-    "TJIL — Inexigibilidade de Licitação": [
-        "Documento de Formalização de Demanda (DFD)",
-        "Termo de Justificativa de Inexigibilidade de Licitação (TJIL)",
-        "Enquadramento legal da inexigibilidade (Art. 74, Lei 14.133/2021)",
-        "Comprovação de inviabilidade de competição",
-        "Razão da escolha do fornecedor com justificativa de exclusividade ou notória especialização",
-        "Justificativa do preço (compatibilidade com mercado)",
-        "Pesquisa de Preços comprovando compatibilidade",
-        "Proposta formal do fornecedor",
-        "Atestado de exclusividade ou comprovação de notória especialização (quando aplicável)",
-        "Documentação de habilitação do fornecedor",
-        "Comprovante de regularidade fiscal e trabalhista",
-        "Parecer jurídico (Art. 72, III, Lei 14.133/2021)",
-        "Autorização da autoridade competente",
-        "Nota de Empenho",
-        "Publicação no PNCP (Art. 94, §1°)",
-    ],
-    "Adesão a Ata de Registro de Preços (Carona)": [
-        "Documento de Formalização de Demanda (DFD)",
-        "Estudo Técnico Preliminar (ETP)",
-        "Justificativa da vantajosidade da adesão",
-        "Pesquisa de Preços comprovando compatibilidade com o mercado",
-        "Cópia da Ata de Registro de Preços vigente",
-        "Cópia do Edital da licitação que gerou a Ata",
-        "Ofício de consulta ao órgão gerenciador",
-        "Autorização do órgão gerenciador",
-        "Concordância do fornecedor",
-        "Comprovante de regularidade fiscal e trabalhista do fornecedor",
-        "Parecer jurídico",
-        "Autorização da autoridade competente",
-        "Publicação no PNCP",
-    ],
-    "Participação em IRP (Intenção de Registro de Preços)": [
-        "Documento de Formalização de Demanda (DFD)",
-        "Estudo Técnico Preliminar (ETP)",
-        "Termo de Referência (TR) com especificações e quantitativos do órgão",
-        "Pesquisa de Preços (mínimo 3 fontes — IN 65/2021)",
-        "Justificativa da necessidade de participação na IRP",
-        "Ofício de manifestação de interesse ao órgão gerenciador",
-        "Comprovante de registro da participação no ComprasGov (dentro do prazo de 8 dias úteis)",
-        "Planilha de quantitativos e especificações enviada ao gerenciador",
-        "Confirmação de aceite pelo órgão gerenciador",
-        "Autorização da autoridade competente para participar",
-        "Parecer jurídico (quando exigido pelo órgão)",
-        "Acompanhamento da sessão pública (registro de participante)",
-        "Cópia da Ata de Registro de Preços assinada",
-        "Nota de Empenho (quando da efetiva contratação)",
-    ],
-    "Renovação de Ata por Mais 1 Ano": [
-        "Ata de Registro de Preços vigente (dentro do prazo de validade)",
-        "Ofício de solicitação de prorrogação ao órgão gerenciador",
-        "Manifestação de concordância do órgão gerenciador",
-        "Concordância expressa do(s) fornecedor(es) beneficiário(s)",
-        "Pesquisa de Preços atualizada comprovando vantajosidade",
-        "Comprovação de que os preços registrados permanecem compatíveis com o mercado",
-        "Justificativa técnica da necessidade de prorrogação",
-        "Comprovante de regularidade fiscal e trabalhista atualizado do fornecedor",
-        "Parecer jurídico sobre a prorrogação (Art. 84, §3°, Lei 14.133/2021)",
-        "Autorização da autoridade competente",
-        "Termo Aditivo ou Apostilamento de prorrogação da Ata",
-        "Publicação da prorrogação no PNCP",
-    ],
-    "Termo Aditivo": [
-        "Contrato administrativo vigente",
-        "Justificativa técnica e/ou econômica para a alteração contratual",
-        "Identificação da hipótese legal (Art. 124 ou Art. 125, Lei 14.133/2021)",
-        "Documentação comprobatória da necessidade (planilhas, laudos, pareceres técnicos)",
-        "Pesquisa de preços atualizada (quando houver acréscimo ou supressão de valores)",
-        "Concordância formal do contratado (quando exigida)",
-        "Comprovante de regularidade fiscal e trabalhista atualizado do contratado",
-        "Demonstrativo do impacto financeiro (acréscimos/supressões dentro dos limites legais)",
-        "Parecer jurídico sobre a legalidade do aditamento (Art. 53, Lei 14.133/2021)",
-        "Autorização da autoridade competente",
-        "Minuta do Termo Aditivo assinada pelas partes",
-        "Publicação do extrato do Termo Aditivo no PNCP (Art. 94, Lei 14.133/2021)",
-        "Atualização do registro no sistema de gestão de contratos",
-    ],
-    "Apostilamento": [
-        "Contrato administrativo vigente",
-        "Identificação do tipo de apostilamento (reajuste, repactuação ou alteração não substancial)",
-        "Documento comprobatório do índice de reajuste (IPCA, INPC, IGP-M ou índice setorial previsto no contrato)",
-        "Memória de cálculo do reajuste ou repactuação",
-        "Planilha demonstrando os novos valores unitários e globais",
-        "Comprovação de que o reajuste está previsto no contrato original e/ou edital",
-        "Comprovante de que decorreu o período mínimo de 1 ano para reajuste (Art. 135, Lei 14.133/2021)",
-        "Parecer jurídico (quando exigido pelo órgão)",
-        "Autorização da autoridade competente",
-        "Registro do apostilamento no verso/margem do contrato ou em documento apartado",
-        "Publicação do apostilamento no PNCP",
-        "Atualização dos valores no sistema de gestão de contratos",
-    ],
-}
+# Itens, fundamentos e atalhos: modelos_processo.CHECKLIST (testado sem o Streamlit).
+CHECKLIST_MODALIDADES = MP.CHECKLIST
 
 # Informações explicativas de cada modalidade
 INFO_MODALIDADES = {
-    "Dispensa por Cotação Eletrônica": {
+    "Dispensa eletrônica (art. 75, I e II)": {
         "descricao": (
-            "A **Dispensa por Cotação Eletrônica** é o procedimento de contratação direta "
-            "realizado por meio de sistema eletrônico (ComprasGov), previsto no **Art. 75, §3°, "
-            "da Lei 14.133/2021**. Substitui a antiga dispensa presencial, trazendo mais "
-            "transparência e competitividade."
+            "A **dispensa eletrônica** é a contratação direta por valor (art. 75, I e II, da Lei 14.133/2021) "
+            "precedida de aviso no sítio oficial por no mínimo 3 dias úteis (art. 75, §3º), com disputa no "
+            "Compras.gov.br, regulada pela **IN SEGES/ME nº 67/2021**."
         ),
         "quando_aplicar": (
-            "- **Bens e serviços comuns** com valor até **R$ 59.906,02** (Art. 75, II — valor atualizado pelo Decreto 12.343/2024);\n"
-            "- **Serviços de engenharia** com valor até **R$ 119.812,07** (Art. 75, I);\n"
+            "- **Outros serviços e compras** com valor inferior a **{LIM_II}** (art. 75, II);\n"
+            "- **Obras, serviços de engenharia e manutenção de veículos** com valor inferior a **{LIM_I}** (art. 75, I);\n"
+            "- O limite considera o **somatório do exercício** para objetos do mesmo ramo de atividade (art. 75, §1º);\n"
             "- Sempre que a dispensa se enquadrar nos incisos I ou II do Art. 75."
         ),
         "limites": (
             "| Tipo | Limite (atualizado) |\n"
             "|------|---------------------|\n"
-            "| Bens e serviços comuns | R$ 59.906,02 |\n"
-            "| Serviços de engenharia/obras | R$ 119.812,07 |\n\n"
-            "*Valores atualizados pelo Decreto 12.343/2024. Atualização anual pelo IPCA.*"
+            "| Outros serviços e compras (art. 75, II) | {LIM_II} |\n"
+            "| Obras, serviços de engenharia e manutenção de veículos (art. 75, I) | {LIM_I} |\n\n"
+            "*{NOTA_LIMITES}*"
         ),
         "como_montar": (
             "1. Elaborar DFD e TR com especificação clara do objeto;\n"
@@ -1747,7 +1965,7 @@ INFO_MODALIDADES = {
             "7. Emitir nota de empenho e publicar resultado no PNCP."
         ),
     },
-    "Pregão Eletrônico (PE)": {
+    "Pregão Eletrônico": {
         "descricao": (
             "O **Pregão Eletrônico** é a modalidade obrigatória para aquisição de **bens e "
             "serviços comuns** (Art. 6°, XLI e Art. 28, I, Lei 14.133/2021). Caracteriza-se pela "
@@ -1761,7 +1979,7 @@ INFO_MODALIDADES = {
         "limites": (
             "**Não possui limite máximo de valor.** O Pregão Eletrônico pode ser utilizado para "
             "qualquer valor, desde que o objeto seja bem ou serviço comum.\n\n"
-            "*Limite mínimo implícito:* acima dos valores de dispensa (R$ 59.906,02 para bens/serviços)."
+            "Abaixo de {LIM_II} (compras e serviços) cabe a dispensa por valor (art. 75, II)."
         ),
         "como_montar": (
             "1. Elaborar DFD, ETP e Mapa de Riscos;\n"
@@ -1775,7 +1993,7 @@ INFO_MODALIDADES = {
             "9. Publicar resultado no PNCP."
         ),
     },
-    "TJDL — Dispensa de Licitação": {
+    "Dispensa de Licitação — outras hipóteses do art. 75 (TJDL)": {
         "descricao": (
             "O **Termo de Justificativa de Dispensa de Licitação (TJDL)** é usado quando a "
             "administração precisa contratar **sem licitar**, em hipóteses taxativamente "
@@ -1786,14 +2004,15 @@ INFO_MODALIDADES = {
             "- Contratações de **baixo valor** (Art. 75, I e II) sem cotação eletrônica;\n"
             "- **Emergência ou calamidade** (Art. 75, VIII) — prazo máx. 1 ano;\n"
             "- **Guerra ou grave perturbação da ordem** (Art. 75, VII);\n"
-            "- Aquisição de **materiais das Forças Armadas** (Art. 75, IX);\n"
-            "- Demais hipóteses dos incisos III a XVI do Art. 75."
+            "- **Materiais de uso das Forças Armadas** sem similaridade ou de padronização (Art. 75, IV, g);\n"
+            "- **Suprimento de efetivos** em estada eventual (Art. 75, IV, i);\n"
+            "- Licitação deserta ou fracassada há menos de 1 ano (Art. 75, III) e demais incisos do Art. 75."
         ),
         "limites": (
             "| Hipótese | Limite |\n"
             "|----------|--------|\n"
-            "| Obras/serviços de engenharia (Art. 75, I) | R$ 119.812,07 |\n"
-            "| Bens/serviços comuns (Art. 75, II) | R$ 59.906,02 |\n"
+            "| Obras/serviços de engenharia (Art. 75, I) | {LIM_I} |\n"
+            "| Bens/serviços comuns (Art. 75, II) | {LIM_II} |\n"
             "| Emergência (Art. 75, VIII) | Sem limite de valor (prazo máx. 1 ano) |\n\n"
             "*Obs: No TJDL, a contratação é feita diretamente com fornecedor escolhido, sem cotação eletrônica.*"
         ),
@@ -1808,7 +2027,7 @@ INFO_MODALIDADES = {
             "8. Emitir nota de empenho e publicar no PNCP."
         ),
     },
-    "TJIL — Inexigibilidade de Licitação": {
+    "Inexigibilidade de Licitação (TJIL)": {
         "descricao": (
             "O **Termo de Justificativa de Inexigibilidade de Licitação (TJIL)** é utilizado "
             "quando há **inviabilidade de competição**, conforme **Art. 74 da Lei 14.133/2021**. "
@@ -1816,15 +2035,15 @@ INFO_MODALIDADES = {
         ),
         "quando_aplicar": (
             "- **Fornecedor exclusivo** comprovado (Art. 74, I);\n"
-            "- Contratação de profissional de **notória especialização** (Art. 74, III);\n"
+            "- **Serviço técnico especializado** com profissional ou empresa de **notória especialização** (Art. 74, III);\n"
             "- Contratação de **artista consagrado** (Art. 74, II);\n"
-            "- **Credenciamento** quando convém à administração contratar todos (Art. 74, IV);\n"
+            "- **Credenciamento** (Art. 74, IV) e **aquisição ou locação de imóvel** (Art. 74, V);\n"
             "- Serviços de **treinamento** com profissional/empresa de notória especialização."
         ),
         "limites": (
             "**Não possui limite de valor.** A inexigibilidade pode ser utilizada para qualquer valor, "
             "desde que comprovada a inviabilidade de competição.\n\n"
-            "*Atenção: a justificativa de preço é obrigatória mesmo sem limite, conforme Art. 72, IV.*"
+            "*Atenção: a justificativa de preço é obrigatória (Art. 72, VII), com notas fiscais a outros contratantes (Art. 23, §4º).*"
         ),
         "como_montar": (
             "1. Elaborar DFD com descrição detalhada da necessidade;\n"
@@ -1837,7 +2056,7 @@ INFO_MODALIDADES = {
             "8. Emitir nota de empenho e publicar no PNCP."
         ),
     },
-    "Adesão a Ata de Registro de Preços (Carona)": {
+    "Adesão a Ata de Registro de Preços (carona)": {
         "descricao": (
             "A **Adesão a Ata de Registro de Preços (Carona)** permite que um órgão ou entidade "
             "que **não participou** da licitação original adira a uma Ata vigente de outro "
@@ -1847,7 +2066,8 @@ INFO_MODALIDADES = {
             "- Quando existe **Ata de Registro de Preços vigente** de outro órgão com o objeto desejado;\n"
             "- Quando a adesão for **mais vantajosa** que realizar novo processo;\n"
             "- Quando o órgão gerenciador e o fornecedor **concordarem** com a adesão;\n"
-            "- Respeitado o limite de até **50% dos quantitativos** registrados na Ata (Art. 86, §4°)."
+            "- Respeitado o limite de até **50% dos quantitativos** registrados na Ata por órgão (Art. 86, §4°);\n"
+            "- Órgão **federal** só adere a ata **federal** (Art. 86, §8º)."
         ),
         "limites": (
             "| Regra | Limite |\n"
@@ -1873,7 +2093,7 @@ INFO_MODALIDADES = {
             "A **Participação em IRP** ocorre quando seu órgão identifica uma **Intenção de "
             "Registro de Preços** publicada por outro órgão (gerenciador) e decide aderir como "
             "**órgão participante**, informando seus quantitativos para serem incluídos na "
-            "licitação, conforme **Art. 86, §1° da Lei 14.133/2021** e **Decreto 11.462/2023**. "
+            "licitação, conforme **Art. 86 da Lei 14.133/2021** e **Decreto 11.462/2023**. "
             "Diferente da Adesão (Carona), aqui o órgão participa **antes** da licitação."
         ),
         "quando_aplicar": (
@@ -1888,9 +2108,9 @@ INFO_MODALIDADES = {
             "e dos preços que forem registrados na Ata.\n\n"
             "| Regra | Detalhe |\n"
             "|-------|--------|\n"
-            "| Prazo para manifestar interesse | Mínimo 8 dias úteis (Art. 86, §1°) |\n"
+            "| Prazo para manifestar interesse | Mínimo 8 dias úteis (Art. 86, caput) |\n"
             "| Quantitativo | Definido pelo órgão participante conforme sua demanda |\n"
-            "| Vigência da Ata | Até 1 ano, prorrogável por mais 1 ano (Art. 84, III) |\n"
+            "| Vigência da Ata | 1 ano, prorrogável por igual período se o preço for vantajoso (Art. 84) |\n"
             "| Obrigação de contratar | Não obrigatória para participante (facultativa) |\n\n"
             "*Vantagem: o órgão participante tem prioridade sobre órgãos não participantes (carona).*"
         ),
@@ -1907,10 +2127,10 @@ INFO_MODALIDADES = {
             "10. Quando necessitar, emitir nota de empenho para efetivar a contratação."
         ),
     },
-    "Renovação de Ata por Mais 1 Ano": {
+    "Prorrogação da vigência de Ata de Registro de Preços": {
         "descricao": (
             "A **Renovação (prorrogação) de Ata de Registro de Preços** permite estender a "
-            "vigência da Ata por mais **1 (um) ano**, conforme **Art. 84, §3° da Lei 14.133/2021**. "
+            "vigência da Ata por igual período (**1 ano**), conforme **Art. 84, caput, da Lei 14.133/2021**. "
             "A prorrogação depende de concordância do fornecedor e comprovação de que os preços "
             "continuam vantajosos em relação ao mercado."
         ),
@@ -1919,7 +2139,7 @@ INFO_MODALIDADES = {
             "- Quando os **preços registrados continuam compatíveis** com o mercado;\n"
             "- Quando há **interesse da Administração** em manter o registro;\n"
             "- Quando o **fornecedor concorda** com a prorrogação nas mesmas condições;\n"
-            "- Prorrogação permitida por **no máximo 1 ano** além da vigência original (Art. 84, §3°)."
+            "- Prorrogação permitida por **igual período** (1 ano), comprovado o preço vantajoso (Art. 84, caput)."
         ),
         "limites": (
             "| Regra | Detalhe |\n"
@@ -1939,7 +2159,7 @@ INFO_MODALIDADES = {
             "6. Consultar o **órgão gerenciador** da Ata (se não for o próprio órgão);\n"
             "7. Obter **parecer jurídico** sobre a prorrogação;\n"
             "8. Obter **autorização da autoridade competente**;\n"
-            "9. Formalizar via **Termo Aditivo** ou **Apostilamento**;\n"
+            "9. Formalizar o **termo de prorrogação da Ata**;\n"
             "10. **Publicar** a prorrogação no PNCP."
         ),
     },
@@ -2015,7 +2235,7 @@ INFO_MODALIDADES = {
             "| Natureza | Ato **unilateral** da Administração |\n"
             "| Assinatura do contratado | **Não necessária** |\n"
             "| Parecer jurídico | Não obrigatório (recomendável em repactuações complexas) |\n"
-            "| Prazo mínimo para reajuste | 1 ano a partir da data-base (Art. 135) |\n"
+            "| Prazo mínimo para reajuste | 1 ano da data do orçamento estimado (Art. 92, §3º); repactuação, Art. 135 |\n"
             "| Índice de reajuste | O previsto no contrato/edital |\n"
             "| Forma de registro | Anotação no verso/margem do contrato ou documento apartado |\n\n"
             "*O apostilamento é mais ágil que o Termo Aditivo, mas limitado a alterações não substanciais.*"
@@ -2023,7 +2243,7 @@ INFO_MODALIDADES = {
         "como_montar": (
             "1. Identificar o **tipo de apostilamento** (reajuste por índice, repactuação, etc.);\n"
             "2. Verificar se o **reajuste está previsto** no contrato/edital e qual o **índice aplicável**;\n"
-            "3. Confirmar que transcorreu o **período mínimo de 1 ano** da data-base (Art. 135);\n"
+            "3. Confirmar que transcorreu o **período mínimo de 1 ano** (Art. 92, §3º; repactuação, Art. 135);\n"
             "4. Elaborar **memória de cálculo** detalhada com o índice acumulado;\n"
             "5. Elaborar **planilha** com os novos valores unitários e globais;\n"
             "6. Obter **parecer jurídico** quando exigido pelo órgão ou em casos complexos;\n"
@@ -2036,122 +2256,13 @@ INFO_MODALIDADES = {
 }
 
 
-def gerar_checklist_pdf(modalidade: str, itens: list[str], status: dict[str, bool]) -> bytes:
-    """Gera um PDF bonito com o checklist do processo."""
-    pdf = FPDF()
-    pdf.add_page()
-    pdf.set_auto_page_break(auto=True, margin=25)
-    pw = pdf.w - 40  # largura útil
-
-    # === CABEÇALHO ===
-    pdf.set_fill_color(0, 26, 77)
-    pdf.rect(0, 0, 210, 50, "F")
-    pdf.set_draw_color(212, 175, 55)
-    pdf.set_line_width(1.2)
-    pdf.line(0, 50, 210, 50)
-
-    pdf.set_y(8)
-    pdf.set_font("Helvetica", "B", 10)
-    pdf.set_text_color(212, 175, 55)
-    pdf.cell(0, 5, "MARINHA DO BRASIL", ln=True, align="C")
-    pdf.set_font("Helvetica", "", 8)
-    pdf.set_text_color(200, 200, 220)
-    pdf.cell(0, 4, "Centro de Operações do Abastecimento", ln=True, align="C")
-    pdf.ln(3)
-
-    pdf.set_font("Helvetica", "B", 16)
-    pdf.set_text_color(255, 255, 255)
-    pdf.cell(0, 9, _sanitize_for_pdf("CHECKLIST DE PROCESSO"), ln=True, align="C")
-    pdf.ln(1)
-
-    # === FAIXA DOURADA COM MODALIDADE ===
-    pdf.set_fill_color(212, 175, 55)
-    pdf.rect(0, 52, 210, 14, "F")
-    pdf.set_y(54)
-    pdf.set_font("Helvetica", "B", 13)
-    pdf.set_text_color(0, 26, 77)
-    pdf.cell(0, 9, _sanitize_for_pdf(modalidade), ln=True, align="C")
-    pdf.ln(6)
-
-    # === DATA ===
-    pdf.set_font("Helvetica", "", 9)
-    pdf.set_text_color(100, 100, 100)
-    pdf.cell(0, 6, f"Data: {datetime.now().strftime('%d/%m/%Y %H:%M')}", ln=True, align="R")
-    pdf.ln(2)
-
-    # === LINHA SEPARADORA ===
-    pdf.set_draw_color(212, 175, 55)
-    pdf.set_line_width(0.5)
-    pdf.line(20, pdf.get_y(), 190, pdf.get_y())
-    pdf.ln(6)
-
-    # === LEGENDA ===
-    pdf.set_font("Helvetica", "I", 8)
-    pdf.set_text_color(120, 120, 120)
-    pdf.cell(0, 5, "[X] = Documento presente    [  ] = Documento pendente", ln=True, align="C")
-    pdf.ln(6)
-
-    # === ITENS DO CHECKLIST ===
-    pdf.set_font("Helvetica", "", 11)
-    for i, item in enumerate(itens, 1):
-        checked = status.get(item, False)
-        marca = "X" if checked else "  "
-
-        y_antes = pdf.get_y()
-
-        # Fundo alternado
-        if i % 2 == 0:
-            pdf.set_fill_color(240, 245, 255)
-            pdf.rect(18, y_antes - 1, pw + 4, 9, "F")
-
-        # Checkbox
-        pdf.set_draw_color(0, 26, 77)
-        pdf.set_line_width(0.4)
-        pdf.rect(20, y_antes, 6, 6)
-        if checked:
-            pdf.set_font("Helvetica", "B", 11)
-            pdf.set_text_color(0, 120, 0)
-            pdf.set_xy(20.5, y_antes - 0.5)
-            pdf.cell(6, 7, "X", align="C")
-
-        # Texto do item
-        pdf.set_font("Helvetica", "", 10)
-        pdf.set_text_color(30, 30, 30)
-        pdf.set_xy(29, y_antes)
-        pdf.multi_cell(pw - 12, 6, _sanitize_for_pdf(f"{i}. {item}"))
-        pdf.ln(2)
-
-    # === RODAPÉ - LINHA DOURADA ===
-    pdf.ln(8)
-    pdf.set_draw_color(212, 175, 55)
-    pdf.set_line_width(0.8)
-    pdf.line(20, pdf.get_y(), 190, pdf.get_y())
-    pdf.ln(4)
-
-    # Resumo
-    total = len(itens)
-    marcados = sum(1 for it in itens if status.get(it, False))
-    pdf.set_font("Helvetica", "B", 11)
-    pdf.set_text_color(0, 26, 77)
-    pdf.cell(0, 7, f"Total: {marcados}/{total} documentos presentes", ln=True, align="C")
-    pdf.ln(2)
-
-    if marcados == total:
-        pdf.set_text_color(0, 120, 0)
-        pdf.set_font("Helvetica", "B", 12)
-        pdf.cell(0, 7, _sanitize_for_pdf("PROCESSO COMPLETO"), ln=True, align="C")
-    else:
-        pdf.set_text_color(200, 50, 50)
-        pdf.set_font("Helvetica", "B", 12)
-        faltam = total - marcados
-        pdf.cell(0, 7, _sanitize_for_pdf(f"ATENÇÃO: {faltam} documento(s) pendente(s)"), ln=True, align="C")
-
-    pdf.ln(6)
-    pdf.set_font("Helvetica", "I", 7)
-    pdf.set_text_color(150, 150, 150)
-    pdf.cell(0, 5, _sanitize_for_pdf("Gerado por AtaCotada — O Babilaca (IA) — Marinha do Brasil"), ln=True, align="C")
-
-    return bytes(pdf.output())
+# limites de dispensa num só lugar (modelos_processo.LIMITES_DISPENSA)
+for _info in INFO_MODALIDADES.values():
+    for _campo, _texto in _info.items():
+        _info[_campo] = (_texto.replace("{LIM_I}", MP.brl(MP.LIMITES_DISPENSA["inciso_I"]))
+                         .replace("{LIM_II}", MP.brl(MP.LIMITES_DISPENSA["inciso_II"]))
+                         .replace("{NOTA_LIMITES}", MP.nota_limites())
+                         .replace("$", "\\$"))   # "R$ ... R$" na mesma linha viraria fórmula no Markdown
 
 def verificar_alertas(palavras_chave: list[str] | None = None) -> list[dict]:
     """Verifica alertas proativos consultando APIs."""
@@ -2227,7 +2338,7 @@ else:
 
 with st.sidebar:
     if _acanto_b64:
-        st.markdown(f'<div style="text-align:center;padding:1rem 0 0.5rem 0;"><img src="data:image/png;base64,{_acanto_b64}" style="max-width:70%;height:auto;"></div>', unsafe_allow_html=True)
+        sidebar_mascote()
     st.markdown("## MENU")
     st.markdown("---")
     st.page_link("streamlit_app.py", label="Cotação", icon="⚓")
@@ -2235,6 +2346,7 @@ with st.sidebar:
     st.page_link("pages/Cotação_Rápida.py", label="Cotação Rápida", icon="⚡")
     st.page_link("pages/Cotação_Direta.py", label="Cotação Direta", icon="📨")
     st.page_link("pages/Detalhes_Compra.py", label="Detalhes Compra", icon="🔍")
+    st.page_link("pages/Radar_de_Licitacoes.py", label="Radar de Licitações", icon="📡")
     st.page_link("pages/Adesões.py", label="Adesões", icon="🤝")
     st.page_link("pages/Notas_Fiscais.py", label="Notas Fiscais", icon="📄")
     st.page_link("pages/Banco_de_Fornecedores.py", label="Fornecedores", icon="🏢")
@@ -2266,11 +2378,32 @@ st.markdown("""
 # ============================================================
 # ABAS PRINCIPAIS
 # ============================================================
-tab_chat, tab_docs, tab_checklist = st.tabs([
+ABA_DOCUMENTOS = "📄 Gerar Documentos com IA"
+# itens escolhidos na página Adesões: abre o ofício de adesão já preenchido
+_pre_ofad = st.session_state.pop("_ofad_prefill", None)
+if _pre_ofad:
+    st.session_state["tipo_doc_sel"] = MP.DOC_OF_ADESAO
+    for _campo in ("ata", "gerenciador", "uasg", "objeto", "licitacao"):
+        st.session_state[f"ofad_{_campo}"] = str(_pre_ofad.get(_campo) or "")
+    st.session_state["_ofad_itens_ini"] = _pre_ofad.get("itens") or []
+    if _pre_ofad.get("justificativa"):
+        st.session_state["ofad_just"] = _pre_ofad["justificativa"]
+    st.session_state["_ofad_comparativo"] = _pre_ofad.get("comparativo") or []
+    if _pre_ofad.get("relatorio_vantajosidade"):
+        _registrar_doc(MP.DOC_VANTAJOSIDADE, "RELATÓRIO DE VANTAJOSIDADE DA ADESÃO", _pre_ofad["relatorio_vantajosidade"],
+                       "relatorio_vantajosidade_adesao")
+        st.session_state["ofad_anexos"] = "Relatório de vantajosidade da adesão"
+    st.session_state["_ofad_itens_ver"] = int(st.session_state.get("_ofad_itens_ver") or 0) + 1
+    st.session_state["babilaca_aba"] = ABA_DOCUMENTOS
+    st.toast("✉️ Ofício de adesão preenchido com os itens escolhidos em Adesões.")
+
+tab_chat, tab_docs, tab_checklist, tab_conferencia, tab_fracionamento = st.tabs([
     "💬 Chat IA",
-    "📄 Gerar Documentos com IA",
+    ABA_DOCUMENTOS,
     "📋 Checklist de Processo",
-])
+    "🔎 Conferência do Processo",
+    "⚖️ Limite de Dispensa",
+], key="babilaca_aba", on_change="rerun")  # com key, a página pode abrir direto na aba Documentos
 
 # ============================================================
 # TAB 1 — CHAT IA
@@ -2440,23 +2573,103 @@ with tab_docs:
         </div>
     </div>
     """, unsafe_allow_html=True)
+    _faltam_doc = _pendencias_documento()
+    with st.expander("🏛️ Dados obrigatórios: OM e signatário(s) — cabeçalho e assinatura dos documentos", expanded=bool(_faltam_doc)):
+        st.caption("Preencha antes de gerar: os dados valem para todos os documentos desta sessão. Padrão gráfico da SGM-105 "
+                   "(MaTDoc): Armas Nacionais, MARINHA DO BRASIL, nome da OM, local e data, Carlito/Calibri 12 e paginação.")
+        _perfil_arq = st.file_uploader("📂 Carregar perfil da OM salvo (.json)", type=["json"], key="docom_perfil_arq",
+                                       help="Arquivo baixado no botão 'Salvar perfil da OM', no fim deste quadro.")
+        if _perfil_arq is not None:
+            _assin = hashlib.md5(_perfil_arq.getvalue()).hexdigest()
+            if st.session_state.get("_docom_perfil_aplicado") != _assin:
+                try:
+                    _aplicar_perfil_om(json.loads(_perfil_arq.getvalue().decode("utf-8")))
+                    st.session_state["_docom_perfil_aplicado"] = _assin
+                    st.success("Perfil da OM carregado.")
+                except Exception as _erro:
+                    st.error(f"Arquivo de perfil inválido: {_erro}")
+        st.text_input("Nome da OM por extenso *", key="docom_om", placeholder="Escreva o nome completo da sua Organização Militar")
+        _o3, _o4, _o5, _o6 = st.columns([2, 1, 2, 2])
+        with _o3:
+            st.text_input("Cidade *", key="docom_cidade", placeholder="Cidade da OM")
+        with _o4:
+            st.text_input("UF *", key="docom_uf", placeholder="UF", max_chars=2)
+        with _o5:
+            st.text_input("NUP / nº do processo", key="docom_nup", placeholder="Opcional")
+        with _o6:
+            st.date_input("Data do documento", key="docom_data", format="DD/MM/YYYY")
+        st.number_input("Quantidade de signatários", min_value=1, max_value=4, step=1, key="docom_n_assinantes",
+                        help="Com mais de um, informe do mais antigo para o mais moderno: as assinaturas saem da esquerda "
+                             "para a direita e de cima para baixo (MaTDoc 1.11).")
+        for _i in range(int(st.session_state.get("docom_n_assinantes") or 1)):
+            _a1, _a2, _a3 = st.columns(3)
+            with _a1:
+                st.text_input(f"Nome do {_i + 1}º signatário *", key=f"docom_ass{_i}_nome", placeholder="Nome completo")
+            with _a2:
+                st.text_input("Posto/graduação ou cargo efetivo *", key=f"docom_ass{_i}_posto",
+                              placeholder="Ex: Capitão-Tenente (IM) ou Analista")
+            with _a3:
+                st.text_input("Função *", key=f"docom_ass{_i}_cargo", placeholder="Ex: Encarregado da Divisão de Obtenção")
+        st.markdown("**Dados complementares (opcionais)** — preenchem automaticamente os modelos (UASG do aviso, endereço "
+                    "do Ofício Externo, contato, contratante da minuta e da ata).")
+        _p1, _p2 = st.columns([1, 3])
+        with _p1:
+            st.text_input("UASG da OM", key="docom_uasg")
+        with _p2:
+            st.text_input("Endereço da OM", key="docom_endereco", placeholder="Rua, nº, bairro, cidade, UF, CEP")
+        st.text_input("Telefone e e-mail para contato", key="docom_contato", placeholder="(21) 0000-0000 – setor@marinha.mil.br")
+        st.download_button("💾 Salvar perfil da OM (.json)", _perfil_om_json(), "perfil_om.json", "application/json",
+                           key="docom_perfil_dl",
+                           help="Guarde o arquivo e carregue-o nas próximas vezes para não digitar tudo de novo. "
+                                "O sistema não guarda seus dados no servidor.")
+    _faltam_doc = _pendencias_documento()
+    if _faltam_doc:
+        st.warning("⚠️ Para gerar documentos, preencha os dados obrigatórios (*) acima. Falta: " + ", ".join(_faltam_doc) + ".")
+
     tipo_doc = st.selectbox(
         "Documento que deseja preparar",
-        ["DFD — Documento de Formalização de Demanda",
-         "Termo de Referência",
+        [MP.DOC_DFD,
+         MP.DOC_ETP,
+         MP.DOC_RISCOS,
+         MP.DOC_TR,
+         MP.DOC_TJDL,
+         MP.DOC_TJIL,
+         MP.DOC_AVISO,
+         MP.DOC_OF_ADESAO,
+         MP.DOC_OF_IRP,
          "Justificativa de Contratação",
          "Outras justificativas",
          "Outros documentos",
-         "Mapa Comparativo de Preços",
+         MP.DOC_MAPA,
+         MP.DOC_VANTAJOSIDADE,
+         MP.DOC_FRACIONAMENTO,
          "Cronograma Físico-Financeiro",
-         "Memória de Cálculo",
+         MP.DOC_MEMORIA,
          "Ata de Registro de Preços",
          "Minuta de Contrato de Serviço / Material",
          "Classificação de Risco Jurídico"],
+        key="tipo_doc_sel",
     )
+    if st.session_state.pop("_doc_vindo_checklist", False):
+        st.info("📋 Modelo aberto a partir da lista de verificação. Volte à aba **Checklist de Processo** para continuar "
+                "a conferência.")
+
+    # ---- RELATÓRIOS QUE VÊM DE OUTRAS TELAS (Adesões e aba Limite de Dispensa) ----
+    if tipo_doc in (MP.DOC_VANTAJOSIDADE, MP.DOC_FRACIONAMENTO):
+        if not st.session_state.get(f"doc_gerado_{tipo_doc}"):
+            if tipo_doc == MP.DOC_VANTAJOSIDADE:
+                st.info("Este relatório é montado na página **Adesões**: inclua os itens da ata na adesão, clique em "
+                        "**Analisar vantajosidade** e depois em **Gerar ofício no Babilaca**.")
+                st.page_link("pages/Adesões.py", label="Abrir a página Adesões", icon="🧾")
+            else:
+                st.info("Este relatório é montado na aba **⚖️ Limite de Dispensa** deste Babilaca.")
+
+    # ---- MODELOS NOVOS: ETP, TJDL, TJIL, Mapa de Riscos, Aviso e ofícios (antes dos testes por trecho do nome) ----
+    elif tipo_doc in (MP.DOC_ETP, MP.DOC_TJDL, MP.DOC_TJIL, MP.DOC_RISCOS, MP.DOC_AVISO, MP.DOC_OF_ADESAO, MP.DOC_OF_IRP):
+        _form_modelo_processo(tipo_doc, bool(_faltam_doc))
 
     # ---- DFD ----
-    if "DFD" in tipo_doc:
+    elif "DFD" in tipo_doc:
         st.markdown("#### 📋 Gerar DFD")
         modo_dfd = st.radio("Modo de preenchimento", ["Manual", "Assistido por IA"], horizontal=True, key="modo_dfd", index=1)
 
@@ -2464,9 +2677,11 @@ with tab_docs:
             with st.form("form_dfd"):
                 c1, c2 = st.columns(2)
                 with c1:
-                    orgao = st.text_input("Órgão/Entidade")
+                    _preencher("dfd_orgao", _om("om"))
+                    _preencher("dfd_responsavel", _om("ass0_nome"))
+                    orgao = st.text_input("Órgão/Entidade", key="dfd_orgao")
                     setor = st.text_input("Setor Requisitante")
-                    responsavel = st.text_input("Responsável")
+                    responsavel = st.text_input("Responsável", key="dfd_responsavel")
                 with c2:
                     data_prevista = st.date_input("Data prevista")
                     prioridade = st.selectbox("Prioridade", ["Alta", "Média", "Baixa"])
@@ -2474,7 +2689,7 @@ with tab_docs:
                 justificativa = st.text_area("Justificativa", height=100)
                 quantidade = st.text_input("Quantidade estimada")
                 vinculacao = st.text_input("Vinculação ao PCA (se houver)")
-                submit_dfd = st.form_submit_button("📄 Gerar DFD", use_container_width=True)
+                submit_dfd = st.form_submit_button("📄 Gerar DFD", use_container_width=True, disabled=bool(_faltam_doc))
 
             if submit_dfd:
                 corpo = TEMPLATE_DFD.format(
@@ -2483,21 +2698,14 @@ with tab_docs:
                     quantidade=quantidade, data_prevista=data_prevista.strftime("%d/%m/%Y"),
                     prioridade=prioridade, vinculacao_pca=vinculacao or "Não informado",
                 )
-                st.markdown(corpo)
-                pdf_bytes = gerar_pdf_documento("DOCUMENTO DE FORMALIZAÇÃO DE DEMANDA (DFD)", corpo)
-                docx_bytes = gerar_docx_documento("DOCUMENTO DE FORMALIZAÇÃO DE DEMANDA (DFD)", corpo)
-                _c_pdf, _c_docx = st.columns(2)
-                with _c_pdf:
-                    st.download_button("⬇️ Baixar DFD em PDF", pdf_bytes, "dfd.pdf", "application/pdf")
-                with _c_docx:
-                    st.download_button("📝 Baixar DFD em Word", docx_bytes, "dfd.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+                _registrar_doc(tipo_doc, "DOCUMENTO DE FORMALIZAÇÃO DE DEMANDA (DFD)", corpo, "dfd")
         else:
             desc_ia = st.text_area(
                 "Descreva brevemente a necessidade de contratação e o Babilaca preencherá o DFD:",
                 height=120,
                 key="dfd_ia_input",
             )
-            if st.button("🤖 Gerar DFD com IA", key="btn_dfd_ia"):
+            if st.button("🤖 Gerar DFD com IA", key="btn_dfd_ia", disabled=bool(_faltam_doc)):
                 if desc_ia:
                     with st.spinner("Gerando DFD com IA..."):
                         prompt_dfd = (
@@ -2509,15 +2717,8 @@ with tab_docs:
                         )
                         ctx = buscar_base_juridica("DFD formalização demanda planejamento")
                         system = _build_system_prompt(ctx)
-                        resultado = chamar_ia([{"role": "user", "content": prompt_dfd}], system)
-                    st.markdown(resultado)
-                    pdf_bytes = gerar_pdf_documento("DOCUMENTO DE FORMALIZAÇÃO DE DEMANDA (DFD)", resultado)
-                    docx_bytes = gerar_docx_documento("DOCUMENTO DE FORMALIZAÇÃO DE DEMANDA (DFD)", resultado)
-                    _c_pdf, _c_docx = st.columns(2)
-                    with _c_pdf:
-                        st.download_button("⬇️ Baixar DFD em PDF", pdf_bytes, "dfd_ia.pdf", "application/pdf")
-                    with _c_docx:
-                        st.download_button("📝 Baixar DFD em Word", docx_bytes, "dfd_ia.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+                        resultado = chamar_ia([{"role": "user", "content": prompt_dfd}], system + INSTRUCOES_DOCUMENTO)
+                    _registrar_doc(tipo_doc, "DOCUMENTO DE FORMALIZAÇÃO DE DEMANDA (DFD)", resultado, "dfd_ia")
                 else:
                     st.warning("Descreva a necessidade antes de gerar.")
 
@@ -2538,7 +2739,7 @@ with tab_docs:
                 pagamento = st.text_input("Condições de pagamento")
                 criterio = st.selectbox("Critério de julgamento",
                     ["Menor preço", "Melhor técnica", "Técnica e preço", "Maior desconto", "Maior retorno econômico"])
-                submit_tr = st.form_submit_button("📄 Gerar Termo de Referência", use_container_width=True)
+                submit_tr = st.form_submit_button("📄 Gerar Termo de Referência", use_container_width=True, disabled=bool(_faltam_doc))
 
             if submit_tr:
                 corpo = TEMPLATE_TR.format(
@@ -2547,14 +2748,7 @@ with tab_docs:
                     condicoes_entrega=condicoes, prazo=prazo, pagamento=pagamento,
                     criterio_julgamento=criterio,
                 )
-                st.markdown(corpo)
-                pdf_bytes = gerar_pdf_documento("TERMO DE REFERÊNCIA", corpo)
-                docx_bytes = gerar_docx_documento("TERMO DE REFERÊNCIA", corpo)
-                _c_pdf, _c_docx = st.columns(2)
-                with _c_pdf:
-                    st.download_button("⬇️ Baixar TR em PDF", pdf_bytes, "termo_referencia.pdf", "application/pdf")
-                with _c_docx:
-                    st.download_button("📝 Baixar TR em Word", docx_bytes, "termo_referencia.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+                _registrar_doc(tipo_doc, "TERMO DE REFERÊNCIA", corpo, "termo_referencia")
         else:
             desc_tr = st.text_area(
                 "Descreva o que precisa contratar e o Babilaca elaborará o Termo de Referência:",
@@ -2562,7 +2756,7 @@ with tab_docs:
                 key="tr_ia_input",
             )
             arquivo_tr = st.file_uploader("Ou envie um arquivo com especificações (PDF/Excel)", type=["pdf", "xlsx"], key="tr_upload")
-            if st.button("🤖 Gerar TR com IA", key="btn_tr_ia"):
+            if st.button("🤖 Gerar TR com IA", key="btn_tr_ia", disabled=bool(_faltam_doc)):
                 ctx_extra = ""
                 if arquivo_tr:
                     if arquivo_tr.name.endswith(".pdf"):
@@ -2584,15 +2778,8 @@ with tab_docs:
                         )
                         ctx = buscar_base_juridica("termo de referência contratação especificação")
                         system = _build_system_prompt(ctx)
-                        resultado = chamar_ia([{"role": "user", "content": prompt_tr}], system)
-                    st.markdown(resultado)
-                    pdf_bytes = gerar_pdf_documento("TERMO DE REFERÊNCIA", resultado)
-                    docx_bytes = gerar_docx_documento("TERMO DE REFERÊNCIA", resultado)
-                    _c_pdf, _c_docx = st.columns(2)
-                    with _c_pdf:
-                        st.download_button("⬇️ Baixar TR em PDF", pdf_bytes, "tr_ia.pdf", "application/pdf")
-                    with _c_docx:
-                        st.download_button("📝 Baixar TR em Word", docx_bytes, "tr_ia.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+                        resultado = chamar_ia([{"role": "user", "content": prompt_tr}], system + INSTRUCOES_DOCUMENTO)
+                    _registrar_doc(tipo_doc, "TERMO DE REFERÊNCIA", resultado, "tr_ia")
                 else:
                     st.warning("Forneça uma descrição ou envie um arquivo.")
 
@@ -2612,7 +2799,7 @@ with tab_docs:
                      "Inexigibilidade", "Adesão a Ata de Registro de Preços"])
                 fundamentacao = st.text_area("Fundamentação legal", height=60)
                 conclusao = st.text_area("Conclusão", height=60)
-                submit_j = st.form_submit_button("📄 Gerar Justificativa", use_container_width=True)
+                submit_j = st.form_submit_button("📄 Gerar Justificativa", use_container_width=True, disabled=bool(_faltam_doc))
 
             if submit_j:
                 corpo = TEMPLATE_JUSTIFICATIVA.format(
@@ -2620,21 +2807,14 @@ with tab_docs:
                     justificativa_preco=just_preco, modalidade=modalidade,
                     fundamentacao=fundamentacao, conclusao=conclusao,
                 )
-                st.markdown(corpo)
-                pdf_bytes = gerar_pdf_documento("JUSTIFICATIVA DE CONTRATAÇÃO", corpo)
-                docx_bytes = gerar_docx_documento("JUSTIFICATIVA DE CONTRATAÇÃO", corpo)
-                _c_pdf, _c_docx = st.columns(2)
-                with _c_pdf:
-                    st.download_button("⬇️ Baixar Justificativa em PDF", pdf_bytes, "justificativa.pdf", "application/pdf")
-                with _c_docx:
-                    st.download_button("📝 Baixar Justificativa em Word", docx_bytes, "justificativa.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+                _registrar_doc(tipo_doc, "JUSTIFICATIVA DE CONTRATAÇÃO", corpo, "justificativa")
         else:
             desc_just = st.text_area(
                 "Descreva a contratação que precisa justificar:",
                 height=120,
                 key="just_ia_input",
             )
-            if st.button("🤖 Gerar Justificativa com IA", key="btn_just_ia"):
+            if st.button("🤖 Gerar Justificativa com IA", key="btn_just_ia", disabled=bool(_faltam_doc)):
                 if desc_just:
                     with st.spinner("Gerando justificativa..."):
                         prompt_just = (
@@ -2645,15 +2825,8 @@ with tab_docs:
                         )
                         ctx = buscar_base_juridica("justificativa contratação dispensa modalidade")
                         system = _build_system_prompt(ctx)
-                        resultado = chamar_ia([{"role": "user", "content": prompt_just}], system)
-                    st.markdown(resultado)
-                    pdf_bytes = gerar_pdf_documento("JUSTIFICATIVA DE CONTRATAÇÃO", resultado)
-                    docx_bytes = gerar_docx_documento("JUSTIFICATIVA DE CONTRATAÇÃO", resultado)
-                    _c_pdf, _c_docx = st.columns(2)
-                    with _c_pdf:
-                        st.download_button("⬇️ Baixar em PDF", pdf_bytes, "justificativa_ia.pdf", "application/pdf")
-                    with _c_docx:
-                        st.download_button("📝 Baixar em Word", docx_bytes, "justificativa_ia.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+                        resultado = chamar_ia([{"role": "user", "content": prompt_just}], system + INSTRUCOES_DOCUMENTO)
+                    _registrar_doc(tipo_doc, "JUSTIFICATIVA DE CONTRATAÇÃO", resultado, "justificativa_ia")
                 else:
                     st.warning("Descreva o cenário.")
 
@@ -2685,7 +2858,7 @@ with tab_docs:
         if arquivos_livres:
             st.caption(f"{len(arquivos_livres)} arquivo(s) pronto(s) para análise.")
 
-        if st.button(f"✨ Gerar {titulo_livre} com IA", key="btn_documento_livre", use_container_width=True):
+        if st.button(f"✨ Gerar {titulo_livre} com IA", key="btn_documento_livre", use_container_width=True, disabled=bool(_faltam_doc)):
             contexto_arquivos = []
             for arquivo_livre in arquivos_livres or []:
                 try:
@@ -2725,16 +2898,9 @@ with tab_docs:
                         prompt_livre += "MATERIAIS DE APOIO:\n" + "\n\n".join(contexto_arquivos)
                     consulta = "justificativa contratação processo administrativo" if is_justificativa else "documento processo administrativo contratação pública"
                     system = _build_system_prompt(buscar_base_juridica(consulta))
-                    resultado = chamar_ia([{"role": "user", "content": prompt_livre}], system)
-                st.markdown(resultado)
+                    resultado = chamar_ia([{"role": "user", "content": prompt_livre}], system + INSTRUCOES_DOCUMENTO)
                 nome_base = "outra_justificativa" if is_justificativa else "outro_documento"
-                pdf_bytes = gerar_pdf_documento(titulo_livre.upper(), resultado)
-                docx_bytes = gerar_docx_documento(titulo_livre.upper(), resultado)
-                col_pdf, col_docx = st.columns(2)
-                with col_pdf:
-                    st.download_button("⬇️ Baixar em PDF", pdf_bytes, f"{nome_base}.pdf", "application/pdf")
-                with col_docx:
-                    st.download_button("📝 Baixar em Word", docx_bytes, f"{nome_base}.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+                _registrar_doc(tipo_doc, titulo_livre.upper(), resultado, nome_base)
             else:
                 st.warning("Descreva a necessidade ou anexe ao menos um documento de apoio.")
 
@@ -2768,14 +2934,8 @@ with tab_docs:
                 placeholder="Ex: Preços coletados em março/2026. Frete incluso...",
             )
 
-            if st.button("📊 Gerar Mapa Comparativo", key="btn_mapa"):
-                pdf_bytes = gerar_mapa_comparativo_pdf(itens_mapa, observacoes=obs_mapa)
-                xlsx_bytes = gerar_mapa_comparativo_xlsx(itens_mapa, observacoes=obs_mapa)
-                _c_pdf, _c_xlsx = st.columns(2)
-                with _c_pdf:
-                    st.download_button("⬇️ Baixar Mapa em PDF", pdf_bytes, "mapa_comparativo.pdf", "application/pdf")
-                with _c_xlsx:
-                    st.download_button("📊 Baixar Mapa em Excel", xlsx_bytes, "mapa_comparativo.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+            if st.button("📊 Gerar Mapa Comparativo", key="btn_mapa", disabled=bool(_faltam_doc)):
+                _registrar_mapa(itens_mapa, obs_mapa)
 
                 # Mostrar tabela na tela
                 rows = []
@@ -2824,7 +2984,7 @@ with tab_docs:
                     if not arq_mapa.name.lower().endswith(".pdf"):
                         st.dataframe(df_m, use_container_width=True)
                         st.info("Revise os dados acima. O sistema tentará identificar colunas de descrição e preços.")
-                        if st.button("📊 Gerar Mapa a partir da planilha", key="btn_mapa_arq"):
+                        if st.button("📊 Gerar Mapa a partir da planilha", key="btn_mapa_arq", disabled=bool(_faltam_doc)):
                             itens_arq = []
                             desc_col = None
                             for c in df_m.columns:
@@ -2860,15 +3020,14 @@ with tab_docs:
                                     item[f"preco{j}"] = 0
                                 itens_arq.append(item)
                             if itens_arq:
-                                pdf_bytes = gerar_mapa_comparativo_pdf(itens_arq, observacoes=obs_mapa_arq)
-                                xlsx_bytes = gerar_mapa_comparativo_xlsx(itens_arq, observacoes=obs_mapa_arq)
-                                _c_pdf, _c_xlsx = st.columns(2)
-                                with _c_pdf:
-                                    st.download_button("⬇️ Baixar Mapa em PDF", pdf_bytes, "mapa_comparativo.pdf", "application/pdf")
-                                with _c_xlsx:
-                                    st.download_button("📊 Baixar Mapa em Excel", xlsx_bytes, "mapa_comparativo.xlsx", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+                                _registrar_mapa(itens_arq, obs_mapa_arq)
                 except Exception as e:
                     st.error(f"Erro ao processar arquivo: {e}")
+
+        if st.session_state.get("mapa_xlsx") and st.session_state.get(f"doc_gerado_{MP.DOC_MAPA}"):
+            st.download_button("📊 Baixar o mapa em Excel", st.session_state["mapa_xlsx"],
+                               "mapa_comparativo.xlsx",
+                               "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", key="dl_mapa_xlsx")
 
     # ---- CRONOGRAMA FÍSICO-FINANCEIRO ----
     elif "Cronograma" in tipo_doc:
@@ -2911,7 +3070,7 @@ with tab_docs:
                     etapas.append({"descricao": et_desc, "mes_inicio": et_inicio_mes, "mes_fim": et_fim_mes, "valor": et_valor})
 
                 crono_obs = st.text_area("Observações", height=60, key="crono_obs_manual")
-                submit_crono = st.form_submit_button("📅 Gerar Cronograma", use_container_width=True)
+                submit_crono = st.form_submit_button("📅 Gerar Cronograma", use_container_width=True, disabled=bool(_faltam_doc))
 
             if submit_crono:
                 # Montar documento
@@ -2965,17 +3124,8 @@ with tab_docs:
 ### 5. Observações
 {crono_obs or 'Sem observações.'}
 
----
-Documento gerado pelo sistema O Babilaca (IA) — Ferramenta de apoio.
 """
-                st.markdown(corpo_crono)
-                pdf_bytes = gerar_pdf_documento("CRONOGRAMA FÍSICO-FINANCEIRO", corpo_crono)
-                docx_bytes = gerar_docx_documento("CRONOGRAMA FÍSICO-FINANCEIRO", corpo_crono)
-                _c_pdf, _c_docx = st.columns(2)
-                with _c_pdf:
-                    st.download_button("⬇️ Baixar Cronograma em PDF", pdf_bytes, "cronograma_fisico_financeiro.pdf", "application/pdf")
-                with _c_docx:
-                    st.download_button("📝 Baixar Cronograma em Word", docx_bytes, "cronograma_fisico_financeiro.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+                _registrar_doc(tipo_doc, "CRONOGRAMA FÍSICO-FINANCEIRO", corpo_crono, "cronograma_fisico_financeiro")
 
         else:  # Assistido por IA
             st.markdown(
@@ -2993,7 +3143,7 @@ Documento gerado pelo sistema O Babilaca (IA) — Ferramenta de apoio.
                 ),
             )
             arquivo_crono = st.file_uploader("Ou envie projeto básico/planilha orçamentária (PDF/Excel)", type=["pdf", "xlsx"], key="crono_upload")
-            if st.button("🤖 Gerar Cronograma com IA", key="btn_crono_ia"):
+            if st.button("🤖 Gerar Cronograma com IA", key="btn_crono_ia", disabled=bool(_faltam_doc)):
                 ctx_extra = ""
                 if arquivo_crono:
                     if arquivo_crono.name.endswith(".pdf"):
@@ -3027,15 +3177,8 @@ Documento gerado pelo sistema O Babilaca (IA) — Ferramenta de apoio.
                         )
                         ctx = buscar_base_juridica("cronograma execução pagamento medição prazo contrato obra")
                         system = _build_system_prompt(ctx)
-                        resultado = chamar_ia([{"role": "user", "content": prompt_crono}], system)
-                    st.markdown(resultado)
-                    pdf_bytes = gerar_pdf_documento("CRONOGRAMA FÍSICO-FINANCEIRO", resultado)
-                    docx_bytes = gerar_docx_documento("CRONOGRAMA FÍSICO-FINANCEIRO", resultado)
-                    _c_pdf, _c_docx = st.columns(2)
-                    with _c_pdf:
-                        st.download_button("⬇️ Baixar Cronograma em PDF", pdf_bytes, "cronograma_ia.pdf", "application/pdf")
-                    with _c_docx:
-                        st.download_button("📝 Baixar Cronograma em Word", docx_bytes, "cronograma_ia.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+                        resultado = chamar_ia([{"role": "user", "content": prompt_crono}], system + INSTRUCOES_DOCUMENTO)
+                    _registrar_doc(tipo_doc, "CRONOGRAMA FÍSICO-FINANCEIRO", resultado, "cronograma_ia")
                 else:
                     st.warning("Descreva o projeto ou envie um arquivo.")
 
@@ -3115,7 +3258,7 @@ Documento gerado pelo sistema O Babilaca (IA) — Ferramenta de apoio.
                     })
 
                 mc_obs = st.text_area("Observações e justificativas adicionais", height=80, key="mc_obs")
-                submit_mc = st.form_submit_button("🧮 Gerar Memória de Cálculo", use_container_width=True)
+                submit_mc = st.form_submit_button("🧮 Gerar Memória de Cálculo", use_container_width=True, disabled=bool(_faltam_doc))
 
             if submit_mc:
                 import statistics
@@ -3216,17 +3359,8 @@ utilizou as seguintes fontes, priorizando a ordem estabelecida no Art. 5° da IN
 ### 6. Observações
 {mc_obs or 'Sem observações adicionais.'}
 
----
-Documento gerado pelo sistema O Babilaca (IA) — Ferramenta de apoio.
 """
-                st.markdown(corpo_mc)
-                pdf_bytes = gerar_pdf_documento("MEMÓRIA DE CÁLCULO", corpo_mc)
-                docx_bytes = gerar_docx_documento("MEMÓRIA DE CÁLCULO", corpo_mc)
-                _c_pdf, _c_docx = st.columns(2)
-                with _c_pdf:
-                    st.download_button("⬇️ Baixar Memória de Cálculo em PDF", pdf_bytes, "memoria_calculo.pdf", "application/pdf")
-                with _c_docx:
-                    st.download_button("📝 Baixar Memória de Cálculo em Word", docx_bytes, "memoria_calculo.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+                _registrar_doc(tipo_doc, "MEMÓRIA DE CÁLCULO", corpo_mc, "memoria_calculo")
 
         else:  # Assistido por IA
             st.markdown(
@@ -3248,7 +3382,7 @@ Documento gerado pelo sistema O Babilaca (IA) — Ferramenta de apoio.
                 ),
             )
             arquivo_mc = st.file_uploader("Ou envie planilha de cotações / pesquisa de preços (PDF/Excel)", type=["pdf", "xlsx"], key="mc_upload")
-            if st.button("🤖 Gerar Memória de Cálculo com IA", key="btn_mc_ia"):
+            if st.button("🤖 Gerar Memória de Cálculo com IA", key="btn_mc_ia", disabled=bool(_faltam_doc)):
                 ctx_extra = ""
                 if arquivo_mc:
                     if arquivo_mc.name.endswith(".pdf"):
@@ -3286,15 +3420,8 @@ Documento gerado pelo sistema O Babilaca (IA) — Ferramenta de apoio.
                         )
                         ctx = buscar_base_juridica("pesquisa preços estimativa orçamento cotação memória cálculo IN 65")
                         system = _build_system_prompt(ctx)
-                        resultado = chamar_ia([{"role": "user", "content": prompt_mc}], system)
-                    st.markdown(resultado)
-                    pdf_bytes = gerar_pdf_documento("MEMÓRIA DE CÁLCULO", resultado)
-                    docx_bytes = gerar_docx_documento("MEMÓRIA DE CÁLCULO", resultado)
-                    _c_pdf, _c_docx = st.columns(2)
-                    with _c_pdf:
-                        st.download_button("⬇️ Baixar Memória de Cálculo em PDF", pdf_bytes, "memoria_calculo_ia.pdf", "application/pdf")
-                    with _c_docx:
-                        st.download_button("📝 Baixar Memória de Cálculo em Word", docx_bytes, "memoria_calculo_ia.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+                        resultado = chamar_ia([{"role": "user", "content": prompt_mc}], system + INSTRUCOES_DOCUMENTO)
+                    _registrar_doc(tipo_doc, "MEMÓRIA DE CÁLCULO", resultado, "memoria_calculo_ia")
                 else:
                     st.warning("Descreva os itens/valores ou envie um arquivo.")
 
@@ -3313,6 +3440,8 @@ Documento gerado pelo sistema O Babilaca (IA) — Ferramenta de apoio.
                 st.markdown("**Dados do Órgão Gerenciador**")
                 ca1, ca2 = st.columns(2)
                 with ca1:
+                    _preencher("ata_orgao", _om("om"))
+                    _preencher("ata_end_orgao", _om("endereco"))
                     ata_orgao = st.text_input("Órgão Gerenciador", key="ata_orgao")
                     ata_cnpj_orgao = st.text_input("CNPJ do Órgão", key="ata_cnpj_orgao")
                     ata_endereco_orgao = st.text_input("Endereço do Órgão", key="ata_end_orgao")
@@ -3368,7 +3497,7 @@ Documento gerado pelo sistema O Babilaca (IA) — Ferramenta de apoio.
                 with cd2:
                     ata_prazo_pgto = st.text_input("Prazo de pagamento", value="30 (trinta) dias", key="ata_prazo_pgto")
                 ata_obs = st.text_area("Observações / Disposições Gerais", height=80, key="ata_obs")
-                submit_ata = st.form_submit_button("📜 Gerar Ata de Registro de Preços", use_container_width=True)
+                submit_ata = st.form_submit_button("📜 Gerar Ata de Registro de Preços", use_container_width=True, disabled=bool(_faltam_doc))
 
             if submit_ata:
                 tabela_itens_str = ""
@@ -3391,14 +3520,7 @@ Documento gerado pelo sistema O Babilaca (IA) — Ferramenta de apoio.
                     local_entrega=ata_local_entrega, prazo_pagamento=ata_prazo_pgto,
                     observacoes=ata_obs or "Sem observações adicionais.",
                 )
-                st.markdown(corpo_ata)
-                pdf_bytes = gerar_pdf_documento("ATA DE REGISTRO DE PREÇOS", corpo_ata)
-                docx_bytes = gerar_docx_documento("ATA DE REGISTRO DE PREÇOS", corpo_ata)
-                _c_pdf, _c_docx = st.columns(2)
-                with _c_pdf:
-                    st.download_button("⬇️ Baixar Ata em PDF", pdf_bytes, "ata_registro_precos.pdf", "application/pdf")
-                with _c_docx:
-                    st.download_button("📝 Baixar Ata em Word", docx_bytes, "ata_registro_precos.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+                _registrar_doc(tipo_doc, "ATA DE REGISTRO DE PREÇOS", corpo_ata, "ata_registro_precos")
         else:
             desc_ata = st.text_area(
                 "Descreva os dados da licitação, órgão, fornecedor, itens e condições. O Babilaca gerará a Ata completa:",
@@ -3412,7 +3534,7 @@ Documento gerado pelo sistema O Babilaca (IA) — Ferramenta de apoio.
                 ),
             )
             arquivo_ata = st.file_uploader("Ou envie edital/resultado de licitação (PDF/Excel)", type=["pdf", "xlsx"], key="ata_upload")
-            if st.button("🤖 Gerar Ata com IA", key="btn_ata_ia"):
+            if st.button("🤖 Gerar Ata com IA", key="btn_ata_ia", disabled=bool(_faltam_doc)):
                 ctx_extra = ""
                 if arquivo_ata:
                     if arquivo_ata.name.endswith(".pdf"):
@@ -3446,15 +3568,8 @@ Documento gerado pelo sistema O Babilaca (IA) — Ferramenta de apoio.
                         )
                         ctx = buscar_base_juridica("ata registro preços pregão licitação fornecedor")
                         system = _build_system_prompt(ctx)
-                        resultado = chamar_ia([{"role": "user", "content": prompt_ata}], system)
-                    st.markdown(resultado)
-                    pdf_bytes = gerar_pdf_documento("ATA DE REGISTRO DE PREÇOS", resultado)
-                    docx_bytes = gerar_docx_documento("ATA DE REGISTRO DE PREÇOS", resultado)
-                    _c_pdf, _c_docx = st.columns(2)
-                    with _c_pdf:
-                        st.download_button("⬇️ Baixar Ata em PDF", pdf_bytes, "ata_rp_ia.pdf", "application/pdf")
-                    with _c_docx:
-                        st.download_button("📝 Baixar Ata em Word", docx_bytes, "ata_rp_ia.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+                        resultado = chamar_ia([{"role": "user", "content": prompt_ata}], system + INSTRUCOES_DOCUMENTO)
+                    _registrar_doc(tipo_doc, "ATA DE REGISTRO DE PREÇOS", resultado, "ata_rp_ia")
                 else:
                     st.warning("Descreva os dados da licitação ou envie um arquivo.")
 
@@ -3473,6 +3588,8 @@ Documento gerado pelo sistema O Babilaca (IA) — Ferramenta de apoio.
                 st.markdown("**Dados do Contratante**")
                 mc1, mc2 = st.columns(2)
                 with mc1:
+                    _preencher("ct_orgao", _om("om"))
+                    _preencher("ct_end_orgao", _om("endereco"))
                     ct_orgao = st.text_input("Órgão/Entidade", key="ct_orgao")
                     ct_cnpj_orgao = st.text_input("CNPJ do Órgão", key="ct_cnpj_orgao")
                     ct_endereco_orgao = st.text_input("Endereço do Órgão", key="ct_end_orgao")
@@ -3558,7 +3675,7 @@ Documento gerado pelo sistema O Babilaca (IA) — Ferramenta de apoio.
                     ct_receb_def = st.text_input("Prazo receb. definitivo", value="10 (dez) dias úteis", key="ct_rec_def")
 
                 ct_obs = st.text_area("Observações / Disposições Gerais", height=80, key="ct_obs")
-                submit_ct = st.form_submit_button("📑 Gerar Minuta de Contrato", use_container_width=True)
+                submit_ct = st.form_submit_button("📑 Gerar Minuta de Contrato", use_container_width=True, disabled=bool(_faltam_doc))
 
             if submit_ct:
                 tabela_itens_ct = ""
@@ -3587,14 +3704,7 @@ Documento gerado pelo sistema O Babilaca (IA) — Ferramenta de apoio.
                     prazo_recebimento_definitivo=ct_receb_def,
                     observacoes=ct_obs or "Sem observações adicionais.",
                 )
-                st.markdown(corpo_ct)
-                pdf_bytes = gerar_pdf_documento(f"MINUTA DE CONTRATO DE {ct_tipo}", corpo_ct)
-                docx_bytes = gerar_docx_documento(f"MINUTA DE CONTRATO DE {ct_tipo}", corpo_ct)
-                _c_pdf, _c_docx = st.columns(2)
-                with _c_pdf:
-                    st.download_button("⬇️ Baixar Minuta em PDF", pdf_bytes, "minuta_contrato.pdf", "application/pdf")
-                with _c_docx:
-                    st.download_button("📝 Baixar Minuta em Word", docx_bytes, "minuta_contrato.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+                _registrar_doc(tipo_doc, f"MINUTA DE CONTRATO DE {ct_tipo}", corpo_ct, "minuta_contrato")
         else:
             desc_ct = st.text_area(
                 "Descreva o objeto, tipo (serviço/material), condições e o Babilaca gerará a Minuta completa:",
@@ -3608,7 +3718,7 @@ Documento gerado pelo sistema O Babilaca (IA) — Ferramenta de apoio.
                 ),
             )
             arquivo_ct = st.file_uploader("Ou envie Termo de Referência / proposta (PDF/Excel)", type=["pdf", "xlsx"], key="ct_upload")
-            if st.button("🤖 Gerar Minuta com IA", key="btn_ct_ia"):
+            if st.button("🤖 Gerar Minuta com IA", key="btn_ct_ia", disabled=bool(_faltam_doc)):
                 ctx_extra = ""
                 if arquivo_ct:
                     if arquivo_ct.name.endswith(".pdf"):
@@ -3656,15 +3766,8 @@ Documento gerado pelo sistema O Babilaca (IA) — Ferramenta de apoio.
                         )
                         ctx = buscar_base_juridica("contrato garantia fiscalização recebimento penalidade pagamento")
                         system = _build_system_prompt(ctx)
-                        resultado = chamar_ia([{"role": "user", "content": prompt_ct}], system)
-                    st.markdown(resultado)
-                    pdf_bytes = gerar_pdf_documento("MINUTA DE CONTRATO", resultado)
-                    docx_bytes = gerar_docx_documento("MINUTA DE CONTRATO", resultado)
-                    _c_pdf, _c_docx = st.columns(2)
-                    with _c_pdf:
-                        st.download_button("⬇️ Baixar Minuta em PDF", pdf_bytes, "minuta_contrato_ia.pdf", "application/pdf")
-                    with _c_docx:
-                        st.download_button("📝 Baixar Minuta em Word", docx_bytes, "minuta_contrato_ia.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+                        resultado = chamar_ia([{"role": "user", "content": prompt_ct}], system + INSTRUCOES_DOCUMENTO)
+                    _registrar_doc(tipo_doc, "MINUTA DE CONTRATO", resultado, "minuta_contrato_ia")
                 else:
                     st.warning("Descreva a contratação ou envie um arquivo.")
 
@@ -3729,6 +3832,34 @@ Documento gerado pelo sistema O Babilaca (IA) — Ferramenta de apoio.
             else:
                 st.warning("Descreva o cenário de contratação.")
 
+    _exibir_doc(tipo_doc)
+    _painel_kit(bool(_faltam_doc))
+
+def _ck_abrir_documento(rotulo: str):
+    """Atalho da lista de verificação: deixa o modelo escolhido na aba Documentos."""
+    st.session_state["tipo_doc_sel"] = rotulo
+    st.session_state["_doc_vindo_checklist"] = True
+    st.session_state["babilaca_aba"] = "📄 Gerar Documentos com IA"
+
+
+def _ck_aplicar_json(dados: dict) -> str:
+    """Carrega uma conferência salva. Devolve a modalidade carregada."""
+    modalidade = dados.get("modalidade")
+    if modalidade not in CHECKLIST_MODALIDADES:
+        raise ValueError("modalidade desconhecida no arquivo")
+    st.session_state["checklist_modalidade"] = modalidade
+    for campo in ("objeto", "valor", "responsavel", "nup"):
+        st.session_state[f"ck_id_{campo}"] = (dados.get("identificacao") or {}).get(campo, "")
+    salvos = {i.get("texto"): i for i in dados.get("itens") or []}
+    for texto, _f, _a in CHECKLIST_MODALIDADES[modalidade]:
+        item = salvos.get(texto) or {}
+        chave = _ck_chave(modalidade, texto)
+        situacao = item.get("situacao")
+        st.session_state[f"ck_st_{chave}"] = situacao if situacao in MP.SITUACOES else "Pendente"
+        st.session_state[f"ck_obs_{chave}"] = item.get("observacao") or ""
+    return modalidade
+
+
 # ============================================================
 # TAB 3 — CHECKLIST DE PROCESSO
 # ============================================================
@@ -3742,6 +3873,23 @@ with tab_checklist:
         </div>
     </div>
     """, unsafe_allow_html=True)
+
+    # widgets de abas que somem da tela perdem o valor; regravar mantém a conferência ao trocar de modalidade
+    for _k in [k for k in st.session_state.keys() if str(k).startswith(("ck_st_", "ck_obs_", "ck_id_"))]:
+        st.session_state[_k] = st.session_state[_k]
+
+    with st.expander("💾 Carregar uma conferência salva"):
+        _arq_ck = st.file_uploader("Arquivo .json baixado nesta aba", type=["json"], key="ck_json")
+        if _arq_ck is not None:
+            _conteudo = _arq_ck.getvalue()
+            _assinatura = hashlib.md5(_conteudo).hexdigest()
+            if st.session_state.get("_ck_json_aplicado") != _assinatura:
+                try:
+                    _mod = _ck_aplicar_json(json.loads(_conteudo.decode("utf-8")))
+                    st.session_state["_ck_json_aplicado"] = _assinatura
+                    st.success(f"Conferência carregada: {_mod}.")
+                except Exception as _erro:
+                    st.error(f"Arquivo inválido: {_erro}")
 
     modalidade_sel = st.selectbox(
         "Modalidade ou tipo de processo",
@@ -3758,18 +3906,71 @@ with tab_checklist:
             st.markdown(f"**💰 Limites financeiros**\n\n{info['limites']}")
             st.markdown(f"**📋 Como montar o processo (Lei 14.133/2021)**\n\n{info['como_montar']}")
 
-    itens_checklist = CHECKLIST_MODALIDADES[modalidade_sel]
-    st.caption(f"{len(itens_checklist)} itens para conferência nesta modalidade.")
+    with st.expander("⏱️ Calculadora de prazos (dias úteis — Lei nº 14.133/2021)", expanded=False):
+        st.caption("Contagem do art. 183: exclui o dia do começo e inclui o do vencimento; só dias úteis. Descontados "
+                   "sábados, domingos e feriados nacionais (inclusive Sexta-feira Santa); feriados estaduais, municipais "
+                   "e pontos facultativos não entram: confira o calendário local.")
+        _pz1, _pz2 = st.columns([3, 1])
+        with _pz1:
+            _prazo_sel = st.selectbox("Prazo", [p[0] for p in MP.PRAZOS], key="prazo_sel")
+        _pz = MP.PRAZOS_POR_ROTULO[_prazo_sel]
+        with _pz2:
+            _base = st.date_input(_pz[3], value=datetime.now().date(), key="prazo_base", format="DD/MM/YYYY")
+        _calc = MP.calcular_prazo(_prazo_sel, _base)
+        _dias_semana = ["segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado", "domingo"]
+        st.success(f"**{_calc['significado']}: {_calc['data'].strftime('%d/%m/%Y')} ({_dias_semana[_calc['data'].weekday()]})** "
+                   f"— {abs(_calc['dias'])} dia(s) útil(eis) {'depois' if _calc['dias'] > 0 else 'antes'} de "
+                   f"{_base.strftime('%d/%m/%Y')}. Fundamento: {_calc['fundamento']}.")
+        if not _calc["base_util"] and _calc["dias"] > 0:
+            st.caption("A data-base não é dia útil: a contagem começa no primeiro dia útil seguinte, como no cálculo acima.")
+        if _prazo_sel.startswith("Edital"):
+            _imp = MP.somar_dias_uteis(_calc["data"], -3)
+            st.info(f"Com a abertura nessa data, o último dia para impugnação ou esclarecimento seria "
+                    f"**{_imp.strftime('%d/%m/%Y')}** (3 dias úteis antes — art. 164).")
 
-    status_checks = {}
-    for item_ck in itens_checklist:
-        _key = f"ck_{hashlib.md5((modalidade_sel + item_ck).encode()).hexdigest()[:10]}"
-        status_checks[item_ck] = st.checkbox(item_ck, key=_key)
+    with st.expander("🗂️ Identificação do processo (sai no PDF)", expanded=False):
+        _i1, _i2 = st.columns([3, 1])
+        with _i1:
+            st.text_input("Objeto", key="ck_id_objeto", placeholder="Ex: Aquisição de material de expediente")
+        with _i2:
+            st.text_input("Valor estimado", key="ck_id_valor", placeholder="R$")
+        _i3, _i4 = st.columns(2)
+        with _i3:
+            st.text_input("NUP do processo", key="ck_id_nup", placeholder="Se vazio, usa o NUP da aba Documentos")
+        with _i4:
+            _preencher("ck_id_responsavel", _om("ass0_nome"))
+            st.text_input("Responsável pela conferência", key="ck_id_responsavel")
+
+    itens_checklist = CHECKLIST_MODALIDADES[modalidade_sel]
+    st.caption(f"{len(itens_checklist)} itens nesta modalidade. Marque cada um como **Presente**, **Pendente** ou "
+               "**Não se aplica**; o fundamento legal aparece abaixo de cada item.")
+    _mostrar_obs = st.toggle("Mostrar campos de observação", key="ck_mostrar_obs")
+
+    situacoes, observacoes = [], []
+    for _n, (_texto, _fund, _atalho) in enumerate(itens_checklist, 1):
+        _ch = _ck_chave(modalidade_sel, _texto)
+        st.session_state.setdefault(f"ck_st_{_ch}", "Pendente")
+        _c_txt, _c_st = st.columns([4, 2.6])
+        with _c_txt:
+            st.markdown(f"**{_n}.** {_texto}")
+            st.caption(f"⚖️ {_fund}")
+            if _atalho and _atalho[0] == "doc":
+                st.button(f"📄 Abrir modelo: {_atalho[1].split(' — ')[0]}", key=f"ck_doc_{_ch}",
+                          on_click=_ck_abrir_documento, args=(_atalho[1],))
+            elif _atalho:
+                st.page_link(_atalho[1], label=_atalho[2], icon="↗️")
+        with _c_st:
+            _sit = st.segmented_control("Situação", MP.SITUACOES, key=f"ck_st_{_ch}", label_visibility="collapsed")
+        situacoes.append(_sit or "Pendente")
+        if _mostrar_obs:
+            observacoes.append(st.text_input("Observação", key=f"ck_obs_{_ch}", label_visibility="collapsed",
+                                             placeholder="Observação (folha do processo, data, pendência...)"))
+        else:
+            observacoes.append(st.session_state.get(f"ck_obs_{_ch}", ""))
 
     # Resumo
-    marcados = sum(1 for v in status_checks.values() if v)
-    total = len(itens_checklist)
-    percentual = round((marcados / total) * 100) if total else 0
+    _r = MP.resumo_checklist(situacoes)
+    marcados, total, percentual = _r["presentes"], _r["aplicaveis"], _r["percentual"]
     st.markdown(f"""
     <div class="checklist-progress">
         <div class="checklist-progress-head">
@@ -3779,22 +3980,356 @@ with tab_checklist:
         <div class="checklist-progress-track"><div class="checklist-progress-fill" style="width:{percentual}%;"></div></div>
     </div>
     """, unsafe_allow_html=True)
+    if _r["nao_aplica"]:
+        st.caption(f"{_r['nao_aplica']} item(ns) marcado(s) como não se aplica saem da conta.")
     if marcados == total:
-        st.success(f"✅ Processo completo! {marcados}/{total} documentos presentes.")
+        st.success(f"✅ Processo completo! {marcados}/{total} itens aplicáveis presentes.")
     elif marcados > 0:
-        st.warning(f"⚠️ {marcados}/{total} documentos presentes. Faltam {total - marcados}.")
+        st.warning(f"⚠️ {marcados}/{total} itens presentes. Faltam {total - marcados}.")
     else:
-        st.info(f"📋 {total} documentos necessários. Marque os que já possui.")
+        st.info(f"📋 {total} itens a conferir. Marque os que já constam do processo.")
 
-    # Botão imprimir PDF
-    st.markdown("")
-    if st.button("🖨️ Imprimir Checklist (PDF)", use_container_width=True, key="btn_print_checklist"):
-        pdf_bytes = gerar_checklist_pdf(modalidade_sel, itens_checklist, status_checks)
-        st.download_button(
-            "⬇️ Baixar PDF",
-            pdf_bytes,
-            f"checklist_{modalidade_sel.replace(' ', '_').lower()}.pdf",
-            "application/pdf",
-            key="dl_checklist_pdf",
-        )
+    # Exportação: PDF/Word no padrão do documento_oficial e JSON para continuar depois
+    _ident = {c: st.session_state.get(f"ck_id_{c}", "") for c in ("objeto", "valor", "responsavel", "nup")}
+    _corpo_ck = MP.corpo_checklist(modalidade_sel, itens_checklist, situacoes, observacoes, _ident)
+    _titulo_ck = f"LISTA DE VERIFICAÇÃO — {modalidade_sel}"
+    _arq_base = f"checklist_{MP.nome_arquivo(modalidade_sel)}"
+    _faltam_ck = _pendencias_documento()
+    if _faltam_ck:
+        st.warning("Para baixar o PDF ou o Word, preencha na aba **📄 Documentos** os dados obrigatórios da OM e do(s) "
+                   "signatário(s). Falta: " + ", ".join(_faltam_ck) + ".")
+    _e1, _e2, _e3 = st.columns(3)
+    with _e1:
+        st.download_button("🖨️ Baixar PDF", gerar_pdf_documento(_titulo_ck, _corpo_ck, nup=_ident["nup"]) if not _faltam_ck else b"",
+                           f"{_arq_base}.pdf", "application/pdf", key="dl_checklist_pdf", use_container_width=True,
+                           disabled=bool(_faltam_ck))
+    with _e2:
+        st.download_button("📝 Baixar Word", gerar_docx_documento(_titulo_ck, _corpo_ck, nup=_ident["nup"]) if not _faltam_ck else b"",
+                           f"{_arq_base}.docx",
+                           "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                           key="dl_checklist_docx", use_container_width=True, disabled=bool(_faltam_ck))
+    with _e3:
+        _json_ck = json.dumps({"versao": 1, "modalidade": modalidade_sel, "identificacao": _ident,
+                               "itens": [{"texto": t, "fundamento": f, "situacao": s_, "observacao": o}
+                                         for (t, f, _a), s_, o in zip(itens_checklist, situacoes, observacoes)]},
+                              ensure_ascii=False, indent=2)
+        st.download_button("💾 Salvar conferência (.json)", _json_ck.encode("utf-8"), f"{_arq_base}.json",
+                           "application/json", key="dl_checklist_json", use_container_width=True,
+                           help="Guarde o arquivo e carregue-o depois em 'Carregar uma conferência salva'.")
 
+
+def formatar_cnpj_conf(cnpj: str | None) -> str:
+    from servicos_publicos import formatar_cnpj
+    return formatar_cnpj(cnpj) if cnpj else ""
+
+
+def _conf_aplicar_checklist(modalidade: str, itens: list[dict]):
+    """Leva o resultado da conferência para a aba Checklist (itens encontrados ficam 'Presente')."""
+    st.session_state["checklist_modalidade"] = modalidade
+    for item in itens:
+        chave = _ck_chave(modalidade, item["texto"])
+        st.session_state[f"ck_st_{chave}"] = "Presente" if item["situacao"] == "Presente" else "Pendente"
+        st.session_state[f"ck_obs_{chave}"] = item["onde"] if item["situacao"] == "Presente" else ""
+    st.session_state["babilaca_aba"] = "📋 Checklist de Processo"
+
+
+def _conf_consultas_externas(cnpj: str) -> tuple[list[dict], list[dict]]:
+    """Sanções (CEIS/CNEP/CEPIM) e cadastro no Compras.gov.br do fornecedor identificado."""
+    from servicos_publicos import consultar_sancoes, consultar_sicaf, formatar_cnpj, texto_sicaf
+    externos, achados = [], []
+    sancoes, datas, erro = consultar_sancoes(cnpj)
+    if erro:
+        externos.append({"base": "CEIS/CNEP/CEPIM", "resultado": f"não consultado ({erro})"})
+    for base, registros in (sancoes or {}).items():
+        vigentes = [r for r in registros if r.get("vigente")]
+        externos.append({"base": f"{base} (base de {datas.get(base, '-')})",
+                         "resultado": f"{len(vigentes)} sanção(ões) vigente(s)" if vigentes else
+                         ("só sanções encerradas" if registros else "nada consta")})
+        if vigentes:
+            achados.append({"gravidade": CP.GRAVE, "titulo": f"Fornecedor com sanção vigente no {base}",
+                            "detalhe": f"{formatar_cnpj(cnpj)}: {len(vigentes)} registro(s) vigente(s). Verifique se a "
+                                       "sanção impede esta contratação (art. 156 da Lei nº 14.133/2021).", "onde": "-"})
+    sicaf, erro = consultar_sicaf(cnpj)
+    rotulo = texto_sicaf(sicaf) if not erro else f"não consultado ({erro})"
+    externos.append({"base": "Cadastro de fornecedores (SICAF)", "resultado": rotulo})
+    if not erro and rotulo != "Ativo e habilitado a licitar":
+        achados.append({"gravidade": CP.CORRIGIR, "titulo": "Fornecedor não está ativo e habilitado no SICAF",
+                        "detalhe": f"{formatar_cnpj(cnpj)}: {rotulo}. Confira o SICAF antes de contratar.", "onde": "-"})
+    return externos, achados
+
+
+# ============================================================
+# TAB 4 — CONFERÊNCIA DO PROCESSO
+# ============================================================
+with tab_conferencia:
+    st.markdown("""
+    <div class="workspace-console checklist-workspace">
+        <div class="workspace-console-content">
+            <div class="workspace-console-icon">🔎</div>
+            <div><h3>Conferência do Processo</h3><p>Envie o processo em PDF: o sistema identifica as peças, marca a lista de verificação e aponta inconsistências.</p></div>
+            <span class="workspace-console-badge">REGRAS OBJETIVAS</span>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    st.caption("O que é conferido: presença e ordem das peças; coerência de CNPJ e valores entre proposta, certidões, "
+               "crédito e empenho; validade das certidões; limite de dispensa; prazo do aviso; datas (parecer antes da "
+               "autorização, autorização antes do empenho); idade da pesquisa de preços; lacunas não preenchidas. "
+               "É uma triagem: não substitui a análise do agente de contratação nem o parecer jurídico.")
+    _cf1, _cf2 = st.columns([3, 1])
+    with _cf1:
+        conf_modalidade = st.selectbox("Modalidade ou tipo de processo", list(CHECKLIST_MODALIDADES), key="conf_modalidade")
+    with _cf2:
+        conf_ref = st.date_input("Data de referência", value=None, key="conf_ref", format="DD/MM/YYYY",
+                                 help="Data em que a validade das certidões é conferida. Em branco: data do empenho, "
+                                      "da autorização ou hoje.")
+    conf_arquivos = st.file_uploader("Arquivos do processo (PDF com texto ou Word), na ordem do processo",
+                                     type=["pdf", "docx"], accept_multiple_files=True, key="conf_arquivos")
+    conf_externas = st.checkbox("Consultar também sanções (CEIS/CNEP/CEPIM) e SICAF do fornecedor identificado",
+                                value=True, key="conf_externas")
+    if st.button("🔎 Conferir processo", key="btn_conferir", type="primary", use_container_width=True,
+                 disabled=not conf_arquivos):
+        with st.spinner("Lendo as páginas e conferindo o processo..."):
+            _pags = CP.extrair_paginas([(a.name, a.getvalue()) for a in conf_arquivos])
+            _res = CP.conferir(_pags, conf_modalidade, conf_ref)
+            _ext = []
+            if conf_externas and _res["dados"]["contratado"]:
+                _ext, _ach = _conf_consultas_externas(_res["dados"]["contratado"])
+                _res["achados"] = sorted(_res["achados"] + _ach, key=lambda a: CP.ORDEM_GRAVIDADE[a["gravidade"]])
+        st.session_state["conf_resultado"] = {"res": _res, "ext": _ext, "modalidade": conf_modalidade,
+                                              "arquivos": [a.name for a in conf_arquivos]}
+
+    _conf = st.session_state.get("conf_resultado")
+    if _conf:
+        _res = _conf["res"]
+        _cont = {g: sum(1 for a in _res["achados"] if a["gravidade"] == g) for g in (CP.GRAVE, CP.CORRIGIR, CP.SUGESTAO)}
+        _presentes = sum(1 for c in _res["checklist"] if c["situacao"] == "Presente")
+        _m1, _m2, _m3, _m4 = st.columns(4)
+        _m1.metric("🔴 Graves", _cont[CP.GRAVE])
+        _m2.metric("🟡 A corrigir", _cont[CP.CORRIGIR])
+        _m3.metric("🔵 Sugestões", _cont[CP.SUGESTAO])
+        _m4.metric("Itens encontrados", f"{_presentes}/{len(_res['checklist'])}")
+        _d = _res["dados"]
+        st.caption(f"Fornecedor identificado: **{formatar_cnpj_conf(_d['contratado']) or 'não identificado'}** · valor estimado: "
+                   f"**{CP.brl(_d['total']).replace('$', chr(92) + '$')}** · referência: **{CP.fmt(_d['referencia'])}** · "
+                   f"{len(_res['paginas'])} página(s) em {len(_conf['arquivos'])} arquivo(s).")
+        for _aviso in _res["avisos"]:
+            st.warning(_aviso)
+        if _conf["modalidade"] != conf_modalidade:
+            st.info(f"Resultado da conferência feita como **{_conf['modalidade']}**. Clique em Conferir para refazer.")
+
+        st.markdown("##### Inconsistências")
+        if not _res["achados"]:
+            st.success("Nenhuma inconsistência encontrada pelas regras automáticas.")
+        for _a in _res["achados"]:
+            with st.container(border=True):
+                st.markdown(f"{_a['gravidade']} **{_a['titulo']}**".replace("$", "\\$"))
+                st.caption((f"{_a['detalhe']}" + (f" · 📍 {_a['onde']}" if _a["onde"] != "-" else "")).replace("$", "\\$"))
+        if _conf["ext"]:
+            st.markdown("##### Consultas do fornecedor")
+            st.dataframe(pd.DataFrame(_conf["ext"]).rename(columns={"base": "Base", "resultado": "Resultado"}),
+                         hide_index=True, width="stretch")
+        with st.expander("📑 Peças identificadas", expanded=False):
+            st.dataframe(pd.DataFrame([{"Peça": CP.ROTULO[d["tipo"]], "Onde": CP.onde(_res["paginas"], d["indices"]),
+                                        "Data": CP.fmt(d["data"])} for d in _res["docs"]]),
+                         hide_index=True, width="stretch")
+        with st.expander("📋 Lista de verificação marcada", expanded=False):
+            st.dataframe(pd.DataFrame([{"Item": c["texto"], "Situação": c["situacao"], "Onde": c["onde"]}
+                                       for c in _res["checklist"]]), hide_index=True, width="stretch")
+        st.button("📋 Levar o resultado para a aba Checklist", key="btn_conf_ck", use_container_width=True,
+                  on_click=_conf_aplicar_checklist, args=(_conf["modalidade"], _res["checklist"]))
+
+        _corpo_conf = CP.corpo_relatorio(_res, _conf["modalidade"], _conf["arquivos"], _conf["ext"])
+        _titulo_conf = "RELATÓRIO DE CONFERÊNCIA DO PROCESSO"
+        _faltam_conf = _pendencias_documento()
+        if _faltam_conf:
+            st.warning("Para baixar o relatório, preencha na aba **📄 Documentos** os dados obrigatórios da OM e do(s) "
+                       "signatário(s). Falta: " + ", ".join(_faltam_conf) + ".")
+        _r1, _r2 = st.columns(2)
+        with _r1:
+            st.download_button("🖨️ Relatório em PDF", gerar_pdf_documento(_titulo_conf, _corpo_conf) if not _faltam_conf else b"",
+                               "conferencia_processo.pdf", "application/pdf", key="dl_conf_pdf",
+                               use_container_width=True, disabled=bool(_faltam_conf))
+        with _r2:
+            st.download_button("📝 Relatório em Word", gerar_docx_documento(_titulo_conf, _corpo_conf) if not _faltam_conf else b"",
+                               "conferencia_processo.docx",
+                               "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                               key="dl_conf_docx", use_container_width=True, disabled=bool(_faltam_conf))
+
+
+# ============================================================
+# TAB 5 — LIMITE DE DISPENSA (fracionamento, art. 75, §1º)
+# ============================================================
+with tab_fracionamento:
+    st.markdown("""
+    <div class="workspace-console checklist-workspace">
+        <div class="workspace-console-content">
+            <div class="workspace-console-icon">⚖️</div>
+            <div><h3>Limite de Dispensa por Ramo de Atividade</h3><p>Quanto a UASG já contratou por dispensa em razão do valor no exercício, por ramo, e quanto ainda cabe.</p></div>
+            <span class="workspace-console-badge">ART. 75, §1º</span>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+    st.caption("O limite do art. 75, I e II, vale para o somatório do exercício na unidade gestora, por objetos do mesmo "
+               "ramo de atividade (art. 75, §1º). Ramo: família do item no CATMAT (PDM) para materiais e serviço do "
+               "CATSER para serviços (IN SEGES/ME nº 67/2021). Também soma por natureza de despesa e subelemento "
+               "(Portaria STN nº 448/2002), sugeridos pelo sistema e ajustáveis por você. Fonte: dispensas publicadas no "
+               "PNCP (dados abertos do Compras.gov.br). " + MP.nota_limites().replace("$", "\\$"))
+    _f1, _f2, _f3 = st.columns([2, 1, 2])
+    with _f1:
+        _preencher("frac_uasg", _om("uasg"))
+        frac_uasg = st.text_input("UASG da unidade gestora", key="frac_uasg", placeholder="Ex: 765000")
+    with _f2:
+        frac_ano = st.number_input("Exercício", min_value=2023, max_value=datetime.now().year,
+                                   value=datetime.now().year, step=1, key="frac_ano")
+    with _f3:
+        st.write("")
+        st.write("")
+        _verificar = st.button("⚖️ Verificar o exercício", key="frac_verificar", type="primary",
+                               use_container_width=True, disabled=not frac_uasg.strip().isdigit())
+    if _verificar:
+        _barra = st.progress(0.0, text="Buscando as dispensas da UASG no PNCP...")
+        _compras, _erro = FR.buscar_dispensas(frac_uasg.strip(), int(frac_ano),
+                                              lambda f, t: _barra.progress(min(f, 1.0), text=t))
+        _barra.empty()
+        if _erro:
+            st.error(f"Não foi possível consultar agora: {_erro}")
+        else:
+            _grupos = FR.consolidar(_compras)
+            _nome = next((c.get("unidadeOrgaoNomeUnidade") for c in _compras if c.get("unidadeOrgaoNomeUnidade")), "")
+            _anterior = st.session_state.get("frac_resultado") or {}
+            if _anterior.get("uasg") != frac_uasg.strip():
+                st.session_state["frac_ajustes"] = {}      # subelementos escolhidos valem para a mesma UASG
+            st.session_state["frac_resultado"] = {"uasg": frac_uasg.strip(), "ano": int(frac_ano), "nome": _nome,
+                                                  "compras": _compras, "grupos": _grupos,
+                                                  "versao": int(datetime.now().timestamp())}
+            st.session_state.pop(f"doc_gerado_{MP.DOC_FRACIONAMENTO}", None)
+            st.session_state.pop(f"doc_editado_{MP.DOC_FRACIONAMENTO}", None)
+
+    _fr = st.session_state.get("frac_resultado")
+    if _fr:
+        _g = _fr["grupos"]
+        _ajustes = st.session_state.setdefault("frac_ajustes", {})
+        _materiais = [x for x in _g if x.get("tipo", "Material") == "Material"]
+        _servicos = [x for x in _g if x.get("tipo") == "Serviço"]
+        st.markdown(f"**UASG {_fr['uasg']}{' – ' + _fr['nome'] if _fr['nome'] else ''} · exercício {_fr['ano']}**")
+        _k1, _k2, _k3, _k4, _k5 = st.columns(5)
+        _k1.metric("Dispensas por valor", len(_fr["compras"]))
+        _k2.metric("📦 Ramos de material", len(_materiais))
+        _k3.metric("🛠️ Ramos de serviço", len(_servicos))
+        _k4.metric("🔴 Ultrapassados", sum(1 for x in _g if x["uso"] >= 1))
+        _k5.metric("🟡 Acima de 80%", sum(1 for x in _g if 0.8 <= x["uso"] < 1))
+        if not _fr["compras"]:
+            st.info("Nenhuma dispensa por valor (art. 75, I ou II) publicada no PNCP para esta UASG no exercício.")
+        else:
+            _opcoes_nd = ND.opcoes()
+            _t_mat, _t_serv, _t_nd = st.tabs([f"📦 Materiais ({len(_materiais)})", f"🛠️ Serviços ({len(_servicos)})",
+                                              "🧾 Por natureza de despesa"])
+            _conf_moeda = {"Total": st.column_config.NumberColumn(format="R$ %.2f"),
+                           "Saldo": st.column_config.NumberColumn(format="R$ %.2f"),
+                           "Uso": st.column_config.ProgressColumn("Uso do limite", format="%.0f%%", min_value=0,
+                                                                 max_value=100)}
+            for _aba, _lista, _tipo in ((_t_mat, _materiais, "Material"), (_t_serv, _servicos, "Serviço")):
+                with _aba:
+                    if not _lista:
+                        st.info(f"Nenhum {'material' if _tipo == 'Material' else 'serviço'} nas dispensas por valor do exercício.")
+                        continue
+                    _df = pd.DataFrame([{
+                        "Situação": x["situacao"], "Inciso": x["inciso"], "Ramo de atividade": x["ramo"],
+                        "Subelemento": ND.rotulo(_ajustes.get(f"{x['inciso']}|{x['chave']}", x.get("subelemento") or "")),
+                        "Dispensas": len(x["compras"]), "Total": x["total"], "Saldo": max(x["saldo"], 0),
+                        "Uso": x["uso"] * 100, "Base": x["base"], "Classe": x["classe"],
+                        "Exemplos de itens": "; ".join(x["exemplos"]),
+                        "Valor estimado?": "sim" if x["estimado"] else ""} for x in _lista])
+                    _ed = st.data_editor(
+                        _df, key=f"frac_ed_{_tipo}_{_fr.get('versao', 0)}", hide_index=True, width="stretch",
+                        disabled=[c for c in _df.columns if c != "Subelemento"],
+                        column_config={**_conf_moeda, "Subelemento": st.column_config.SelectboxColumn(
+                            "Subelemento (editável)", options=_opcoes_nd, width="large",
+                            help="Sugerido pela família ou pelo serviço. Corrija se a sua OM classifica de outro modo.")})
+                    for _x, _rot in zip(_lista, _ed["Subelemento"]):
+                        _chave = f"{_x['inciso']}|{_x['chave']}"
+                        _cod = ND.codigo_do_rotulo(_rot)
+                        if _cod != (_x.get("subelemento") or ""):
+                            _ajustes[_chave] = _cod
+                        else:
+                            _ajustes.pop(_chave, None)
+                    if _tipo == "Serviço":
+                        st.caption("Serviços agrupados pelo catálogo CATSER. \"CATSER (semelhança N%)\" = nome do serviço "
+                                   "não idêntico ao do catálogo; confira o agrupamento.")
+                    else:
+                        st.caption("Materiais agrupados pela família do CATMAT (PDM). \"descrição (aproximado)\" = item "
+                                   "sem correspondência no catálogo.")
+            with _t_nd:
+                _subs = FR.por_subelemento(_g, _ajustes)
+                st.dataframe(pd.DataFrame([{
+                    "Situação": x["situacao"], "Inciso": x["inciso"], "Natureza / subelemento": x["rotulo"],
+                    "Ramos": x["ramos"], "Dispensas": x["compras"], "Total": x["total"], "Saldo": max(x["saldo"], 0),
+                    "Uso": x["uso"] * 100} for x in _subs]), hide_index=True, width="stretch", column_config=_conf_moeda)
+                if any(not x["subelemento"] for x in _subs):
+                    st.warning("Há ramos com subelemento **a definir**: escolha o subelemento nas abas Materiais e "
+                               "Serviços para a soma ficar completa.")
+                st.caption("Soma por subelemento da Portaria STN nº 448/2002 (3.3.90.30, 3.3.90.39 e 4.4.90.52), usando "
+                           "os subelementos escolhidos nas abas ao lado. Despesas de TIC têm naturezas próprias "
+                           "(3.3.90.40 e 4.4.90.40) e não estão detalhadas.")
+            # relatório acompanha os subelementos escolhidos (sem apagar edições feitas à mão no texto)
+            _corpo_novo = FR.corpo_relatorio(_fr["uasg"], _fr["nome"], _fr["ano"], _g, _fr["compras"], _ajustes)
+            _doc_atual = st.session_state.get(f"doc_gerado_{MP.DOC_FRACIONAMENTO}")
+            if not _doc_atual or _doc_atual["corpo"] != _corpo_novo:
+                _editado = st.session_state.get(f"doc_editado_{MP.DOC_FRACIONAMENTO}")
+                _mexido = _doc_atual and _editado and _editado != _doc_atual["corpo"]
+                st.session_state[f"doc_gerado_{MP.DOC_FRACIONAMENTO}"] = {
+                    "titulo": "RELATÓRIO DE VERIFICAÇÃO DE FRACIONAMENTO", "corpo": _corpo_novo,
+                    "nome": f"fracionamento_{_fr['uasg']}_{_fr['ano']}", "oficio": None}
+                if not _mexido:
+                    st.session_state[f"doc_editado_{MP.DOC_FRACIONAMENTO}"] = _corpo_novo
+
+        st.markdown("##### 🧮 Simular uma nova dispensa")
+        _s1, _s2, _s3, _s4 = st.columns([3, 1.3, 1, 1])
+        with _s1:
+            _sim_desc = st.text_input("Descrição do item (como no CATMAT)", key="frac_sim_desc",
+                                      placeholder="Ex: PAPEL A4, GRAMATURA: 75 G/M2")
+        with _s2:
+            _sim_valor = st.number_input("Valor (R$)", min_value=0.0, step=100.0, format="%.2f", key="frac_sim_valor")
+        with _s3:
+            _sim_tipo = st.selectbox("Tipo", ["Material", "Serviço"], key="frac_sim_tipo")
+        with _s4:
+            _sim_inc = st.selectbox("Inciso", ["II", "I"], key="frac_sim_inc")
+        if _sim_desc.strip() and _sim_valor:
+            _sim = FR.simular(_g, _sim_desc, _sim_valor, _sim_tipo == "Material", _sim_inc)
+            _msg = (f"Ramo **{_sim['ramo']}** ({_sim['base']}): já contratado {MP.brl(_sim['ja_contratado'])} + esta "
+                    f"dispensa {MP.brl(_sim['novo'])} = **{MP.brl(_sim['total'])}** de {MP.brl(_sim['limite'])}.").replace("$", "\\$")
+            (st.success if _sim["cabe"] else st.error)(
+                _msg + (" Cabe no limite." if _sim["cabe"] else " **Ultrapassa o limite**: avalie licitar ou outra hipótese."))
+            _cod_sim = next((_ajustes.get(f"{_sim_inc}|{x['chave']}", x.get("subelemento") or "") for x in _g
+                             if x["chave"] == _sim["chave"] and x["inciso"] == _sim_inc), "") \
+                or ND.sugerir(_sim_tipo == "Material", _sim["ramo"], _sim.get("classe", ""))
+            if _cod_sim:
+                _ja_sub = sum(x["total"] for x in FR.por_subelemento(_g, _ajustes)
+                              if x["subelemento"] == _cod_sim and x["inciso"] == _sim_inc)
+                _tot_sub = _ja_sub + _sim_valor
+                (st.success if _tot_sub < _sim["limite"] else st.error)(
+                    (f"Subelemento **{ND.rotulo(_cod_sim)}**: já contratado {MP.brl(_ja_sub)} + esta dispensa = "
+                     f"**{MP.brl(_tot_sub)}** de {MP.brl(_sim['limite'])}."
+                     + (" Cabe no limite." if _tot_sub < _sim["limite"] else " **Ultrapassa o limite pelo subelemento.**")
+                     ).replace("$", "\\$"))
+
+        _faltam_fr = _pendencias_documento()
+        _doc_fr = st.session_state.get(f"doc_gerado_{MP.DOC_FRACIONAMENTO}")
+        if _doc_fr:
+            _corpo_fr = st.session_state.get(f"doc_editado_{MP.DOC_FRACIONAMENTO}") or _doc_fr["corpo"]
+            if _faltam_fr:
+                st.warning("Para baixar o relatório, preencha na aba **📄 Documentos** os dados obrigatórios da OM. "
+                           "Falta: " + ", ".join(_faltam_fr) + ".")
+            _d1, _d2 = st.columns(2)
+            with _d1:
+                st.download_button("🖨️ Relatório em PDF", gerar_pdf_documento(_doc_fr["titulo"], _corpo_fr) if not _faltam_fr else b"",
+                                   f"{_doc_fr['nome']}.pdf", "application/pdf", key="dl_frac_pdf",
+                                   use_container_width=True, disabled=bool(_faltam_fr))
+            with _d2:
+                st.download_button("📝 Relatório em Word", gerar_docx_documento(_doc_fr["titulo"], _corpo_fr) if not _faltam_fr else b"",
+                                   f"{_doc_fr['nome']}.docx",
+                                   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                                   key="dl_frac_docx", use_container_width=True, disabled=bool(_faltam_fr))
+            st.caption("O relatório também entra no Kit do processo e pode ser editado na aba Documentos "
+                       f"(\"{MP.DOC_FRACIONAMENTO}\"). O TJDL passa a oferecer o total do ramo para preencher o campo "
+                       "\"já contratado no exercício\".")

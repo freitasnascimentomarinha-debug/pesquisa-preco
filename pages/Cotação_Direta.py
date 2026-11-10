@@ -10,7 +10,7 @@ import time
 
 import pandas as pd
 import streamlit as st
-
+from ui_tema import sidebar_mascote
 st.set_page_config(
     page_title="Cotação Direta",
     page_icon="📨",
@@ -66,7 +66,7 @@ acanto_b64 = base64.b64encode(open(acanto_path, "rb").read()).decode() if os.pat
 
 with st.sidebar:
     if acanto_b64:
-        st.markdown(f'<div style="text-align:center;padding:1rem 0 0.5rem 0;"><img src="data:image/png;base64,{acanto_b64}" style="max-width:70%;height:auto;"></div>', unsafe_allow_html=True)
+        sidebar_mascote()
     st.markdown("## MENU")
     st.markdown("---")
     st.page_link("streamlit_app.py", label="Cotação", icon="⚓")
@@ -74,6 +74,7 @@ with st.sidebar:
     st.page_link("pages/Cotação_Rápida.py", label="Cotação Rápida", icon="⚡")
     st.page_link("pages/Cotação_Direta.py", label="Cotação Direta", icon="📨")
     st.page_link("pages/Detalhes_Compra.py", label="Detalhes Compra", icon="🔍")
+    st.page_link("pages/Radar_de_Licitacoes.py", label="Radar de Licitações", icon="📡")
     st.page_link("pages/Adesões.py", label="Adesões", icon="🤝")
     st.page_link("pages/Notas_Fiscais.py", label="Notas Fiscais", icon="📄")
     st.page_link("pages/Banco_de_Fornecedores.py", label="Fornecedores", icon="🏢")
@@ -414,30 +415,61 @@ if resultado:
 
     # ---------- 6. envio ----------
     passo(5, "Enviar", "Uma mensagem para você (destinatário visível, com a proposta anexada) e os fornecedores em cópia oculta: um não vê o outro.")
-    chave_api, remetente, senha_esperada = segredo("RESEND_API_KEY"), segredo("RESEND_FROM"), segredo("COTACAO_DIRETA_SENHA")
-    if not (chave_api and remetente):  # a senha (COTACAO_DIRETA_SENHA) é opcional: sem ela, o envio não pede senha
-        faltantes = [n for n, v in (("RESEND_API_KEY", chave_api), ("RESEND_FROM", remetente)) if not v]
-        st.info("O envio ainda não está ligado. Configure nos Secrets do app: " + ", ".join(faltantes) + ". "
-                "Enquanto isso, baixe o Word e a lista e envie por conta própria.")
+    senha_esperada = segredo("COTACAO_DIRETA_SENHA")
+    gmail_secrets, gmail_senha_secrets = segredo("GMAIL_USER"), segredo("GMAIL_APP_PASSWORD")
+    conta_nos_secrets = bool(gmail_secrets and gmail_senha_secrets)
+
+    with st.expander("📧 Enviar pela sua conta do Gmail (recomendado)" if conta_nos_secrets else "📧 Enviar pela sua conta do Gmail", expanded=not conta_nos_secrets):
+        st.caption("O e-mail sai do seu próprio Gmail e usa a sua cota diária (cerca de 500 por dia). A senha **não fica salva**: vale só nesta sessão do navegador. "
+                   + ("Se você deixar em branco, o sistema envia pela conta do próprio sistema." if conta_nos_secrets else ""))
+        g1, g2 = st.columns(2)
+        gmail_pessoal = g1.text_input("Seu Gmail", key="cd_gmail_usuario", placeholder="seunome@gmail.com")
+        senha_pessoal = g2.text_input("Senha de app do Gmail", type="password", key="cd_gmail_senha", help="Não é a senha normal do e-mail. Veja abaixo como gerar.")
+        st.markdown("**Como gerar a senha de app (uma vez):** 1) em myaccount.google.com/security ative a **Verificação em duas etapas**; "
+                    "2) na mesma área, procure por **Senhas de app**; 3) crie uma com o nome *AtaCotada* e copie as 16 letras. "
+                    "Em conta de Workspace, o administrador pode ter desligado esse recurso.")
+    usuario_pessoal, chave_pessoal = (gmail_pessoal or "").strip(), cd.limpar_senha_app(senha_pessoal)
+    usa_pessoal = bool(usuario_pessoal and chave_pessoal)
+    if (usuario_pessoal or chave_pessoal) and not usa_pessoal:
+        st.warning("Preencha o Gmail e a senha de app (os dois), ou deixe os dois em branco.")
+    if usa_pessoal:
+        canal, quem_envia = "gmail", f"seu Gmail ({usuario_pessoal})"
+    elif gmail_secrets and gmail_senha_secrets:
+        canal, quem_envia = "gmail_secrets", f"a conta do sistema ({gmail_secrets})"
     else:
+        canal, quem_envia = "", ""
+
+    if not canal:
+        st.info("O envio ainda não está ligado. Informe o seu Gmail e a senha de app acima, ou peça a quem cuida do sistema para configurar nos Secrets: "
+                "GMAIL_USER e GMAIL_APP_PASSWORD. Enquanto isso, baixe o Word e a lista e envie por conta própria.")
+    else:
+        def enviar_mensagem(bcc: list[str], assunto_msg: str, corpo_texto: str, corpo_html: str, anexos_msg: list[tuple[str, bytes]]) -> dict[str, object]:
+            """Envia uma mensagem pelo Gmail escolhido (o da pessoa ou o dos Secrets)."""
+            usuario, chave = (usuario_pessoal, chave_pessoal) if canal == "gmail" else (gmail_secrets, gmail_senha_secrets)
+            return cd.enviar_gmail(usuario, chave, origem, om["emails"], bcc, om["emails"], assunto_msg, corpo_texto, corpo_html, anexos_msg)
+
+        remetente_exibido = usuario_pessoal if canal == "gmail" else gmail_secrets
+        origem = cd.remetente_com_nome(remetente_exibido, om["nome"])
         com_mais = ""
         if len(lotes) > 1:
             com_mais = f" Como são muitos fornecedores, serão {len(lotes)} mensagens iguais (o limite é de {cd.LOTE_BCC} ocultos por mensagem): você receberá {len(lotes)} cópias."
-        st.caption(f"Remetente: {cd.remetente_com_nome(remetente, om['nome'])}  •  Para e respostas: {om['email']}.{com_mais}")
-        if senha_esperada:
-            senha = st.text_input("Senha de envio", type="password", key="cd_senha", help="Definida em COTACAO_DIRETA_SENHA nos Secrets: evita que qualquer pessoa dispare e-mails em nome da OM.")
+        st.caption(f"Enviando por: {quem_envia}  •  Remetente: {origem}  •  Para e respostas: {om['email']}.{com_mais}")
+        if total_destinos + len(lotes) * len(om["emails"]) > 450:
+            st.warning("O Gmail permite cerca de 500 envios por dia por conta e este pedido usa quase tudo. Considere dividir em dois dias ou enviar por outra conta.")
+        exige_senha = bool(senha_esperada) and canal != "gmail"  # na conta do sistema, a senha evita que qualquer pessoa dispare e-mails em nome da OM; no Gmail da própria pessoa, não precisa
+        if exige_senha:
+            senha = st.text_input("Senha de envio", type="password", key="cd_senha", help="Definida em COTACAO_DIRETA_SENHA nos Secrets: evita que qualquer pessoa dispare e-mails em nome da OM pela conta do sistema.")
             senha_ok = cd.senha_correta(senha, senha_esperada)
             if senha and not senha_ok:
                 st.error("Senha incorreta.")
         else:
             senha_ok = True
         anexos = [(nome_arquivo, proposta)]
-        origem = cd.remetente_com_nome(remetente, om["nome"])
         html_corpo = cd.html_email(texto_final)
 
         t1, t2 = st.columns(2)
         if t1.button("🧪 Enviar teste só para mim", disabled=not senha_ok or bool(invalidos) or not ativos, key="cd_teste"):
-            retorno = cd.enviar_resend(chave_api, origem, om["emails"], [], om["emails"], "[TESTE] " + assunto, texto_final, html_corpo, anexos)
+            retorno = enviar_mensagem([], "[TESTE] " + assunto, texto_final, html_corpo, anexos)
             (st.success if retorno["ok"] else st.error)("Teste enviado: confira a sua caixa de entrada (e o spam)." if retorno["ok"] else f"Falhou: {retorno['erro']}")
         registros_antes = st.session_state.get("cd_envio", {}).get(protocolo, {}).get("registros", [])
         ja_enviados = {r["E-mails"] for r in registros_antes if r["Resultado"] == "Enviada"}  # lotes que já saíram (não repete em nova tentativa)
@@ -455,9 +487,9 @@ if resultado:
                 for numero, lote in enumerate(lotes, start=1):
                     if "; ".join(lote) in ja_enviados:
                         continue
-                    retorno = cd.enviar_resend(chave_api, origem, om["emails"], lote, om["emails"], assunto, texto_final, html_corpo, anexos)
+                    retorno = enviar_mensagem(lote, assunto, texto_final, html_corpo, anexos)
                     registros.append({"Mensagem": numero, "Fornecedores ocultos": len(lote), "Resultado": "Enviada" if retorno["ok"] else "FALHOU",
-                                      "Código Resend": retorno["id"], "Erro": retorno["erro"], "Data/hora": dt.datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
+                                      "Código do envio": retorno["id"], "Erro": retorno["erro"], "Data/hora": dt.datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
                                       "E-mails": "; ".join(lote)})
                     if not retorno["ok"]:
                         break

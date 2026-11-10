@@ -6,7 +6,7 @@ import base64
 import os
 
 import streamlit as st
-
+from ui_tema import sidebar_mascote
 st.set_page_config(
     page_title="Sobre o projeto",
     page_icon="ℹ️",
@@ -80,7 +80,7 @@ else:
 
 with st.sidebar:
     if acanto_b64:
-        st.markdown(f'<div style="text-align:center;padding:1rem 0 0.5rem 0;"><img src="data:image/png;base64,{acanto_b64}" style="max-width:70%;height:auto;"></div>', unsafe_allow_html=True)
+        sidebar_mascote()
     st.markdown("## MENU")
     st.markdown("---")
     st.page_link("streamlit_app.py", label="Cotação", icon="⚓")
@@ -88,6 +88,7 @@ with st.sidebar:
     st.page_link("pages/Cotação_Rápida.py", label="Cotação Rápida", icon="⚡")
     st.page_link("pages/Cotação_Direta.py", label="Cotação Direta", icon="📨")
     st.page_link("pages/Detalhes_Compra.py", label="Detalhes Compra", icon="🔍")
+    st.page_link("pages/Radar_de_Licitacoes.py", label="Radar de Licitações", icon="📡")
     st.page_link("pages/Adesões.py", label="Adesões", icon="🤝")
     st.page_link("pages/Notas_Fiscais.py", label="Notas Fiscais", icon="📄")
     st.page_link("pages/Banco_de_Fornecedores.py", label="Fornecedores", icon="🏢")
@@ -109,12 +110,13 @@ FERRAMENTAS = [
     ("⚡", "Cotação Rápida", "Cota vários itens de uma vez e monta o mapa comparativo de preços em PDF e Excel."),
     ("📨", "Cotação Direta", "Pede orçamento por e-mail a fornecedores que venderam recentemente, com proposta em Word."),
     ("🔍", "Detalhes Compra", "Consulta os detalhes de uma compra pública."),
-    ("🤝", "Adesões", "Localiza atas de registro de preços vigentes para adesão, por estado, com saldos e limites."),
+    ("📡", "Radar de Licitações", "Busca licitações no PNCP por objeto, UASG, período e situação: calendário de encerramentos, documentos, link de acompanhamento, itens com deságio, fornecedores, atas e participantes."),
+    ("🤝", "Adesões", "Localiza atas de registro de preços vigentes para adesão, por estado, com saldos e limites, e monta a adesão: itens, quantidades, análise de vantajosidade e ofício ao órgão gerenciador."),
     ("📄", "Notas Fiscais", "Pesquisa preços em notas fiscais eletrônicas dos dados abertos e relaciona as NF-e para autenticação."),
     ("🏢", "Fornecedores", "Lista fornecedores por atividade econômica (CNAE), com contatos."),
     ("💻", "Consulta CNPJ", "Consulta dados cadastrais de empresas pelo CNPJ."),
     ("🕷️", "Web Scraping", "Pesquisa de preços automatizada na internet, com endereço, data/hora e prints de evidência."),
-    ("🧠", "O Babilaca (IA)", "Assistente de IA para licitações e legislação, com respostas apoiadas em fontes verificadas."),
+    ("🧠", "O Babilaca (IA)", "Assistente de IA para licitações: tira dúvidas com fontes verificadas, gera documentos no padrão da Marinha (DFD, ETP, TR, TJDL, TJIL, aviso e ofícios), monta o kit do processo, confere o processo, calcula prazos e verifica o limite de dispensa por ramo de atividade."),
     ("📊", "Cálculo IPCA", "Correção monetária de valores pelo IPCA acumulado (série 433 do Banco Central)."),
 ]
 
@@ -126,6 +128,7 @@ st.markdown(
         <p class="sp-lead">Ele faz a <b>pesquisa de preços por você</b>, monta o <b>mapa comparativo</b>, a <b>memória de cálculo</b> e a <b>justificativa da metodologia</b>,
         encontra e entrega o <b>arquivo de atas para adesão</b> com o material de que você precisa, identifica o <b>CATMAT ideal</b> para cada item e oferece outras funcionalidades.
         Um sistema que <b>aumenta a produtividade</b>, reduzindo <b>semanas de trabalho a minutos</b>.</p>
+        <div class="sp-chips"><span>🔓 Código aberto</span><span>🆓 Gratuito</span><span>📡 Dados públicos</span><span>⚓ Marinha do Brasil</span></div>
     </div>
     """,
     unsafe_allow_html=True,
@@ -146,10 +149,7 @@ st.markdown(
         <h3>🎯 O propósito do projeto</h3>
         <p>O principal objetivo do <b>2°SG-PL Freitas</b> com o AtaCotada é <b>demonstrar a capacidade das novas tecnologias de aprimorar os processos de trabalho</b>,
         para que outras pessoas se inspirem, aprendam e desenvolvam sistemas e soluções criativas que facilitem a vida de quem trabalha.</p>
-        <p>O AtaCotada <b>não tem a pretensão de se tornar um sistema oficial</b>. Enquanto facilita o trabalho dos colegas, ele também mostra aplicações relevantes
-        que podem servir de ponto de partida para um sistema oficial, caso a Instituição venha a desenvolver um.</p>
-        <p>Contribuir com a missão da Marinha é mais importante do que qualquer reconhecimento ou prêmio. Por isso o projeto é de <b>código aberto</b>,
-        <b>público</b> e <b>gratuito</b>: quanto mais gente puder ver, usar e aproveitar a ideia, melhor.</p>
+        <p>Contribuir com a missão da Marinha é mais importante do que qualquer <b>reconhecimento</b> ou <b>valor monetário</b>. Por isso, o sistema é de <b>código aberto</b> e <b>gratuito</b>.</p>
         <p class="destaque">O AtaCotada existe para mostrar que a falta de pessoal pode ser suprida com inteligência, automação e IA.</p>
     </div>
     <div class="sp-panel">
@@ -166,7 +166,7 @@ st.markdown(
 )
 
 st.markdown('<div class="sp-panel"><h3>Ferramentas do sistema</h3><div class="sp-grid">' + "".join(
-    f'<div class="sp-card"><div class="t">{icone} {nome}</div><div class="d">{descricao}</div></div>' for icone, nome, descricao in FERRAMENTAS
+    f'<div class="sp-card"><div class="ic">{icone}</div><div class="tx"><div class="t">{nome}</div><div class="d">{descricao}</div></div></div>' for icone, nome, descricao in FERRAMENTAS
 ) + "</div></div>", unsafe_allow_html=True)
 
 st.markdown(

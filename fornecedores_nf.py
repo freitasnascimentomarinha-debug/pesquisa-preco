@@ -15,6 +15,8 @@ from typing import Callable
 import pandas as pd
 import requests
 
+from servicos_publicos import formatar_cnpj  # noqa: F401  (reexportado: relatorio_nf_lote importa daqui)
+
 API_CNPJ = "https://api.opencnpj.org/{cnpj}"
 CAMINHO_CNAES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "cnaes_completo.json")
 MAX_FORNECEDORES_POR_ITEM = 10  # o relatório traz até este número de fornecedores por item pesquisado
@@ -33,13 +35,6 @@ def _cnaes() -> dict[int, str]:
     except (OSError, ValueError):
         return {}
     return {int(codigo): re.sub(r"\s*\(\d{4}-\d/\d{2}\)\s*$", "", descricao).strip() for descricao, codigo in bruto.items()}
-
-
-def formatar_cnpj(cnpj: str) -> str:
-    digitos = re.sub(r"\D", "", str(cnpj or ""))
-    if len(digitos) != 14:
-        return str(cnpj or "")
-    return f"{digitos[:2]}.{digitos[2:5]}.{digitos[5:8]}/{digitos[8:12]}-{digitos[12:]}"
 
 
 def formatar_cnae(valor: object) -> str:
