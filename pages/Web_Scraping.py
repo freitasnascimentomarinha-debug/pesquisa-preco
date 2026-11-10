@@ -12,6 +12,7 @@ from datetime import datetime
 from io import BytesIO
 from urllib.parse import urlparse, quote_plus
 import sys
+import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))  # módulos da raiz do projeto
 from atualizar_modulos import recarregar_se_mudou  # noqa: E402
@@ -1551,24 +1552,59 @@ def _tem_secrets():
         return False
 
 
-def executar_scraping(itens, usar_playwright, progress_bar, log_container, status_text, max_fontes, usar_navegador=False, tempo_max_pagina_min=2, navegador_primeiro=False):
+CHECKPOINT_SCRAPING = os.path.join(tempfile.gettempdir(), "atacotada_scraping_checkpoint.json")  # fica no servidor: sobrevive à perda da sessão do navegador
+
+
+def _salvar_checkpoint(itens, feitos, resultados, pedidos, concluido=False):
+    """Guarda em disco o que a pesquisa já coletou, a cada item: se a sessão cair no meio, dá para recuperar em vez de recomeçar."""
+    try:
+        temporario = CHECKPOINT_SCRAPING + ".tmp"
+        with open(temporario, "w", encoding="utf-8") as arquivo:
+            json.dump({"itens": itens, "feitos": feitos, "resultados": resultados, "pedidos": pedidos, "concluido": concluido,
+                       "salvo_em": datetime.now().strftime("%d/%m/%Y %H:%M")}, arquivo, ensure_ascii=False, default=str)
+        os.replace(temporario, CHECKPOINT_SCRAPING)
+    except Exception:
+        pass  # o checkpoint é só uma rede de segurança: nunca derruba a pesquisa
+
+
+def _ler_checkpoint():
+    try:
+        with open(CHECKPOINT_SCRAPING, encoding="utf-8") as arquivo:
+            dados = json.load(arquivo)
+        return dados if dados.get("itens") and dados.get("resultados") is not None else None
+    except Exception:
+        return None
+
+
+def _apagar_checkpoint():
+    try:
+        os.remove(CHECKPOINT_SCRAPING)
+    except OSError:
+        pass
+
+
+def executar_scraping(itens, usar_playwright, progress_bar, log_container, status_text, max_fontes, usar_navegador=False, tempo_max_pagina_min=2, navegador_primeiro=False, anteriores=None):
     """Executa o scraping. `usar_navegador`: liga o navegador. `navegador_primeiro`: as páginas são abertas nele antes da leitura por texto
     (senão, ele só é o reserva das páginas em que a leitura por texto não achou preço; o print dessas fica guardado; as demais ganham print pelo botão depois). Cada página tem `tempo_max_pagina_min` minutos: se travar, é abandonada, o navegador é
     reiniciado e a leitura por texto assume."""
     leitor = captura_pagina.LeitorNavegador(tempo_max_pagina_s=tempo_max_pagina_min * 60) if usar_navegador else None
     try:
-        return _executar_scraping(itens, usar_playwright, progress_bar, log_container, status_text, max_fontes, leitor, navegador_primeiro)
+        return _executar_scraping(itens, usar_playwright, progress_bar, log_container, status_text, max_fontes, leitor, navegador_primeiro, anteriores)
     finally:
         if leitor is not None:
             leitor.fechar()
 
 
-def _executar_scraping(itens, usar_playwright, progress_bar, log_container, status_text, max_fontes, leitor, navegador_primeiro=False):
-    """Executa o scraping completo para todos os itens."""
+def _executar_scraping(itens, usar_playwright, progress_bar, log_container, status_text, max_fontes, leitor, navegador_primeiro=False, anteriores=None):
+    """Executa o scraping completo para todos os itens. `anteriores` ({"itens", "feitos", "resultados"}): continuação de uma pesquisa interrompida;
+    os resultados já coletados entram no retorno e o checkpoint continua contando os itens que já estavam prontos."""
     import requests as req
 
     logs = []
-    resultados = []
+    resultados = list((anteriores or {}).get("resultados", []))
+    itens_totais = list((anteriores or {}).get("itens", itens))
+    feitos = list((anteriores or {}).get("feitos", []))
+    pedidos_checkpoint = st.session_state.get("scraping_pedidos", {})
     total_itens = len(itens)
     playwright_disponivel = usar_playwright and _ensure_playwright_installed()
 
@@ -1987,6 +2023,8 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
 
             orcamentos_item = atualizar_estado_orcamentos(candidatos_item, max_fontes)["validos"]
             resultados.extend(orcamentos_item)
+            feitos.append(item)
+            _salvar_checkpoint(itens_totais, feitos, resultados, pedidos_checkpoint)
 
             # tempo do item: fica na tela e alimenta o aprendizado de desempenho
             st.session_state.setdefault("tempos_itens", {})[item] = {
@@ -2012,6 +2050,7 @@ def _executar_scraping(itens, usar_playwright, progress_bar, log_container, stat
         except Exception:
             pass
 
+    _salvar_checkpoint(itens_totais, feitos, resultados, pedidos_checkpoint, concluido=True)
     progress_bar.progress(1.0)
     log_msg(log_container, logs, f"━━━ Scraping concluído! {len(resultados)} orçamentos coletados ━━━", "success")
     status_text.text("Scraping concluído!")
@@ -2471,25 +2510,19 @@ col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 1])
 with col_btn2:
     iniciar = st.button("🚀 Iniciar Scraping", type="primary", use_container_width=True)
 
-if iniciar:
-    pedidos_lista = list(itens_pedidos)
-    itens = [p["descricao"] for p in pedidos_lista]
-    st.session_state["scraping_pedidos"] = {p["descricao"]: p for p in pedidos_lista}
+def rodar_scraping(itens, anteriores=None):
+    """Executa a pesquisa mostrando log e progresso. Se ela for interrompida por um erro, o que já foi coletado não se perde."""
+    st.markdown("### 📊 Execução do Scraping")
 
-    if not itens:
-        st.error("⚠️ Informe pelo menos um item para pesquisa.")
-    else:
-        st.markdown("### 📊 Execução do Scraping")
+    # Área de logs
+    st.markdown("#### 📜 Log de Execução")
+    log_container = st.empty()
 
-        # Área de logs
-        st.markdown("#### 📜 Log de Execução")
-        log_container = st.empty()
+    # Barra de progresso
+    progress_bar = st.progress(0)
+    status_text = st.empty()
 
-        # Barra de progresso
-        progress_bar = st.progress(0)
-        status_text = st.empty()
-
-        # Executar scraping
+    try:
         resultados = executar_scraping(
             itens=itens,
             usar_playwright=usar_playwright,
@@ -2500,12 +2533,56 @@ if iniciar:
             usar_navegador=usar_navegador,
             tempo_max_pagina_min=int(tempo_max_pagina),
             navegador_primeiro=navegador_primeiro,
+            anteriores=anteriores,
         )
+    except Exception as erro:  # o checkpoint em disco já tem tudo até o último item concluído
+        st.error(f"A pesquisa foi interrompida por um erro ({erro}). O que já foi coletado foi guardado: use \"Recuperar\" abaixo para ver os resultados ou continuar.")
+        return False
+    # Armazenar resultados no session_state
+    st.session_state["scraping_resultados"] = resultados
+    st.session_state["scraping_itens"] = list((anteriores or {}).get("itens", itens))
+    st.session_state["scraping_excluir_ids"] = []
+    return True
 
-        # Armazenar resultados no session_state
-        st.session_state["scraping_resultados"] = resultados
-        st.session_state["scraping_itens"] = itens
-        st.session_state["scraping_excluir_ids"] = []
+
+if iniciar:
+    pedidos_lista = list(itens_pedidos)
+    itens = [p["descricao"] for p in pedidos_lista]
+    st.session_state["scraping_pedidos"] = {p["descricao"]: p for p in pedidos_lista}
+
+    if not itens:
+        st.error("⚠️ Informe pelo menos um item para pesquisa.")
+    else:
+        _apagar_checkpoint()
+        rodar_scraping(itens)
+
+# Recuperação: a sessão do navegador pode cair no meio da pesquisa (conexão, recarregar a página, servidor reiniciado). O servidor guarda o progresso.
+_ponto = _ler_checkpoint()
+if not iniciar and _ponto and not st.session_state.get("scraping_resultados"):
+    _restantes = [i for i in _ponto["itens"] if i.strip() and i not in _ponto["feitos"]]
+    with st.container(border=True):
+        if _ponto.get("concluido") or not _restantes:
+            st.info(f"🛟 Há uma pesquisa concluída guardada ({_ponto['salvo_em']}): {len(_ponto['itens'])} item(ns), {len(_ponto['resultados'])} orçamento(s). Ela não apareceu na tela porque a sessão foi reiniciada.")
+        else:
+            st.warning(f"🛟 Uma pesquisa foi interrompida ({_ponto['salvo_em']}): {len(_ponto['feitos'])} de {len(_ponto['itens'])} item(ns) já pesquisados, {len(_ponto['resultados'])} orçamento(s) guardados. Você não precisa recomeçar.")
+        col_rec1, col_rec2, col_rec3 = st.columns(3)
+
+        def _restaurar():
+            st.session_state["scraping_resultados"] = _ponto["resultados"]
+            st.session_state["scraping_itens"] = _ponto["itens"]
+            st.session_state["scraping_pedidos"] = _ponto.get("pedidos", {})
+            st.session_state["scraping_excluir_ids"] = []
+
+        if col_rec1.button("📂 Recuperar o que já foi coletado", key="recuperar_scraping", use_container_width=True):
+            _restaurar()
+            st.rerun()
+        if _restantes and col_rec2.button(f"▶ Continuar com os {len(_restantes)} item(ns) restantes", key="continuar_scraping", type="primary", use_container_width=True):
+            st.session_state["scraping_pedidos"] = _ponto.get("pedidos", {})
+            if rodar_scraping(_restantes, anteriores={"itens": _ponto["itens"], "feitos": _ponto["feitos"], "resultados": _ponto["resultados"]}):
+                st.rerun()
+        if col_rec3.button("🗑 Descartar", key="descartar_scraping", use_container_width=True):
+            _apagar_checkpoint()
+            st.rerun()
 
 
 # ===================== EXIBIÇÃO DE RESULTADOS =====================

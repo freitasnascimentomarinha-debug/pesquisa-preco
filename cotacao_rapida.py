@@ -216,11 +216,12 @@ def estatisticas(precos: list[float]) -> dict[str, float]:
     }
 
 
-def resultado_vazio(descricao: str, tipo: str = "Material") -> dict:
+def resultado_vazio(descricao: str, tipo: str = "Material", limiar: float | None = None) -> dict:
     return {
         "descricao": descricao, "tipo": tipo, "status": "sem_catmat", "catmats": [], "precos": [], "stats": None,
         "unidade": "", "unidade_curta": "", "brutos": 0, "outliers": 0, "faixa_validos": None,
-        "falha_api": False, "melhor_proximo": None, "proximos": [], "alternativas_preco": [], "limiar": LIMIAR_SERVICO if tipo == "Serviço" else LIMIAR_CORRESPONDENCIA,
+        "falha_api": False, "melhor_proximo": None, "proximos": [], "alternativas_preco": [], "limiar": limiar if limiar is not None else LIMIAR_SERVICO if tipo == "Serviço" else LIMIAR_CORRESPONDENCIA,
+        "abaixo_padrao": False,
     }
 
 
@@ -283,8 +284,8 @@ def _compras_perto(registros: list[dict], estimativa: float) -> tuple[int, int]:
 
 
 def _cotar_material(descricao: str, catmat: IndiceCatmat, inicio: str, fim: str, estimativa: float | None = None,
-                    forcar: list[str] | None = None, priorizar: bool = True) -> dict:
-    resultado = resultado_vazio(descricao, "Material")
+                    forcar: list[str] | None = None, priorizar: bool = True, limiar_minimo: float | None = None) -> dict:
+    resultado = resultado_vazio(descricao, "Material", limiar_minimo)
     limiar = resultado["limiar"]
     corte_familia = min(LIMIAR_FAMILIA, limiar - 10) if not estimativa else LIMIAR_FAMILIA_COM_ESTIMATIVA
     familias = [f for f in buscar_familias(descricao, catmat, limite=MAX_FAMILIAS) if f["nota"] >= corte_familia]
@@ -347,11 +348,12 @@ def _cotar_material(descricao: str, catmat: IndiceCatmat, inicio: str, fim: str,
                 perto, _ = _compras_perto(por_item[codigo], estimativa)
                 resultado["alternativas_preco"].append({"codigo": codigo, "correspondencia": nota, "descricao": descricao_catalogo, "mediana": mediana,
                                                         "registros": registros, "perto": perto, "unidade": unidade_curta})
+    resultado["abaixo_padrao"] = any(c[0] < LIMIAR_CORRESPONDENCIA for c in escolhidos) and resultado["escolha"] == "parecido"
     return _concluir(resultado, escolhidos, por_item, estimativa, priorizar) if escolhidos else resultado
 
 
-def _cotar_servico(descricao: str, catalogo_servico: list[dict], inicio: str, fim: str) -> dict:
-    resultado = resultado_vazio(descricao, "Serviço")
+def _cotar_servico(descricao: str, catalogo_servico: list[dict], inicio: str, fim: str, limiar_minimo: float | None = None) -> dict:
+    resultado = resultado_vazio(descricao, "Serviço", limiar_minimo)
     limiar = resultado["limiar"]
     opcoes = sorted(_opcoes_servico(descricao, catalogo_servico), key=lambda o: o["bruta"], reverse=True)
     resultado["proximos"] = [{"codigo": o["codigo"], "correspondencia": o["similaridade"], "descricao": o["descricao_catalogo"]} for o in opcoes[:MAX_CATMAT]]
@@ -378,6 +380,7 @@ def _cotar_servico(descricao: str, catalogo_servico: list[dict], inicio: str, fi
         if validos:
             por_item[opcao["codigo"]] = validos
             escolhidos.append((opcao["similaridade"], len(validos), opcao["codigo"], opcao["descricao_catalogo"]))
+    resultado["abaixo_padrao"] = any(c[0] < LIMIAR_SERVICO for c in escolhidos)
     return _concluir(resultado, escolhidos, por_item) if escolhidos else resultado
 
 
@@ -453,28 +456,31 @@ def aplicar_estimativa(resultado: dict, estimativa: float | None) -> dict:
 
 
 def cotar_item(descricao: str, catmat: IndiceCatmat, catalogo_servico: list[dict] | None = None, tipo: str = "Material", hoje: dt.date | None = None,
-               estimativa: float | None = None, forcar: list[str] | None = None, priorizar: bool = True) -> dict:
+               estimativa: float | None = None, forcar: list[str] | None = None, priorizar: bool = True, limiar_minimo: float | None = None) -> dict:
     """Cotação de uma descrição (ver _cotar_item_base). Com `estimativa` (R$ por unidade, opcional), valida preço e CATMAT contra ela (aplicar_estimativa) e,
-    se `priorizar`, deixa os CATMAT bem parecidos de preço compatível passarem na frente. `forcar`: códigos CATMAT escolhidos pelo usuário (material)."""
-    return aplicar_estimativa(_cotar_item_base(descricao, catmat, catalogo_servico, tipo, hoje, estimativa, forcar, priorizar), estimativa)
+    se `priorizar`, deixa os CATMAT bem parecidos de preço compatível passarem na frente. `forcar`: códigos CATMAT escolhidos pelo usuário (material).
+    `limiar_minimo`: % de correspondência mínima no lugar do padrão (75% material, 65% serviço); resultado["abaixo_padrao"] avisa quando algum código escolhido ficou abaixo do padrão."""
+    return aplicar_estimativa(_cotar_item_base(descricao, catmat, catalogo_servico, tipo, hoje, estimativa, forcar, priorizar, limiar_minimo), estimativa)
 
 
 def _cotar_item_base(descricao: str, catmat: IndiceCatmat, catalogo_servico: list[dict] | None = None, tipo: str = "Material", hoje: dt.date | None = None,
-                     estimativa: float | None = None, forcar: list[str] | None = None, priorizar: bool = True) -> dict:
+                     estimativa: float | None = None, forcar: list[str] | None = None, priorizar: bool = True, limiar_minimo: float | None = None) -> dict:
     """Cotação de uma descrição. `tipo`: "Material" (mín. 75%), "Serviço" (mín. 65%) ou "Automático" (escolhe pelo que combina melhor).
     Chaves principais do resultado: tipo, status, catmats (códigos CATMAT/CATSERV), precos, stats."""
     hoje = hoje or dt.date.today()
     inicio, fim = (hoje - dt.timedelta(days=JANELA_DIAS)).isoformat(), hoje.isoformat()
     catalogo_servico = catalogo_servico or []
     if tipo == "Material":
-        return _cotar_material(descricao, catmat, inicio, fim, estimativa, forcar, priorizar)
+        return _cotar_material(descricao, catmat, inicio, fim, estimativa, forcar, priorizar, limiar_minimo)
     if tipo == "Serviço":
-        return _cotar_servico(descricao, catalogo_servico, inicio, fim)
+        return _cotar_servico(descricao, catalogo_servico, inicio, fim, limiar_minimo)
 
     # Automático: decide o tipo antes de gastar consultas de preço.
     nota_material = max((f["nota"] for f in buscar_familias(descricao, catmat, limite=1)), default=0.0)
     nota_servico = max((o["similaridade"] for o in _opcoes_servico(descricao, catalogo_servico)), default=0.0)
-    material_ok, servico_ok = nota_material >= LIMIAR_CORRESPONDENCIA, nota_servico >= LIMIAR_SERVICO
+    limiar_material = limiar_minimo if limiar_minimo is not None else LIMIAR_CORRESPONDENCIA
+    limiar_servico = limiar_minimo if limiar_minimo is not None else LIMIAR_SERVICO
+    material_ok, servico_ok = nota_material >= limiar_material, nota_servico >= limiar_servico
     perfil = _perfil(descricao)
     palavras = set(perfil["ordem"])
     inicio_material = catmat.inicio_pdm.get(str(perfil["cabeca"]), 0)
@@ -489,6 +495,6 @@ def _cotar_item_base(descricao: str, catmat: IndiceCatmat, catalogo_servico: lis
         tipos = ["Material"]
     else:
         tipos = [t for t, ok in (("Material", material_ok), ("Serviço", servico_ok)) if ok]
-        tipos = tipos or [("Material", "Serviço")[nota_servico - LIMIAR_SERVICO > nota_material - LIMIAR_CORRESPONDENCIA]]
-    resultados = [_cotar_material(descricao, catmat, inicio, fim, estimativa, forcar, priorizar) if t == "Material" else _cotar_servico(descricao, catalogo_servico, inicio, fim) for t in tipos]
+        tipos = tipos or [("Material", "Serviço")[nota_servico - limiar_servico > nota_material - limiar_material]]
+    resultados = [_cotar_material(descricao, catmat, inicio, fim, estimativa, forcar, priorizar, limiar_minimo) if t == "Material" else _cotar_servico(descricao, catalogo_servico, inicio, fim, limiar_minimo) for t in tipos]
     return max(resultados, key=lambda r: (_ORDEM_STATUS[r["status"]], len(r["precos"]), max((k["correspondencia"] for k in r["catmats"]), default=0), (r["melhor_proximo"] or {}).get("correspondencia", 0)))
