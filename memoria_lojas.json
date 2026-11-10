@@ -1,6 +1,6 @@
 {
  "versao": 1,
- "atualizado": "2026-11-09T21:15:16",
+ "atualizado": "2026-11-10T19:12:59",
  "lojas": {
   "lojadomecanico.com.br": {
    "acertos": 25,
@@ -5095,6 +5095,96 @@
    "paginas": {
     "caneta esferográfica azul": "https://fenixinsumos.com.br/produtos/caneta-esferografica-azul-1-0mm-cristal-bic"
    }
+  },
+  "topnautika.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-11-10",
+   "itens": [
+    "sinalizador pirotécnico de estrelas vermelha e verde"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "paginas": {
+    "sinalizador pirotécnico de estrelas vermelha e verde": "https://topnautika.com.br/produtos/sinalizador-manual-estrela-vermelha-com-paraquedas-indios-ifp-201"
+   }
+  },
+  "catarinanautica.com": {
+   "acertos": 1,
+   "ultimo": "2026-11-10",
+   "itens": [
+    "sinalizador pirotécnico de estrelas vermelha e verde"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "paginas": {
+    "sinalizador pirotécnico de estrelas vermelha e verde": "https://www.catarinanautica.com/salvatagem-e-seguranca/sinalizador-manual-estrela-vermelha-com-paraquedas-indios-ifp-201"
+   }
+  },
+  "produtosnauticos.com": {
+   "acertos": 2,
+   "ultimo": "2026-11-10",
+   "itens": [
+    "foguete sinalizador verde com paraquedas",
+    "sinalizador pirotécnico de estrelas vermelha e verde"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 2
+   },
+   "paginas": {
+    "sinalizador pirotécnico de estrelas vermelha e verde": "https://produtosnauticos.com/produtos/foguete-manual-estrela-vermelha-sinalizador-com-paraquedas",
+    "foguete sinalizador verde com paraquedas": "https://produtosnauticos.com/produtos/foguete-manual-estrela-vermelha-sinalizador-com-paraquedas"
+   }
+  },
+  "velamar.com.br": {
+   "acertos": 2,
+   "ultimo": "2026-11-10",
+   "itens": [
+    "foguete sinalizador branco com paraquedas",
+    "foguete sinalizador verde com paraquedas"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 2
+   },
+   "paginas": {
+    "foguete sinalizador verde com paraquedas": "https://velamar.com.br/foguete-manual-estrela-vermelha-com-paraquedas-indios-ifp-201-vm",
+    "foguete sinalizador branco com paraquedas": "https://velamar.com.br/foguete-manual-estrela-vermelha-com-paraquedas-indios-ifp-201-vm"
+   }
+  },
+  "regatta.com.br": {
+   "acertos": 2,
+   "ultimo": "2026-11-10",
+   "itens": [
+    "foguete sinalizador branco com paraquedas",
+    "foguete sinalizador verde com paraquedas"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 2
+   },
+   "paginas": {
+    "foguete sinalizador verde com paraquedas": "https://www.regatta.com.br/foguete-manual--estrela-vermelha-com-paraquedas-id0000003/p",
+    "foguete sinalizador branco com paraquedas": "https://www.regatta.com.br/foguete-manual--estrela-vermelha-com-paraquedas-id0000003/p"
+   }
+  },
+  "r4nautic.com": {
+   "acertos": 1,
+   "ultimo": "2026-11-10",
+   "itens": [
+    "foguete sinalizador branco com paraquedas"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "paginas": {
+    "foguete sinalizador branco com paraquedas": "https://r4nautic.com/loja/salvatagem-e-seguranca/sinalizadores-e-pirotecnicos/foguete-manual-estrela-vermelha-indios/"
+   }
   }
  },
  "falhas": {
@@ -5899,54 +5989,99 @@
    "ultimo": "2026-11-09"
   },
   "br.ebay.com": {
+   "navegador": 1,
+   "texto": 2,
+   "ultimo": "2026-11-10"
+  },
+  "seariver.com.br": {
+   "navegador": 2,
+   "texto": 2,
+   "ultimo": "2026-11-10"
+  },
+  "towbar.com.br": {
    "navegador": 0,
    "texto": 1,
-   "ultimo": "2026-11-09"
+   "ultimo": "2026-11-10"
+  },
+  "vetsecurite.com": {
+   "navegador": 2,
+   "texto": 3,
+   "ultimo": "2026-11-10"
+  },
+  "condornaoletal.com.br": {
+   "navegador": 3,
+   "texto": 3,
+   "ultimo": "2026-11-10"
+  },
+  "berlinda.com.br": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-11-10"
+  },
+  "imobiliariarotadosol.com.br": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-11-10"
+  },
+  "tripadvisor.com": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-11-10"
+  },
+  "britannica.com": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-11-10"
+  },
+  "allwostore.com.br": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-11-10"
   }
  },
  "frases": {
   "{item} comprar": {
-   "usos": 15.4812,
-   "acertos": 7.3611,
-   "ultimo": "2026-11-09"
+   "usos": 15.9217,
+   "acertos": 6.6433,
+   "ultimo": "2026-11-10"
   },
   "{item} preço": {
-   "usos": 19.9744,
-   "acertos": 22.6437,
-   "ultimo": "2026-11-09"
+   "usos": 19.9839,
+   "acertos": 18.3932,
+   "ultimo": "2026-11-10"
   },
   "venda de {item}": {
-   "usos": 17.6802,
-   "acertos": 9.2772,
-   "ultimo": "2026-11-09"
+   "usos": 18.1105,
+   "acertos": 7.5563,
+   "ultimo": "2026-11-10"
   },
   "{item} valor": {
-   "usos": 17.9064,
-   "acertos": 7.944,
-   "ultimo": "2026-11-09"
+   "usos": 18.1105,
+   "acertos": 7.1695,
+   "ultimo": "2026-11-10"
   },
   "{item} atacado": {
-   "usos": 19.9744,
-   "acertos": 20.3519,
-   "ultimo": "2026-11-09"
+   "usos": 19.9812,
+   "acertos": 14.9605,
+   "ultimo": "2026-11-10"
   },
   "{item} preço brasil": {
-   "usos": 11.6375,
-   "acertos": 5.4197,
-   "ultimo": "2026-10-06"
+   "usos": 12.4528,
+   "acertos": 4.8913,
+   "ultimo": "2026-11-10"
   },
   "{item} comprar brasil": {
-   "usos": 16.8442,
-   "acertos": 8.6185,
-   "ultimo": "2026-11-09"
+   "usos": 17.2943,
+   "acertos": 7.3893,
+   "ultimo": "2026-11-10"
   },
   "comprar {item} online brasil": {
-   "usos": 18.205,
-   "acertos": 20.3283,
-   "ultimo": "2026-11-09"
+   "usos": 18.7465,
+   "acertos": 14.9312,
+   "ultimo": "2026-11-10"
   }
  },
- "buscas": 152,
+ "buscas": 161,
  "sem_busca": {
   "arxiv.org": "2026-10-05",
   "papers.ssrn.com": "2026-10-05",
@@ -6024,15 +6159,17 @@
   "usinadapesca.com.br": "2026-11-09",
   "primeguns.com.br": "2026-11-09",
   "armas.beartac.com.br": "2026-11-09",
-  "armasriopreto.com.br": "2026-11-09"
+  "armasriopreto.com.br": "2026-11-09",
+  "velamar.com.br": "2026-11-10",
+  "regatta.com.br": "2026-11-10"
  },
  "serper": {
   "mes": "2026-11",
-  "n": 51
+  "n": 77
  },
  "tavily": {
   "mes": "2026-11",
-  "n": 81
+  "n": 118
  },
  "nomes": {
   "papel contact": {
@@ -6580,6 +6717,72 @@
     "Product detail: RWS Technology"
    ],
    "origem": ""
+  },
+  "sinalizador pirotecnico": {
+   "busca": "",
+   "aceitar": [],
+   "excluir": {},
+   "recusados": [
+    "Sinal Manual Estrela Vermelha Índios IFS-205-VM - Velamar Náutica",
+    "Sinal Manual Estrela vermelha, branco, verde Indios - Febula Mariner"
+   ],
+   "origem": ""
+  },
+  "espargidor agente": {
+   "busca": "",
+   "aceitar": [],
+   "excluir": {},
+   "recusados": [
+    "Spray Condor GL-108 CS Lacrimogênio 80ml - Uso Restrito - LOJA WWART - Tático Militar | Airsoft | Aventura | Outdoor | S",
+    "Agentes Antimotim: O Caso Pró-Regulamentação - Sur - Revista Internacional de Direitos Humanos",
+    "Sem título",
+    "Mastercard testa pagamentos B2B feitos por agentes de IA no Brasil",
+    "AiSDR Review: A Targeted AI Sales Agent",
+    "Como comprar acções de 5 euros de casinos online?",
+    "Compre Spray De Pimenta Tipo Pistola Para Autodefesa - Venda Por Atacado De Spray De Defesa Profissional e Spray De Pime",
+    "Poly Defensor",
+    "Venda por atacado spray de pimenta para defesa pessoal, conjunto de pulseiras para autoproteção - Alibaba.com",
+    "Spray (espargidores) de pimenta no serviço policial",
+    "Octadesk em 2026: preÃ§os, reputaÃ§Ã£o e quando vale a pena Â· AI Hub Brasil",
+    "Frasco de Spray de Pimenta Novo Estilo por Atacado 110ml para Defesa Pessoal - 2026 Spray de pimenta, Guarda de seguranç",
+    "Pulverizadores de geração de espuma IK | IK Sprayers",
+    "Espargidor De Asfalto Pressurizado, Tanque 6 M3 Com Isolacao Termica, Aquecido Com 2 Macaricos, Com Barra Espargidora 3,"
+   ],
+   "origem": ""
+  },
+  "granada lacrimogenea": {
+   "busca": "",
+   "aceitar": [],
+   "excluir": {},
+   "recusados": [
+    "Bomba brasileira na pele turca - Agência Pública",
+    "Signal-Based Selling: A Complete How-To Guide for 2026"
+   ],
+   "origem": ""
+  },
+  "granada agente": {
+   "busca": "",
+   "aceitar": [],
+   "excluir": {},
+   "recusados": [
+    "Prefeitura de Manaus compra granada e spray de pimenta para usar em manifestações | CENARIUM",
+    "Produção de hortelã-pimenta no cultivo indoor",
+    "Mastercard testa pagamentos B2B feitos por agentes de IA no Brasil",
+    "Mastercard aposta no B2B e vê mercado de até US$ 750 bilhões a migrar para cartões no Brasil - Mercado&Consumo",
+    "Sem título",
+    "Trabaja como agente comercial de seguros en Granada",
+    "Comprar grão-de-bico torrado com sal e pimenta | KoRo",
+    "Primeiro cultivo indoor: o que saber antes de comprar",
+    "¿Por qué estudiar para ser Agente de Medio Ambiente en Andalucía? - Tecnisa Formación",
+    "Kaspersky Knowledge Base",
+    "Granada de extinción de incendios de productos químicos secos ligeros para almacén - Fabricantes y proveedores automátic",
+    "Granada Contra Incendio De HFC-236 - Equipos De Seguridad",
+    "What to See in Granada - Top Sights you Can't Miss",
+    "13 Best Things to Do in Granada: First-Hand Guide (2026)",
+    "Best things to do in Granada, Spain - Lonely Planet",
+    "Inicio | Ayuntamiento de Granada"
+   ],
+   "origem": ""
   }
  },
  "desempenho": {
@@ -7115,6 +7318,182 @@
       "segundos": 16.9
      }
     }
+   },
+   {
+    "data": "2026-11-10T19:06:00",
+    "item": "Sinalizador pirotécnico de estrelas vermelha e verde",
+    "natureza": "(sem natureza)",
+    "segundos": 13.5,
+    "precos": 3,
+    "certos": 2,
+    "completo": true,
+    "api": 1,
+    "navegador": 0,
+    "frase": "{item} preço",
+    "origens": {
+     "busca": {
+      "tentativas": 5,
+      "precos": 3,
+      "segundos": 13.5
+     }
+    }
+   },
+   {
+    "data": "2026-11-10T19:06:44",
+    "item": "Foguete sinalizador verde com paraquedas",
+    "natureza": "(sem natureza)",
+    "segundos": 43.5,
+    "precos": 3,
+    "certos": 3,
+    "completo": true,
+    "api": 3,
+    "navegador": 1,
+    "frase": "{item} preço",
+    "origens": {
+     "busca": {
+      "tentativas": 7,
+      "precos": 3,
+      "segundos": 43.4
+     }
+    }
+   },
+   {
+    "data": "2026-11-10T19:07:45",
+    "item": "Foguete sinalizador branco com paraquedas",
+    "natureza": "(sem natureza)",
+    "segundos": 59.9,
+    "precos": 3,
+    "certos": 3,
+    "completo": true,
+    "api": 5,
+    "navegador": 1,
+    "frase": "{item} preço",
+    "origens": {
+     "parecida": {
+      "tentativas": 3,
+      "precos": 2,
+      "segundos": 28.2
+     },
+     "busca": {
+      "tentativas": 5,
+      "precos": 1,
+      "segundos": 31.7
+     }
+    }
+   },
+   {
+    "data": "2026-11-10T19:08:26",
+    "item": "Espargidor de agente lacrimogêneo",
+    "natureza": "(sem natureza)",
+    "segundos": 39.6,
+    "precos": 0,
+    "certos": 0,
+    "completo": false,
+    "api": 9,
+    "navegador": 3,
+    "frase": "",
+    "origens": {
+     "busca": {
+      "tentativas": 9,
+      "precos": 0,
+      "segundos": 39.6
+     }
+    }
+   },
+   {
+    "data": "2026-11-10T19:08:54",
+    "item": "Granada lacrimogênea de movimento aleatório (bailarina)",
+    "natureza": "(sem natureza)",
+    "segundos": 27.4,
+    "precos": 0,
+    "certos": 0,
+    "completo": false,
+    "api": 9,
+    "navegador": 1,
+    "frase": "",
+    "origens": {
+     "busca": {
+      "tentativas": 3,
+      "precos": 0,
+      "segundos": 27.4
+     }
+    }
+   },
+   {
+    "data": "2026-11-10T19:10:14",
+    "item": "Granada de agente pimenta para ambiente fechado (indoor)",
+    "natureza": "(sem natureza)",
+    "segundos": 78.8,
+    "precos": 0,
+    "certos": 0,
+    "completo": false,
+    "api": 9,
+    "navegador": 2,
+    "frase": "",
+    "origens": {
+     "busca": {
+      "tentativas": 15,
+      "precos": 0,
+      "segundos": 78.7
+     }
+    }
+   },
+   {
+    "data": "2026-11-10T19:11:16",
+    "item": "Granada de agente pimenta para ambiente aberto (outdoor)",
+    "natureza": "(sem natureza)",
+    "segundos": 61.1,
+    "precos": 0,
+    "certos": 0,
+    "completo": false,
+    "api": 9,
+    "navegador": 3,
+    "frase": "",
+    "origens": {
+     "busca": {
+      "tentativas": 12,
+      "precos": 0,
+      "segundos": 61.1
+     }
+    }
+   },
+   {
+    "data": "2026-11-10T19:12:05",
+    "item": "Espargidor de agente pimenta em espuma – pequeno",
+    "natureza": "(sem natureza)",
+    "segundos": 48.1,
+    "precos": 0,
+    "certos": 0,
+    "completo": false,
+    "api": 9,
+    "navegador": 3,
+    "frase": "",
+    "origens": {
+     "busca": {
+      "tentativas": 14,
+      "precos": 0,
+      "segundos": 48.0
+     }
+    }
+   },
+   {
+    "data": "2026-11-10T19:12:59",
+    "item": "Espargidor de agente pimenta em espuma – médio",
+    "natureza": "(sem natureza)",
+    "segundos": 52.9,
+    "precos": 0,
+    "certos": 0,
+    "completo": false,
+    "api": 9,
+    "navegador": 3,
+    "frase": "",
+    "origens": {
+     "busca": {
+      "tentativas": 15,
+      "precos": 0,
+      "segundos": 52.9
+     }
+    }
    }
   ],
   "naturezas": {
@@ -7162,21 +7541,21 @@
     }
    },
    "(sem natureza)": {
-    "itens": 12.054,
-    "segundos": 772.595,
-    "precos": 27.384,
-    "certos": 9.903,
-    "completos": 7.483,
+    "itens": 14.992,
+    "segundos": 844.498,
+    "precos": 23.549,
+    "certos": 11.868,
+    "completos": 6.814,
     "origens": {
      "busca": {
-      "tentativas": 127.342,
-      "precos": 27.546,
-      "segundos": 562.187
+      "tentativas": 153.536,
+      "precos": 22.181,
+      "segundos": 691.002
      },
      "parecida": {
-      "tentativas": 31.331,
-      "precos": 15.837,
-      "segundos": 237.781
+      "tentativas": 32.764,
+      "precos": 17.045,
+      "segundos": 254.088
      }
     }
    },
