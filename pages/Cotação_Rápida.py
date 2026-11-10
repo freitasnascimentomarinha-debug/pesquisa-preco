@@ -23,7 +23,7 @@ sys.path.insert(0, BASE_DIR)  # permite importar catmat_busca.py (raiz do projet
 from atualizar_modulos import recarregar_se_mudou  # noqa: E402
 recarregar_se_mudou('catmat_busca', 'cotacao_rapida', 'lista_itens', 'relatorio_cotacao_rapida', 'lista_itens_ui')  # evita módulo antigo em memória após deploy
 from catmat_busca import CATMAT_PATH, CATSERV_PATH, carregar_catalogo, carregar_indice_catmat  # noqa: E402
-from cotacao_rapida import LIMIAR_CORRESPONDENCIA as LIMIAR_PADRAO, TOLERANCIA_ESTIMATIVA, aplicar_estimativa, JANELA_DIAS, LIMIAR_CORRESPONDENCIA, LIMIAR_SERVICO, MAX_CATMAT, MAX_PRECOS, MIN_PRECOS, TOLERANCIA, cotar_item, resultado_vazio  # noqa: E402
+from cotacao_rapida import LIMIAR_CORRESPONDENCIA as LIMIAR_PADRAO, aceitar_como_correto, desfazer_decisao, marcar_nao_encontrado, TOLERANCIA_ESTIMATIVA, aplicar_estimativa, JANELA_DIAS, LIMIAR_CORRESPONDENCIA, LIMIAR_SERVICO, MAX_CATMAT, MAX_PRECOS, MIN_PRECOS, TOLERANCIA, cotar_item, resultado_vazio  # noqa: E402
 from relatorio_cotacao_rapida import STATUS_TEXTO, gerar_excel, gerar_pdf, tabela_mapa  # noqa: E402
 from lista_itens import anexar_pedido, tem_quantidades, valor_total_orcamento  # noqa: E402
 from lista_itens_ui import entrada_itens_com_catmat  # noqa: E402
@@ -245,10 +245,27 @@ if resultados:
         st.markdown(f"**Conferência com a sua estimativa de preço** — {len(com_estimativa)} item(ns) com estimativa: "
                     f"{sum(1 for r in com_estimativa if r['validacao'] == 'coerente')} coerente(s), {len(divergentes)} divergente(s), {len(outros)} com sugestão de outro CATMAT mais próximo da estimativa.")
         for indice, r in enumerate(resultados):
-            if not r.get("estimativa") or not (r["validacao"] != "coerente" or r["compativeis"] or r.get("escolha") in ("estimativa", "manual")):
+            if not r.get("estimativa") or not (r["validacao"] != "coerente" or r["compativeis"] or r.get("escolha") in ("estimativa", "manual") or r.get("decisao")):
                 continue
             texto_aviso = f"**{r['descricao']}** — {r['texto_validacao']}".replace("$", "\\$")  # "$" solto vira fórmula no markdown
+            chave_decisao = f"cr_decisao_{st.session_state.get('cotacao_rapida_geracao', 0)}_{indice}"
+            if r.get("decisao"):  # o usuário já decidiu: o aviso vira registro, com opção de desfazer
+                st.info(texto_aviso)
+                if st.button("↩ Desfazer minha decisão", key=f"{chave_decisao}_desfazer"):
+                    resultados[indice] = desfazer_decisao(r)
+                    st.rerun()
+                continue
             (st.warning if r["validacao"] != "coerente" else st.info)(texto_aviso)
+            if r["validacao"] in ("divergente", "sem_precos"):  # preço fora da estimativa (ou nenhum): o usuário decide o que o relatório mostra
+                col_tirar, col_aceitar, _ = st.columns([1, 1, 1])
+                if col_tirar.button("🚫 Tirar do relatório (não encontrado)", key=f"{chave_decisao}_tirar", use_container_width=True,
+                                    help="O item fica no relatório como “não encontrado”, sem preços. Dá para desfazer."):
+                    resultados[indice] = marcar_nao_encontrado(r)
+                    st.rerun()
+                if r["validacao"] == "divergente" and col_aceitar.button("✅ Considerar este item correto", key=f"{chave_decisao}_aceitar", use_container_width=True,
+                                                                         help="Mantém os preços encontrados e registra no relatório que você aceitou a diferença em relação à estimativa."):
+                    resultados[indice] = aceitar_como_correto(r)
+                    st.rerun()
             if r["compativeis"] and r.get("tipo") != "Serviço":  # opção de trocar o CATMAT por um dos compatíveis em preço
                 botoes = st.columns(len(r["compativeis"]))
                 for coluna_botao, alternativa in zip(botoes, r["compativeis"]):
@@ -295,6 +312,8 @@ if resultados:
                 )
                 if r["status"] == "insuficiente":
                     st.warning(f"Menos de {MIN_PRECOS} preços: complemente com outras fontes (IN SEGES/ME nº 65/2021).")
+            elif r.get("decisao") == "nao_encontrado":
+                st.info("Retirado do relatório por você: consta como não encontrado. Use “Desfazer minha decisão”, acima, para voltar à cotação original.")
             elif r.get("proximos"):
                 st.info(f"Nenhum CATMAT/CATSERV com {r.get('limiar', LIMIAR_CORRESPONDENCIA):.0f}%+ e preços no período. Códigos mais próximos abaixo; descreva o item com mais detalhes.")
                 st.dataframe(pd.DataFrame([{"Código": p["codigo"], "Correspondência (%)": round(p["correspondencia"], 1), "Descrição no catálogo": p["descricao"]} for p in r["proximos"]]), hide_index=True, use_container_width=True)
