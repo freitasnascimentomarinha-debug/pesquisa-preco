@@ -4317,19 +4317,19 @@ with tab_fracionamento:
         _doc_fr = st.session_state.get(f"doc_gerado_{MP.DOC_FRACIONAMENTO}")
         if _doc_fr:
             _corpo_fr = st.session_state.get(f"doc_editado_{MP.DOC_FRACIONAMENTO}") or _doc_fr["corpo"]
-            if _faltam_fr:
-                st.warning("Para baixar o relatório, preencha na aba **📄 Documentos** os dados obrigatórios da OM. "
-                           "Falta: " + ", ".join(_faltam_fr) + ".")
+            if _faltam_fr:  # não trava o download: o relatório sai com o cabeçalho e a assinatura em branco para preencher à mão
+                st.info("Você pode baixar o relatório agora. Os dados da OM e do signatário não foram preenchidos na aba **📄 Documentos** "
+                        "e ficarão em branco no documento (falta: " + ", ".join(_faltam_fr) + ").")
             _d1, _d2 = st.columns(2)
             with _d1:
-                st.download_button("🖨️ Relatório em PDF", gerar_pdf_documento(_doc_fr["titulo"], _corpo_fr) if not _faltam_fr else b"",
+                st.download_button("🖨️ Relatório em PDF", gerar_pdf_documento(_doc_fr["titulo"], _corpo_fr),
                                    f"{_doc_fr['nome']}.pdf", "application/pdf", key="dl_frac_pdf",
-                                   use_container_width=True, disabled=bool(_faltam_fr))
+                                   use_container_width=True)
             with _d2:
-                st.download_button("📝 Relatório em Word", gerar_docx_documento(_doc_fr["titulo"], _corpo_fr) if not _faltam_fr else b"",
+                st.download_button("📝 Relatório em Word", gerar_docx_documento(_doc_fr["titulo"], _corpo_fr),
                                    f"{_doc_fr['nome']}.docx",
                                    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                                   key="dl_frac_docx", use_container_width=True, disabled=bool(_faltam_fr))
+                                   key="dl_frac_docx", use_container_width=True)
             st.caption("O relatório também entra no Kit do processo e pode ser editado na aba Documentos "
                        f"(\"{MP.DOC_FRACIONAMENTO}\"). O TJDL passa a oferecer o total do ramo para preencher o campo "
                        "\"já contratado no exercício\".")
