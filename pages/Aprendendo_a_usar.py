@@ -143,17 +143,18 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Seletor das vídeo-aulas: grade de botões (o padrão "horizontal" quebrava em linhas irregulares com 15 opções)
+# Seletor das vídeo-aulas: uma fileira de botões lado a lado, com rolagem lateral (o padrão "horizontal" quebrava em linhas irregulares com 15 opções)
 st.markdown(
     """
     <style>
     [data-testid="stMain"] [data-testid="stRadio"] [role="radiogroup"] {
-        display: grid !important; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 0.5rem; width: 100%;
+        display: flex !important; flex-flow: row nowrap !important; gap: 0.5rem; width: 100%; overflow-x: auto; padding-bottom: 0.5rem;
+        scrollbar-width: thin; scrollbar-color: #facc15 rgba(255,255,255,0.1);
     }
     [data-testid="stMain"] [data-testid="stRadio"] [role="radiogroup"] > label {
         margin: 0 !important; padding: 0.55rem 0.8rem !important; border-radius: 10px; cursor: pointer; box-sizing: border-box;
         background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.16); transition: background .15s, border-color .15s;
-        display: flex; align-items: center; justify-content: center; text-align: center; min-height: 44px;
+        display: flex; align-items: center; justify-content: center; text-align: center; min-height: 44px; flex: 0 0 auto; white-space: nowrap;
     }
     [data-testid="stMain"] [data-testid="stRadio"] [role="radiogroup"] > label:hover { background: rgba(250,204,21,0.14); border-color: #facc15; }
     [data-testid="stMain"] [data-testid="stRadio"] [role="radiogroup"] > label > div:first-child { display: none !important; }
