@@ -63,8 +63,10 @@ def corpo(ferramentas: list[tuple[str, str, str]], emitido_em: datetime | None =
         "2.2. O projeto foi idealizado e desenvolvido pelo 2°SG-PL Freitas, sob a liderança e coordenação do CMG (IM) ROMA e com apoios fundamentais "
         "do CAlt (IM) Yamaguchi, atual DGOM, e do CAlt (IM) Ricardo Nogueira, atual COpAb.",
         "2.3. Em 2026, o sistema foi apresentado, aprovado e elogiado pelo DAbM Vice-Alt Viveiros.",
-        "2.4. O propósito do projeto é demonstrar a capacidade das novas tecnologias de aprimorar os processos de trabalho: a falta de pessoal pode ser "
-        "suprida com inteligência, automação e IA. Por isso o sistema é de código aberto e gratuito.",
+        "2.4. O propósito do projeto é demonstrar a capacidade das novas tecnologias de aprimorar os processos de trabalho, para que outras pessoas se inspirem, "
+        "aprendam e desenvolvam sistemas e soluções criativas que facilitem a vida de quem trabalha.",
+        "2.5. Por entender que contribuir com a missão da Marinha é mais importante do que qualquer reconhecimento ou valor monetário, o sistema é de código aberto e gratuito.",
+        "2.6. O AtaCotada existe para mostrar que a falta de pessoal pode ser suprida com inteligência, automação e IA.",
         "",
         "### 3. FINALIDADE",
         "3.1. O sistema transforma informações dispersas (APIs, catálogos, notas fiscais e páginas da internet) em dados estruturados e comparáveis, e padroniza a "
