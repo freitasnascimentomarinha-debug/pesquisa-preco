@@ -7,9 +7,12 @@ Sem dependência do Streamlit.
 
 from __future__ import annotations
 
+import hashlib
 import io
+import json
 import os
 import re
+import tempfile
 import time
 from datetime import datetime
 
@@ -17,7 +20,12 @@ LARGURA, ALTURA = 1366, 900
 TEMPO_NAVEGACAO_S = 25
 ALTURA_RODAPE = 34
 CAMINHOS_CHROMIUM = ("/usr/bin/chromium", "/usr/bin/chromium-browser", "/usr/bin/google-chrome", "/usr/bin/google-chrome-stable")
-ARGUMENTOS_NAVEGADOR = ["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu", "--disable-extensions", "--mute-audio"]
+ARGUMENTOS_NAVEGADOR = ["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu", "--disable-extensions", "--mute-audio",
+                        "--disable-background-networking", "--disable-renderer-backgrounding", "--disable-software-rasterizer",
+                        "--disable-features=Translate,BackForwardCache,OptimizationHints", "--js-flags=--max-old-space-size=384"]  # poupam memória do servidor
+PAGINAS_POR_NAVEGADOR = 4  # o Chromium vai acumulando memória: a cada tantas páginas ele é fechado e reaberto
+MAX_PAGINAS_POR_LOTE = 8  # prints por clique: lotes menores mantêm o servidor gratuito abaixo do limite de memória
+PASTA_CACHE = os.path.join(tempfile.gettempdir(), "atacotada_prints")  # prints ficam no disco do servidor: sobrevivem a uma queda da sessão
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
 
 # Botões de aviso/popup que podem ser clicados (texto inteiro do botão, sem diferenciar maiúsculas/acentos)
@@ -83,6 +91,50 @@ def disponivel() -> tuple[bool, str]:
     except Exception as erro:
         return False, f"Playwright não iniciou ({type(erro).__name__})"
     return False, "Chromium não está instalado neste servidor (na nuvem, vem do arquivo packages.txt)"
+
+
+def _arquivo_cache(url: str) -> str:
+    return os.path.join(PASTA_CACHE, hashlib.sha1(url.encode("utf-8")).hexdigest())
+
+
+def guardar_cache(url: str, captura: dict) -> None:
+    """Grava o print em disco assim que sai: se o servidor cair no meio, os que já foram tirados não se perdem. Nunca levanta erro."""
+    try:
+        if not captura.get("imagem"):
+            return
+        os.makedirs(PASTA_CACHE, exist_ok=True)
+        base = _arquivo_cache(url)
+        with open(base + ".jpg", "wb") as arquivo:
+            arquivo.write(captura["imagem"])
+        with open(base + ".json", "w", encoding="utf-8") as arquivo:
+            json.dump({"url": url, "capturado_em": captura.get("capturado_em", "")}, arquivo)
+    except Exception:
+        pass
+
+
+def carregar_cache(urls) -> dict[str, dict]:
+    """Prints já guardados em disco para as `urls`: {url: {"imagem", "capturado_em", "erro": ""}}."""
+    encontrados: dict[str, dict] = {}
+    for url in urls:
+        try:
+            base = _arquivo_cache(url)
+            with open(base + ".jpg", "rb") as arquivo:
+                imagem = arquivo.read()
+            with open(base + ".json", encoding="utf-8") as arquivo:
+                meta = json.load(arquivo)
+            if imagem and meta.get("url") == url:
+                encontrados[url] = {"imagem": imagem, "capturado_em": meta.get("capturado_em", ""), "erro": ""}
+        except Exception:
+            continue
+    return encontrados
+
+
+def _bloquear_midia(contexto) -> None:
+    """Vídeos e áudios pesam na memória e não aparecem no print: nem são baixados."""
+    try:
+        contexto.route("**/*", lambda rota: rota.abort() if rota.request.resource_type == "media" else rota.continue_())
+    except Exception:
+        pass
 
 
 def _formatos_preco(preco: float | None) -> list[str]:
@@ -184,8 +236,15 @@ def capturar_prints(paginas: list[dict], progresso=None) -> dict[str, dict]:
                 for numero, url in enumerate(unicas, start=1):
                     if progresso:
                         progresso(numero - 1, len(unicas), url)
+                    if numero > 1 and (numero - 1) % PAGINAS_POR_NAVEGADOR == 0:  # devolve a memória acumulada ao servidor
+                        try:
+                            navegador.close()
+                        except Exception:
+                            pass
+                        navegador = p.chromium.launch(**opcoes)
                     contexto = navegador.new_context(viewport={"width": LARGURA, "height": ALTURA}, locale="pt-BR",
                                                      timezone_id="America/Sao_Paulo", user_agent=USER_AGENT)
+                    _bloquear_midia(contexto)
                     try:
                         page = contexto.new_page()
                         page.set_default_timeout(TEMPO_NAVEGACAO_S * 1000)
@@ -202,6 +261,7 @@ def capturar_prints(paginas: list[dict], progresso=None) -> dict[str, dict]:
                         agora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
                         png = page.screenshot(type="png", full_page=False)
                         resultados[url] = {"imagem": _rodape(png, url, agora, preco_de.get(url)), "capturado_em": agora, "erro": ""}
+                        guardar_cache(url, resultados[url])
                     except Exception as erro:
                         resultados[url] = {"imagem": None, "capturado_em": "", "erro": f"{type(erro).__name__}: {str(erro).splitlines()[0][:100]}"}
                     finally:
@@ -299,6 +359,7 @@ class LeitorNavegador:
         try:
             self._contexto = self._navegador.new_context(viewport={"width": LARGURA, "height": ALTURA}, locale="pt-BR",
                                                          timezone_id="America/Sao_Paulo", user_agent=USER_AGENT)
+            _bloquear_midia(self._contexto)
             self._page = self._contexto.new_page()
             espera = min(TEMPO_NAVEGACAO_S, self._restante())  # nenhuma operação passa do que resta para a página
             self._page.set_default_timeout(espera * 1000)
@@ -341,7 +402,9 @@ class LeitorNavegador:
             self._restante()
             agora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
             png = self._page.screenshot(type="png", full_page=False)
-            return {"imagem": _rodape(png, url, agora, preco), "capturado_em": agora, "erro": ""}
+            captura = {"imagem": _rodape(png, url, agora, preco), "capturado_em": agora, "erro": ""}
+            guardar_cache(url, captura)
+            return captura
         except Exception as erro:
             return {"imagem": None, "capturado_em": "", "erro": f"{type(erro).__name__}: {str(erro).splitlines()[0][:100]}"}
 
