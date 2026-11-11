@@ -143,6 +143,29 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+# Seletor das vídeo-aulas: grade de botões (o padrão "horizontal" quebrava em linhas irregulares com 15 opções)
+st.markdown(
+    """
+    <style>
+    [data-testid="stMain"] [data-testid="stRadio"] [role="radiogroup"] {
+        display: grid !important; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 0.5rem; width: 100%;
+    }
+    [data-testid="stMain"] [data-testid="stRadio"] [role="radiogroup"] > label {
+        margin: 0 !important; padding: 0.55rem 0.8rem !important; border-radius: 10px; cursor: pointer; box-sizing: border-box;
+        background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.16); transition: background .15s, border-color .15s;
+        display: flex; align-items: center; justify-content: center; text-align: center; min-height: 44px;
+    }
+    [data-testid="stMain"] [data-testid="stRadio"] [role="radiogroup"] > label:hover { background: rgba(250,204,21,0.14); border-color: #facc15; }
+    [data-testid="stMain"] [data-testid="stRadio"] [role="radiogroup"] > label > div:first-child { display: none !important; }
+    [data-testid="stMain"] [data-testid="stRadio"] [role="radiogroup"] > label:has(input:checked) {
+        background: linear-gradient(135deg, #facc15, #eab308); border-color: #fde047; box-shadow: 0 0 12px rgba(250,204,21,.45);
+    }
+    [data-testid="stMain"] [data-testid="stRadio"] [role="radiogroup"] > label:has(input:checked) * { color: #111 !important; font-weight: 800 !important; }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 disponiveis = [v for v in VIDEOS if v["modulo"] is not None]
 escolhido = disponiveis[0]
 if len(disponiveis) > 1:
