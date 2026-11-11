@@ -2723,7 +2723,7 @@ if "scraping_resultados" in st.session_state and st.session_state["scraping_resu
             for resultado_item in analise:
                 if resultado_item["descricao"] in pedidos_por_item:
                     anexar_pedido(resultado_item, pedidos_por_item[resultado_item["descricao"]])
-            prints = st.session_state.get("prints_web", {})
+            prints = {**captura_pagina.carregar_cache({p["url"] for r in analise for p in r["precos"]}), **st.session_state.get("prints_web", {})}  # os do disco valem após uma queda da sessão
             info_relatorio = {"max_precos": precos_por_item, "prints": {u: v for u, v in prints.items() if v.get("imagem")}, "motores": " e ".join([n for n, c in (("Tavily", chave_tavily()), ("Serper (Google)", chave_serper())) if c] + ["DuckDuckGo"]),
                               "gerado_em": datetime.now().strftime("%d/%m/%Y %H:%M")}
             st.caption("Mesmas regras da Cotação Rápida: sem outliers, preços a ±30% da média, mapa comparativo na 1ª página, "
@@ -2752,7 +2752,12 @@ if "scraping_resultados" in st.session_state and st.session_state["scraping_resu
                 elif not paginas_sem_print:
                     st.success("Todas as páginas do mapa já têm print.")
                 else:
-                    if st.button(f"📸 Tirar os prints das {len({p['url'] for p in paginas_sem_print})} página(s) que faltam", key="botao_prints_web"):
+                    _lote = captura_pagina.MAX_PAGINAS_POR_LOTE
+                    _faltam = len({p["url"] for p in paginas_sem_print})
+                    if _faltam > _lote:
+                        st.caption(f"Os prints saem em lotes de {_lote} páginas, para o servidor não ficar sem memória. Clique de novo para o próximo lote.")
+                    if st.button(f"📸 Tirar os prints das {min(_faltam, _lote)} página(s) que faltam" + (f" (de {_faltam})" if _faltam > _lote else ""), key="botao_prints_web"):
+                        paginas_sem_print = list({p["url"]: p for p in paginas_sem_print}.values())[:_lote]
                         inicio_prints = time.time()
                         estado_prints = {"ok": 0, "falha": 0, "linhas": []}
                         st.caption("Cada página leva de 5 a 30 segundos. Não feche nem recarregue a aba até terminar.")
