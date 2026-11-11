@@ -213,17 +213,12 @@ st.markdown(
     "no padrão de documento da Marinha. Serve para ser juntado ao processo de contratação e dar à autoridade o respaldo sobre a origem dos relatórios gerados pelo sistema.</p></div>",
     unsafe_allow_html=True,
 )
-with st.expander("Dados do documento (opcional: cabeçalho, local e assinatura)"):
+with st.expander("Dados do documento (opcional: cabeçalho e local)"):
     _c1, _c2, _c3 = st.columns([3, 2, 1])
     ri_om = _c1.text_input("OM", value=relatorio_institucional.OM_PADRAO, key="ri_om")
     ri_cidade = _c2.text_input("Cidade", key="ri_cidade")
     ri_uf = _c3.text_input("UF", max_chars=2, key="ri_uf")
-    ri_nup = st.text_input("NUP do processo (se houver)", key="ri_nup")
-    _a1, _a2, _a3 = st.columns(3)
-    ri_nome = _a1.text_input("Nome do signatário", key="ri_nome")
-    ri_posto = _a2.text_input("Posto/graduação", key="ri_posto")
-    ri_cargo = _a3.text_input("Função", key="ri_cargo")
-dados_ri = {"om": ri_om, "cidade": ri_cidade, "uf": ri_uf, "nup": ri_nup, "assinantes": [{"nome": ri_nome, "posto": ri_posto, "cargo": ri_cargo}]}
+dados_ri = {"om": ri_om, "cidade": ri_cidade, "uf": ri_uf}
 ri_agora = datetime.now()
 try:
     ri_pdf = relatorio_institucional.gerar_pdf(FERRAMENTAS, dados_ri, ri_agora)

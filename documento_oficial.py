@@ -65,7 +65,7 @@ def _dados(d: dict | None) -> dict:
         "cidade": (d.get("cidade") or "").strip(),
         "uf": (d.get("uf") or "").strip(),
         "nup": (d.get("nup") or "").strip(),
-        "assinantes": _assinantes(d),
+        "assinantes": [] if d.get("sem_assinatura") else _assinantes(d),  # sem_assinatura: documento institucional, sem bloco de assinatura
         "data": d.get("data") if isinstance(d.get("data"), date) else None,
     }
 
@@ -606,7 +606,7 @@ def gerar_docx(titulo: str, corpo: str, dados: dict | None = None, oficio: dict 
 
     # assinaturas (MaTDoc 1.11): três linhas em branco; uma centralizada ou duas por linha (tabela sem bordas)
     assinantes = d["assinantes"]
-    for _ in range(3):
+    for _ in range(3 if assinantes else 0):
         par(manter=True)
     if len(assinantes) == 1:
         linhas = _linhas_assinatura(assinantes[0])
