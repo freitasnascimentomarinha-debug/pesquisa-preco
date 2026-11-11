@@ -213,6 +213,19 @@ st.markdown(
     "no padrão de documento da Marinha. Serve para ser juntado ao processo de contratação e dar à autoridade o respaldo sobre a origem dos relatórios gerados pelo sistema.</p></div>",
     unsafe_allow_html=True,
 )
+st.markdown(
+    """
+    <style>
+    /* o tema deixa os botões de download como cartões escuros: aqui precisam de fundo claro e letras legíveis */
+    .st-key-ri_pdf button, .st-key-ri_docx button { min-height: 3.2rem !important; border-radius: 12px !important; }
+    .st-key-ri_pdf button { background: linear-gradient(135deg, #ffe27a 0%, #d4af37 55%, #b8901f 100%) !important; border: none !important; }
+    .st-key-ri_pdf button, .st-key-ri_pdf button * { color: #001a4d !important; font-weight: 800 !important; }
+    .st-key-ri_docx button { background: rgba(255,255,255,.12) !important; border: 1px solid #d4af37 !important; }
+    .st-key-ri_docx button, .st-key-ri_docx button * { color: #ffffff !important; font-weight: 700 !important; }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 with st.expander("Dados do documento (opcional: cabeçalho e local)"):
     _c1, _c2, _c3 = st.columns([3, 2, 1])
     ri_om = _c1.text_input("OM", value=relatorio_institucional.OM_PADRAO, key="ri_om")
