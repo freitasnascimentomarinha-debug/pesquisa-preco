@@ -132,6 +132,8 @@ def gerar_docx(ferramentas: list[tuple[str, str, str]], dados: dict | None = Non
 
 def _dados(dados: dict | None) -> dict:
     dados = dict(dados or {})
+    dados["sem_assinatura"] = True  # relatório institucional do sistema: sem NUP e sem signatário
+    dados["nup"] = ""
     dados.setdefault("om", OM_PADRAO)
     if not (dados.get("om") or "").strip():
         dados["om"] = OM_PADRAO
