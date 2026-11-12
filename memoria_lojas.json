@@ -1,6 +1,6 @@
 {
  "versao": 1,
- "atualizado": "2026-11-10T19:12:59",
+ "atualizado": "2026-11-12T17:17:48",
  "lojas": {
   "lojadomecanico.com.br": {
    "acertos": 25,
@@ -925,9 +925,10 @@
    }
   },
   "superproatacado.com.br": {
-   "acertos": 11,
-   "ultimo": "2026-10-07",
+   "acertos": 12,
+   "ultimo": "2026-11-12",
    "itens": [
+    "carga de demolição c-8",
     "ventilador de parede",
     "furadeira",
     "parafusadeira",
@@ -941,7 +942,7 @@
    ],
    "metodos": {
     "navegador": 1,
-    "texto": 10
+    "texto": 11
    },
    "paginas": {
     "parafuso sextavado 1/2": "https://www.superproatacado.com.br/ferragens/parafusos-e-buchas/parafuso-sextavado-polegada",
@@ -953,7 +954,8 @@
     "grampeador": "https://www.superproatacado.com.br/ferramentas-manuais/grampeador-manual-e-acessorios?srsltid=AU7gw4XVy6PJDtzlzfPBKMcG5smnF7evmRHKe2GpNna7s8UjFo3P9EDr",
     "parafusadeira": "https://www.superproatacado.com.br/maquinas-eletricas-e-pneumaticas/furadeiras-e-parafusadeiras",
     "furadeira": "https://superproatacado.com.br/busca?q=FURADEIRA",
-    "ventilador de parede": "https://www.superproatacado.com.br/ventilador-de-parede-60cm-preto-ventisol-431818/p"
+    "ventilador de parede": "https://www.superproatacado.com.br/ventilador-de-parede-60cm-preto-ventisol-431818/p",
+    "carga de demolição c-8": "https://superproatacado.com.br/busca?q=Carga+de+demoli%C3%A7%C3%A3o+C-8"
    },
    "naturezas": {
     "fixadores": 1,
@@ -5141,15 +5143,15 @@
    }
   },
   "velamar.com.br": {
-   "acertos": 2,
-   "ultimo": "2026-11-10",
+   "acertos": 4,
+   "ultimo": "2026-11-12",
    "itens": [
     "foguete sinalizador branco com paraquedas",
     "foguete sinalizador verde com paraquedas"
    ],
    "metodos": {
     "navegador": 0,
-    "texto": 2
+    "texto": 4
    },
    "paginas": {
     "foguete sinalizador verde com paraquedas": "https://velamar.com.br/foguete-manual-estrela-vermelha-com-paraquedas-indios-ifp-201-vm",
@@ -5157,15 +5159,15 @@
    }
   },
   "regatta.com.br": {
-   "acertos": 2,
-   "ultimo": "2026-11-10",
+   "acertos": 4,
+   "ultimo": "2026-11-12",
    "itens": [
     "foguete sinalizador branco com paraquedas",
     "foguete sinalizador verde com paraquedas"
    ],
    "metodos": {
     "navegador": 0,
-    "texto": 2
+    "texto": 4
    },
    "paginas": {
     "foguete sinalizador verde com paraquedas": "https://www.regatta.com.br/foguete-manual--estrela-vermelha-com-paraquedas-id0000003/p",
@@ -5173,17 +5175,89 @@
    }
   },
   "r4nautic.com": {
-   "acertos": 1,
-   "ultimo": "2026-11-10",
+   "acertos": 3,
+   "ultimo": "2026-11-12",
    "itens": [
-    "foguete sinalizador branco com paraquedas"
+    "foguete sinalizador branco com paraquedas",
+    "foguete sinalizador verde com paraquedas"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 3
+   },
+   "paginas": {
+    "foguete sinalizador branco com paraquedas": "https://r4nautic.com/loja/salvatagem-e-seguranca/sinalizadores-e-pirotecnicos/foguete-manual-estrela-vermelha-indios/",
+    "foguete sinalizador verde com paraquedas": "https://r4nautic.com/loja/salvatagem-e-seguranca/sinalizadores-e-pirotecnicos/foguete-manual-estrela-vermelha-indios/"
+   }
+  },
+  "timt.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-11-12",
+   "itens": [
+    "acionador de disparo t-253"
    ],
    "metodos": {
     "navegador": 0,
     "texto": 1
    },
    "paginas": {
-    "foguete sinalizador branco com paraquedas": "https://r4nautic.com/loja/salvatagem-e-seguranca/sinalizadores-e-pirotecnicos/foguete-manual-estrela-vermelha-indios/"
+    "acionador de disparo t-253": "https://timt.com.br/produto/acionador-abertura-inox-embutir-4x2-bt-5000-in"
+   }
+  },
+  "loja.mgfreios.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-11-12",
+   "itens": [
+    "acionador de disparo t-253"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "paginas": {
+    "acionador de disparo t-253": "https://loja.mgfreios.com.br/sapata-de-freio-e-componentes/acionador-de-regulagem-automatico-da-sapata-de-freios/mg-2256-acionador-automatico-do-freio-t-le-toyota"
+   }
+  },
+  "jactoparts.jacto.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-11-12",
+   "itens": [
+    "acionador de disparo t-253"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "paginas": {
+    "acionador de disparo t-253": "https://jactoparts.jacto.com.br/catalogo/jacto/ACIONADOR%20COM%20CABOS/acionador?PS=16&map=c,b,specificationFilter_32,ft&srsltid=AYCX9vJkbr1bTEtQRQD-4fzQMBE0nUkIem2P57zzRZ1xY4kOeiCDcs9o"
+   }
+  },
+  "lojabrasilfire.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-11-12",
+   "itens": [
+    "acionador de disparo t-253"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "paginas": {
+    "acionador de disparo t-253": "https://www.lojabrasilfire.com.br/alarme-de-incendio/acionadores"
+   }
+  },
+  "sasantoantonio.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-11-12",
+   "itens": [
+    "sinalizador diurno/noturno"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "paginas": {
+    "sinalizador diurno/noturno": "https://www.sasantoantonio.com.br/eletrica/iluminacao/sinalizador-noturno-topo-predio-tramontina-1lamp-aluminio-azul?srsltid=AYCX9vJFbzLtJ4NJhsM_HP7MUYQmG6QWVt0TuN_Kwh3LtZ1ZFHzEU2iB"
    }
   }
  },
@@ -5470,8 +5544,8 @@
   },
   "hn.ebay.com": {
    "navegador": 1,
-   "texto": 1,
-   "ultimo": "2026-10-05"
+   "texto": 2,
+   "ultimo": "2026-11-12"
   },
   "carrefour.com.br": {
    "navegador": 1,
@@ -5529,9 +5603,9 @@
    "ultimo": "2026-10-06"
   },
   "webmotors.com.br": {
-   "navegador": 2,
-   "texto": 2,
-   "ultimo": "2026-10-06"
+   "navegador": 3,
+   "texto": 3,
+   "ultimo": "2026-11-12"
   },
   "3m.com.br": {
    "navegador": 0,
@@ -5584,9 +5658,9 @@
    "ultimo": "2026-10-06"
   },
   "tradingkey.com": {
-   "navegador": 2,
-   "texto": 3,
-   "ultimo": "2026-10-06"
+   "navegador": 3,
+   "texto": 4,
+   "ultimo": "2026-11-12"
   },
   "pcdiga.com": {
    "navegador": 1,
@@ -5724,9 +5798,9 @@
    "ultimo": "2026-10-06"
   },
   "ebay.com": {
-   "navegador": 1,
-   "texto": 1,
-   "ultimo": "2026-10-06"
+   "navegador": 2,
+   "texto": 2,
+   "ultimo": "2026-11-12"
   },
   "atacadaodosbebedouros.com.br": {
    "navegador": 0,
@@ -5760,8 +5834,8 @@
   },
   "pt.made-in-china.com": {
    "navegador": 0,
-   "texto": 2,
-   "ultimo": "2026-10-07"
+   "texto": 3,
+   "ultimo": "2026-11-12"
   },
   "exceldryer.com": {
    "navegador": 0,
@@ -5989,24 +6063,24 @@
    "ultimo": "2026-11-09"
   },
   "br.ebay.com": {
-   "navegador": 1,
-   "texto": 2,
-   "ultimo": "2026-11-10"
+   "navegador": 2,
+   "texto": 3,
+   "ultimo": "2026-11-12"
   },
   "seariver.com.br": {
-   "navegador": 2,
-   "texto": 2,
-   "ultimo": "2026-11-10"
+   "navegador": 3,
+   "texto": 3,
+   "ultimo": "2026-11-12"
   },
   "towbar.com.br": {
    "navegador": 0,
-   "texto": 1,
-   "ultimo": "2026-11-10"
+   "texto": 2,
+   "ultimo": "2026-11-12"
   },
   "vetsecurite.com": {
-   "navegador": 2,
-   "texto": 3,
-   "ultimo": "2026-11-10"
+   "navegador": 3,
+   "texto": 5,
+   "ultimo": "2026-11-12"
   },
   "condornaoletal.com.br": {
    "navegador": 3,
@@ -6014,9 +6088,9 @@
    "ultimo": "2026-11-10"
   },
   "berlinda.com.br": {
-   "navegador": 1,
-   "texto": 1,
-   "ultimo": "2026-11-10"
+   "navegador": 2,
+   "texto": 2,
+   "ultimo": "2026-11-12"
   },
   "imobiliariarotadosol.com.br": {
    "navegador": 1,
@@ -6037,51 +6111,246 @@
    "navegador": 1,
    "texto": 1,
    "ultimo": "2026-11-10"
+  },
+  "iw8.com.br": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-11-12"
+  },
+  "jrmcranes.lojaintegrada.com.br": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-11-12"
+  },
+  "directoriodecarga.com": {
+   "navegador": 0,
+   "texto": 1,
+   "ultimo": "2026-11-12"
+  },
+  "guiasegci.com.br": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-11-12"
+  },
+  "cat.com": {
+   "navegador": 0,
+   "texto": 1,
+   "ultimo": "2026-11-12"
+  },
+  "aecweb.com.br": {
+   "navegador": 0,
+   "texto": 1,
+   "ultimo": "2026-11-12"
+  },
+  "eaglefire.com.br": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-11-12"
+  },
+  "phoenixcontact.com": {
+   "navegador": 0,
+   "texto": 1,
+   "ultimo": "2026-11-12"
+  },
+  "fontanatratorpecas.com.br": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-11-12"
+  },
+  "therma.com.br": {
+   "navegador": 0,
+   "texto": 1,
+   "ultimo": "2026-11-12"
+  },
+  "do.ebay.com": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-11-12"
+  },
+  "taceag.manufacturer.spanish.globalsources.com": {
+   "navegador": 0,
+   "texto": 1,
+   "ultimo": "2026-11-12"
+  },
+  "stingerfire.com.br": {
+   "navegador": 0,
+   "texto": 1,
+   "ultimo": "2026-11-12"
+  },
+  "tucanobrasil.com.br": {
+   "navegador": 0,
+   "texto": 1,
+   "ultimo": "2026-11-12"
+  },
+  "archiexpo.com": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-11-12"
+  },
+  "modestodistribuidora.com.br": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-11-12"
+  },
+  "economiasp.com": {
+   "navegador": 0,
+   "texto": 1,
+   "ultimo": "2026-11-12"
+  },
+  "curtlo.com.br": {
+   "navegador": 0,
+   "texto": 1,
+   "ultimo": "2026-11-12"
+  },
+  "nauticareis.com": {
+   "navegador": 0,
+   "texto": 5,
+   "ultimo": "2026-11-12"
+  },
+  "equinautic.com.br": {
+   "navegador": 2,
+   "texto": 2,
+   "ultimo": "2026-11-12"
+  },
+  "raianafogos.com.br": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-11-12"
+  },
+  "za.investing.com": {
+   "navegador": 3,
+   "texto": 3,
+   "ultimo": "2026-11-12"
+  },
+  "pa.ebay.com": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-11-12"
+  },
+  "fiestafacil.com": {
+   "navegador": 0,
+   "texto": 1,
+   "ultimo": "2026-11-12"
+  },
+  "portuguese.qjfireworks.com": {
+   "navegador": 0,
+   "texto": 2,
+   "ultimo": "2026-11-12"
+  },
+  "penhascolivre.com": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-11-12"
+  },
+  "orcamentor.com": {
+   "navegador": 0,
+   "texto": 1,
+   "ultimo": "2026-11-12"
+  },
+  "aymorefogos.com.br": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-11-12"
+  },
+  "nauticexpo.com": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-11-12"
+  },
+  "directindustry.com": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-11-12"
+  },
+  "luadance.com.br": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-11-12"
+  },
+  "sagicapriprodutora.com.br": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-11-12"
+  },
+  "pt.videezy.com": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-11-12"
+  },
+  "klipartz.com": {
+   "navegador": 0,
+   "texto": 1,
+   "ultimo": "2026-11-12"
+  },
+  "shopping.latampass.latam.com": {
+   "navegador": 0,
+   "texto": 1,
+   "ultimo": "2026-11-12"
+  },
+  "pr.ebay.com": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-11-12"
+  },
+  "mimilon.com.br": {
+   "navegador": 2,
+   "texto": 2,
+   "ultimo": "2026-11-12"
+  },
+  "equiposdeseguridadmexico.com": {
+   "navegador": 0,
+   "texto": 1,
+   "ultimo": "2026-11-12"
+  },
+  "portuguese.globalsources.com": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-11-12"
   }
  },
  "frases": {
   "{item} comprar": {
-   "usos": 15.9217,
-   "acertos": 6.6433,
-   "ultimo": "2026-11-10"
+   "usos": 17.4296,
+   "acertos": 5.0014,
+   "ultimo": "2026-11-12"
   },
   "{item} preço": {
-   "usos": 19.9839,
-   "acertos": 18.3932,
-   "ultimo": "2026-11-10"
+   "usos": 19.9936,
+   "acertos": 8.1863,
+   "ultimo": "2026-11-12"
   },
   "venda de {item}": {
-   "usos": 18.1105,
-   "acertos": 7.5563,
-   "ultimo": "2026-11-10"
+   "usos": 18.611,
+   "acertos": 5.5547,
+   "ultimo": "2026-11-12"
   },
   "{item} valor": {
-   "usos": 18.1105,
-   "acertos": 7.1695,
-   "ultimo": "2026-11-10"
+   "usos": 18.611,
+   "acertos": 5.2702,
+   "ultimo": "2026-11-12"
   },
   "{item} atacado": {
-   "usos": 19.9812,
-   "acertos": 14.9605,
-   "ultimo": "2026-11-10"
+   "usos": 19.9926,
+   "acertos": 7.4642,
+   "ultimo": "2026-11-12"
   },
   "{item} preço brasil": {
-   "usos": 12.4528,
-   "acertos": 4.8913,
-   "ultimo": "2026-11-10"
+   "usos": 14.1602,
+   "acertos": 3.7848,
+   "ultimo": "2026-11-12"
   },
   "{item} comprar brasil": {
-   "usos": 17.2943,
-   "acertos": 7.3893,
-   "ultimo": "2026-11-10"
+   "usos": 18.205,
+   "acertos": 4.9022,
+   "ultimo": "2026-11-12"
   },
   "comprar {item} online brasil": {
-   "usos": 18.7465,
-   "acertos": 14.9312,
-   "ultimo": "2026-11-10"
+   "usos": 19.5021,
+   "acertos": 6.371,
+   "ultimo": "2026-11-12"
   }
  },
- "buscas": 161,
+ "buscas": 180,
  "sem_busca": {
   "arxiv.org": "2026-10-05",
   "papers.ssrn.com": "2026-10-05",
@@ -6161,15 +6430,17 @@
   "armas.beartac.com.br": "2026-11-09",
   "armasriopreto.com.br": "2026-11-09",
   "velamar.com.br": "2026-11-10",
-  "regatta.com.br": "2026-11-10"
+  "regatta.com.br": "2026-11-10",
+  "colombo.com.br": "2026-11-12",
+  "r4nautic.com": "2026-11-12"
  },
  "serper": {
   "mes": "2026-11",
-  "n": 77
+  "n": 147
  },
  "tavily": {
   "mes": "2026-11",
-  "n": 118
+  "n": 206
  },
  "nomes": {
   "papel contact": {
@@ -6724,7 +6995,32 @@
    "excluir": {},
    "recusados": [
     "Sinal Manual Estrela Vermelha Índios IFS-205-VM - Velamar Náutica",
-    "Sinal Manual Estrela vermelha, branco, verde Indios - Febula Mariner"
+    "Sinal Manual Estrela vermelha, branco, verde Indios - Febula Mariner",
+    "Sinal Manual Estrela Verde Índios IFS-205-VD - Velamar Náutica",
+    "Foguete Manual Estrela Vermelha Indios Pirotecnia M-IFP-201 Com Paraquedas - Regatta",
+    "SINALIZADOR VERDE - Fogos CruzArte",
+    "Captcha Magalu",
+    "Estratégias de Portfólio do Investidor Estrela PRIMECAP Management - Tradingkey",
+    "Foguete manual estrela vermelha com paraquedas - Indios IFP-201 - R4Nautic",
+    "Sem título",
+    "Flexprin Marine",
+    "Sinal Manual Estrela Branca Índios Ifs-205-Bc - Velamar Náutica",
+    "Pirotécnicos e Sinalizadores - Velamar Náutica",
+    "SINALIZADOR (VERDE OU VERMELHO) - A UNIDADE - Aymoré Fogos",
+    "Compre Fogos de Artifício a Granel, Sinalizadores, Lanternas de Sinalização, Fumaça Segura para Ignição e Fumaça Colorid",
+    "Cinco anos do Pix no Brasil | cel_news",
+    "Fumaças e Sinalizadores | Fogosmania | Loja de Fogos de Artificio em BH",
+    "Sinalizador en Uruguay - Supernova Uruguay",
+    "Estrellitas / Luces de Bengala - GIANBO Fuegos Artificiales",
+    "Crisantemo a estrellas móviles rojas carcasa de bola de 5 pulgadas 1.3 – Elevated Fireworks",
+    "Pirotécnicos - Febula Mariner",
+    "Sinalizador Grande (azul, verde, vermelho ou amarelo) unidade",
+    "Kit Sinalizador Náutico Pirotécnico Navegação Costeira + Maleta Caixa Indios - Spartacus Comércio de Produtos Pessoais e",
+    "Sinalizadores - Zeus do Brasil",
+    "Produtos | Garanta Sua Segurança Agora — Grupo Indios",
+    "fogos sinalizador colorido | Fogos de artificio e shows pirotécnicos",
+    "Tudo sobre o Pairi Daiza, o zoológico de Brugelette na Bélgica: preços",
+    "Os LusÃ­adas | Project Gutenberg"
    ],
    "origem": ""
   },
@@ -6746,7 +7042,16 @@
     "Octadesk em 2026: preÃ§os, reputaÃ§Ã£o e quando vale a pena Â· AI Hub Brasil",
     "Frasco de Spray de Pimenta Novo Estilo por Atacado 110ml para Defesa Pessoal - 2026 Spray de pimenta, Guarda de seguranç",
     "Pulverizadores de geração de espuma IK | IK Sprayers",
-    "Espargidor De Asfalto Pressurizado, Tanque 6 M3 Com Isolacao Termica, Aquecido Com 2 Macaricos, Com Barra Espargidora 3,"
+    "Espargidor De Asfalto Pressurizado, Tanque 6 M3 Com Isolacao Termica, Aquecido Com 2 Macaricos, Com Barra Espargidora 3,",
+    "Coldres Meganha - Verificando acesso...",
+    "Fábrica de fabricantes de spray de pimenta China - Factory - Pimenta personalizada por atacado",
+    "Sprays de pimenta aprovados e seguros – Carbin",
+    "Spray de Pimenta Condor Defensor Extra Forte Defesa Pessoal - Tático Acessórios Militares",
+    "Category_Page_Title",
+    "AI Sales Agents: Types, Examples and Best Platforms (2026)",
+    "20ml Atacado Auto Defesa leve Pepper Spray para Auto-Defesa - 2026 Spray de pimenta mais leve, suprimentos de Autodefesa",
+    "A loja está temporariamente fora de serviço | VALENT’in",
+    "Espumador Leite Elétrico 4em1 127V Oster Preto - Spicy"
    ],
    "origem": ""
   },
@@ -6756,7 +7061,22 @@
    "excluir": {},
    "recusados": [
     "Bomba brasileira na pele turca - Agência Pública",
-    "Signal-Based Selling: A Complete How-To Guide for 2026"
+    "Signal-Based Selling: A Complete How-To Guide for 2026",
+    "Bebedouro para ambiente externo FONTIS – Av Imobiliário Corporativo",
+    "Tocheiro a Gás Para Ambiente Externo TC80",
+    "Atacado de ROCKBROS JP008 Bateria Portátil de 5000mAh com Luz Frontal de Bicicleta para Uso Externo, Carregador Portátil",
+    "Macarrao Galo 500g Tricolor Parafuso | Lobascz",
+    "Pedra Granada para Vitalidade e Energia | WeMystic Brasil",
+    "Contrabanda Granada, Calle Gracia 31 Local, Granada, ES - MapQuest",
+    "Sem título",
+    "Gendamería de Chile compra granadas lacrimógenas Condor GL-302",
+    "Â¿CuÃ¡nto nos cuestan las bombas lacrimÃ³genas? El precio oscila entre $ 11,5 y $ 37 en los contratos pÃºblicos | El neg",
+    "OM Security: Câmeras, CFTV e SAegurança Eletrônica",
+    "Parked Domain name on Hostinger DNS system",
+    "canopé exterior pesado - canopé exterior pesado para a venda .",
+    "Guía de Regalos para Hombres - Diadora Tienda Online",
+    "Pare-feu Domaine public",
+    "PI3141 - BONECA BAILARINA COM MOVIMENTO - Brinquedos Pica-Pau"
    ],
    "origem": ""
   },
@@ -6780,7 +7100,58 @@
     "What to See in Granada - Top Sights you Can't Miss",
     "13 Best Things to Do in Granada: First-Hand Guide (2026)",
     "Best things to do in Granada, Spain - Lonely Planet",
-    "Inicio | Ayuntamiento de Granada"
+    "Inicio | Ayuntamiento de Granada",
+    "Pimenta no Atacado em Tanhaçu BA à venda. Compre direto 862944",
+    "Granadas para Dispersión de Multitudes – Imdicol",
+    "Poly Defensor",
+    "bhmilitar.com.br - Verificando acesso...",
+    "Contraktor lança MCP para contratos do Brasil - Migalhas",
+    "OM Security: Câmeras, CFTV e SAegurança Eletrônica"
+   ],
+   "origem": ""
+  },
+  "carga demolicao": {
+   "busca": "",
+   "aceitar": [],
+   "excluir": {},
+   "recusados": [
+    "Conj. Mesa Itália DJ Móveis C/ 8 Cad. Zoe | Lojas Colombo",
+    "➤ demolição, reciclagem e aterro compra usada em Machineseeker Brasil - (10 online) 🏷️",
+    "Mini Dumper para DemoliÃ§Ã£o | PLX Brasil",
+    "Pesquisando por - Etiqueta - armario demolição 8 portas com prateleira",
+    "Resíduos de Construção e Demolição: Descarte Correto – Seven Resíduos",
+    "Máquinas de demolição: Brokk Demolition Robots",
+    "Série de Demolição e Esmagamento",
+    "Sem título",
+    "Demolidora em São Paulo | Empresa de Demolição | Demolicom"
+   ],
+   "origem": ""
+  },
+  "acionador disparo": {
+   "busca": "",
+   "aceitar": [],
+   "excluir": {},
+   "recusados": [
+    "¿Qué son los interruptores de gatillo y para qué sirven? - E-Switch",
+    "Equipamentos Eletrônicos - Módulo de isolação e amplificação de disparo para tiristores - Soluções e Serviços -"
+   ],
+   "origem": ""
+  },
+  "sinalizador diurno": {
+   "busca": "",
+   "aceitar": [],
+   "excluir": {},
+   "recusados": [
+    "Sinal De Perigo Diurno Noturno Índios Idn-204 - Velamar Náutica",
+    "Sinal de perigo diurno-noturno Indios - Febula Mariner",
+    "Sem título",
+    "Captcha Magalu",
+    "Ample - Sistemas Contra Incêndio",
+    "Produtos | Garanta Sua Segurança Agora — Grupo Indios",
+    "Aplicação de Sinalizadores de Obstáculos à Navegação Aérea",
+    "Sinalizador PL 6002",
+    "Señal diurna-nocturna - Ikaros",
+    "SINALIZADOR PL 6002 – Plastcor do Brasil"
    ],
    "origem": ""
   }
@@ -7494,6 +7865,407 @@
       "segundos": 52.9
      }
     }
+   },
+   {
+    "data": "2026-11-12T17:00:50",
+    "item": "Carga de demolição C-8",
+    "natureza": "(sem natureza)",
+    "segundos": 112.1,
+    "precos": 1,
+    "certos": 1,
+    "completo": false,
+    "api": 9,
+    "navegador": 3,
+    "frase": "{item} atacado",
+    "origens": {
+     "busca": {
+      "tentativas": 23,
+      "precos": 1,
+      "segundos": 112.1
+     }
+    }
+   },
+   {
+    "data": "2026-11-12T17:01:23",
+    "item": "Acionador de disparo T-253",
+    "natureza": "(sem natureza)",
+    "segundos": 32.0,
+    "precos": 3,
+    "certos": 3,
+    "completo": true,
+    "api": 5,
+    "navegador": 3,
+    "frase": "{item} preço",
+    "origens": {
+     "busca": {
+      "tentativas": 14,
+      "precos": 4,
+      "segundos": 32.0
+     }
+    }
+   },
+   {
+    "data": "2026-11-12T17:02:11",
+    "item": "Granada lacrimogênea para ambiente externo (outdoor)",
+    "natureza": "(sem natureza)",
+    "segundos": 46.5,
+    "precos": 0,
+    "certos": 0,
+    "completo": false,
+    "api": 9,
+    "navegador": 3,
+    "frase": "",
+    "origens": {
+     "busca": {
+      "tentativas": 22,
+      "precos": 0,
+      "segundos": 46.5
+     }
+    }
+   },
+   {
+    "data": "2026-11-12T17:03:15",
+    "item": "Sinalizador pirotécnico manual de estrela verde",
+    "natureza": "(sem natureza)",
+    "segundos": 62.8,
+    "precos": 0,
+    "certos": 0,
+    "completo": false,
+    "api": 9,
+    "navegador": 1,
+    "frase": "",
+    "origens": {
+     "parecida": {
+      "tentativas": 3,
+      "precos": 0,
+      "segundos": 22.2
+     },
+     "busca": {
+      "tentativas": 10,
+      "precos": 0,
+      "segundos": 40.5
+     }
+    }
+   },
+   {
+    "data": "2026-11-12T17:04:17",
+    "item": "Sinalizador pirotécnico manual de estrela vermelha",
+    "natureza": "(sem natureza)",
+    "segundos": 60.9,
+    "precos": 0,
+    "certos": 0,
+    "completo": false,
+    "api": 9,
+    "navegador": 1,
+    "frase": "",
+    "origens": {
+     "parecida": {
+      "tentativas": 3,
+      "precos": 0,
+      "segundos": 21.5
+     },
+     "busca": {
+      "tentativas": 9,
+      "precos": 0,
+      "segundos": 39.3
+     }
+    }
+   },
+   {
+    "data": "2026-11-12T17:05:28",
+    "item": "Sinalizador pirotécnico manual de estrela branca",
+    "natureza": "(sem natureza)",
+    "segundos": 70.7,
+    "precos": 0,
+    "certos": 0,
+    "completo": false,
+    "api": 9,
+    "navegador": 0,
+    "frase": "",
+    "origens": {
+     "parecida": {
+      "tentativas": 3,
+      "precos": 0,
+      "segundos": 23.2
+     },
+     "busca": {
+      "tentativas": 9,
+      "precos": 0,
+      "segundos": 47.6
+     }
+    }
+   },
+   {
+    "data": "2026-11-12T17:06:45",
+    "item": "Sinalizador pirotécnico de cinco estrelas verdes",
+    "natureza": "(sem natureza)",
+    "segundos": 75.2,
+    "precos": 0,
+    "certos": 0,
+    "completo": false,
+    "api": 9,
+    "navegador": 3,
+    "frase": "",
+    "origens": {
+     "parecida": {
+      "tentativas": 3,
+      "precos": 0,
+      "segundos": 22.2
+     },
+     "busca": {
+      "tentativas": 18,
+      "precos": 0,
+      "segundos": 52.9
+     }
+    }
+   },
+   {
+    "data": "2026-11-12T17:07:38",
+    "item": "Sinalizador pirotécnico de cinco estrelas vermelhas",
+    "natureza": "(sem natureza)",
+    "segundos": 52.6,
+    "precos": 0,
+    "certos": 0,
+    "completo": false,
+    "api": 9,
+    "navegador": 1,
+    "frase": "",
+    "origens": {
+     "parecida": {
+      "tentativas": 3,
+      "precos": 0,
+      "segundos": 20.7
+     },
+     "busca": {
+      "tentativas": 10,
+      "precos": 0,
+      "segundos": 31.9
+     }
+    }
+   },
+   {
+    "data": "2026-11-12T17:08:37",
+    "item": "Sinalizador pirotécnico de cinco estrelas brancas",
+    "natureza": "(sem natureza)",
+    "segundos": 57.3,
+    "precos": 0,
+    "certos": 0,
+    "completo": false,
+    "api": 9,
+    "navegador": 1,
+    "frase": "",
+    "origens": {
+     "parecida": {
+      "tentativas": 3,
+      "precos": 0,
+      "segundos": 18.9
+     },
+     "busca": {
+      "tentativas": 14,
+      "precos": 0,
+      "segundos": 38.3
+     }
+    }
+   },
+   {
+    "data": "2026-11-12T17:09:38",
+    "item": "Sinalizador diurno/noturno",
+    "natureza": "(sem natureza)",
+    "segundos": 60.1,
+    "precos": 1,
+    "certos": 1,
+    "completo": false,
+    "api": 9,
+    "navegador": 1,
+    "frase": "{item} atacado",
+    "origens": {
+     "busca": {
+      "tentativas": 21,
+      "precos": 1,
+      "segundos": 60.1
+     }
+    }
+   },
+   {
+    "data": "2026-11-12T17:11:09",
+    "item": "Sinalizador pirotécnico de estrelas vermelha e verde",
+    "natureza": "(sem natureza)",
+    "segundos": 90.0,
+    "precos": 0,
+    "certos": 0,
+    "completo": false,
+    "api": 9,
+    "navegador": 2,
+    "frase": "",
+    "origens": {
+     "parecida": {
+      "tentativas": 3,
+      "precos": 0,
+      "segundos": 21.2
+     },
+     "busca": {
+      "tentativas": 13,
+      "precos": 0,
+      "segundos": 68.8
+     }
+    }
+   },
+   {
+    "data": "2026-11-12T17:12:17",
+    "item": "Foguete sinalizador verde com paraquedas",
+    "natureza": "(sem natureza)",
+    "segundos": 67.2,
+    "precos": 3,
+    "certos": 3,
+    "completo": true,
+    "api": 9,
+    "navegador": 2,
+    "frase": "{item} comprar",
+    "origens": {
+     "parecida": {
+      "tentativas": 3,
+      "precos": 2,
+      "segundos": 15.7
+     },
+     "busca": {
+      "tentativas": 6,
+      "precos": 1,
+      "segundos": 51.5
+     }
+    }
+   },
+   {
+    "data": "2026-11-12T17:12:25",
+    "item": "Foguete sinalizador branco com paraquedas",
+    "natureza": "(sem natureza)",
+    "segundos": 6.6,
+    "precos": 3,
+    "certos": 3,
+    "completo": true,
+    "api": 0,
+    "navegador": 0,
+    "frase": "",
+    "origens": {
+     "parecida": {
+      "tentativas": 3,
+      "precos": 3,
+      "segundos": 6.6
+     }
+    }
+   },
+   {
+    "data": "2026-11-12T17:13:07",
+    "item": "Espargidor de agente lacrimogêneo",
+    "natureza": "(sem natureza)",
+    "segundos": 41.2,
+    "precos": 0,
+    "certos": 0,
+    "completo": false,
+    "api": 9,
+    "navegador": 3,
+    "frase": "",
+    "origens": {
+     "busca": {
+      "tentativas": 13,
+      "precos": 0,
+      "segundos": 41.2
+     }
+    }
+   },
+   {
+    "data": "2026-11-12T17:13:53",
+    "item": "Granada lacrimogênea de movimento aleatório (bailarina)",
+    "natureza": "(sem natureza)",
+    "segundos": 45.6,
+    "precos": 0,
+    "certos": 0,
+    "completo": false,
+    "api": 9,
+    "navegador": 3,
+    "frase": "",
+    "origens": {
+     "busca": {
+      "tentativas": 12,
+      "precos": 0,
+      "segundos": 45.6
+     }
+    }
+   },
+   {
+    "data": "2026-11-12T17:14:42",
+    "item": "Granada de agente pimenta para ambiente fechado (indoor)",
+    "natureza": "(sem natureza)",
+    "segundos": 48.5,
+    "precos": 0,
+    "certos": 0,
+    "completo": false,
+    "api": 9,
+    "navegador": 2,
+    "frase": "",
+    "origens": {
+     "busca": {
+      "tentativas": 17,
+      "precos": 0,
+      "segundos": 48.4
+     }
+    }
+   },
+   {
+    "data": "2026-11-12T17:15:54",
+    "item": "Granada de agente pimenta para ambiente aberto (outdoor)",
+    "natureza": "(sem natureza)",
+    "segundos": 70.9,
+    "precos": 0,
+    "certos": 0,
+    "completo": false,
+    "api": 9,
+    "navegador": 3,
+    "frase": "",
+    "origens": {
+     "busca": {
+      "tentativas": 15,
+      "precos": 0,
+      "segundos": 70.9
+     }
+    }
+   },
+   {
+    "data": "2026-11-12T17:16:43",
+    "item": "Espargidor de agente pimenta em espuma – pequeno",
+    "natureza": "(sem natureza)",
+    "segundos": 47.2,
+    "precos": 0,
+    "certos": 0,
+    "completo": false,
+    "api": 9,
+    "navegador": 1,
+    "frase": "",
+    "origens": {
+     "busca": {
+      "tentativas": 15,
+      "precos": 0,
+      "segundos": 47.2
+     }
+    }
+   },
+   {
+    "data": "2026-11-12T17:17:48",
+    "item": "Espargidor de agente pimenta em espuma – médio",
+    "natureza": "(sem natureza)",
+    "segundos": 63.3,
+    "precos": 0,
+    "certos": 0,
+    "completo": false,
+    "api": 9,
+    "navegador": 3,
+    "frase": "",
+    "origens": {
+     "busca": {
+      "tentativas": 14,
+      "precos": 0,
+      "segundos": 63.2
+     }
+    }
    }
   ],
   "naturezas": {
@@ -7541,21 +8313,21 @@
     }
    },
    "(sem natureza)": {
-    "itens": 14.992,
-    "segundos": 844.498,
-    "precos": 23.549,
-    "certos": 11.868,
-    "completos": 6.814,
+    "itens": 18.11,
+    "segundos": 1029.167,
+    "precos": 15.469,
+    "certos": 11.06,
+    "completos": 4.422,
     "origens": {
      "busca": {
-      "tentativas": 153.536,
-      "precos": 22.181,
-      "segundos": 691.002
+      "tentativas": 229.984,
+      "precos": 12.389,
+      "segundos": 904.344
      },
      "parecida": {
-      "tentativas": 32.764,
-      "precos": 17.045,
-      "segundos": 254.088
+      "tentativas": 42.835,
+      "precos": 15.643,
+      "segundos": 297.811
      }
     }
    },
