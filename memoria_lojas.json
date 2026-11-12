@@ -1,6 +1,6 @@
 {
  "versao": 1,
- "atualizado": "2026-11-12T17:17:48",
+ "atualizado": "2026-11-12T17:20:09",
  "lojas": {
   "lojadomecanico.com.br": {
    "acertos": 25,
@@ -6990,8 +6990,13 @@
    "origem": ""
   },
   "sinalizador pirotecnico": {
-   "busca": "",
-   "aceitar": [],
+   "busca": "sinal indios",
+   "aceitar": [
+    [
+     "sinal",
+     "indios"
+    ]
+   ],
    "excluir": {},
    "recusados": [
     "Sinal Manual Estrela Vermelha Índios IFS-205-VM - Velamar Náutica",
@@ -7022,7 +7027,7 @@
     "Tudo sobre o Pairi Daiza, o zoológico de Brugelette na Bélgica: preços",
     "Os LusÃ­adas | Project Gutenberg"
    ],
-   "origem": ""
+   "origem": "sugestão aceita"
   },
   "espargidor agente": {
    "busca": "",
