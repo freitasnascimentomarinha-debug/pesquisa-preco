@@ -1,6 +1,6 @@
 {
  "versao": 1,
- "atualizado": "2026-11-12T17:20:47",
+ "atualizado": "2026-11-12T17:26:07",
  "lojas": {
   "lojadomecanico.com.br": {
    "acertos": 25,
@@ -52,7 +52,8 @@
    },
    "naturezas": {
     "elétrico": 1
-   }
+   },
+   "paginas": {}
   },
   "telhanorte.com.br": {
    "acertos": 14,
@@ -86,7 +87,12 @@
    ],
    "naturezas": {
     "elétrico": 1
-   }
+   },
+   "metodos": {
+    "navegador": 0,
+    "texto": 0
+   },
+   "paginas": {}
   },
   "copafer.com.br": {
    "acertos": 10,
@@ -192,7 +198,12 @@
    ],
    "naturezas": {
     "papelaria e escritório": 1
-   }
+   },
+   "metodos": {
+    "navegador": 0,
+    "texto": 0
+   },
+   "paginas": {}
   },
   "casadastomadas.com.br": {
    "acertos": 2,
@@ -202,7 +213,12 @@
    ],
    "naturezas": {
     "elétrico": 1
-   }
+   },
+   "metodos": {
+    "navegador": 0,
+    "texto": 0
+   },
+   "paginas": {}
   },
   "fermaquinas.com.br": {
    "acertos": 2,
@@ -229,7 +245,12 @@
    ],
    "naturezas": {
     "ferramentas": 1
-   }
+   },
+   "metodos": {
+    "navegador": 0,
+    "texto": 0
+   },
+   "paginas": {}
   },
   "jofepar.com.br": {
    "acertos": 4,
@@ -416,7 +437,8 @@
    "naturezas": {
     "informática": 1,
     "papelaria e escritório": 1
-   }
+   },
+   "paginas": {}
   },
   "microtecpapelaria.com.br": {
    "acertos": 1,
@@ -426,7 +448,12 @@
    ],
    "naturezas": {
     "papelaria e escritório": 1
-   }
+   },
+   "metodos": {
+    "navegador": 0,
+    "texto": 0
+   },
+   "paginas": {}
   },
   "meninodalampada.com.br": {
    "acertos": 2,
@@ -455,7 +482,12 @@
    ],
    "naturezas": {
     "elétrico": 1
-   }
+   },
+   "metodos": {
+    "navegador": 0,
+    "texto": 0
+   },
+   "paginas": {}
   },
   "jambo.com.br": {
    "acertos": 4,
@@ -505,7 +537,12 @@
    ],
    "naturezas": {
     "papelaria e escritório": 1
-   }
+   },
+   "metodos": {
+    "navegador": 0,
+    "texto": 0
+   },
+   "paginas": {}
   },
   "atacadodolojista.com.br": {
    "acertos": 13,
@@ -553,7 +590,12 @@
    ],
    "naturezas": {
     "papelaria e escritório": 1
-   }
+   },
+   "metodos": {
+    "navegador": 0,
+    "texto": 0
+   },
+   "paginas": {}
   },
   "lavoropapeis.com.br": {
    "acertos": 1,
@@ -563,7 +605,12 @@
    ],
    "naturezas": {
     "papelaria e escritório": 1
-   }
+   },
+   "metodos": {
+    "navegador": 0,
+    "texto": 0
+   },
+   "paginas": {}
   },
   "superpaguemenos.com.br": {
    "acertos": 19,
@@ -641,7 +688,12 @@
    ],
    "naturezas": {
     "gêneros alimentícios": 1
-   }
+   },
+   "metodos": {
+    "navegador": 0,
+    "texto": 0
+   },
+   "paginas": {}
   },
   "edona.com.br": {
    "acertos": 2,
@@ -673,7 +725,8 @@
    },
    "naturezas": {
     "papelaria e escritório": 1
-   }
+   },
+   "paginas": {}
   },
   "carbonnara.com.br": {
    "acertos": 1,
@@ -687,7 +740,8 @@
    },
    "naturezas": {
     "limpeza e higiene": 1
-   }
+   },
+   "paginas": {}
   },
   "atacadaodalimpeza.com.br": {
    "acertos": 1,
@@ -701,7 +755,8 @@
    },
    "naturezas": {
     "limpeza e higiene": 1
-   }
+   },
+   "paginas": {}
   },
   "cleanons.com.br": {
    "acertos": 1,
@@ -715,7 +770,8 @@
    },
    "naturezas": {
     "limpeza e higiene": 1
-   }
+   },
+   "paginas": {}
   },
   "impressora.com.br": {
    "acertos": 1,
@@ -729,7 +785,8 @@
    },
    "naturezas": {
     "informática": 1
-   }
+   },
+   "paginas": {}
   },
   "ibyteatacado.com.br": {
    "acertos": 3,
@@ -805,7 +862,8 @@
    },
    "naturezas": {
     "papelaria e escritório": 1
-   }
+   },
+   "paginas": {}
   },
   "canetasatacado.com.br": {
    "acertos": 1,
@@ -819,7 +877,8 @@
    },
    "naturezas": {
     "papelaria e escritório": 1
-   }
+   },
+   "paginas": {}
   },
   "soaresatacado.com.br": {
    "acertos": 4,
@@ -854,7 +913,8 @@
    },
    "naturezas": {
     "limpeza e higiene": 1
-   }
+   },
+   "paginas": {}
   },
   "casadosgrampos.com.br": {
    "acertos": 1,
@@ -928,7 +988,6 @@
    "acertos": 12,
    "ultimo": "2026-11-12",
    "itens": [
-    "carga de demolição c-8",
     "ventilador de parede",
     "furadeira",
     "parafusadeira",
@@ -938,7 +997,8 @@
     "fio flexível 2,5mm 100m",
     "tinta acrílica branca 18 litros",
     "chave de fenda",
-    "parafuso sextavado 1/2"
+    "parafuso sextavado 1/2",
+    "carga de demolição c-8"
    ],
    "metodos": {
     "navegador": 1,
@@ -2044,7 +2104,8 @@
    },
    "paginas": {
     "maizena 500g": "https://www.atacadoprodutosnaturais.com.br/produto/amido-de-milho-500g"
-   }
+   },
+   "naturezas": {}
   },
   "zaffari.com.br": {
    "acertos": 2,
@@ -2099,7 +2160,8 @@
    },
    "paginas": {
     "bombril pacote c/ 8": "https://www.triadelog.com.br/esponja-de-aco-bombril-60g-pacote-c8-unidades"
-   }
+   },
+   "naturezas": {}
   },
   "atacadonipocenter.com.br": {
    "acertos": 3,
@@ -2173,7 +2235,8 @@
    },
    "paginas": {
     "fita dupla face 12mm x 30m": "https://www.romaaviamentos.com.br/fitas/fita-dupla-face"
-   }
+   },
+   "naturezas": {}
   },
   "atacadosaojorge.com.br": {
    "acertos": 1,
@@ -2187,7 +2250,8 @@
    },
    "paginas": {
     "fita dupla face 12mm x 30m": "https://atacadosaojorge.com.br/produto/35501/fita-dupla-face-papel-adelbras-12mm-x-30m-adesivo-forte"
-   }
+   },
+   "naturezas": {}
   },
   "pimaco.com.br": {
    "acertos": 1,
@@ -2201,7 +2265,8 @@
    },
    "paginas": {
     "fita dupla face 12mm x 30m": "https://www.pimaco.com.br/produto/Fita-Dupla-Face-Papel-12mmx30m-Com-4-Rolos-Pimaco/5000329"
-   }
+   },
+   "naturezas": {}
   },
   "adecil.com.br": {
    "acertos": 2,
@@ -2541,7 +2606,8 @@
    },
    "paginas": {
     "cadeira giratória de escritório": "https://www.cadeirasparaescritorio.ind.br"
-   }
+   },
+   "naturezas": {}
   },
   "metromoveis.com.br": {
    "acertos": 1,
@@ -2555,7 +2621,8 @@
    },
    "paginas": {
     "cadeira giratória de escritório": "https://www.metromoveis.com.br/cadeiras-para-escritorio-giratorias.htm"
-   }
+   },
+   "naturezas": {}
   },
   "dkadidecor.com.br": {
    "acertos": 1,
@@ -2569,7 +2636,8 @@
    },
    "paginas": {
     "cadeira giratória de escritório": "https://www.dkadidecor.com.br/cadeiras-giratoria-para-escritorio"
-   }
+   },
+   "naturezas": {}
   },
   "madeiramadeira.com.br": {
    "acertos": 1,
@@ -2583,7 +2651,8 @@
    },
    "paginas": {
     "cadeira giratória de escritório": "https://www.madeiramadeira.com.br/moveis/moveis-para-escritorio/cadeiras-escritorio/cadeira-diretor"
-   }
+   },
+   "naturezas": {}
   },
   "grupoeletromagazine.com.br": {
    "acertos": 1,
@@ -2648,7 +2717,8 @@
    },
    "paginas": {
     "cotonete caixa c/ 75": "https://pertoatacadista.com.br/produtos/6264835/hastes-flexiveis-com-pontas-de-algodao-cotonetes-caixa-75un"
-   }
+   },
+   "naturezas": {}
   },
   "allmagazine.com.br": {
    "acertos": 1,
@@ -2662,7 +2732,8 @@
    },
    "paginas": {
     "cotonete caixa c/ 75": "https://www.allmagazine.com.br/algodao-hidrofilo-farol-hastes-flexiveis"
-   }
+   },
+   "naturezas": {}
   },
   "utilidadesclinicas.com.br": {
    "acertos": 2,
@@ -2695,7 +2766,8 @@
    },
    "paginas": {
     "cotonete caixa c/ 75": "https://www.constamed.com.br/haste-flexivel-com-pontas-de-algodao-75-unidades"
-   }
+   },
+   "naturezas": {}
   },
   "welmed.com.br": {
    "acertos": 1,
@@ -2709,7 +2781,8 @@
    },
    "paginas": {
     "cotonete caixa c/ 75": "https://www.welmed.com.br/produto/hastes-flexiveis-com-ponta-de-algodao-dengo-contem-75-unidades-3576"
-   }
+   },
+   "naturezas": {}
   },
   "raextintores.com.br": {
    "acertos": 1,
@@ -3251,7 +3324,8 @@
    },
    "paginas": {
     "fita dupla face 12mm x 30m": "https://www.maneroatacadista.com.br/eletrica/fita-isolante/fita-dupla-face-12mm"
-   }
+   },
+   "naturezas": {}
   },
   "papelverdeoliva.com.br": {
    "acertos": 1,
@@ -3265,7 +3339,8 @@
    },
    "paginas": {
     "fita dupla face 12mm x 30m": "https://www.papelverdeoliva.com.br/fita-adesiva-dupla-face-branca-12mm-x-30m"
-   }
+   },
+   "naturezas": {}
   },
   "episonline.com.br": {
    "acertos": 1,
@@ -4027,7 +4102,8 @@
    },
    "paginas": {
     "secador de mão": "https://www.catral.com.br/utilidades/secador-de-maos?srsltid=AU7gw4XPxQ5iC5RpT-H30HTCNmJ0k7qoY6RKoMxX-Tltbh67fJ_eTQwo"
-   }
+   },
+   "naturezas": {}
   },
   "cadence.com.br": {
    "acertos": 2,
@@ -4060,7 +4136,8 @@
    },
    "paginas": {
     "secador de mão": "https://www.mallory.com.br/secador/cuidados-pessoais/secadores?map=ft%2Cc%2Ccategory-1&srsltid=AU7gw4VO2-YzmdpIP_O81-Fv76ox6UaxRD6IggNEPFBPyshUswbf4Qit"
-   }
+   },
+   "naturezas": {}
   },
   "distribuidoramegamix.com.br": {
    "acertos": 2,
@@ -4301,7 +4378,8 @@
    },
    "paginas": {
     "multiprocessador de alimentos": "https://www.gazin.com.br/categoria/processadores-de-alimentos?srsltid=AU7gw4Vzsu0trGu2Z2di1HJbe2h7JXqjY4TGsiKCPQ7axz-kTojxP5Ra"
-   }
+   },
+   "naturezas": {}
   },
   "walita.com.br": {
    "acertos": 1,
@@ -4315,7 +4393,8 @@
    },
    "paginas": {
     "multiprocessador de alimentos": "https://www.walita.com.br/eletroportateis-para-cozinha/processadores-de-alimentos?srsltid=AU7gw4UCScCWNCyOHA32vJrSNPoVHlXcntUZw6gI8ra6TYpDjP-h7Nan"
-   }
+   },
+   "naturezas": {}
   },
   "kitchenaid.com.br": {
    "acertos": 1,
@@ -4524,7 +4603,8 @@
    },
    "paginas": {
     "ferro a vapor": "https://www.multicanalatacado.com.br/ferro-vapor-antiaderente-oster-220v-478664"
-   }
+   },
+   "naturezas": {}
   },
   "site.fastshop.com.br": {
    "acertos": 1,
@@ -4538,7 +4618,8 @@
    },
    "paginas": {
     "ferro a vapor": "https://site.fastshop.com.br/eletroportatil/equipamento-de-limpeza/ferro-de-passar"
-   }
+   },
+   "naturezas": {}
   },
   "ferrodepassar.com": {
    "acertos": 1,
@@ -4552,7 +4633,8 @@
    },
    "paginas": {
     "ferro a vapor": "https://ferrodepassar.com"
-   }
+   },
+   "naturezas": {}
   },
   "ipermaq.com.br": {
    "acertos": 1,
@@ -4759,18 +4841,27 @@
    }
   },
   "casadotiro.com.br": {
-   "acertos": 2,
-   "ultimo": "2026-11-09",
+   "acertos": 6,
+   "ultimo": "2026-11-12",
    "itens": [
+    "munição .308 winchester etpt 162gr",
+    "munição 7,62mm comum",
+    "munição 7,62mm festim",
+    "munição 30mm ex-telada",
     "munição 30 x 173 mm ex-telado"
    ],
    "metodos": {
     "navegador": 0,
-    "texto": 2
+    "texto": 6
    },
    "paginas": {
-    "munição 30 x 173 mm ex-telado": "https://www.casadotiro.com.br/produtos-ver/municao-cbc-30-carbine-expo-110gr-50-unidades/4649"
-   }
+    "munição 30 x 173 mm ex-telado": "https://www.casadotiro.com.br/produtos-ver/municao-cbc-30-carbine-expo-110gr-50-unidades/4649",
+    "munição 30mm ex-telada": "https://www.casadotiro.com.br/produtos-ver/municao-cbc-30-carbine-expo-110gr-50-unidades/4649",
+    "munição 7,62mm festim": "https://www.casadotiro.com.br/produtos-ver/municao-cbc-comum-7-62x51mm/4175",
+    "munição 7,62mm comum": "https://www.casadotiro.com.br/produtos-ver/municao-cbc-comum-7-62x51mm/4175",
+    "munição .308 winchester etpt 162gr": "https://www.casadotiro.com.br/produtos-ver/municao-cbc-match-etpt-162gr-calibre-308-win/4151"
+   },
+   "naturezas": {}
   },
   "warzonebrazil.com.br": {
    "acertos": 1,
@@ -4784,12 +4875,16 @@
    },
    "paginas": {
     "munição 30 x 173 mm ex-telado": "http://www.warzonebrazil.com.br/"
-   }
+   },
+   "naturezas": {}
   },
   "prohunters.com.br": {
-   "acertos": 6,
-   "ultimo": "2026-11-09",
+   "acertos": 9,
+   "ultimo": "2026-11-12",
    "itens": [
+    "munição 9mm luger",
+    "munição 5,56mm festim",
+    "munição 30mm ex-telada",
     "munição 20 x 128 mm ae-i-t-ad",
     "munição 30 x 173 mm ex-telado",
     "munição 20 x 128 mm gex-t",
@@ -4797,35 +4892,55 @@
    ],
    "metodos": {
     "navegador": 0,
-    "texto": 6
+    "texto": 9
    },
    "paginas": {
     "munição 30 x 173 mm ex-telado": "https://prohunters.com.br/",
     "munição 20 x 128 mm gex": "https://prohunters.com.br",
     "munição 20 x 128 mm gex-t": "https://prohunters.com.br",
-    "munição 20 x 128 mm ae-i-t-ad": "https://prohunters.com.br"
-   }
+    "munição 20 x 128 mm ae-i-t-ad": "https://prohunters.com.br",
+    "munição 30mm ex-telada": "https://prohunters.com.br",
+    "munição 5,56mm festim": "https://prohunters.com.br/municao-cbc-5-56x45mm-comum-55gr",
+    "munição 9mm luger": "https://prohunters.com.br/municao-cbc-9mm-luger-etog-50-unidades"
+   },
+   "naturezas": {}
   },
   "mtsarmas.com.br": {
-   "acertos": 2,
-   "ultimo": "2026-11-09",
+   "acertos": 7,
+   "ultimo": "2026-11-12",
    "itens": [
+    "munição .308 winchester etpt 162gr",
+    "munição 5,56mm festim",
+    "munição 5,56mm ss109 traçante",
+    "munição 7,62mm traçante",
+    "munição 30mm ex-telada",
     "munição 5,56x45mm c ss-109 elada",
     "munição 30 x 173 mm ex-telado"
    ],
    "metodos": {
     "navegador": 0,
-    "texto": 2
+    "texto": 7
    },
    "paginas": {
     "munição 30 x 173 mm ex-telado": "https://mtsarmas.com.br/municoes/",
-    "munição 5,56x45mm c ss-109 elada": "https://mtsarmas.com.br/produtos/municao-cbc-556x45mm-comum-ss109/"
-   }
+    "munição 5,56x45mm c ss-109 elada": "https://mtsarmas.com.br/produtos/municao-cbc-556x45mm-comum-ss109/",
+    "munição 30mm ex-telada": "https://mtsarmas.com.br/municoes/nacionais/",
+    "munição 7,62mm traçante": "https://mtsarmas.com.br/produtos/municao-cbc-762x51-m80-74xrp",
+    "munição 5,56mm ss109 traçante": "https://mtsarmas.com.br/produtos/municao-cbc-556x45mm-comum-ss109/",
+    "munição 5,56mm festim": "https://mtsarmas.com.br/municoes/nacionais",
+    "munição .308 winchester etpt 162gr": "https://mtsarmas.com.br/municoes/nacionais"
+   },
+   "naturezas": {}
   },
   "radarcac.com.br": {
-   "acertos": 7,
-   "ultimo": "2026-11-09",
+   "acertos": 12,
+   "ultimo": "2026-11-12",
    "itens": [
+    "munição .308 winchester hpbt 168gr",
+    "munição 5,56mm festim",
+    "munição 5,56mm ss109 comum",
+    "munição 5,56mm ss109 traçante",
+    "munição 20mm gex",
     "munição 7,62 x 51 mm t",
     "munição 20 x 128 mm ae-i-t-ad",
     "munição 20 x 128 mm gex-t",
@@ -4833,20 +4948,34 @@
    ],
    "metodos": {
     "navegador": 0,
-    "texto": 7
+    "texto": 12
    },
    "paginas": {
     "munição 20 x 128 mm gex": "https://radarcac.com.br/?s=municao+20+X+128MM+GEX&post_type=product",
     "munição 20 x 128 mm gex-t": "https://radarcac.com.br/?s=municao+20+X+128MM+GEX-T&post_type=product",
     "munição 20 x 128 mm ae-i-t-ad": "https://radarcac.com.br/?s=municao+20+X+128MM+AE-I-T-AD&post_type=product",
-    "munição 7,62 x 51 mm t": "https://radarcac.com.br/p/municao-cbc-7-62x51mm-comum-nato-ball-144gr-50un"
+    "munição 7,62 x 51 mm t": "https://radarcac.com.br/p/municao-cbc-7-62x51mm-comum-nato-ball-144gr-50un",
+    "munição 20mm gex": "https://radarcac.com.br/?s=MUNI%C3%87%C3%83O+20MM+GEX&post_type=product",
+    "munição 5,56mm ss109 traçante": "https://radarcac.com.br/p/municao-cbc-5-56mm-ss109",
+    "munição 5,56mm ss109 comum": "https://radarcac.com.br/?s=municao+5+56mm+ss109+comum&post_type=product",
+    "munição 5,56mm festim": "https://radarcac.com.br/?s=municao+5+56mm+festim&post_type=product",
+    "munição .308 winchester hpbt 168gr": "https://radarcac.com.br/p/municao-cbc-308-winchester-hpbt-sniper-168gr-20un-nativa-armas-687d9192"
    },
-   "busca": "/?s={q}&post_type=product"
+   "busca": "/?s={q}&post_type=product",
+   "naturezas": {}
   },
   "primeguns.com.br": {
-   "acertos": 11,
-   "ultimo": "2026-11-09",
+   "acertos": 19,
+   "ultimo": "2026-11-12",
    "itens": [
+    "munição 30mm aei",
+    "munição 9mm luger",
+    "munição 5,56mm festim",
+    "munição 7,62mm comum",
+    "munição 7,62mm festim",
+    "munição 7,62mm traçante",
+    "munição 20mm gex",
+    "munição 30mm ex-telada",
     "munição 7,62 x 51 mm t",
     "munição 12,7 x 99 mm tm17",
     "munição 12,7 x 99 mm c m33",
@@ -4856,7 +4985,7 @@
    ],
    "metodos": {
     "navegador": 0,
-    "texto": 11
+    "texto": 19
    },
    "paginas": {
     "munição 20 x 128 mm gex": "https://www.primeguns.com.br/armas-de-fogo/municoes",
@@ -4864,8 +4993,17 @@
     "munição 20 x 128 mm ae-i-t-ad": "https://www.primeguns.com.br/armas-de-fogo/municoes",
     "munição 12,7 x 99 mm c m33": "https://www.primeguns.com.br/armas-de-fogo/municoes",
     "munição 12,7 x 99 mm tm17": "https://www.primeguns.com.br/armas-de-fogo/municoes",
-    "munição 7,62 x 51 mm t": "https://www.primeguns.com.br/municao-7-62x51mm-comum-caixa-50un/p"
-   }
+    "munição 7,62 x 51 mm t": "https://www.primeguns.com.br/municao-7-62x51mm-comum-caixa-50un/p",
+    "munição 30mm ex-telada": "https://www.primeguns.com.br/armas-de-fogo/municoes",
+    "munição 20mm gex": "https://www.primeguns.com.br/armas-de-fogo/municoes/municao--38-tpc",
+    "munição 7,62mm traçante": "https://www.primeguns.com.br/armas-de-fogo/municoes/municao-7-62mm",
+    "munição 7,62mm festim": "https://www.primeguns.com.br/armas-de-fogo/municoes/municao-7-62mm",
+    "munição 7,62mm comum": "https://www.primeguns.com.br/armas-de-fogo/municoes/municao-7-62mm",
+    "munição 5,56mm festim": "https://www.primeguns.com.br/armas-de-fogo/municoes/municao-5-56mm",
+    "munição 9mm luger": "https://www.primeguns.com.br/armas-de-fogo/municoes/municao-9mm?srsltid=AYCX9vI8oO0-tKhBSkoMLqSkvoIlPzZH8q1UmA53ZCIe6d6p9z0wFJ8m",
+    "munição 30mm aei": "https://www.primeguns.com.br/armas-de-fogo/municoes/municao--38-tpc"
+   },
+   "naturezas": {}
   },
   "usinadapesca.com.br": {
    "acertos": 2,
@@ -4881,7 +5019,8 @@
    "paginas": {
     "munição 20 x 128 mm gex": "https://www.usinadapesca.com.br/municao-cbc-20-70-ch-7---28g---un",
     "munição 20 x 128 mm gex-t": "https://www.usinadapesca.com.br/municao-cbc-556-nato-otm-77gr-un"
-   }
+   },
+   "naturezas": {}
   },
   "lojaruva.com.br": {
    "acertos": 2,
@@ -4895,7 +5034,8 @@
    },
    "paginas": {
     "munição 20 x 128 mm gex": "https://lojaruva.com.br/categoria-produto/municoes/para-espingarda/municao-calibre-20"
-   }
+   },
+   "naturezas": {}
   },
   "armasqapbrasil.com.br": {
    "acertos": 5,
@@ -4915,63 +5055,104 @@
     "munição 20 x 128 mm gex-t": "https://www.armasqapbrasil.com.br/cat/municoes",
     "munição 12,7 x 99 mm c m33": "https://www.armasqapbrasil.com.br/cat/municoes?srsltid=AYCX9vJ_PL8CKudSSgyIvViYRA9SH-CMWnUBxnjIPg-NjdoUoth5eXLF",
     "munição 20 x 128 mm ae-i-t-ad": "https://www.armasqapbrasil.com.br/cat/municoes"
-   }
+   },
+   "naturezas": {}
   },
   "armastore.com.br": {
-   "acertos": 4,
-   "ultimo": "2026-11-09",
+   "acertos": 9,
+   "ultimo": "2026-11-12",
    "itens": [
+    "munição 30mm aei",
+    "munição 9mm luger",
+    "munição .308 winchester hpbt 168gr",
+    "munição .223 remington comum",
+    "munição 30mm ex-telada",
     "munição 12,7 x 99 mm tm17",
     "munição 20 x 128 mm gex-t"
    ],
    "metodos": {
     "navegador": 0,
-    "texto": 4
+    "texto": 9
    },
    "paginas": {
     "munição 20 x 128 mm gex-t": "https://armastore.com.br/produto/municao-cbc-calibre-20-chumbo-3t-cartucho-de-metal-25un/",
-    "munição 12,7 x 99 mm tm17": "https://armastore.com.br/?s=municao+12+7+x+99mm+tm17&post_type=product"
+    "munição 12,7 x 99 mm tm17": "https://armastore.com.br/?s=municao+12+7+x+99mm+tm17&post_type=product",
+    "munição 30mm ex-telada": "https://armastore.com.br/?s=MUNI%C3%87%C3%83O+30MM+EX-TELADA&post_type=product",
+    "munição .223 remington comum": "https://armastore.com.br/produto/municao-cbc-223-remington-expt-55gr-50rds/",
+    "munição .308 winchester hpbt 168gr": "https://armastore.com.br/produto/municao-cbc-308-winchester-hpbt-sniper-1-168gr-20rds",
+    "munição 9mm luger": "https://armastore.com.br/?s=MUNI%C3%87%C3%83O+9MM+LUGER&post_type=product",
+    "munição 30mm aei": "https://armastore.com.br/?s=MUNI%C3%87%C3%83O+30MM+AEI&post_type=product"
    },
-   "busca": "/?s={q}&post_type=product"
+   "busca": "/?s={q}&post_type=product",
+   "naturezas": {}
   },
   "armas.beartac.com.br": {
-   "acertos": 6,
-   "ultimo": "2026-11-09",
+   "acertos": 12,
+   "ultimo": "2026-11-12",
    "itens": [
+    "munição calibre 12 chumbos grossos",
+    "munição calibre 12 chumbos sg",
+    "munição calibre 12 chumbos finos",
+    "munição calibre 12 chumbos médios",
+    "munição calibre 12 impacto plástico",
+    "munição 9mm luger",
     "munição 12,7 x 99 mm tm17",
     "munição 12,7 x 99 mm c m33",
     "munição 20 x 128 mm gex-t"
    ],
    "metodos": {
     "navegador": 0,
-    "texto": 6
+    "texto": 12
    },
    "paginas": {
     "munição 20 x 128 mm gex-t": "https://armas.beartac.com.br/c/municao/",
     "munição 12,7 x 99 mm c m33": "https://armas.beartac.com.br/c/municao/municao-calibre-12",
-    "munição 12,7 x 99 mm tm17": "https://armas.beartac.com.br/c/municao/municao-calibre-12"
+    "munição 12,7 x 99 mm tm17": "https://armas.beartac.com.br/c/municao/municao-calibre-12",
+    "munição 9mm luger": "https://armas.beartac.com.br/c/municao/municao-de-defesa",
+    "munição calibre 12 impacto plástico": "https://armas.beartac.com.br/c/municao/municao-calibre-12/?stock_status=onsale",
+    "munição calibre 12 chumbos médios": "https://armas.beartac.com.br/c/municao/municao-calibre-12",
+    "munição calibre 12 chumbos finos": "https://armas.beartac.com.br/c/municao/municao-calibre-12",
+    "munição calibre 12 chumbos sg": "https://armas.beartac.com.br/c/municao/municao-calibre-12",
+    "munição calibre 12 chumbos grossos": "https://armas.beartac.com.br/c/municao/municao-calibre-12"
+   },
+   "naturezas": {
+    "construção": 5
    }
   },
   "brasiltatica.com.br": {
-   "acertos": 3,
-   "ultimo": "2026-11-09",
+   "acertos": 4,
+   "ultimo": "2026-11-12",
    "itens": [
+    "munição 30mm ex-telada",
     "munição 20 x 128 mm ae-i-t-ad",
     "munição 30 x 173 mm ex-telado"
    ],
    "metodos": {
     "navegador": 0,
-    "texto": 3
+    "texto": 4
    },
    "paginas": {
     "munição 20 x 128 mm ae-i-t-ad": "https://www.brasiltatica.com.br",
-    "munição 30 x 173 mm ex-telado": "https://www.brasiltatica.com.br"
-   }
+    "munição 30 x 173 mm ex-telado": "https://www.brasiltatica.com.br",
+    "munição 30mm ex-telada": "https://www.brasiltatica.com.br/"
+   },
+   "naturezas": {}
   },
   "falconarmas.com.br": {
-   "acertos": 6,
-   "ultimo": "2026-11-09",
+   "acertos": 17,
+   "ultimo": "2026-11-12",
    "itens": [
+    "munição calibre 12 chumbos grossos",
+    "munição calibre 12 chumbos sg",
+    "munição calibre 12 chumbos finos",
+    "munição calibre 12 chumbos médios",
+    "munição calibre 12 impacto plástico",
+    "munição 30mm aei",
+    "munição 5,56mm festim",
+    "munição 5,56mm ss109 comum",
+    "munição 20mm aei-traçante",
+    "munição 20mm gex-traçante",
+    "munição 20mm gex",
     "munição 12,7 x 99 mm tm17",
     "munição 12,7 x 99 mm c m33",
     "munição 20 x 128 mm gex-t",
@@ -4979,15 +5160,29 @@
    ],
    "metodos": {
     "navegador": 0,
-    "texto": 6
+    "texto": 17
    },
    "paginas": {
     "munição 12,7 x 99 mm c m33": "https://falconarmas.com.br/busca?q=municao+12+7+x+99mm+c+m33",
     "munição 12,7 x 99 mm tm17": "https://falconarmas.com.br/busca?q=municao+12+7+x+99mm+tm17",
     "munição 5,56x45mm c ss-109 elada": "https://falconarmas.com.br/produtos/caixa-municao-cbc-calibre-556x45mm-comum-ss109-cx-50-unid",
-    "munição 20 x 128 mm gex-t": "https://falconarmas.com.br/categoria-armas-de-fogo/municoes/?srsltid=AYCX9vIWXtQgrSJbu8OeNd8-PvI2GZ5ElkbmQchuVKDB0-wk-SrKKkOP"
+    "munição 20 x 128 mm gex-t": "https://falconarmas.com.br/categoria-armas-de-fogo/municoes/?srsltid=AYCX9vIWXtQgrSJbu8OeNd8-PvI2GZ5ElkbmQchuVKDB0-wk-SrKKkOP",
+    "munição 20mm gex": "https://falconarmas.com.br/busca?q=MUNI%C3%87%C3%83O+20MM+GEX",
+    "munição 20mm gex-traçante": "https://falconarmas.com.br/busca?q=MUNI%C3%87%C3%83O+20MM+GEX-TRA%C3%87ANTE",
+    "munição 20mm aei-traçante": "https://falconarmas.com.br/busca?q=MUNI%C3%87%C3%83O+20MM+AEI-TRA%C3%87ANTE",
+    "munição 5,56mm ss109 comum": "https://falconarmas.com.br/produtos/caixa-municao-cbc-calibre-556x45mm-comum-ss109-cx-50-unid",
+    "munição 5,56mm festim": "https://falconarmas.com.br/busca?q=municao+5+56mm+festim",
+    "munição 30mm aei": "https://falconarmas.com.br/busca?q=MUNI%C3%87%C3%83O+30MM+AEI",
+    "munição calibre 12 impacto plástico": "https://falconarmas.com.br/busca?q=MUNI%C3%87%C3%83O+CALIBRE+12+IMPACTO+PL%C3%81STICO",
+    "munição calibre 12 chumbos médios": "https://falconarmas.com.br/busca?q=MUNI%C3%87%C3%83O+CALIBRE+12+CHUMBOS+M%C3%89DIOS",
+    "munição calibre 12 chumbos finos": "https://falconarmas.com.br/busca?q=MUNI%C3%87%C3%83O+CALIBRE+12+CHUMBOS+FINOS",
+    "munição calibre 12 chumbos sg": "https://falconarmas.com.br/busca?q=MUNI%C3%87%C3%83O+CALIBRE+12+CHUMBOS+SG",
+    "munição calibre 12 chumbos grossos": "https://falconarmas.com.br/busca?q=MUNI%C3%87%C3%83O+CALIBRE+12+CHUMBOS+GROSSOS"
    },
-   "busca": "/busca?q={q}"
+   "busca": "/busca?q={q}",
+   "naturezas": {
+    "construção": 5
+   }
   },
   "m4tatica.com.br": {
    "acertos": 1,
@@ -5001,68 +5196,117 @@
    },
    "paginas": {
     "munição 12,7 x 99 mm c m33": "https://www.m4tatica.com.br/municao-cal-.12"
-   }
+   },
+   "naturezas": {}
   },
   "lojaskclube.com": {
-   "acertos": 3,
-   "ultimo": "2026-11-09",
+   "acertos": 11,
+   "ultimo": "2026-11-12",
    "itens": [
+    "munição calibre 12 chumbos grossos",
+    "munição calibre 12 chumbos sg",
+    "munição calibre 12 chumbos finos",
+    "munição calibre 12 chumbos médios",
+    "munição 9mm luger",
+    "munição .308 winchester hpbt 168gr",
+    "munição 7,62mm comum",
+    "munição 7,62mm festim",
     "munição 7,62 x 51 mm t",
     "munição 20 x 128 mm gex-t"
    ],
    "metodos": {
     "navegador": 0,
-    "texto": 3
+    "texto": 11
    },
    "paginas": {
     "munição 7,62 x 51 mm t": "https://lojaskclube.com/?s=municao+7+62+x+51mm+t&post_type=product",
-    "munição 20 x 128 mm gex-t": "https://lojaskclube.com/?s=municao+20+X+128MM+GEX-T&post_type=product"
+    "munição 20 x 128 mm gex-t": "https://lojaskclube.com/?s=municao+20+X+128MM+GEX-T&post_type=product",
+    "munição 7,62mm festim": "https://www.lojaskclube.com/municao-cbc-calibre-7-62x51mm-nato-comum-treina-caixa-50un-p1036112",
+    "munição 7,62mm comum": "https://lojaskclube.com/?s=municao+7+62mm+comum&post_type=product",
+    "munição .308 winchester hpbt 168gr": "https://www.lojaskclube.com/municao-cbc-308-win-hpbt-168gr-sniper-caixa-20un-p1036052",
+    "munição 9mm luger": "https://www.lojaskclube.com/municoes/calibre-9mm",
+    "munição calibre 12 chumbos médios": "https://lojaskclube.com/?s=MUNI%C3%87%C3%83O+CALIBRE+12+CHUMBOS+M%C3%89DIOS&post_type=product",
+    "munição calibre 12 chumbos finos": "https://lojaskclube.com/?s=MUNI%C3%87%C3%83O+CALIBRE+12+CHUMBOS+FINOS&post_type=product",
+    "munição calibre 12 chumbos sg": "https://lojaskclube.com/?s=MUNI%C3%87%C3%83O+CALIBRE+12+CHUMBOS+SG&post_type=product",
+    "munição calibre 12 chumbos grossos": "https://lojaskclube.com/?s=MUNI%C3%87%C3%83O+CALIBRE+12+CHUMBOS+GROSSOS&post_type=product"
    },
-   "busca": "/?s={q}&post_type=product"
+   "busca": "/?s={q}&post_type=product",
+   "naturezas": {
+    "construção": 4
+   }
   },
   "armasriopreto.com.br": {
-   "acertos": 2,
-   "ultimo": "2026-11-09",
+   "acertos": 9,
+   "ultimo": "2026-11-12",
    "itens": [
+    "munição .308 winchester etpt 162gr",
+    "munição 9mm luger",
+    "munição 5,56mm festim",
+    "munição 7,62mm comum",
+    "munição 7,62mm festim",
+    "munição 5,56mm ss109 traçante",
+    "munição 7,62mm traçante",
     "munição 7,62 x 51 mm t"
    ],
    "metodos": {
     "navegador": 0,
-    "texto": 2
+    "texto": 9
    },
    "paginas": {
-    "munição 7,62 x 51 mm t": "https://www.armasriopreto.com.br/produto/municoes/municao-cbc-762x51mm-comum-treina"
-   }
+    "munição 7,62 x 51 mm t": "https://www.armasriopreto.com.br/produto/municoes/municao-cbc-762x51mm-comum-treina",
+    "munição 7,62mm traçante": "https://www.armasriopreto.com.br/produto/municoes/municao-cbc-762x51mm-comum-treina",
+    "munição 5,56mm ss109 traçante": "https://www.armasriopreto.com.br/produto/municoes/municao-norma-556x45mm-fmj-62gr-ss109-range-training",
+    "munição 7,62mm festim": "https://www.armasriopreto.com.br/produto/municoes/municao-cbc-380-auto-p-etog-95gr",
+    "munição 7,62mm comum": "https://www.armasriopreto.com.br/produto/municoes/municao-cbc-357-mag-expp-158gr-treina",
+    "munição 5,56mm festim": "https://www.armasriopreto.com.br/produto/municoes/municao-cbc-357-mag-expp-158gr-treina",
+    "munição 9mm luger": "https://www.armasriopreto.com.br/produto/municoes/municao-cbc-9mm-luger-lpc-124gr-polymatch/",
+    "munição .308 winchester etpt 162gr": "https://www.armasriopreto.com.br/produto/municoes/municao-cbc-308-win-etpt-match162gr"
+   },
+   "naturezas": {}
   },
   "pescaeciaarmas.com.br": {
-   "acertos": 2,
-   "ultimo": "2026-11-09",
+   "acertos": 6,
+   "ultimo": "2026-11-12",
    "itens": [
+    "munição .308 winchester etpt 162gr",
+    "munição 5,56mm ss109 comum",
+    "munição 7,62mm comum",
+    "munição 5,56mm ss109 traçante",
     "munição 5,56x45mm c ss-109 elada",
     "munição 7,62 x 51 mm t"
    ],
    "metodos": {
     "navegador": 0,
-    "texto": 2
+    "texto": 6
    },
    "paginas": {
     "munição 7,62 x 51 mm t": "https://www.pescaeciaarmas.com.br/armas-de-fogo/municoes/municoes-para-fuzis-e-rifles/municao-762x51mm/municao-para-fuzil-cbc-cal-762x51mm-comum-m80-caixa-c-50-und",
-    "munição 5,56x45mm c ss-109 elada": "https://www.pescaeciaarmas.com.br/armas-de-fogo/municoes/municoes-para-fuzis-e-rifles/556nato/municao-para-fuzil-cbc-cal-556x45mm-comum-ss109-62gr-caixa-com-50unid"
-   }
+    "munição 5,56x45mm c ss-109 elada": "https://www.pescaeciaarmas.com.br/armas-de-fogo/municoes/municoes-para-fuzis-e-rifles/556nato/municao-para-fuzil-cbc-cal-556x45mm-comum-ss109-62gr-caixa-com-50unid",
+    "munição 5,56mm ss109 traçante": "https://www.pescaeciaarmas.com.br/armas-de-fogo/municoes/municoes-para-fuzis-e-rifles/556nato/municao-para-fuzil-cbc-cal-556x45mm-comum-ss109-62gr-caixa-com-50unid",
+    "munição 7,62mm comum": "https://www.pescaeciaarmas.com.br/armas-de-fogo/municoes/municoes-para-fuzis-e-rifles/municao-762x51mm/municao-para-fuzil-cbc-cal-762x51mm-comum-m80-caixa-c-50-und",
+    "munição 5,56mm ss109 comum": "https://www.pescaeciaarmas.com.br/armas-de-fogo/municoes/municoes-para-fuzis-e-rifles/556nato/municao-para-fuzil-cbc-cal-556x45mm-comum-ss109-62gr-caixa-com-50unid",
+    "munição .308 winchester etpt 162gr": "https://www.pescaeciaarmas.com.br/armas-de-fogo/municoes/municoes-para-fuzis-e-rifles/308-winchester/municao-para-fuzil-cbc-cal-308win-etpt-162gr-caixa-com-50un"
+   },
+   "naturezas": {}
   },
   "lojatatical.com.br": {
-   "acertos": 2,
-   "ultimo": "2026-11-09",
+   "acertos": 4,
+   "ultimo": "2026-11-12",
    "itens": [
+    "munição 5,56mm ss109 comum",
+    "munição 5,56mm ss109 traçante",
     "munição 5,56x45mm c ss-109 elada"
    ],
    "metodos": {
     "navegador": 0,
-    "texto": 2
+    "texto": 4
    },
    "paginas": {
-    "munição 5,56x45mm c ss-109 elada": "https://www.lojatatical.com.br/municao-cbc-5-56x45mm-comum-ss109-cx-c-50.html"
-   }
+    "munição 5,56x45mm c ss-109 elada": "https://www.lojatatical.com.br/municao-cbc-5-56x45mm-comum-ss109-cx-c-50.html",
+    "munição 5,56mm ss109 traçante": "https://www.lojatatical.com.br/municao-cbc-5-56x45mm-comum-ss109-cx-c-50.html",
+    "munição 5,56mm ss109 comum": "https://www.lojatatical.com.br/municao-cbc-5-56x45mm-comum-ss109-cx-c-50.html"
+   },
+   "naturezas": {}
   },
   "casadoroadie.com.br": {
    "acertos": 1,
@@ -5110,7 +5354,8 @@
    },
    "paginas": {
     "sinalizador pirotécnico de estrelas vermelha e verde": "https://topnautika.com.br/produtos/sinalizador-manual-estrela-vermelha-com-paraquedas-indios-ifp-201"
-   }
+   },
+   "naturezas": {}
   },
   "catarinanautica.com": {
    "acertos": 1,
@@ -5124,7 +5369,8 @@
    },
    "paginas": {
     "sinalizador pirotécnico de estrelas vermelha e verde": "https://www.catarinanautica.com/salvatagem-e-seguranca/sinalizador-manual-estrela-vermelha-com-paraquedas-indios-ifp-201"
-   }
+   },
+   "naturezas": {}
   },
   "produtosnauticos.com": {
    "acertos": 2,
@@ -5140,7 +5386,8 @@
    "paginas": {
     "sinalizador pirotécnico de estrelas vermelha e verde": "https://produtosnauticos.com/produtos/foguete-manual-estrela-vermelha-sinalizador-com-paraquedas",
     "foguete sinalizador verde com paraquedas": "https://produtosnauticos.com/produtos/foguete-manual-estrela-vermelha-sinalizador-com-paraquedas"
-   }
+   },
+   "naturezas": {}
   },
   "velamar.com.br": {
    "acertos": 4,
@@ -5156,7 +5403,8 @@
    "paginas": {
     "foguete sinalizador verde com paraquedas": "https://velamar.com.br/foguete-manual-estrela-vermelha-com-paraquedas-indios-ifp-201-vm",
     "foguete sinalizador branco com paraquedas": "https://velamar.com.br/foguete-manual-estrela-vermelha-com-paraquedas-indios-ifp-201-vm"
-   }
+   },
+   "naturezas": {}
   },
   "regatta.com.br": {
    "acertos": 4,
@@ -5172,7 +5420,8 @@
    "paginas": {
     "foguete sinalizador verde com paraquedas": "https://www.regatta.com.br/foguete-manual--estrela-vermelha-com-paraquedas-id0000003/p",
     "foguete sinalizador branco com paraquedas": "https://www.regatta.com.br/foguete-manual--estrela-vermelha-com-paraquedas-id0000003/p"
-   }
+   },
+   "naturezas": {}
   },
   "r4nautic.com": {
    "acertos": 3,
@@ -5188,7 +5437,8 @@
    "paginas": {
     "foguete sinalizador branco com paraquedas": "https://r4nautic.com/loja/salvatagem-e-seguranca/sinalizadores-e-pirotecnicos/foguete-manual-estrela-vermelha-indios/",
     "foguete sinalizador verde com paraquedas": "https://r4nautic.com/loja/salvatagem-e-seguranca/sinalizadores-e-pirotecnicos/foguete-manual-estrela-vermelha-indios/"
-   }
+   },
+   "naturezas": {}
   },
   "timt.com.br": {
    "acertos": 1,
@@ -5259,6 +5509,132 @@
    "paginas": {
     "sinalizador diurno/noturno": "https://www.sasantoantonio.com.br/eletrica/iluminacao/sinalizador-noturno-topo-predio-tramontina-1lamp-aluminio-azul?srsltid=AYCX9vJFbzLtJ4NJhsM_HP7MUYQmG6QWVt0TuN_Kwh3LtZ1ZFHzEU2iB"
    }
+  },
+  "airtudo.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-11-12",
+   "itens": [
+    "munição .50 bmg tm17"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "paginas": {
+    "munição .50 bmg tm17": "https://www.airtudo.com.br/3d/chaveiro-municao-50-bmg"
+   },
+   "naturezas": {}
+  },
+  "sapesca.com.br": {
+   "acertos": 3,
+   "ultimo": "2026-11-12",
+   "itens": [
+    "munição .50 bmg perfurante",
+    "munição .50 bmg de precisão",
+    "munição .50 bmg tm17"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 3
+   },
+   "paginas": {
+    "munição .50 bmg tm17": "https://www.sapesca.com.br/expositor-ammo-stand-single-50-bmg-munic-o-manejo-aluminio?srsltid=AYCX9vL-xebAPVfdwV8-pUHrhVPKYcOTj9U3UKfaKDzJhiacQR1xoUzo",
+    "munição .50 bmg de precisão": "https://www.sapesca.com.br/expositor-ammo-stand-single-50-bmg-munic-o-manejo-aluminio",
+    "munição .50 bmg perfurante": "https://www.sapesca.com.br/expositor-ammo-stand-single-50-bmg-munic-o-manejo-aluminio?srsltid=AYCX9vITvWmzO1_DcqnuO6ysGdmq_WHyJTXGFJRHX1qT5dTVa3F260WD"
+   },
+   "naturezas": {}
+  },
+  "bigboar.com.br": {
+   "acertos": 2,
+   "ultimo": "2026-11-12",
+   "itens": [
+    "munição .308 winchester hpbt 168gr",
+    "munição .223 remington comum"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 2
+   },
+   "paginas": {
+    "munição .223 remington comum": "https://bigboar.com.br/categoria-produto/municoes/municoes-para-fuzis-e-rifles/223-remington",
+    "munição .308 winchester hpbt 168gr": "https://bigboar.com.br/categoria-produto/municoes/municoes-para-fuzis-e-rifles/308-winchester/"
+   },
+   "naturezas": {}
+  },
+  "topcacaepesca.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-11-12",
+   "itens": [
+    "munição .223 remington comum"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "paginas": {
+    "munição .223 remington comum": "https://topcacaepesca.com.br/produto/municao-cbc-223-remington-etpt-55gr-cx-50-un/"
+   },
+   "naturezas": {}
+  },
+  "arena44.com": {
+   "acertos": 1,
+   "ultimo": "2026-11-12",
+   "itens": [
+    "munição 5,56mm festim"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "paginas": {
+    "munição 5,56mm festim": "https://arena44.com/collections/municoes-5-56x45mm"
+   },
+   "naturezas": {}
+  },
+  "ciadasarmas.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-11-12",
+   "itens": [
+    "munição .308 winchester hpbt 168gr"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "paginas": {
+    "munição .308 winchester hpbt 168gr": "https://www.ciadasarmas.com.br/.308"
+   },
+   "naturezas": {}
+  },
+  "cacarmas.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-11-12",
+   "itens": [
+    "munição 9mm luger"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "paginas": {
+    "munição 9mm luger": "https://cacarmas.com.br/produto/municao-cbc-cal-9mm-luger-etog-124gr-treina-50-unidades"
+   },
+   "naturezas": {}
+  },
+  "lojasemperfire.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-11-12",
+   "itens": [
+    "munição 9mm luger"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "paginas": {
+    "munição 9mm luger": "https://www.lojasemperfire.com.br/item/municao-9mm-luger-etog-124gr"
+   },
+   "naturezas": {}
   }
  },
  "falhas": {
@@ -5978,14 +6354,14 @@
    "ultimo": "2026-11-09"
   },
   "revistaoperacional.com.br": {
-   "navegador": 0,
-   "texto": 2,
-   "ultimo": "2026-11-09"
+   "navegador": 1,
+   "texto": 3,
+   "ultimo": "2026-11-12"
   },
   "armaspy.com": {
    "navegador": 0,
-   "texto": 4,
-   "ultimo": "2026-11-09"
+   "texto": 8,
+   "ultimo": "2026-11-12"
   },
   "sentinela.ind.br": {
    "navegador": 3,
@@ -6023,19 +6399,19 @@
    "ultimo": "2026-11-09"
   },
   "acsports.com.br": {
-   "navegador": 1,
-   "texto": 1,
-   "ultimo": "2026-11-09"
+   "navegador": 2,
+   "texto": 2,
+   "ultimo": "2026-11-12"
   },
   "academiadearmas.com": {
-   "navegador": 1,
-   "texto": 1,
-   "ultimo": "2026-11-09"
+   "navegador": 3,
+   "texto": 3,
+   "ultimo": "2026-11-12"
   },
   "infoarmas.com.br": {
-   "navegador": 1,
-   "texto": 1,
-   "ultimo": "2026-11-09"
+   "navegador": 3,
+   "texto": 3,
+   "ultimo": "2026-11-12"
   },
   "parceriaarmas.com.br": {
    "navegador": 0,
@@ -6053,9 +6429,9 @@
    "ultimo": "2026-11-09"
   },
   "barbosaarmeiro.com": {
-   "navegador": 1,
-   "texto": 1,
-   "ultimo": "2026-11-09"
+   "navegador": 2,
+   "texto": 2,
+   "ultimo": "2026-11-12"
   },
   "lojaamster.com": {
    "navegador": 1,
@@ -6306,51 +6682,116 @@
    "navegador": 1,
    "texto": 1,
    "ultimo": "2026-11-12"
+  },
+  "blackrecon.com": {
+   "navegador": 0,
+   "texto": 1,
+   "ultimo": "2026-11-12"
+  },
+  "lrcadefenseconsulting.com": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-11-12"
+  },
+  "fabricademilitaria.com.br": {
+   "navegador": 2,
+   "texto": 3,
+   "ultimo": "2026-11-12"
+  },
+  "naval.com.br": {
+   "navegador": 0,
+   "texto": 1,
+   "ultimo": "2026-11-12"
+  },
+  "etsy.com": {
+   "navegador": 0,
+   "texto": 1,
+   "ultimo": "2026-11-12"
+  },
+  "segurancapublica.cbcdefesa.com.br": {
+   "navegador": 3,
+   "texto": 3,
+   "ultimo": "2026-11-12"
+  },
+  "shutterstock.com": {
+   "navegador": 2,
+   "texto": 2,
+   "ultimo": "2026-11-12"
+  },
+  "carbinstore.com": {
+   "navegador": 0,
+   "texto": 1,
+   "ultimo": "2026-11-12"
+  },
+  "gunpartpicker.net": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-11-12"
+  },
+  "gunmagwarehouse.com": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-11-12"
+  },
+  "combatairsoft.com.br": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-11-12"
+  },
+  "rioverdepesca.com.br": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-11-12"
+  },
+  "tirocenter.com.br": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-11-12"
   }
  },
  "frases": {
   "{item} comprar": {
-   "usos": 17.4296,
-   "acertos": 5.0014,
+   "usos": 16.3193,
+   "acertos": 5.9955,
    "ultimo": "2026-11-12"
   },
   "{item} preço": {
-   "usos": 19.9936,
-   "acertos": 8.1863,
+   "usos": 19.9926,
+   "acertos": 19.9643,
    "ultimo": "2026-11-12"
   },
   "venda de {item}": {
-   "usos": 18.611,
-   "acertos": 5.5547,
+   "usos": 18.2947,
+   "acertos": 6.8196,
    "ultimo": "2026-11-12"
   },
   "{item} valor": {
-   "usos": 18.611,
-   "acertos": 5.2702,
+   "usos": 18.8687,
+   "acertos": 7.3365,
    "ultimo": "2026-11-12"
   },
   "{item} atacado": {
-   "usos": 19.9926,
-   "acertos": 7.4642,
+   "usos": 19.9909,
+   "acertos": 11.5663,
    "ultimo": "2026-11-12"
   },
   "{item} preço brasil": {
-   "usos": 14.1602,
-   "acertos": 3.7848,
+   "usos": 13.5293,
+   "acertos": 4.1937,
    "ultimo": "2026-11-12"
   },
   "{item} comprar brasil": {
-   "usos": 18.205,
-   "acertos": 4.9022,
+   "usos": 18.2947,
+   "acertos": 6.8681,
    "ultimo": "2026-11-12"
   },
   "comprar {item} online brasil": {
-   "usos": 19.5021,
-   "acertos": 6.371,
+   "usos": 19.5507,
+   "acertos": 20.5886,
    "ultimo": "2026-11-12"
   }
  },
- "buscas": 180,
+ "buscas": 186,
  "sem_busca": {
   "arxiv.org": "2026-10-05",
   "papers.ssrn.com": "2026-10-05",
@@ -6431,16 +6872,16 @@
   "armasriopreto.com.br": "2026-11-09",
   "velamar.com.br": "2026-11-10",
   "regatta.com.br": "2026-11-10",
-  "colombo.com.br": "2026-11-12",
-  "r4nautic.com": "2026-11-12"
+  "pescaeciaarmas.com.br": "2026-11-12",
+  "sapesca.com.br": "2026-11-12"
  },
  "serper": {
   "mes": "2026-11",
-  "n": 147
+  "n": 131
  },
  "tavily": {
   "mes": "2026-11",
-  "n": 206
+  "n": 214
  },
  "nomes": {
   "papel contact": {
@@ -6990,44 +7431,14 @@
    "origem": ""
   },
   "sinalizador pirotecnico": {
-   "busca": "sinal indios",
-   "aceitar": [
-    [
-     "sinal",
-     "indios"
-    ]
-   ],
+   "busca": "",
+   "aceitar": [],
    "excluir": {},
    "recusados": [
     "Sinal Manual Estrela Vermelha Índios IFS-205-VM - Velamar Náutica",
-    "Sinal Manual Estrela vermelha, branco, verde Indios - Febula Mariner",
-    "Sinal Manual Estrela Verde Índios IFS-205-VD - Velamar Náutica",
-    "Foguete Manual Estrela Vermelha Indios Pirotecnia M-IFP-201 Com Paraquedas - Regatta",
-    "SINALIZADOR VERDE - Fogos CruzArte",
-    "Captcha Magalu",
-    "Estratégias de Portfólio do Investidor Estrela PRIMECAP Management - Tradingkey",
-    "Foguete manual estrela vermelha com paraquedas - Indios IFP-201 - R4Nautic",
-    "Sem título",
-    "Flexprin Marine",
-    "Sinal Manual Estrela Branca Índios Ifs-205-Bc - Velamar Náutica",
-    "Pirotécnicos e Sinalizadores - Velamar Náutica",
-    "SINALIZADOR (VERDE OU VERMELHO) - A UNIDADE - Aymoré Fogos",
-    "Compre Fogos de Artifício a Granel, Sinalizadores, Lanternas de Sinalização, Fumaça Segura para Ignição e Fumaça Colorid",
-    "Cinco anos do Pix no Brasil | cel_news",
-    "Fumaças e Sinalizadores | Fogosmania | Loja de Fogos de Artificio em BH",
-    "Sinalizador en Uruguay - Supernova Uruguay",
-    "Estrellitas / Luces de Bengala - GIANBO Fuegos Artificiales",
-    "Crisantemo a estrellas móviles rojas carcasa de bola de 5 pulgadas 1.3 – Elevated Fireworks",
-    "Pirotécnicos - Febula Mariner",
-    "Sinalizador Grande (azul, verde, vermelho ou amarelo) unidade",
-    "Kit Sinalizador Náutico Pirotécnico Navegação Costeira + Maleta Caixa Indios - Spartacus Comércio de Produtos Pessoais e",
-    "Sinalizadores - Zeus do Brasil",
-    "Produtos | Garanta Sua Segurança Agora — Grupo Indios",
-    "fogos sinalizador colorido | Fogos de artificio e shows pirotécnicos",
-    "Tudo sobre o Pairi Daiza, o zoológico de Brugelette na Bélgica: preços",
-    "Os LusÃ­adas | Project Gutenberg"
+    "Sinal Manual Estrela vermelha, branco, verde Indios - Febula Mariner"
    ],
-   "origem": "sugestão aceita"
+   "origem": ""
   },
   "espargidor agente": {
    "busca": "",
@@ -7047,16 +7458,7 @@
     "Octadesk em 2026: preÃ§os, reputaÃ§Ã£o e quando vale a pena Â· AI Hub Brasil",
     "Frasco de Spray de Pimenta Novo Estilo por Atacado 110ml para Defesa Pessoal - 2026 Spray de pimenta, Guarda de seguranç",
     "Pulverizadores de geração de espuma IK | IK Sprayers",
-    "Espargidor De Asfalto Pressurizado, Tanque 6 M3 Com Isolacao Termica, Aquecido Com 2 Macaricos, Com Barra Espargidora 3,",
-    "Coldres Meganha - Verificando acesso...",
-    "Fábrica de fabricantes de spray de pimenta China - Factory - Pimenta personalizada por atacado",
-    "Sprays de pimenta aprovados e seguros – Carbin",
-    "Spray de Pimenta Condor Defensor Extra Forte Defesa Pessoal - Tático Acessórios Militares",
-    "Category_Page_Title",
-    "AI Sales Agents: Types, Examples and Best Platforms (2026)",
-    "20ml Atacado Auto Defesa leve Pepper Spray para Auto-Defesa - 2026 Spray de pimenta mais leve, suprimentos de Autodefesa",
-    "A loja está temporariamente fora de serviço | VALENT’in",
-    "Espumador Leite Elétrico 4em1 127V Oster Preto - Spicy"
+    "Espargidor De Asfalto Pressurizado, Tanque 6 M3 Com Isolacao Termica, Aquecido Com 2 Macaricos, Com Barra Espargidora 3,"
    ],
    "origem": ""
   },
@@ -7066,22 +7468,7 @@
    "excluir": {},
    "recusados": [
     "Bomba brasileira na pele turca - Agência Pública",
-    "Signal-Based Selling: A Complete How-To Guide for 2026",
-    "Bebedouro para ambiente externo FONTIS – Av Imobiliário Corporativo",
-    "Tocheiro a Gás Para Ambiente Externo TC80",
-    "Atacado de ROCKBROS JP008 Bateria Portátil de 5000mAh com Luz Frontal de Bicicleta para Uso Externo, Carregador Portátil",
-    "Macarrao Galo 500g Tricolor Parafuso | Lobascz",
-    "Pedra Granada para Vitalidade e Energia | WeMystic Brasil",
-    "Contrabanda Granada, Calle Gracia 31 Local, Granada, ES - MapQuest",
-    "Sem título",
-    "Gendamería de Chile compra granadas lacrimógenas Condor GL-302",
-    "Â¿CuÃ¡nto nos cuestan las bombas lacrimÃ³genas? El precio oscila entre $ 11,5 y $ 37 en los contratos pÃºblicos | El neg",
-    "OM Security: Câmeras, CFTV e SAegurança Eletrônica",
-    "Parked Domain name on Hostinger DNS system",
-    "canopé exterior pesado - canopé exterior pesado para a venda .",
-    "Guía de Regalos para Hombres - Diadora Tienda Online",
-    "Pare-feu Domaine public",
-    "PI3141 - BONECA BAILARINA COM MOVIMENTO - Brinquedos Pica-Pau"
+    "Signal-Based Selling: A Complete How-To Guide for 2026"
    ],
    "origem": ""
   },
@@ -7105,58 +7492,165 @@
     "What to See in Granada - Top Sights you Can't Miss",
     "13 Best Things to Do in Granada: First-Hand Guide (2026)",
     "Best things to do in Granada, Spain - Lonely Planet",
-    "Inicio | Ayuntamiento de Granada",
-    "Pimenta no Atacado em Tanhaçu BA à venda. Compre direto 862944",
-    "Granadas para Dispersión de Multitudes – Imdicol",
-    "Poly Defensor",
-    "bhmilitar.com.br - Verificando acesso...",
-    "Contraktor lança MCP para contratos do Brasil - Migalhas",
-    "OM Security: Câmeras, CFTV e SAegurança Eletrônica"
+    "Inicio | Ayuntamiento de Granada"
    ],
    "origem": ""
   },
-  "carga demolicao": {
+  "municao telada": {
    "busca": "",
    "aceitar": [],
    "excluir": {},
    "recusados": [
-    "Conj. Mesa Itália DJ Móveis C/ 8 Cad. Zoe | Lojas Colombo",
-    "➤ demolição, reciclagem e aterro compra usada em Machineseeker Brasil - (10 online) 🏷️",
-    "Mini Dumper para DemoliÃ§Ã£o | PLX Brasil",
-    "Pesquisando por - Etiqueta - armario demolição 8 portas com prateleira",
-    "Resíduos de Construção e Demolição: Descarte Correto – Seven Resíduos",
-    "Máquinas de demolição: Brokk Demolition Robots",
-    "Série de Demolição e Esmagamento",
+    "30mm Army & Air Force Ammunition for Sale | Ordnance.com",
+    "A importância do calibre 30 mm para as Forças Terrestres - Tecnodefesa",
+    "30x113mm EX-T Exercício Traçante (TP-T) – Forças Armadas CBC",
+    "MUNIÇÕES ARMAS CURTAS E CARABINAS – CBC, Líder Mundial em Munições",
     "Sem título",
-    "Demolidora em São Paulo | Empresa de Demolição | Demolicom"
+    "Munições | MGS, LLC",
+    "Instituto Sou da Paz - Venda de munições aumenta 36% nos últimos 9 anos, mas rastreabilidade cai"
    ],
    "origem": ""
   },
-  "acionador disparo": {
+  "municao gex": {
    "busca": "",
    "aceitar": [],
    "excluir": {},
    "recusados": [
-    "¿Qué son los interruptores de gatillo y para qué sirven? - E-Switch",
-    "Equipamentos Eletrônicos - Módulo de isolação e amplificação de disparo para tiristores - Soluções e Serviços -"
+    "Munições com Nota e Garantia | Compre na Prime Guns - Prime Guns",
+    "MUNIÇÕES ARMAS CURTAS E CARABINAS – CBC, Líder Mundial em Munições",
+    "Catálogo: Armas, Munições, Airsoft e Acessórios | Arma Store",
+    "Munição – Beartac"
    ],
    "origem": ""
   },
-  "sinalizador diurno": {
+  "municao aei": {
    "busca": "",
    "aceitar": [],
    "excluir": {},
    "recusados": [
-    "Sinal De Perigo Diurno Noturno Índios Idn-204 - Velamar Náutica",
-    "Sinal de perigo diurno-noturno Indios - Febula Mariner",
+    "Munições com Nota e Garantia | Compre na Prime Guns - Prime Guns",
+    "20mm M246 High Explosive Tracer Round 20x102 Vulcan",
+    "7,6 2x51mm Traçante (NATO Tracer) – Forças Armadas CBC",
+    "556x45mm-IR-TRACER – CBC, Líder Mundial em Munições",
+    "Michelson 20MM Foundation Company Overview, Contact Details & Competitors | LeadIQ",
+    "Catálogo: Armas, Munições, Airsoft e Acessórios | Arma Store",
+    "Munição – Beartac",
+    "Sem título"
+   ],
+   "origem": ""
+  },
+  "municao 50": {
+   "busca": "",
+   "aceitar": [],
+   "excluir": {},
+   "recusados": [
+    "50 BMG AMMO Archives - Bulk Ammunition shop",
     "Sem título",
-    "Captcha Magalu",
-    "Ample - Sistemas Contra Incêndio",
-    "Produtos | Garanta Sua Segurança Agora — Grupo Indios",
-    "Aplicação de Sinalizadores de Obstáculos à Navegação Aérea",
-    "Sinalizador PL 6002",
-    "Señal diurna-nocturna - Ikaros",
-    "SINALIZADOR PL 6002 – Plastcor do Brasil"
+    "12,7 x 99 mm (.50) Perfurante (NATO AP) – Forças Armadas CBC",
+    "Munições com Nota e Garantia | Compre na Prime Guns - Prime Guns",
+    "Munição – Beartac",
+    "BMG RIGHTS MANAGEMENT GmbH Employee Directory, Headcount & Staff | LeadIQ",
+    "Munição Terminator Gold .50 Para Revólver 30 Unidades 65gr",
+    "50 BMG Precision - Barrett Firearms",
+    "UnboundB2B Data Accuracy: How ZoomInfo Delivered 90%+ Results",
+    "Top 5 'Budget-Priced' .50 BMG Rifles | An Official Journal Of The NRA",
+    "Munição .50: esferas de metal e borracha para comprar"
+   ],
+   "origem": ""
+  },
+  "municao ss109": {
+   "busca": "",
+   "aceitar": [],
+   "excluir": {},
+   "recusados": [
+    "5,56x45mm Comum SS109 – CBC, Líder Mundial em Munições",
+    "Munições - Nacional Armas",
+    "CBC"
+   ],
+   "origem": ""
+  },
+  "municao festim": {
+   "busca": "",
+   "aceitar": [],
+   "excluir": {},
+   "recusados": [
+    "Munições Para Fuzis e Rifles na Pesca & Cia Armas - Pesca & Cia Armas",
+    "Munição 5,56x45mm Comum M193 Caixa 50un | Prime Guns",
+    "5,56x45MM na Pesca & Cia Armas - Pesca & Cia Armas",
+    "5,56x45mm Comum (Ball) M193 – CBC, Líder Mundial em Munições",
+    "Munição CBC 5,56x45mm Comum M193 - Armas Rio Preto",
+    "Compre balas vazias para pistolas e revólveres – Carbin",
+    "Munição - Tibia Wiki - A Enciclopédia do Tibia",
+    "Sem título",
+    "Caixa de Munição 5,56/223 para 100 Munições - Aurok",
+    "5.56mm: que calibre é esse? - Velho General",
+    "7,62x51mm Festim – Forças Armadas CBC",
+    "Festim Construction",
+    "Cartucho Metálico 22 Festim para Conector Cunha Linha PT Polvora Série Azul - Incesa | Plenobras"
+   ],
+   "origem": ""
+  },
+  "municao 223": {
+   "busca": "",
+   "aceitar": [],
+   "excluir": {},
+   "recusados": [
+    "Munição .223 com Nota e Garantia - Compre na Prime Guns - Prime Guns",
+    ".223 Rem Polymer Tip 55gr – CBC, Líder Mundial em Munições",
+    "Shop 223 Ammo | .223 Remington Ammunition Made in the USA | Remington",
+    "Munições na Pesca & Cia Armas - Pesca & Cia Armas",
+    "223 Remington Ammo | Best 223 Remington Ammunition - AmmoSeek.com 2026",
+    "DIFERENÇAS ENTRE 5,56x45MM NATO E .223 Remington - FIREARMS BRASIL",
+    "Remington Pharma"
+   ],
+   "origem": ""
+  },
+  "municao 308": {
+   "busca": "",
+   "aceitar": [],
+   "excluir": {},
+   "recusados": [
+    ".308 Win HPBT Sniper 1 168gr – CBC, Líder Mundial em Munições",
+    ".308WIN na Pesca & Cia Armas - Pesca & Cia Armas",
+    "Destiny Church, 308 Hope Dr, Winchester, VA 22602, US - MapQuest",
+    "Freedom Munitions 308 Win 168 gr HPBT Match New",
+    ".308 WIN 168gr HPBT Sniper – CBC Defense",
+    "Sniper 1 – Forças Armadas CBC",
+    "Winchester Ammunition",
+    ".308 WINCHESTER | 168GR, SIERRA HPBT-M, 20/BOX - Wilson Combat",
+    ".308 WIN 168GR HPBT Sniper - Magtech",
+    "Munição CBC .308 Win ETPT 162gr - Armas Rio Preto",
+    "Munição .308 - Delux Armas",
+    ".308 Win ETPT Match 162gr – CBC, Líder Mundial em Munições"
+   ],
+   "origem": ""
+  },
+  "municao luger": {
+   "busca": "",
+   "aceitar": [],
+   "excluir": {},
+   "recusados": [
+    "MUNIÇÕES ARMAS CURTAS E CARABINAS – CBC, Líder Mundial em Munições",
+    "Kel-Tec SUB-SDP: a folding civilian PDW | GUNSweek.com",
+    "Luger"
+   ],
+   "origem": ""
+  },
+  "municao calibre": {
+   "busca": "",
+   "aceitar": [],
+   "excluir": {},
+   "recusados": [
+    "Catálogo: Armas, Munições, Airsoft e Acessórios | Arma Store",
+    "Cartucho CBC .12GA [70mm] Anti-Motim Curta Distância (Plástico) Cx.25un - Armas Prime",
+    "Calibre .12GA na Pesca & Cia Armas - Pesca & Cia Armas",
+    "Munições com Nota e Garantia | Compre na Prime Guns - Prime Guns",
+    "ExxonMobil Signature Polymers Challenges Industry to “Bring Your Impossible” at Plastico Brasil 2025",
+    "CARTUCHOS DE CAÇA VELOX – CBC, Líder Mundial em Munições",
+    "Qual o valor da bala calibre 12? - cupuladospovos",
+    "Impacto Brasil 2026 Company Profile: Valuation, Funding & Investors | PitchBook",
+    "Cartucho CBC Cal.12/70 Anti-motim Bagos Caixa c/25 Unidades na Pesca & Cia Armas",
+    "Cartucho Calibre 12 - Arsenal Fogo"
    ],
    "origem": ""
   }
@@ -8271,6 +8765,551 @@
       "segundos": 63.2
      }
     }
+   },
+   {
+    "data": "2026-11-12T17:02:07",
+    "item": "MUNIÇÃO 30MM EX-TELADA",
+    "natureza": "(sem natureza)",
+    "segundos": 84.9,
+    "precos": 3,
+    "certos": 0,
+    "completo": true,
+    "api": 7,
+    "navegador": 3,
+    "frase": "comprar {item} online brasil",
+    "origens": {
+     "busca": {
+      "tentativas": 22,
+      "precos": 6,
+      "segundos": 84.9
+     }
+    }
+   },
+   {
+    "data": "2026-11-12T17:02:32",
+    "item": "MUNIÇÃO 20MM GEX",
+    "natureza": "(sem natureza)",
+    "segundos": 23.1,
+    "precos": 3,
+    "certos": 1,
+    "completo": true,
+    "api": 2,
+    "navegador": 0,
+    "frase": "",
+    "origens": {
+     "parecida": {
+      "tentativas": 4,
+      "precos": 3,
+      "segundos": 23.1
+     }
+    }
+   },
+   {
+    "data": "2026-11-12T17:04:34",
+    "item": "MUNIÇÃO 20MM GEX-TRAÇANTE",
+    "natureza": "(sem natureza)",
+    "segundos": 121.1,
+    "precos": 1,
+    "certos": 0,
+    "completo": false,
+    "api": 4,
+    "navegador": 0,
+    "frase": "",
+    "origens": {
+     "parecida": {
+      "tentativas": 3,
+      "precos": 1,
+      "segundos": 16.4
+     },
+     "busca": {
+      "tentativas": 17,
+      "precos": 0,
+      "segundos": 104.7
+     }
+    }
+   },
+   {
+    "data": "2026-11-12T17:06:36",
+    "item": "MUNIÇÃO 20MM AEI-TRAÇANTE",
+    "natureza": "(sem natureza)",
+    "segundos": 121.3,
+    "precos": 1,
+    "certos": 0,
+    "completo": false,
+    "api": 10,
+    "navegador": 1,
+    "frase": "",
+    "origens": {
+     "parecida": {
+      "tentativas": 3,
+      "precos": 1,
+      "segundos": 16.0
+     },
+     "busca": {
+      "tentativas": 21,
+      "precos": 0,
+      "segundos": 105.3
+     }
+    }
+   },
+   {
+    "data": "2026-11-12T17:07:55",
+    "item": "MUNIÇÃO .50 BMG M33",
+    "natureza": "(sem natureza)",
+    "segundos": 77.6,
+    "precos": 0,
+    "certos": 0,
+    "completo": false,
+    "api": 9,
+    "navegador": 2,
+    "frase": "",
+    "origens": {
+     "busca": {
+      "tentativas": 14,
+      "precos": 0,
+      "segundos": 77.6
+     }
+    }
+   },
+   {
+    "data": "2026-11-12T17:08:24",
+    "item": "MUNIÇÃO .50 BMG TM17",
+    "natureza": "(sem natureza)",
+    "segundos": 29.2,
+    "precos": 1,
+    "certos": 1,
+    "completo": false,
+    "api": 9,
+    "navegador": 0,
+    "frase": "{item} preço",
+    "origens": {
+     "busca": {
+      "tentativas": 9,
+      "precos": 2,
+      "segundos": 29.2
+     }
+    }
+   },
+   {
+    "data": "2026-11-12T17:08:46",
+    "item": "MUNIÇÃO 7,62MM TRAÇANTE",
+    "natureza": "(sem natureza)",
+    "segundos": 20.4,
+    "precos": 3,
+    "certos": 1,
+    "completo": true,
+    "api": 1,
+    "navegador": 0,
+    "frase": "comprar {item} online brasil",
+    "origens": {
+     "busca": {
+      "tentativas": 4,
+      "precos": 3,
+      "segundos": 20.4
+     }
+    }
+   },
+   {
+    "data": "2026-11-12T17:09:48",
+    "item": "MUNIÇÃO 5,56MM SS109 TRAÇANTE",
+    "natureza": "(sem natureza)",
+    "segundos": 61.1,
+    "precos": 3,
+    "certos": 1,
+    "completo": true,
+    "api": 7,
+    "navegador": 3,
+    "frase": "comprar {item} online brasil",
+    "origens": {
+     "busca": {
+      "tentativas": 14,
+      "precos": 5,
+      "segundos": 61.1
+     }
+    }
+   },
+   {
+    "data": "2026-11-12T17:10:25",
+    "item": "MUNIÇÃO 7,62MM FESTIM",
+    "natureza": "(sem natureza)",
+    "segundos": 35.1,
+    "precos": 3,
+    "certos": 2,
+    "completo": true,
+    "api": 3,
+    "navegador": 0,
+    "frase": "{item} valor",
+    "origens": {
+     "parecida": {
+      "tentativas": 3,
+      "precos": 2,
+      "segundos": 16.0
+     },
+     "busca": {
+      "tentativas": 3,
+      "precos": 2,
+      "segundos": 19.1
+     }
+    }
+   },
+   {
+    "data": "2026-11-12T17:11:02",
+    "item": "MUNIÇÃO 7,62MM COMUM",
+    "natureza": "(sem natureza)",
+    "segundos": 36.6,
+    "precos": 3,
+    "certos": 2,
+    "completo": true,
+    "api": 3,
+    "navegador": 1,
+    "frase": "comprar {item} online brasil",
+    "origens": {
+     "parecida": {
+      "tentativas": 4,
+      "precos": 3,
+      "segundos": 22.0
+     },
+     "busca": {
+      "tentativas": 3,
+      "precos": 2,
+      "segundos": 14.5
+     }
+    }
+   },
+   {
+    "data": "2026-11-12T17:12:24",
+    "item": "MUNIÇÃO 5,56MM SS109 COMUM",
+    "natureza": "(sem natureza)",
+    "segundos": 81.6,
+    "precos": 1,
+    "certos": 0,
+    "completo": false,
+    "api": 11,
+    "navegador": 3,
+    "frase": "comprar {item} online brasil",
+    "origens": {
+     "parecida": {
+      "tentativas": 4,
+      "precos": 1,
+      "segundos": 17.9
+     },
+     "busca": {
+      "tentativas": 11,
+      "precos": 3,
+      "segundos": 63.7
+     }
+    }
+   },
+   {
+    "data": "2026-11-12T17:13:24",
+    "item": "MUNIÇÃO .223 REMINGTON COMUM",
+    "natureza": "(sem natureza)",
+    "segundos": 58.5,
+    "precos": 1,
+    "certos": 1,
+    "completo": false,
+    "api": 9,
+    "navegador": 0,
+    "frase": "{item} preço",
+    "origens": {
+     "busca": {
+      "tentativas": 14,
+      "precos": 3,
+      "segundos": 58.5
+     }
+    }
+   },
+   {
+    "data": "2026-11-12T17:14:51",
+    "item": "MUNIÇÃO 5,56MM FESTIM LINCADA",
+    "natureza": "(sem natureza)",
+    "segundos": 85.9,
+    "precos": 0,
+    "certos": 0,
+    "completo": false,
+    "api": 11,
+    "navegador": 2,
+    "frase": "",
+    "origens": {
+     "parecida": {
+      "tentativas": 4,
+      "precos": 0,
+      "segundos": 19.5
+     },
+     "busca": {
+      "tentativas": 16,
+      "precos": 0,
+      "segundos": 66.4
+     }
+    }
+   },
+   {
+    "data": "2026-11-12T17:16:05",
+    "item": "MUNIÇÃO 5,56MM FESTIM",
+    "natureza": "(sem natureza)",
+    "segundos": 72.8,
+    "precos": 2,
+    "certos": 1,
+    "completo": false,
+    "api": 10,
+    "navegador": 0,
+    "frase": "{item} valor",
+    "origens": {
+     "parecida": {
+      "tentativas": 3,
+      "precos": 3,
+      "segundos": 15.4
+     },
+     "busca": {
+      "tentativas": 16,
+      "precos": 4,
+      "segundos": 57.3
+     }
+    }
+   },
+   {
+    "data": "2026-11-12T17:17:38",
+    "item": "MUNIÇÃO .308 WINCHESTER HPBT 168GR",
+    "natureza": "(sem natureza)",
+    "segundos": 92.4,
+    "precos": 2,
+    "certos": 1,
+    "completo": false,
+    "api": 9,
+    "navegador": 3,
+    "frase": "comprar {item} online brasil",
+    "origens": {
+     "busca": {
+      "tentativas": 21,
+      "precos": 5,
+      "segundos": 92.4
+     }
+    }
+   },
+   {
+    "data": "2026-11-12T17:18:52",
+    "item": "MUNIÇÃO 9MM LUGER",
+    "natureza": "(sem natureza)",
+    "segundos": 72.0,
+    "precos": 3,
+    "certos": 3,
+    "completo": true,
+    "api": 7,
+    "navegador": 2,
+    "frase": "comprar {item} online brasil",
+    "origens": {
+     "busca": {
+      "tentativas": 17,
+      "precos": 8,
+      "segundos": 72.0
+     }
+    }
+   },
+   {
+    "data": "2026-11-12T17:19:38",
+    "item": "MUNIÇÃO .308 WINCHESTER ETPT 162GR",
+    "natureza": "(sem natureza)",
+    "segundos": 45.1,
+    "precos": 3,
+    "certos": 2,
+    "completo": true,
+    "api": 1,
+    "navegador": 0,
+    "frase": "comprar {item} online brasil",
+    "origens": {
+     "parecida": {
+      "tentativas": 4,
+      "precos": 0,
+      "segundos": 28.7
+     },
+     "busca": {
+      "tentativas": 7,
+      "precos": 4,
+      "segundos": 16.4
+     }
+    }
+   },
+   {
+    "data": "2026-11-12T17:20:52",
+    "item": "MUNIÇÃO .50 BMG DE PRECISÃO",
+    "natureza": "(sem natureza)",
+    "segundos": 73.2,
+    "precos": 1,
+    "certos": 1,
+    "completo": false,
+    "api": 10,
+    "navegador": 0,
+    "frase": "",
+    "origens": {
+     "parecida": {
+      "tentativas": 2,
+      "precos": 1,
+      "segundos": 20.2
+     },
+     "busca": {
+      "tentativas": 11,
+      "precos": 0,
+      "segundos": 52.9
+     }
+    }
+   },
+   {
+    "data": "2026-11-12T17:21:48",
+    "item": "MUNIÇÃO .50 BMG PERFURANTE",
+    "natureza": "(sem natureza)",
+    "segundos": 54.6,
+    "precos": 1,
+    "certos": 1,
+    "completo": false,
+    "api": 10,
+    "navegador": 2,
+    "frase": "{item} preço",
+    "origens": {
+     "parecida": {
+      "tentativas": 2,
+      "precos": 0,
+      "segundos": 22.3
+     },
+     "busca": {
+      "tentativas": 8,
+      "precos": 1,
+      "segundos": 32.3
+     }
+    }
+   },
+   {
+    "data": "2026-11-12T17:22:35",
+    "item": "MUNIÇÃO 30MM AEI",
+    "natureza": "(sem natureza)",
+    "segundos": 46.9,
+    "precos": 3,
+    "certos": 1,
+    "completo": true,
+    "api": 3,
+    "navegador": 1,
+    "frase": "comprar {item} online brasil",
+    "origens": {
+     "parecida": {
+      "tentativas": 3,
+      "precos": 2,
+      "segundos": 21.9
+     },
+     "busca": {
+      "tentativas": 2,
+      "precos": 1,
+      "segundos": 25.0
+     }
+    }
+   },
+   {
+    "data": "2026-11-12T17:24:22",
+    "item": "MUNIÇÃO CALIBRE 12 IMPACTO PLÁSTICO",
+    "natureza": "construção",
+    "segundos": 105.4,
+    "precos": 1,
+    "certos": 1,
+    "completo": false,
+    "api": 9,
+    "navegador": 3,
+    "frase": "{item} preço",
+    "origens": {
+     "natureza": {
+      "tentativas": 3,
+      "precos": 0,
+      "segundos": 5.4
+     },
+     "busca": {
+      "tentativas": 15,
+      "precos": 2,
+      "segundos": 99.9
+     }
+    }
+   },
+   {
+    "data": "2026-11-12T17:25:05",
+    "item": "MUNIÇÃO CALIBRE 12 CHUMBOS MÉDIOS",
+    "natureza": "construção",
+    "segundos": 42.5,
+    "precos": 3,
+    "certos": 2,
+    "completo": true,
+    "api": 2,
+    "navegador": 0,
+    "frase": "comprar {item} online brasil",
+    "origens": {
+     "parecida": {
+      "tentativas": 2,
+      "precos": 2,
+      "segundos": 12.0
+     },
+     "natureza": {
+      "tentativas": 3,
+      "precos": 0,
+      "segundos": 5.3
+     },
+     "busca": {
+      "tentativas": 4,
+      "precos": 1,
+      "segundos": 25.3
+     }
+    }
+   },
+   {
+    "data": "2026-11-12T17:25:28",
+    "item": "MUNIÇÃO CALIBRE 12 CHUMBOS FINOS",
+    "natureza": "construção",
+    "segundos": 21.7,
+    "precos": 3,
+    "certos": 2,
+    "completo": true,
+    "api": 1,
+    "navegador": 0,
+    "frase": "",
+    "origens": {
+     "parecida": {
+      "tentativas": 3,
+      "precos": 3,
+      "segundos": 21.7
+     }
+    }
+   },
+   {
+    "data": "2026-11-12T17:25:46",
+    "item": "MUNIÇÃO CALIBRE 12 CHUMBOS SG",
+    "natureza": "construção",
+    "segundos": 18.0,
+    "precos": 3,
+    "certos": 2,
+    "completo": true,
+    "api": 1,
+    "navegador": 0,
+    "frase": "",
+    "origens": {
+     "parecida": {
+      "tentativas": 3,
+      "precos": 3,
+      "segundos": 17.9
+     }
+    }
+   },
+   {
+    "data": "2026-11-12T17:26:06",
+    "item": "MUNIÇÃO CALIBRE 12 CHUMBOS GROSSOS",
+    "natureza": "construção",
+    "segundos": 18.5,
+    "precos": 3,
+    "certos": 2,
+    "completo": true,
+    "api": 1,
+    "navegador": 0,
+    "frase": "",
+    "origens": {
+     "parecida": {
+      "tentativas": 3,
+      "precos": 3,
+      "segundos": 18.4
+     }
+    }
    }
   ],
   "naturezas": {
@@ -8318,21 +9357,21 @@
     }
    },
    "(sem natureza)": {
-    "itens": 18.11,
-    "segundos": 1029.167,
-    "precos": 15.469,
-    "certos": 11.06,
-    "completos": 4.422,
+    "itens": 18.204,
+    "segundos": 1120.936,
+    "precos": 32.953,
+    "certos": 17.711,
+    "completos": 8.111,
     "origens": {
      "busca": {
-      "tentativas": 229.984,
-      "precos": 12.389,
-      "segundos": 904.344
+      "tentativas": 201.804,
+      "precos": 40.891,
+      "segundos": 912.861
      },
      "parecida": {
-      "tentativas": 42.835,
-      "precos": 15.643,
-      "segundos": 297.811
+      "tentativas": 47.063,
+      "precos": 21.648,
+      "segundos": 323.008
      }
     }
    },
@@ -8357,6 +9396,30 @@
       "tentativas": 4.0,
       "precos": 4.0,
       "segundos": 16.879
+     }
+    }
+   },
+   "construção": {
+    "itens": 4.524,
+    "segundos": 177.372,
+    "precos": 11.943,
+    "certos": 8.235,
+    "completos": 3.71,
+    "origens": {
+     "natureza": {
+      "tentativas": 5.85,
+      "precos": 0.0,
+      "segundos": 10.448
+     },
+     "busca": {
+      "tentativas": 18.25,
+      "precos": 2.9,
+      "segundos": 120.178
+     },
+     "parecida": {
+      "tentativas": 10.272,
+      "precos": 10.272,
+      "segundos": 65.276
      }
     }
    }
