@@ -1,6 +1,6 @@
 {
  "versao": 1,
- "atualizado": "2026-11-12T17:26:07",
+ "atualizado": "2026-11-12T18:06:50",
  "lojas": {
   "lojadomecanico.com.br": {
    "acertos": 25,
@@ -7512,8 +7512,13 @@
    "origem": ""
   },
   "municao gex": {
-   "busca": "",
-   "aceitar": [],
+   "busca": "municoes armas",
+   "aceitar": [
+    [
+     "municoes",
+     "armas"
+    ]
+   ],
    "excluir": {},
    "recusados": [
     "Munições com Nota e Garantia | Compre na Prime Guns - Prime Guns",
@@ -7521,7 +7526,7 @@
     "Catálogo: Armas, Munições, Airsoft e Acessórios | Arma Store",
     "Munição – Beartac"
    ],
-   "origem": ""
+   "origem": "sugestão aceita"
   },
   "municao aei": {
    "busca": "",
