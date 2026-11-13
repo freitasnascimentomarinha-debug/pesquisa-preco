@@ -1,6 +1,6 @@
 {
  "versao": 1,
- "atualizado": "2026-11-12T18:06:50",
+ "atualizado": "2026-11-13T20:06:48",
  "lojas": {
   "lojadomecanico.com.br": {
    "acertos": 25,
@@ -5635,6 +5635,51 @@
     "munição 9mm luger": "https://www.lojasemperfire.com.br/item/municao-9mm-luger-etog-124gr"
    },
    "naturezas": {}
+  },
+  "lojanativaarmas.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-11-13",
+   "itens": [
+    "cart 18,6 mm pb sg"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "paginas": {
+    "cart 18,6 mm pb sg": "https://www.lojanativaarmas.com.br/cart-16-70-k-plus-sg1-ch-sg-spl-p1010"
+   }
+  },
+  "loja.gassentiro.com.br": {
+   "acertos": 2,
+   "ultimo": "2026-11-13",
+   "itens": [
+    "cart 18,6 mm pb g",
+    "cart 18,6 mm pb sg"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 2
+   },
+   "paginas": {
+    "cart 18,6 mm pb sg": "https://loja.gassentiro.com.br/cart-cbc-12762-knock-velox-m3-ch-sg",
+    "cart 18,6 mm pb g": "https://loja.gassentiro.com.br/?s=CART+18%2C6MM+PB+G&post_type=product"
+   },
+   "busca": "/?s={q}&post_type=product"
+  },
+  "mazellaairsoft.com.br": {
+   "acertos": 1,
+   "ultimo": "2026-11-13",
+   "itens": [
+    "cart 18,6 mm pb g"
+   ],
+   "metodos": {
+    "navegador": 0,
+    "texto": 1
+   },
+   "paginas": {
+    "cart 18,6 mm pb g": "https://mazellaairsoft.com.br/produto/43"
+   }
   }
  },
  "falhas": {
@@ -5955,8 +6000,8 @@
   },
   "cbinsights.com": {
    "navegador": 1,
-   "texto": 1,
-   "ultimo": "2026-10-05"
+   "texto": 2,
+   "ultimo": "2026-11-13"
   },
   "indeed.com": {
    "navegador": 3,
@@ -6174,9 +6219,9 @@
    "ultimo": "2026-10-06"
   },
   "ebay.com": {
-   "navegador": 2,
-   "texto": 2,
-   "ultimo": "2026-11-12"
+   "navegador": 3,
+   "texto": 3,
+   "ultimo": "2026-11-13"
   },
   "atacadaodosbebedouros.com.br": {
    "navegador": 0,
@@ -6747,18 +6792,128 @@
    "navegador": 1,
    "texto": 1,
    "ultimo": "2026-11-12"
+  },
+  "thecartdepot.com": {
+   "navegador": 0,
+   "texto": 1,
+   "ultimo": "2026-11-13"
+  },
+  "mroparafabrica.com": {
+   "navegador": 0,
+   "texto": 1,
+   "ultimo": "2026-11-13"
+  },
+  "vxb.com": {
+   "navegador": 0,
+   "texto": 2,
+   "ultimo": "2026-11-13"
+  },
+  "novasafety.com": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-11-13"
+  },
+  "cbc.com.br": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-11-13"
+  },
+  "jicart.com.br": {
+   "navegador": 0,
+   "texto": 2,
+   "ultimo": "2026-11-13"
+  },
+  "chefsdeal.com": {
+   "navegador": 0,
+   "texto": 2,
+   "ultimo": "2026-11-13"
+  },
+  "stantonoptical.com": {
+   "navegador": 0,
+   "texto": 2,
+   "ultimo": "2026-11-13"
+  },
+  "ng.investing.com": {
+   "navegador": 0,
+   "texto": 1,
+   "ultimo": "2026-11-13"
+  },
+  "ezgo.txtsv.com": {
+   "navegador": 0,
+   "texto": 2,
+   "ultimo": "2026-11-13"
+  },
+  "ubuy.com.br": {
+   "navegador": 0,
+   "texto": 1,
+   "ultimo": "2026-11-13"
+  },
+  "cartervintage.com": {
+   "navegador": 0,
+   "texto": 1,
+   "ultimo": "2026-11-13"
+  },
+  "eventdecordirect.com": {
+   "navegador": 0,
+   "texto": 2,
+   "ultimo": "2026-11-13"
+  },
+  "unifort.com.br": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-11-13"
+  },
+  "ideiaria.com.br": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-11-13"
+  },
+  "katom.com": {
+   "navegador": 1,
+   "texto": 1,
+   "ultimo": "2026-11-13"
+  },
+  "gofoodservice.com": {
+   "navegador": 0,
+   "texto": 1,
+   "ultimo": "2026-11-13"
+  },
+  "valorcarts.com": {
+   "navegador": 0,
+   "texto": 1,
+   "ultimo": "2026-11-13"
+  },
+  "wtfarley.com": {
+   "navegador": 0,
+   "texto": 1,
+   "ultimo": "2026-11-13"
+  },
+  "golfcartresource.com": {
+   "navegador": 0,
+   "texto": 1,
+   "ultimo": "2026-11-13"
+  },
+  "golfcartoutfitter.com": {
+   "navegador": 0,
+   "texto": 1,
+   "ultimo": "2026-11-13"
+  },
+  "lojastamoyo.com.br": {
+   "navegador": 0,
+   "texto": 1,
+   "ultimo": "2026-11-13"
   }
  },
  "frases": {
   "{item} comprar": {
-   "usos": 16.3193,
-   "acertos": 5.9955,
-   "ultimo": "2026-11-12"
+   "usos": 16.5033,
+   "acertos": 5.6957,
+   "ultimo": "2026-11-13"
   },
   "{item} preço": {
-   "usos": 19.9926,
-   "acertos": 19.9643,
-   "ultimo": "2026-11-12"
+   "usos": 19.9933,
+   "acertos": 18.9678,
+   "ultimo": "2026-11-13"
   },
   "venda de {item}": {
    "usos": 18.2947,
@@ -6766,14 +6921,14 @@
    "ultimo": "2026-11-12"
   },
   "{item} valor": {
-   "usos": 18.8687,
-   "acertos": 7.3365,
-   "ultimo": "2026-11-12"
+   "usos": 18.979,
+   "acertos": 7.5712,
+   "ultimo": "2026-11-13"
   },
   "{item} atacado": {
-   "usos": 19.9909,
-   "acertos": 11.5663,
-   "ultimo": "2026-11-12"
+   "usos": 19.9918,
+   "acertos": 10.4386,
+   "ultimo": "2026-11-13"
   },
   "{item} preço brasil": {
    "usos": 13.5293,
@@ -6781,17 +6936,17 @@
    "ultimo": "2026-11-12"
   },
   "{item} comprar brasil": {
-   "usos": 18.2947,
-   "acertos": 6.8681,
-   "ultimo": "2026-11-12"
+   "usos": 18.38,
+   "acertos": 7.5247,
+   "ultimo": "2026-11-13"
   },
   "comprar {item} online brasil": {
-   "usos": 19.5507,
-   "acertos": 20.5886,
-   "ultimo": "2026-11-12"
+   "usos": 19.5945,
+   "acertos": 18.5812,
+   "ultimo": "2026-11-13"
   }
  },
- "buscas": 186,
+ "buscas": 188,
  "sem_busca": {
   "arxiv.org": "2026-10-05",
   "papers.ssrn.com": "2026-10-05",
@@ -6873,15 +7028,16 @@
   "velamar.com.br": "2026-11-10",
   "regatta.com.br": "2026-11-10",
   "pescaeciaarmas.com.br": "2026-11-12",
-  "sapesca.com.br": "2026-11-12"
+  "sapesca.com.br": "2026-11-12",
+  "lojanativaarmas.com.br": "2026-11-13"
  },
  "serper": {
   "mes": "2026-11",
-  "n": 131
+  "n": 140
  },
  "tavily": {
   "mes": "2026-11",
-  "n": 214
+  "n": 225
  },
  "nomes": {
   "papel contact": {
@@ -7656,6 +7812,21 @@
     "Impacto Brasil 2026 Company Profile: Valuation, Funding & Investors | PitchBook",
     "Cartucho CBC Cal.12/70 Anti-motim Bagos Caixa c/25 Unidades na Pesca & Cia Armas",
     "Cartucho Calibre 12 - Arsenal Fogo"
+   ],
+   "origem": ""
+  },
+  "cart": {
+   "busca": "",
+   "aceitar": [],
+   "excluir": {},
+   "recusados": [
+    "Como comprar acções de 5 euros de casinos online?",
+    "PB Dye Golf Club, 9526 Dr. Perry Road, Ijamsville, MD 21754, US - MapQuest",
+    "Proof Carbon AR Barrel 6mm ARC 18\"",
+    "Double-Cutaway SG Guitars | Gibson",
+    "Sem título",
+    "Leo - Madeiras, Máquinas, Ferramentas e Ferragens",
+    "Produto não encontrado - MUNDOWARE | um mundo de produtos para você"
    ],
    "origem": ""
   }
@@ -9315,6 +9486,49 @@
       "segundos": 18.4
      }
     }
+   },
+   {
+    "data": "2026-11-13T20:05:06",
+    "item": "CART 18,6 MM PB SG",
+    "natureza": "(sem natureza)",
+    "segundos": 52.0,
+    "precos": 1,
+    "certos": 1,
+    "completo": false,
+    "api": 9,
+    "navegador": 3,
+    "frase": "{item} preço",
+    "origens": {
+     "busca": {
+      "tentativas": 24,
+      "precos": 2,
+      "segundos": 52.0
+     }
+    }
+   },
+   {
+    "data": "2026-11-13T20:06:48",
+    "item": "CART 18,6 MM PB G",
+    "natureza": "(sem natureza)",
+    "segundos": 100.6,
+    "precos": 1,
+    "certos": 1,
+    "completo": false,
+    "api": 11,
+    "navegador": 3,
+    "frase": "{item} comprar brasil",
+    "origens": {
+     "parecida": {
+      "tentativas": 2,
+      "precos": 1,
+      "segundos": 11.5
+     },
+     "busca": {
+      "tentativas": 21,
+      "precos": 1,
+      "segundos": 89.1
+     }
+    }
    }
   ],
   "naturezas": {
@@ -9362,21 +9576,21 @@
     }
    },
    "(sem natureza)": {
-    "itens": 18.204,
-    "segundos": 1120.936,
-    "precos": 32.953,
-    "certos": 17.711,
-    "completos": 8.111,
+    "itens": 18.379,
+    "segundos": 1161.651,
+    "precos": 31.69,
+    "certos": 17.934,
+    "completos": 7.32,
     "origens": {
      "busca": {
-      "tentativas": 201.804,
-      "precos": 40.891,
-      "segundos": 912.861
+      "tentativas": 225.928,
+      "precos": 39.804,
+      "segundos": 962.309
      },
      "parecida": {
-      "tentativas": 47.063,
-      "precos": 21.648,
-      "segundos": 323.008
+      "tentativas": 46.71,
+      "precos": 21.566,
+      "segundos": 318.373
      }
     }
    },
